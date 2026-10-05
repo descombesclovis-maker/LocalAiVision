@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalVisionAI</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body>
+<div class="app">
+  <aside class="sidebar closed" id="sidebar">
+    <div class="sidebar-head">
+      <div class="brand"><div class="brand-mark">✦</div><div><b>LocalVision</b><span>AI</span></div></div>
+      <button class="close-sidebar" id="closeSidebar" aria-label="Fermer">×</button>
+    </div>
+
+    <button class="new-conversation" id="newConversation"><span>＋</span><b>Nouvelle conversation</b></button>
+
+    <div class="conversation-search"><span>⌕</span><input id="conversationSearch" type="search" placeholder="Rechercher une conversation…"></div>
+
+    <div class="nav-scroll">
+      <div class="section-title">CONVERSATIONS</div>
+      <div id="conversationsList" class="conversations-list"></div>
+
+      <div class="section-title reserved-title">MODÈLES</div>
+      <div class="reserved-models" id="reservedModels">
+        <div class="reserved-row"><button class="reserved-model" id="modelAuto"><span class="reserved-icon">◎</span><span class="reserved-copy"><b>Automatique</b><small>LocalVision choisit le moteur selon la demande</small></span><i></i></button><button class="reserved-rename" data-rename-profile="auto" title="Renommer">✎</button></div>
+        <div class="reserved-row"><button class="reserved-model" id="modelRealistic"><span class="reserved-icon">◆</span><span class="reserved-copy"><b>Companion Réaliste</b><small>Photo · RealVisXL V5 · vidéo Wan</small></span><i></i></button><button class="reserved-rename" data-rename-profile="companion-realistic" title="Renommer">✎</button></div>
+        <div class="reserved-row"><button class="reserved-model" id="modelAnime"><span class="reserved-icon">◇</span><span class="reserved-copy"><b>Companion Anime</b><small>Image Animagine XL · Texte → Vidéo Wan</small></span><i></i></button><button class="reserved-rename" data-rename-profile="companion-anime" title="Renommer">✎</button></div>
+        <div class="reserved-row"><button class="reserved-model" id="modelMotion"><span class="reserved-icon">↝</span><span class="reserved-copy"><b>Wan VACE 1.3B</b><small>Vidéo → Vidéo · transfert de mouvement</small></span><i></i></button><button class="reserved-rename" data-rename-profile="motion" title="Renommer">✎</button></div>
+      </div>
+      <div class="section-title nsfw-title">ESPACE ISOLÉ</div>
+      <div class="reserved-models" id="nsfwModels">
+        <div class="reserved-row"><button class="reserved-model" id="modelNsfw"><span class="reserved-icon">◈</span><span class="reserved-copy"><b>NSFW</b><small>Photo + vidéo · workflows séparés</small></span><i></i></button><button class="reserved-rename" data-rename-profile="nsfw" title="Renommer">✎</button></div>
+        <label class="nsfw-gate"><input id="nsfwGate" type="checkbox"><span>Activer l’espace NSFW sur cet appareil</span></label>
+        <p class="nsfw-note">Profil séparé : ses workflows et sa configuration n’altèrent pas les autres modèles.</p>
+      </div>
+      <div class="section-title library-title">MA BIBLIOTHÈQUE</div>
+      <button class="library-item" id="photosLibrary"><span>▧</span><span>Mes photos générées</span><em id="photoCount"></em></button>
+      <button class="library-item" id="videosLibrary"><span>▣</span><span>Mes vidéos générées</span><em id="videoCount"></em></button>
+      <button class="library-item" id="retouchLibrary"><span>✦</span><span>Mes retouches générées</span><em id="retouchCount"></em></button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <button id="importBtn" class="ghost">＋ Importer un workflow</button>
+      <input id="workflowFile" type="file" accept=".json,application/json" hidden>
+      <button id="comfyBtn" class="ghost">Ouvrir ComfyUI</button>
+      <div class="status"><i></i><span id="statusText">Vérification…</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <button class="open-sidebar" id="openSidebar" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
+    <section class="content">
+      <div id="chat" class="chat">
+        <div id="welcome" class="welcome"><h1>Que veux tu créer ?</h1></div>
+        <div id="messages" class="messages"></div>
+      </div>
+
+      <div class="composer-wrap">
+        <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installMotion">Installer Wan VACE 1.3B (mouvement)</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
+        <div class="composer">
+          <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>
+          <div id="composerReplyState" class="composer-reply-state" aria-live="polite">LocalAiVision vous répond</div>
+          <div id="attachment" class="attachment hidden"><span id="imageName"></span><button id="editMask" type="button">Peindre le masque</button><span id="maskState"></span><button id="removeImage" type="button" aria-label="Retirer l’image">×</button></div><div id="videoAttachment" class="attachment hidden"><span id="videoName"></span><span class="attachment-kind">Vidéo de référence</span><button id="removeVideo" type="button" aria-label="Retirer la vidéo">×</button></div>
+          <div id="generationSettings" class="generation-settings hidden">
+            <div class="settings-head"><div><b>Paramètres</b><span>Les champs vides conservent les réglages du workflow.</span></div><button id="closeSettings" type="button">×</button></div>
+            <div class="style-section"><div class="style-heading"><b>Style graphique</b><button id="resetStyle" type="button">Sans style imposé</button></div><p class="style-note">Aperçus illustratifs. Tu peux les remplacer par tes propres résultats locaux.</p><div id="styleGrid" class="style-grid"></div><p id="styleWorkflow" class="style-selection"></p><button id="generateStylePreview" type="button">Créer un aperçu avec mon modèle</button><p class="style-note">Une sélection manuelle de workflow reste prioritaire.</p></div>
+            <div class="settings-grid">
+              <label>Qualité<select id="settingQuality"><option value="workflow" selected>Réglages du workflow</option><option value="draft">Rapide</option><option value="balanced">Équilibrée</option><option value="quality">Soignée</option></select></label>
+              <label>Étapes<input id="settingSteps" type="number" min="1" placeholder="Workflow"></label>
+              <label>Format<select id="settingAspect"><option value="auto" selected>Workflow</option><option value="1:1">Carré 1:1</option><option value="16:9">Paysage 16:9</option><option value="9:16">Portrait 9:16</option><option value="4:3">4:3</option><option value="3:4">3:4</option></select></label>
+              <label>Seed<input id="settingSeed" type="number" min="0" placeholder="Aléatoire"></label>
+              <label>Nombre de résultats<select id="settingCount"><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></label>
+              <label>Durée vidéo (s)<input id="settingDuration" type="number" min="0.1" step="0.1" placeholder="Workflow"></label>
+              <label>FPS<input id="settingFps" type="number" min="1" step="1" placeholder="Workflow"></label>
+              <label>Largeur<input id="settingWidth" type="number" min="8" step="8" placeholder="Workflow"></label>
+              <label>Hauteur<input id="settingHeight" type="number" min="8" step="8" placeholder="Workflow"></label>
+              <label>Force de retouche<input id="settingDenoise" type="number" min="0" max="1" step="0.05" value="0.75"></label>
+              <label>Workflow image<select id="settingImageModel"></select></label>
+              <label>Workflow vidéo<select id="settingVideoModel"></select></label>
+              <label>Workflow mouvement<select id="settingMotionModel"></select></label>
+              <label>Workflow retouche<select id="settingRetouchModel"></select></label>
+              <label>Température du chat<input id="settingTemperature" type="number" min="0" max="2" step="0.1" value="0.7"></label>
+              <label>Max tokens<input id="settingMaxTokens" type="number" min="128" max="8192" step="128" value="2048"></label>
+            </div>
+            <label class="settings-wide">Éléments à éviter (prompt négatif)<textarea id="settingNegative" rows="2" placeholder="Facultatif ; certains modèles ignorent ce champ."></textarea></label>
+            <label class="settings-wide">Instructions du chat<textarea id="settingSystem" rows="5">Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique. Garde le fil de la conversation, réponds en français sauf demande contraire, utilise tes connaissances internes sans simuler de recherche Internet, propose spontanément une solution concrète quand l’utilisateur a un problème, et écris comme dans une vraie conversation. Utilise naturellement **le gras**, des listes courtes quand elles aident et quelques émojis bien choisis, sans en abuser. N’invente pas ce que tu ne sais pas.</textarea></label>
+            <div class="settings-toggle"><label><input id="settingKeep" type="checkbox"> Conserver le seed pour le lot</label><label><input id="settingTechnicalQuality" type="checkbox" checked> Amélioration technique neutre</label></div><div class="model-rename-settings"><select id="renameModelSelect"></select><button id="renameModelBtn" type="button">Renommer le modèle</button></div>
+          </div>
+          <div class="composer-row">
+            <div class="left-tools">
+              <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Vidéo</option><option value="motion">Mouvement vidéo</option><option value="retouch">Retouche</option></select>
+              <button id="attachBtn" class="round" aria-label="Ajouter une image">＋</button><button id="videoAttachBtn" class="round" aria-label="Ajouter une vidéo de référence">▶</button><button id="settingsBtn" class="round settings-button" aria-label="Paramètres de génération">⚙</button>
+              <input id="imageFile" type="file" accept="image/*" hidden><input id="videoFile" type="file" accept="video/*" hidden>
+            </div>
+            <button id="send" class="send" aria-label="Envoyer">↑</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop hidden" id="modelModal">
+  <div class="model-modal step-modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <div><h2 id="modalTitle">Avec quel modèle générer ton image</h2><p id="modalSubtitle">Choisis le modèle photo qui sera utilisé dans cette conversation.</p></div>
+      <button id="closeModal" class="modal-close">×</button>
+    </div>
+    <div class="step-panel" id="imageStep">
+      <div class="step-search task-search"><span>⌕</span><input data-search="image" placeholder="Rechercher un modèle photo…"></div>
+      <div class="model-options step-options" id="imageOptions"></div>
+    </div>
+    <div class="step-panel hidden" id="videoStep">
+      <div class="step-search task-search"><span>⌕</span><input data-search="video" placeholder="Rechercher un modèle vidéo…"></div>
+      <div class="model-options step-options" id="videoOptions"></div>
+    </div>
+    <div class="step-footer">
+      <div class="step-progress"><span id="stepProgress">1/2</span></div>
+      <button id="stepValidate" class="primary-btn">Valider</button>
+    </div>
+    <div id="modalError" class="modal-error"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="maskModal"><div class="model-modal mask-modal" role="dialog" aria-modal="true" aria-labelledby="maskTitle"><div class="modal-head"><div><h2 id="maskTitle">Zone à retoucher</h2><p>Peins la zone à modifier. Le reste de l’image sera conservé.</p></div><button id="closeMask" class="modal-close" aria-label="Fermer le masque">×</button></div><div class="mask-tools"><label>Taille du pinceau <input id="brushSize" type="range" min="2" max="120" value="35"></label><button id="undoMask">Annuler le trait</button><button id="clearMask">Effacer le masque</button></div><div class="mask-stage"><img id="maskSource" alt="Image à retoucher"><canvas id="maskCanvas" aria-label="Peindre la zone à retoucher"></canvas></div><p class="mask-help">Ferme cette fenêtre, puis choisis Retouche et décris la modification.</p></div></div>
+<div id="toast" role="status"></div>
+<script src="/assets/intent.js"></script>
+<script src="/assets/mask.js"></script>
+<script src="/assets/styles.js"></script>
+<script src="/assets/app.js"></script>
+</body></html>

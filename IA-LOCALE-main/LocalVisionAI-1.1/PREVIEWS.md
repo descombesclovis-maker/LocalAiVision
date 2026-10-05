@@ -1,0 +1,8 @@
+# Provenance des aperçus de style
+
+Fichier : `local_app/web/style-previews.png`.
+Création : outil intégré de génération d’images, le 5 octobre 2026. Une seule image atlas de 1536 × 1024 pixels, composée de six panneaux. Le CSS affiche le panneau correspondant à chaque style, sans modifier le fichier image. Ces aperçus n’ont pas été générés par les modèles locaux du projet.
+
+Prompt utilisé :
+
+Create ONE landscape raster UI texture atlas for a local creative application's style picker. Exact layout: a seamless grid of 3 columns by 2 rows, six equally sized square panels, no gutters, no borders, no text, no letters, no watermarks. Every panel shows the SAME composition: a tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks, a curved footpath in the foreground. Clear visually recognizable differences of medium. Top-left: natural highly photorealistic travel photograph, daytime soft light, realistic textures. Top-middle: cinematic film still of same scene, golden hour dusk, atmospheric dramatic lighting, teal and amber color grading. Top-right: contemporary editorial flat gouache illustration, simplified shapes and rich colors. Bottom-left: delicate watercolor painting on textured white paper with soft translucent washes and exposed paper. Bottom-middle: polished stylized 3D miniature render, rounded forms, tactile clay materials, ambient occlusion. Bottom-right: colorful Franco-Belgian comic book panel, bold black ink outlines, cel shading. Each scene fills its own square panel with subject centered; all six panels fully rendered to the edges. Overall aspect ratio exactly 3:2; preferred 1536 by 1024 pixels. This is a visual style reference atlas, not a screenshot or app mockup.

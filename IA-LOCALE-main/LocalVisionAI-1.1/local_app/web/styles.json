@@ -1,0 +1,62 @@
+[
+ {
+  "id": "photo",
+  "name": "Photoréaliste",
+  "position": "0% 0%",
+  "prompt": "Natural photorealistic photography, realistic materials, physically plausible lighting, precise detail.",
+  "preferred": [
+   "text to image sdxl.json",
+   "Text to image flux.json"
+  ]
+ },
+ {
+  "id": "cinema",
+  "name": "Cinéma",
+  "position": "50% 0%",
+  "prompt": "Cinematic film still, expressive lighting, atmospheric depth, carefully composed shot, cinematic color grading.",
+  "preferred": [
+   "Text to image flux.json",
+   "text to image sdxl.json"
+  ]
+ },
+ {
+  "id": "illustration",
+  "name": "Illustration",
+  "position": "100% 0%",
+  "prompt": "Editorial gouache illustration, simplified shapes, rich color palette, deliberate brushwork.",
+  "preferred": [
+   "text to image sdxl.json",
+   "Text to image flux.json"
+  ]
+ },
+ {
+  "id": "watercolor",
+  "name": "Aquarelle",
+  "position": "0% 100%",
+  "prompt": "Watercolor painting, translucent washes, subtle pigment blooms, textured white paper, delicate brushwork.",
+  "preferred": [
+   "text to image sdxl.json",
+   "Text to image flux.json"
+  ]
+ },
+ {
+  "id": "render3d",
+  "name": "Rendu 3D",
+  "position": "50% 100%",
+  "prompt": "Stylized 3D render, tactile materials, rounded shapes, soft global illumination, ambient occlusion.",
+  "preferred": [
+   "text to image sdxl.json",
+   "Text to image flux.json"
+  ]
+ },
+ {
+  "id": "comic",
+  "name": "Bande dessinée",
+  "position": "100% 100%",
+  "prompt": "Color comic book illustration, clean bold ink outlines, cel shading, clear readable composition.",
+  "preferred": [
+   "text to image sdxl.json",
+   "Text to image flux.json"
+  ]
+ }
+]

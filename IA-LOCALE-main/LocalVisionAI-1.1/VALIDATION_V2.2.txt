@@ -1,0 +1,6 @@
+Validation LocalVisionAI 2.2
+- Python compileall : OK
+- JavaScript node --check : OK
+- unittest Python : 43/43 OK
+- tests routage : 25/25 OK
+- tests sélection workflow : 10/10 OK

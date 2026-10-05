@@ -1,0 +1,11 @@
+LocalVisionAI — espace NSFW isolé
+
+Fichiers réservés à cet espace :
+- local_app/nsfw_profile.py : configuration textuelle/qualité du profil isolé
+- NSFW Image.json : workflow photo séparé (copie indépendante du workflow RealVisXL normal)
+- NSFW Video.json : workflow vidéo séparé (copie indépendante du workflow Wan normal)
+
+Modifier ces trois fichiers ne modifie pas les profils photo/vidéo normaux.
+Le bouton NSFW de l’interface nécessite la case d’activation du menu gauche.
+
+La version livrée n’ajoute aucun mécanisme de contournement de protections ni optimisation de contenu explicite.

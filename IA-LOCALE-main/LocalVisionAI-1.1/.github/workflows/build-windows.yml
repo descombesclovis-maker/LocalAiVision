@@ -1,0 +1,64 @@
+name: Build LocalVisionAI Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pywebview
+
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Build native executable
+        shell: cmd
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --noupx --name LocalVisionAI ^
+            --collect-all webview ^
+            --hidden-import local_app ^
+            --hidden-import local_app.bootstrap_windows ^
+            --hidden-import local_app.server ^
+            --hidden-import local_app.llm ^
+            --hidden-import local_app.workflows ^
+            --add-data "local_app\web;local_app\web" ^
+            --add-data "local_app\bootstrap_windows.py;local_app" ^
+            --add-data "local_app\server.py;local_app" ^
+            --add-data "local_app\llm.py;local_app" ^
+            --add-data "local_app\__init__.py;local_app" ^
+            --add-data "Text to image flux.json;." ^
+            --add-data "text to image sdxl.json;." ^
+            --add-data "Image to video wan.json;." ^
+            --add-data "Text_to_Video_LTX.json;." ^
+            --add-data "Retouche SDXL masque.json;." ^
+            --add-data "Video Wan texte.json;." ^
+            local_app\launcher.py
+
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item dist\LocalVisionAI.exe release\LocalVisionAI.exe
+          Compress-Archive -Path release\LocalVisionAI.exe -DestinationPath LocalVisionAI-Windows.zip -Force
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalVisionAI-Windows
+          path: LocalVisionAI-Windows.zip
+          if-no-files-found: error
