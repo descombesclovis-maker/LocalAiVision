@@ -12,7 +12,7 @@ class InterfaceContract(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]/'local_app/web'
         p=IDs();p.feed((root/'index.html').read_text(encoding='utf-8'))
         self.assertEqual(len(p.ids),len(set(p.ids)))
-        js=(root/'app.js').read_text()+(root/'mask.js').read_text()
+        js=(root/'app.js').read_text(encoding='utf-8')+(root/'mask.js').read_text(encoding='utf-8')
         refs=set(re.findall(r'''(?:\$|querySelector)\(["']#([\w-]+)["']\)''',js))
         self.assertEqual(refs-set(p.ids),{'libraryBack'}) # inserted by renderLibrary
 
