@@ -23,10 +23,12 @@ py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name 
   --hidden-import local_app.server ^
   --hidden-import local_app.llm ^
   --hidden-import local_app.workflows ^
+  --hidden-import local_app.nsfw_profile ^
   --add-data "local_app\web;local_app\web" ^
   --add-data "local_app\bootstrap_windows.py;local_app" ^
   --add-data "local_app\server.py;local_app" ^
   --add-data "local_app\llm.py;local_app" ^
+  --add-data "local_app\nsfw_profile.py;local_app" ^
   --add-data "local_app\__init__.py;local_app" ^
   --add-data "Text to image flux.json;." ^
   --add-data "text to image sdxl.json;." ^
@@ -34,6 +36,14 @@ py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name 
   --add-data "Text_to_Video_LTX.json;." ^
   --add-data "Retouche SDXL masque.json;." ^
   --add-data "Video Wan texte.json;." ^
+  --add-data "Reserved Companion Anime.json;." ^
+  --add-data "Reserved Companion Anime Video.json;." ^
+  --add-data "Video Motion VACE 1.3B.json;." ^
+  --add-data "NSFW Image.json;." ^
+  --add-data "NSFW Video.json;." ^
+  --add-data "LAB Photo - Juggernaut XL v9.json;." ^
+  --add-data "LAB Photo - EpicRealism XL.json;." ^
+  --add-data "LAB Video - Wan 2.2 TI2V 5B.json;." ^
   local_app\launcher.py
 
 if errorlevel 1 goto FAIL
