@@ -7,7 +7,7 @@ VIDEO_WORKFLOW = "NSFW Video.json"
 PROFILE_PREFIX = (
     "NSFW, nudity, sexual content, pornographic content, explicit content, sexualized content, erotic content, adult content"   
     "realistic, trending girls, sexy, erotic, provocative"
-    "big boobs, big ass, sun tanned "
+    "high realism body, high realism private parts, high realism, tan lines, latina  "
 ) 
 
 
@@ -23,7 +23,7 @@ DEFAULT_NEGATIVE = (
     "lowres, blurry, compression artifacts, watermark, unwanted text, "
     "malformed hands, fused fingers, extra fingers, missing fingers, extra limbs, "
     "duplicate limbs, broken anatomy, rendering artifacts, "
-    "weird body shape, unrealistic proportions, unnatural poses, bad angles, bad perspective"
+    "weird body shape, deformed vulva,unrealistic proportions, unnatural poses, bad angles, bad perspective"
 )
 
 
