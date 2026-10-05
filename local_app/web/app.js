@@ -13,6 +13,7 @@ const NSFW_IMAGE_I2I_WORKFLOW='NSFW Image to Image.json';
 const NSFW_MOTION_WORKFLOW='NSFW Motion Video.json';
 let nsfwCreationMode=loadJSON('lva_nsfw_creation_mode','image');
 let nsfwImageMode=loadJSON('lva_nsfw_image_mode','text');
+let nsfwPromptMode=loadJSON('lva_nsfw_prompt_mode','exact');
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
@@ -109,6 +110,7 @@ function updateCreationModeGuide(){
  $('#nsfwImageModePanel')?.classList.toggle('hidden',nsfwCreationMode!=='image');
  $('#nsfwMotionModePanel')?.classList.toggle('hidden',nsfwCreationMode!=='motion');
  if($('#nsfwImageMode'))$('#nsfwImageMode').value=nsfwImageMode;
+ if($('#nsfwPromptMode'))$('#nsfwPromptMode').value=nsfwPromptMode;
  $('#nsfwImageReferenceRow')?.classList.toggle('hidden',nsfwImageMode!=='image');
  if($('#nsfwImageReferenceState'))$('#nsfwImageReferenceState').textContent=imageData?'Image prête':'Aucune image';
  if($('#nsfwCharacterState'))$('#nsfwCharacterState').textContent=imageData?'Photo prête':'Aucune photo';
@@ -200,7 +202,7 @@ async function sendMessage(){
  if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche dans cette conversation.'});return}await startGeneration(task,model,text)
 }
 function numberSetting(id){const e=$(id);if(!e)return null;const raw=e.value.trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null}
-function readGenerationSettings(task){const isVideo=task==='video'||task==='motion',c=activeConversationId?conversationFor(activeConversationId):null;return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),denoise:task==='retouch'?numberSetting('#settingDenoise'):null,keepSeed:$('#settingKeep').checked,style:graphicStyle,technical_quality:$('#settingTechnicalQuality')?.checked!==false,reserved_profile:c?.profile==='nsfw'?'nsfw':null}}
+function readGenerationSettings(task){const isVideo=task==='video'||task==='motion',c=activeConversationId?conversationFor(activeConversationId):null,isIsolated=c?.profile==='nsfw';return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),denoise:task==='retouch'?numberSetting('#settingDenoise'):null,keepSeed:$('#settingKeep').checked,style:isIsolated&&nsfwPromptMode==='exact'?'none':graphicStyle,technical_quality:isIsolated&&nsfwPromptMode==='exact'?false:$('#settingTechnicalQuality')?.checked!==false,reserved_profile:isIsolated?'nsfw':null,exact_prompt:isIsolated&&nsfwPromptMode==='exact'}}
 function readChatSettings(){return {temperature:Math.min(2,Math.max(0,numberSetting('#settingTemperature')??0.7)),max_tokens:Math.min(8192,Math.max(128,numberSetting('#settingMaxTokens')??2048)),system:$('#settingSystem').value.trim()}}
 async function startChat(c,text){
  const id=activeConversationId,history=c.messages.filter(m=>m.text&&!m.loading&&!m.error).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text})),settings=readChatSettings(),messages=[];if(settings.system)messages.push({role:'system',content:settings.system});messages.push(...history);$('#send').disabled=true;dismissKeyboard();setChatAnswering(true);const loading={role:'assistant',loading:true,chatLoading:true,status:'LocalAiVision vous répond'};c.messages.push(loading);c.updatedAt=new Date().toISOString();save();const loadingEl=renderMessage(loading);scrollBottom();let live=null,liveEl=null,answer='';activeChatController=new AbortController();activeChatConversationId=id;activeChatStopRequested=false;
@@ -229,6 +231,7 @@ function setup(){
  $('#nsfwModeImage').onclick=()=>{nsfwCreationMode='image';localStorage.setItem('lva_nsfw_creation_mode',JSON.stringify(nsfwCreationMode));updateCreationModeGuide()};
  $('#nsfwModeMotion').onclick=()=>{nsfwCreationMode='motion';localStorage.setItem('lva_nsfw_creation_mode',JSON.stringify(nsfwCreationMode));updateCreationModeGuide()};
  $('#nsfwImageMode').onchange=e=>{nsfwImageMode=e.target.value==='image'?'image':'text';localStorage.setItem('lva_nsfw_image_mode',JSON.stringify(nsfwImageMode));if(nsfwImageMode==='text'){imageData=null;$('#imageFile').value='';$('#attachment').classList.add('hidden')}updateCreationModeGuide()};
+ $('#nsfwPromptMode').onchange=e=>{nsfwPromptMode=e.target.value==='profile'?'profile':'exact';localStorage.setItem('lva_nsfw_prompt_mode',JSON.stringify(nsfwPromptMode));updateCreationModeGuide()};
  $('#nsfwPickImageForImage').onclick=()=>$('#imageFile').click();
  $('#nsfwPickCharacterImage').onclick=()=>$('#imageFile').click();
  $('#nsfwPickMotionVideo').onclick=()=>$('#videoFile').click();
