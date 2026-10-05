@@ -773,7 +773,7 @@ def _setup_worker(component):
         print("[LocalVisionAI]", exc, flush=True)
     finally:
         _setup_lock.release()
-        if component == "engines":
+        if component == "engines" and os.environ.get("LOCALVISIONAI_SKIP_SETUP") != "1":
             start_model_lab_downloads()
 
 
