@@ -40,6 +40,7 @@ py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name 
   --add-data "Reserved Companion Anime Video.json;." ^
   --add-data "Video Motion VACE 1.3B.json;." ^
   --add-data "NSFW Image.json;." ^
+  --add-data "NSFW Image to Image.json;." ^
   --add-data "NSFW Video.json;." ^
   --add-data "NSFW Motion Video.json;." ^
   --add-data "LAB Photo - Juggernaut XL v9.json;." ^
