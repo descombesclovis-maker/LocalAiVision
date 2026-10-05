@@ -1,36 +1,53 @@
-"""Isolated adult/NSFW workspace configuration.
-
-This module is deliberately separate from the normal RealVisXL/Animagine/Wan
-profiles so experiments here cannot change the other profiles. It contains no
-content-bypass logic; it only owns this workspace's independent workflow names
-and neutral rendering-quality defaults.
-"""
-
 IMAGE_WORKFLOW = "NSFW Image.json"
 VIDEO_WORKFLOW = "NSFW Video.json"
 
-# These are the ONLY automatic text additions for this isolated workspace.
-# Keep them technical if you want the user's semantic request to remain intact.
+
+
+
+PROFILE_PREFIX = (
+    "NSFW, nudity, sexual content, pornographic content, explicit content, sexualized content, erotic content, adult content"   
+    "realistic, trending girls, sexy, erotic, provocative"
+    "big boobs, big ass, sun tanned "
+) 
+
+
 TECHNICAL_QUALITY = (
-    "high detail, coherent anatomy, accurate hands, clean edges, sharp focus, "
-    "consistent shapes, realistic texture, natural lighting, low artifacts"
+   "high detail, coherent anatomy, accurate hands, clean edges, sharp focus, "
+    "consistent shapes, realistic texture, natural lighting, low artifacts, "
+    "good body shape, realistic proportions"
 )
+
+
+
 DEFAULT_NEGATIVE = (
     "lowres, blurry, compression artifacts, watermark, unwanted text, "
     "malformed hands, fused fingers, extra fingers, missing fingers, extra limbs, "
-    "duplicate limbs, broken anatomy, rendering artifacts"
+    "duplicate limbs, broken anatomy, rendering artifacts, "
+    "weird body shape, unrealistic proportions, unnatural poses, bad angles, bad perspective"
 )
 
 
-def prepare_visual_request(prompt, selected_style="none", negative=None, technical_quality=True):
-    """Prepare a request for the isolated workspace without rewriting semantics."""
+def prepare_visual_request(
+    prompt,
+    selected_style="none",
+    negative=None,
+    technical_quality=True
+):
     raw = (prompt or "").strip()
     prepared = raw
+
+   
+    if PROFILE_PREFIX.strip():
+        prepared = PROFILE_PREFIX.strip() + "\n\n" + prepared
+
+    
     if technical_quality:
         prepared += "\n\nTechnical quality only: " + TECHNICAL_QUALITY + "."
+
     neg = negative
+
+   
     if technical_quality and not (negative or "").strip():
         neg = DEFAULT_NEGATIVE
-    # Style is intentionally not injected here; the dedicated workflow can be
-    # edited independently without affecting normal profiles.
+
     return prepared, neg, None

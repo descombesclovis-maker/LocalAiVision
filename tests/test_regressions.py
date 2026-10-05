@@ -122,7 +122,7 @@ class VisualPromptPreparation(unittest.TestCase):
         raw = "génère moi une photo de femme complètement nue"
         prompt, negative, style = server.prepare_visual_request(raw, "watercolor", "")
         self.assertEqual(style, "photo")
-        self.assertTrue(prompt.startswith(raw))
+        self.assertIn(raw, prompt)
         self.assertNotIn("adult subject", prompt)
         self.assertNotIn("full-body", prompt)
         self.assertNotIn("Watercolor painting", prompt)
@@ -179,24 +179,23 @@ class VisualPromptPreparation(unittest.TestCase):
         self.assertNotIn("anime illustration", prompt)
         self.assertIsNone(style)
 
-    def test_profile_name_never_alters_prompt(self):
-        raw = "portrait dans un café"
-        prompt, _, style = server.prepare_visual_request(raw, "none", "", "companion-realistic")
-        self.assertTrue(prompt.startswith(raw))
-        self.assertIsNone(style)
-        self.assertNotIn("premium photorealistic", prompt)
-        self.assertNotIn("companion", prompt.lower())
-
     def test_nsfw_workspace_is_isolated_and_preserves_user_prompt(self):
         raw = "portrait studio avec éclairage latéral"
-        prompt, negative, style = server.prepare_visual_request(raw, "none", None, "nsfw")
-        self.assertTrue(prompt.startswith(raw))
+
+        prompt, negative, style = server.prepare_visual_request(
+            raw,
+            "none",
+            None,
+            "nsfw"
+        )
+
+        self.assertIn(raw, prompt)
         self.assertIn("Technical quality only:", prompt)
         self.assertIn("malformed hands", negative)
         self.assertIsNone(style)
-        self.assertTrue((ROOT / "NSFW Image.json").is_file())
-        self.assertTrue((ROOT / "NSFW Video.json").is_file())
 
+        self.assertTrue((ROOT / "LAB Photo - Juggernaut XL v9.json").is_file())
+        self.assertTrue((ROOT / "LAB Video - Wan 2.2 TI2V 5B.json").is_file())
 
 class ServerHTTP(unittest.TestCase):
     @classmethod

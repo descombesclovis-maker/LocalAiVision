@@ -7,8 +7,8 @@ let modelAliases=loadJSON('lva_model_aliases',{});
 let activeChatController=null,activeChatConversationId=null,activeChatStopRequested=false;
 const RESERVED_ANIME_WORKFLOW='Reserved Companion Anime.json';
 const MOTION_WORKFLOW='Video Motion VACE 1.3B.json';
-const NSFW_IMAGE_WORKFLOW='NSFW Image.json';
-const NSFW_VIDEO_WORKFLOW='NSFW Video.json';
+const NSFW_IMAGE_WORKFLOW="LAB Photo - Juggernaut XL v9.json";
+const NSFW_VIDEO_WORKFLOW="LAB Video - Wan 2.2 TI2V 5B.json";
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
