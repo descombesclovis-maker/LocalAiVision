@@ -486,8 +486,13 @@ def run_generation(body):
             data = base64.b64decode(body['video'].split(',', 1)[-1], validate=True)
             video_ref = store_comfy_input(Path(body.get('video_name') or 'reference.mp4').name, data)
         settings = body.get('settings') or {}
-        prompt, negative, effective_style = prepare_visual_request(
-            body.get('prompt', ''), settings.get('style'), body.get('negative'), settings.get('reserved_profile'), settings.get('technical_quality', True))
+        if settings.get('exact_prompt'):
+            prompt = (body.get('prompt') or '').strip()
+            negative = body.get('negative')
+            effective_style = None
+        else:
+            prompt, negative, effective_style = prepare_visual_request(
+                body.get('prompt', ''), settings.get('style'), body.get('negative'), settings.get('reserved_profile'), settings.get('technical_quality', True))
         count = max(1, min(int(settings.get('count') or 1), 4))
         base_seed = settings.get('seed')
         prepared = []
