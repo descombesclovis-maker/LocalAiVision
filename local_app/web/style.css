@@ -88,3 +88,19 @@ body.nsfw-active #settingVideoModelRow,body.nsfw-active #settingRetouchModelRow{
 .nsfw-library-links{display:grid;gap:4px;margin-top:8px}
 .nsfw-library-links .library-item{opacity:.82}
 @media(max-width:700px){.creation-mode-guide{align-items:flex-start;flex-direction:column}}
+
+
+.nsfw-mode-panel{border:1px solid #303038;border-radius:12px;background:#101014;padding:12px;margin:0 0 10px}
+.nsfw-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.nsfw-mode-tabs button{border:1px solid #34343c;background:#17171c;color:#aaa;border-radius:9px;padding:9px 10px;cursor:pointer}
+.nsfw-mode-tabs button.active{background:#f0f0f2;color:#111;border-color:#f0f0f2}
+.nsfw-mode-body{display:grid;gap:9px}
+.nsfw-mode-body label{display:flex;flex-direction:column;gap:6px;color:#8d8d97;font-size:12px}
+.nsfw-mode-body select{height:38px;border:1px solid #303036;background:#0d0d10;color:#eee;border-radius:9px;padding:0 10px}
+.nsfw-required-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;align-items:center;border:1px solid #292930;border-radius:10px;padding:10px;background:#0d0d10}
+.nsfw-required-row div{min-width:0}.nsfw-required-row b,.nsfw-required-row small{display:block}.nsfw-required-row b{font-size:13px;color:#ddd}.nsfw-required-row small{margin-top:3px;color:#686871;font-size:11px}
+.nsfw-required-row button{grid-column:2;grid-row:1 / span 2;border:1px solid #3a3a42;background:#1d1d22;color:#eee;border-radius:8px;padding:8px 10px;cursor:pointer}
+.nsfw-required-row>span{grid-column:1 / -1;color:#777781;font-size:11px}
+body.nsfw-active #taskMode{display:none}
+body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,body.nsfw-active #settingMotionModelRow,body.nsfw-active #settingRetouchModelRow{display:none}
+@media(max-width:700px){.nsfw-mode-tabs{grid-template-columns:1fr}.nsfw-required-row{grid-template-columns:1fr}.nsfw-required-row button{grid-column:1;grid-row:auto}.nsfw-required-row>span{grid-column:1}}
