@@ -54,6 +54,7 @@ jobs:
             --add-data "Video Motion VACE 1.3B.json;." ^
             --add-data "NSFW Image.json;." ^
             --add-data "NSFW Video.json;." ^
+            --add-data "NSFW Motion Video.json;." ^
             --add-data "LAB Photo - Juggernaut XL v9.json;." ^
             --add-data "LAB Photo - EpicRealism XL.json;." ^
             --add-data "LAB Video - Wan 2.2 TI2V 5B.json;." ^
