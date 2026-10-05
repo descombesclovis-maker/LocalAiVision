@@ -78,3 +78,13 @@ button:disabled{opacity:.5;cursor:wait}.attachment{display:flex;gap:8px;align-it
 
 .nsfw-title{margin-top:22px}
 .nsfw-gate{display:flex;align-items:center;gap:8px;margin:7px 9px 0;color:#777780;font-size:12px;cursor:pointer}.nsfw-gate input{accent-color:#fff}.nsfw-note{margin:7px 9px 2px;color:#52525a;font-size:11px;line-height:1.35}.reserved-model#modelNsfw{border-style:dashed}.reserved-model#modelNsfw.active{border-style:solid}
+
+
+/* v2.3 — clear separation between standard creation and isolated workspace. */
+.creation-mode-guide{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:0 0 8px;padding:9px 11px;border:1px solid #2b2b31;border-radius:10px;background:#111114;color:#8f8f98;font-size:12px;line-height:1.4}
+.creation-mode-guide b{color:#e3e3e7;font-size:12px}.creation-mode-guide span{color:#777781}
+body.nsfw-active .creation-mode-guide{border-style:dashed;background:#121216}
+body.nsfw-active #settingVideoModelRow,body.nsfw-active #settingRetouchModelRow{display:none}
+.nsfw-library-links{display:grid;gap:4px;margin-top:8px}
+.nsfw-library-links .library-item{opacity:.82}
+@media(max-width:700px){.creation-mode-guide{align-items:flex-start;flex-direction:column}}
