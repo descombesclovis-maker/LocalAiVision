@@ -10,7 +10,7 @@ class InterfaceContract(unittest.TestCase):
             def handle_starttag(self,tag,attrs):
                 self.ids.extend(v for k,v in attrs if k=='id')
         root=Path(__file__).resolve().parents[1]/'local_app/web'
-        p=IDs();p.feed((root/'index.html').read_text())
+        p=IDs();p.feed((root/'index.html').read_text(encoding='utf-8'))
         self.assertEqual(len(p.ids),len(set(p.ids)))
         js=(root/'app.js').read_text()+(root/'mask.js').read_text()
         refs=set(re.findall(r'''(?:\$|querySelector)\(["']#([\w-]+)["']\)''',js))
