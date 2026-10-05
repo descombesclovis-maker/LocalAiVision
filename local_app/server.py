@@ -65,7 +65,25 @@ def prepare_visual_request(prompt, selected_style='none', negative=None, reserve
             from local_app import nsfw_profile
         except ImportError:
             import nsfw_profile
-        return nsfw_profile.prepare_visual_request(prompt, selected_style, negative, technical_quality)
+        prepared, neg, style = nsfw_profile.prepare_visual_request(
+            prompt, selected_style, negative, technical_quality)
+        raw = (prompt or '').strip()
+        # The user's own request must remain the first semantic instruction.
+        # Keep the profile's existing context, but move it after the raw prompt
+        # instead of letting a broad profile prefix dominate composition.
+        if raw and not prepared.startswith(raw):
+            remainder = prepared
+            pos = remainder.find(raw)
+            if pos >= 0:
+                remainder = (remainder[:pos] + remainder[pos + len(raw):]).strip()
+            prepared = raw + (('\n\n' + remainder) if remainder else '')
+        fidelity = (
+            "Prompt fidelity only: preserve the user's requested viewpoint, framing, "
+            "pose, clothing, scene, subject orientation and composition; do not replace "
+            "specified details with a generic studio pose."
+        )
+        prepared += '\n\n' + fidelity
+        return prepared, neg, style
     """Preserve the user's request and add only neutral technical quality hints.
 
     The original prompt is never paraphrased, softened, expanded with age/clothing/
