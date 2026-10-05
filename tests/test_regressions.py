@@ -75,7 +75,7 @@ class Workflows(unittest.TestCase):
         self.assertEqual(result['3']['inputs']['x'],['1',0]);self.assertNotIn('4',result)
 
     def test_subgraph_actionable_error(self):
-        wf=json.loads((ROOT/'Text_to_Video_LTX.json').read_text())
+        wf=json.loads((ROOT/'Text_to_Video_LTX.json').read_text(encoding='utf-8'))
         with self.assertRaisesRegex(ValueError,'Export \\(API\\)'):
             workflows.to_api(wf,{'present':{}})
 
