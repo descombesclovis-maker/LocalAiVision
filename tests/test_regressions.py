@@ -189,7 +189,8 @@ class VisualPromptPreparation(unittest.TestCase):
             "nsfw"
         )
 
-        self.assertIn(raw, prompt)
+        self.assertTrue(prompt.startswith(raw))
+        self.assertIn("Prompt fidelity only:", prompt)
         self.assertIn("Technical quality only:", prompt)
         self.assertIn("malformed hands", negative)
         self.assertIsNone(style)
