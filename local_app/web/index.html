@@ -66,6 +66,12 @@
               <button id="nsfwModeMotion" type="button">Personnage en mouvement</button>
             </div>
             <div id="nsfwImageModePanel" class="nsfw-mode-body">
+              <label>Traitement du prompt
+                <select id="nsfwPromptMode">
+                  <option value="exact" selected>Prompt exact — aucun ajout automatique</option>
+                  <option value="profile">Profil enrichi — utilise le préfixe et la qualité technique</option>
+                </select>
+              </label>
               <label>Type d’image
                 <select id="nsfwImageMode">
                   <option value="text">Texte → image</option>
