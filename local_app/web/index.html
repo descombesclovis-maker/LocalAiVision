@@ -26,9 +26,13 @@
       </div>
       <div class="section-title nsfw-title">ESPACE ISOLÉ</div>
       <div class="reserved-models" id="nsfwModels">
-        <div class="reserved-row"><button class="reserved-model" id="modelNsfw"><span class="reserved-icon">◈</span><span class="reserved-copy"><b>NSFW</b><small>Photo + vidéo · workflows séparés</small></span><i></i></button><button class="reserved-rename" data-rename-profile="nsfw" title="Renommer">✎</button></div>
+        <div class="reserved-row"><button class="reserved-model" id="modelNsfw"><span class="reserved-icon">◈</span><span class="reserved-copy"><b>NSFW</b><small>Image personnage + vidéo mouvement + prompt</small></span><i></i></button><button class="reserved-rename" data-rename-profile="nsfw" title="Renommer">✎</button></div>
         <label class="nsfw-gate"><input id="nsfwGate" type="checkbox"><span>Activer l’espace NSFW sur cet appareil</span></label>
-        <p class="nsfw-note">Profil séparé : ses workflows et sa configuration n’altèrent pas les autres modèles.</p>
+        <p class="nsfw-note">Univers séparé : image personnage + vidéo de mouvement + prompt → vidéo. Les workflows standard restent indépendants.</p>
+        <div id="nsfwLibraryLinks" class="nsfw-library-links hidden">
+          <button class="library-item" id="nsfwPhotosLibrary"><span>▧</span><span>Photos espace isolé</span><em id="nsfwPhotoCount"></em></button>
+          <button class="library-item" id="nsfwVideosLibrary"><span>▣</span><span>Vidéos espace isolé</span><em id="nsfwVideoCount"></em></button>
+        </div>
       </div>
       <div class="section-title library-title">MA BIBLIOTHÈQUE</div>
       <button class="library-item" id="photosLibrary"><span>▧</span><span>Mes photos générées</span><em id="photoCount"></em></button>
@@ -55,6 +59,7 @@
       <div class="composer-wrap">
         <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installMotion">Installer Wan VACE 1.3B (mouvement)</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
         <div class="composer">
+          <div id="creationModeGuide" class="creation-mode-guide" aria-live="polite"></div>
           <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>
           <div id="composerReplyState" class="composer-reply-state" aria-live="polite">LocalAiVision vous répond</div>
           <div id="attachment" class="attachment hidden"><span id="imageName"></span><button id="editMask" type="button">Peindre le masque</button><span id="maskState"></span><button id="removeImage" type="button" aria-label="Retirer l’image">×</button></div><div id="videoAttachment" class="attachment hidden"><span id="videoName"></span><span class="attachment-kind">Vidéo de référence</span><button id="removeVideo" type="button" aria-label="Retirer la vidéo">×</button></div>
@@ -72,10 +77,10 @@
               <label>Largeur<input id="settingWidth" type="number" min="8" step="8" placeholder="Workflow"></label>
               <label>Hauteur<input id="settingHeight" type="number" min="8" step="8" placeholder="Workflow"></label>
               <label>Force de retouche<input id="settingDenoise" type="number" min="0" max="1" step="0.05" value="0.75"></label>
-              <label>Workflow image<select id="settingImageModel"></select></label>
-              <label>Workflow vidéo<select id="settingVideoModel"></select></label>
-              <label>Workflow mouvement<select id="settingMotionModel"></select></label>
-              <label>Workflow retouche<select id="settingRetouchModel"></select></label>
+              <label id="settingImageModelRow">Workflow image<select id="settingImageModel"></select></label>
+              <label id="settingVideoModelRow">Workflow vidéo standard<select id="settingVideoModel"></select></label>
+              <label id="settingMotionModelRow">Workflow mouvement<select id="settingMotionModel"></select></label>
+              <label id="settingRetouchModelRow">Workflow retouche<select id="settingRetouchModel"></select></label>
               <label>Température du chat<input id="settingTemperature" type="number" min="0" max="2" step="0.1" value="0.7"></label>
               <label>Max tokens<input id="settingMaxTokens" type="number" min="128" max="8192" step="128" value="2048"></label>
             </div>
@@ -86,7 +91,7 @@
           <div class="composer-row">
             <div class="left-tools">
               <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Vidéo</option><option value="motion">Mouvement vidéo</option><option value="retouch">Retouche</option></select>
-              <button id="attachBtn" class="round" aria-label="Ajouter une image">＋</button><button id="videoAttachBtn" class="round" aria-label="Ajouter une vidéo de référence">▶</button><button id="settingsBtn" class="round settings-button" aria-label="Paramètres de génération">⚙</button>
+              <button id="attachBtn" class="round" aria-label="Ajouter une image" title="Ajouter une image">＋</button><button id="videoAttachBtn" class="round" aria-label="Ajouter une vidéo de référence" title="Ajouter une vidéo de référence">▶</button><button id="settingsBtn" class="round settings-button" aria-label="Paramètres de génération">⚙</button>
               <input id="imageFile" type="file" accept="image/*" hidden><input id="videoFile" type="file" accept="video/*" hidden>
             </div>
             <button id="send" class="send" aria-label="Envoyer">↑</button>
