@@ -1,4 +1,4 @@
-import os, subprocess, urllib.request, urllib.error, json, zipfile, shutil, hashlib, sys
+import os, subprocess, urllib.request, urllib.error, json, zipfile, shutil, hashlib, sys, threading
 from pathlib import Path
 
 DATA = Path(os.environ.get("LOCALVISIONAI_DATA", str(Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "LocalVisionAI")))
@@ -11,9 +11,17 @@ LLAMA_RELEASES_API = "https://api.github.com/repos/ggml-org/llama.cpp/releases?p
 MODEL_URL = "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf?download=true"
 MODEL_NAME = "Qwen3-8B-Q4_K_M.gguf"
 PROGRESS = None
+_DOWNLOAD_LOCKS = {}
+_DOWNLOAD_LOCKS_GUARD = threading.Lock()
 
 
-def _download(url, dest, label, min_bytes=1024):
+def _download_lock(dest):
+    key = str(Path(dest).resolve()).lower()
+    with _DOWNLOAD_LOCKS_GUARD:
+        return _DOWNLOAD_LOCKS.setdefault(key, threading.Lock())
+
+
+def _download_unlocked(url, dest, label, min_bytes=1024):
     dest = Path(dest)
     if dest.exists() and dest.stat().st_size >= min_bytes:
         return
@@ -34,7 +42,7 @@ def _download(url, dest, label, min_bytes=1024):
             raise
         # A stale partial file may exceed the remote size. Start fresh once.
         tmp.unlink()
-        return _download(url, dest, label, min_bytes)
+        return _download_unlocked(url, dest, label, min_bytes)
     with src:
         append = offset > 0 and src.status == 206
         if append and not src.headers.get('Content-Range', '').startswith(f'bytes {offset}-'):
@@ -60,6 +68,14 @@ def _download(url, dest, label, min_bytes=1024):
     if tmp.stat().st_size < min_bytes:
         raise RuntimeError('Téléchargement incomplet : ' + dest.name)
     tmp.replace(dest)
+
+
+def _download(url, dest, label, min_bytes=1024):
+    # Downloads may be triggered both by the startup model lab and by a user
+    # selecting a workflow. Lock only the destination file so unrelated models
+    # can still download independently without corrupting .part files.
+    with _download_lock(dest):
+        return _download_unlocked(url, dest, label, min_bytes)
 
 
 def ensure_comfy():
@@ -282,8 +298,45 @@ MEDIA_MODELS = {
     'motion': [
         ('diffusion_models', 'wan2.1_vace_1.3B_fp16.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors'),
         ('vae', 'wan_2.1_vae.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors'),
-        ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')]
+        ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')],
+    # Independent candidates used by the model laboratory. They are deliberately
+    # separate from the normal RealVisXL / Animagine / Wan profiles so tests can
+    # never replace a known-working model.
+    'photo-juggernaut': [
+        ('checkpoints', 'Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors',
+         'https://huggingface.co/RunDiffusion/Juggernaut-XL-v9/resolve/main/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors')],
+    'photo-epicrealism': [
+        ('checkpoints', 'epicrealismXL_vx1Finalkiss.safetensors',
+         'https://huggingface.co/John6666/epicrealism-xl-v8kiss-sdxl/resolve/main/epicrealismXL_vx1Finalkiss.safetensors')],
+    'video-wan22': [
+        ('diffusion_models', 'wan2.2_ti2v_5B_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors'),
+        ('vae', 'wan2.2_vae.safetensors',
+         'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors'),
+        ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')]
 }
+
+
+STARTUP_MODEL_LAB = ('photo-juggernaut', 'photo-epicrealism', 'video-wan22')
+
+
+def ensure_startup_model_lab(progress=None):
+    """Download the optional test pack without changing normal model profiles."""
+    global PROGRESS
+    previous = PROGRESS
+    if progress is not None:
+        PROGRESS = progress
+    try:
+        for component in STARTUP_MODEL_LAB:
+            ensure_media(component)
+    finally:
+        PROGRESS = previous
+    return True
+
+
+def startup_model_lab_status():
+    return {component: media_status(component) for component in STARTUP_MODEL_LAB}
 
 
 def _media_model_dir(create_engine=False):
