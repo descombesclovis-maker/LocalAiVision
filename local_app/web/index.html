@@ -60,6 +60,37 @@
         <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installMotion">Installer Wan VACE 1.3B (mouvement)</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
         <div class="composer">
           <div id="creationModeGuide" class="creation-mode-guide" aria-live="polite"></div>
+          <div id="nsfwModePanel" class="nsfw-mode-panel hidden">
+            <div class="nsfw-mode-tabs" role="tablist" aria-label="Mode de création espace isolé">
+              <button id="nsfwModeImage" type="button" class="active">Image</button>
+              <button id="nsfwModeMotion" type="button">Personnage en mouvement</button>
+            </div>
+            <div id="nsfwImageModePanel" class="nsfw-mode-body">
+              <label>Type d’image
+                <select id="nsfwImageMode">
+                  <option value="text">Texte → image</option>
+                  <option value="image">Image → image</option>
+                </select>
+              </label>
+              <div id="nsfwImageReferenceRow" class="nsfw-required-row hidden">
+                <div><b>Image de référence</b><small>Obligatoire pour Image → image.</small></div>
+                <button id="nsfwPickImageForImage" type="button">Choisir l’image</button>
+                <span id="nsfwImageReferenceState">Aucune image</span>
+              </div>
+            </div>
+            <div id="nsfwMotionModePanel" class="nsfw-mode-body hidden">
+              <div class="nsfw-required-row">
+                <div><b>Photo du personnage</b><small>Image utilisée comme apparence de référence.</small></div>
+                <button id="nsfwPickCharacterImage" type="button">Choisir la photo</button>
+                <span id="nsfwCharacterState">Aucune photo</span>
+              </div>
+              <div class="nsfw-required-row">
+                <div><b>Vidéo des mouvements</b><small>Vidéo utilisée comme référence de mouvement.</small></div>
+                <button id="nsfwPickMotionVideo" type="button">Choisir la vidéo</button>
+                <span id="nsfwMotionState">Aucune vidéo</span>
+              </div>
+            </div>
+          </div>
           <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>
           <div id="composerReplyState" class="composer-reply-state" aria-live="polite">LocalAiVision vous répond</div>
           <div id="attachment" class="attachment hidden"><span id="imageName"></span><button id="editMask" type="button">Peindre le masque</button><span id="maskState"></span><button id="removeImage" type="button" aria-label="Retirer l’image">×</button></div><div id="videoAttachment" class="attachment hidden"><span id="videoName"></span><span class="attachment-kind">Vidéo de référence</span><button id="removeVideo" type="button" aria-label="Retirer la vidéo">×</button></div>
