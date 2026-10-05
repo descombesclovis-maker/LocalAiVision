@@ -9,7 +9,10 @@ const RESERVED_ANIME_WORKFLOW='Reserved Companion Anime.json';
 const MOTION_WORKFLOW='Video Motion VACE 1.3B.json';
 const NSFW_IMAGE_WORKFLOW="LAB Photo - Juggernaut XL v9.json";
 const NSFW_VIDEO_WORKFLOW="LAB Video - Wan 2.2 TI2V 5B.json";
+const NSFW_IMAGE_I2I_WORKFLOW='NSFW Image to Image.json';
 const NSFW_MOTION_WORKFLOW='NSFW Motion Video.json';
+let nsfwCreationMode=loadJSON('lva_nsfw_creation_mode','image');
+let nsfwImageMode=loadJSON('lva_nsfw_image_mode','text');
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
@@ -82,24 +85,34 @@ async function createConversationForProfile(profile){
 function updateCreationModeGuide(){
  const c=activeConversationId?conversationFor(activeConversationId):null,isolated=c?.profile==='nsfw';
  document.body.classList.toggle('nsfw-active',!!isolated);
- const guide=$('#creationModeGuide'),prompt=$('#prompt'),videoOpt=$('#taskMode option[value="video"]'),motionOpt=$('#taskMode option[value="motion"]');
+ const panel=$('#nsfwModePanel'),guide=$('#creationModeGuide'),prompt=$('#prompt'),motionOpt=$('#taskMode option[value="motion"]');
+ if(panel)panel.classList.toggle('hidden',!isolated);
  if(guide){
    if(isolated){
-     const imageState=imageData?'✓ image personnage':'1 · ajoute une image personnage avec +';
-     const videoState=videoData?'✓ vidéo mouvement':'2 · ajoute une vidéo de mouvement avec ▶';
-     guide.innerHTML='<b>Espace isolé</b><span>'+imageState+' &nbsp;·&nbsp; '+videoState+' &nbsp;·&nbsp; 3 · écris le prompt puis envoie</span>';
+     guide.innerHTML=nsfwCreationMode==='motion'
+       ?'<b>Espace isolé · Personnage en mouvement</b><span>Photo du personnage + vidéo des mouvements + prompt sont demandés dans le panneau ci-dessous.</span>'
+       :'<b>Espace isolé · Image</b><span>Choisis Texte → image ou Image → image dans le panneau ci-dessous.</span>';
    }else{
      guide.innerHTML='<b>Création standard</b><span>Vidéo : prompt seul = texte → vidéo · image + prompt = image → vidéo</span>';
    }
  }
- if(prompt)prompt.placeholder=isolated?'Décris la photo ou le mouvement souhaité…':'Écris ton message…';
- if(videoOpt)videoOpt.textContent=isolated?'Vidéo guidée':'Vidéo';
+ if(prompt)prompt.placeholder=isolated?(nsfwCreationMode==='motion'?'Décris le rendu et le mouvement souhaités…':'Décris l’image souhaitée…'):'Écris ton message…';
  if(motionOpt){motionOpt.textContent=isolated?'Mouvement vidéo (géré automatiquement)':'Mouvement vidéo';motionOpt.disabled=!!isolated}
  const imgBtn=$('#attachBtn'),vidBtn=$('#videoAttachBtn');
- if(imgBtn)imgBtn.title=isolated?'1 · Ajouter l’image du personnage':'Ajouter une image de référence';
- if(vidBtn)vidBtn.title=isolated?'2 · Ajouter la vidéo de mouvement':'Ajouter une vidéo de référence';
+ if(imgBtn)imgBtn.classList.toggle('hidden',!!isolated);
+ if(vidBtn)vidBtn.classList.toggle('hidden',!!isolated);
  const isolatedLinks=$('#nsfwLibraryLinks');
  if(isolatedLinks)isolatedLinks.classList.toggle('hidden',!loadJSON('lva_nsfw_gate',false));
+ const imageTab=$('#nsfwModeImage'),motionTab=$('#nsfwModeMotion');
+ if(imageTab)imageTab.classList.toggle('active',nsfwCreationMode==='image');
+ if(motionTab)motionTab.classList.toggle('active',nsfwCreationMode==='motion');
+ $('#nsfwImageModePanel')?.classList.toggle('hidden',nsfwCreationMode!=='image');
+ $('#nsfwMotionModePanel')?.classList.toggle('hidden',nsfwCreationMode!=='motion');
+ if($('#nsfwImageMode'))$('#nsfwImageMode').value=nsfwImageMode;
+ $('#nsfwImageReferenceRow')?.classList.toggle('hidden',nsfwImageMode!=='image');
+ if($('#nsfwImageReferenceState'))$('#nsfwImageReferenceState').textContent=imageData?'Image prête':'Aucune image';
+ if($('#nsfwCharacterState'))$('#nsfwCharacterState').textContent=imageData?'Photo prête':'Aucune photo';
+ if($('#nsfwMotionState'))$('#nsfwMotionState').textContent=videoData?'Vidéo prête':'Aucune vidéo';
 }
 function renderProfileLabels(){
  const map={modelAuto:'auto',modelRealistic:'companion-realistic',modelAnime:'companion-anime',modelMotion:'motion',modelNsfw:'nsfw'};
@@ -162,16 +175,29 @@ async function deleteLibraryItem(id){const item=library.find(x=>x._id===id);if(!
 function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
 
 async function sendMessage(){
- if($('#send').disabled)return;const text=$('#prompt').value.trim();if(!text)return;if(!activeConversationId)createBlankConversation();const c=conversationFor(activeConversationId);addMessage(activeConversationId,{role:'user',text});$('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();const mode=$('#taskMode').value;let task=mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode;if(mode==='auto'&&!task&&(c.profile==='companion-realistic'||c.profile==='companion-anime'||c.profile==='nsfw'||!!c.settings?.image))task=implicitVisualGenerationRequest(text);
- const isolated=c.profile==='nsfw';
- if(isolated&&(task==='video'||task==='motion'||(mode==='auto'&&imageData&&videoData))){
-   if(!imageData||!videoData){addMessage(activeConversationId,{role:'assistant',text:'Pour une vidéo dans l’espace isolé : ajoute d’abord l’image du personnage avec +, puis la vidéo de mouvement avec ▶, puis renvoie ton prompt.'});updateCreationModeGuide();return}
-   task='motion';
+ if($('#send').disabled)return;const text=$('#prompt').value.trim();if(!text)return;if(!activeConversationId)createBlankConversation();const c=conversationFor(activeConversationId);addMessage(activeConversationId,{role:'user',text});$('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();const mode=$('#taskMode').value;let task=mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode;const isolated=c.profile==='nsfw';
+ let model=null;
+ if(isolated){
+   if(nsfwCreationMode==='motion'){
+     if(!imageData||!videoData){addMessage(activeConversationId,{role:'assistant',text:'Il manque les éléments requis : choisis la photo du personnage et la vidéo des mouvements dans le panneau du mode « Personnage en mouvement ».'});updateCreationModeGuide();return}
+     task='motion';model=workflowById(bestWorkflowId(NSFW_MOTION_WORKFLOW));
+   }else{
+     task='image';
+     if(nsfwImageMode==='image'){
+       if(!imageData){addMessage(activeConversationId,{role:'assistant',text:'Le mode Image → image demande une image de référence. Choisis-la dans le panneau dédié.'});updateCreationModeGuide();return}
+       model=workflowById(bestWorkflowId(NSFW_IMAGE_I2I_WORKFLOW));
+     }else{
+       model=workflowById(bestWorkflowId(NSFW_IMAGE_WORKFLOW));
+     }
+   }
  }else{
+   if(mode==='auto'&&!task&&(c.profile==='companion-realistic'||c.profile==='companion-anime'||!!c.settings?.image))task=implicitVisualGenerationRequest(text);
    if(mode==='auto'&&task==='video'&&imageData&&videoData)task='motion';
    if(mode==='auto'&&!task&&imageData&&videoData&&/\b(mouvement|motion|anime|animer|reprend|reprendre|copie|copier|utilise|utiliser)\b/i.test(text))task='motion';
  }
- if(task){c.messages[c.messages.length-1].mediaRequest=true;save()}if(!task){await startChat(c,text);return}const model=selectedModelForConversation(c,task,text);if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche dans cette conversation.'});return}await startGeneration(task,model,text)
+ if(task){c.messages[c.messages.length-1].mediaRequest=true;save()}if(!task){await startChat(c,text);return}
+ if(!model)model=selectedModelForConversation(c,task,text);
+ if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche dans cette conversation.'});return}await startGeneration(task,model,text)
 }
 function numberSetting(id){const e=$(id);if(!e)return null;const raw=e.value.trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null}
 function readGenerationSettings(task){const isVideo=task==='video'||task==='motion',c=activeConversationId?conversationFor(activeConversationId):null;return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),denoise:task==='retouch'?numberSetting('#settingDenoise'):null,keepSeed:$('#settingKeep').checked,style:graphicStyle,technical_quality:$('#settingTechnicalQuality')?.checked!==false,reserved_profile:c?.profile==='nsfw'?'nsfw':null}}
@@ -200,6 +226,12 @@ async function installComponent(component){try{const d=await api('/api/setup',{m
 async function refresh(){await pollHealth();try{const d=await api('/api/workflows');workflows=d.workflows;for(const c of Object.values(conversations)){normalizeConversation(c);if(c.profile&&c.profile!=='auto')applyProfileSettings(c,c.profile)}syncModelSelectors();styleCatalog=await api('/assets/styles.json');renderStyles()}catch(e){toast(e.message)}renderProfileLabels();renderConversationList($('#conversationSearch').value);renderLibraryCounts();if(!activeConversationId){const existing=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(existing)openConversation(existing.id);else createBlankConversation()}}
 
 function setup(){
+ $('#nsfwModeImage').onclick=()=>{nsfwCreationMode='image';localStorage.setItem('lva_nsfw_creation_mode',JSON.stringify(nsfwCreationMode));updateCreationModeGuide()};
+ $('#nsfwModeMotion').onclick=()=>{nsfwCreationMode='motion';localStorage.setItem('lva_nsfw_creation_mode',JSON.stringify(nsfwCreationMode));updateCreationModeGuide()};
+ $('#nsfwImageMode').onchange=e=>{nsfwImageMode=e.target.value==='image'?'image':'text';localStorage.setItem('lva_nsfw_image_mode',JSON.stringify(nsfwImageMode));if(nsfwImageMode==='text'){imageData=null;$('#imageFile').value='';$('#attachment').classList.add('hidden')}updateCreationModeGuide()};
+ $('#nsfwPickImageForImage').onclick=()=>$('#imageFile').click();
+ $('#nsfwPickCharacterImage').onclick=()=>$('#imageFile').click();
+ $('#nsfwPickMotionVideo').onclick=()=>$('#videoFile').click();
  $('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});$('#attachBtn').onclick=()=>$('#imageFile').click();$('#videoAttachBtn').onclick=()=>$('#videoFile').click();$('#settingsBtn').onclick=()=>{$('#generationSettings').classList.toggle('hidden');$('#settingsBtn').classList.toggle('active',!$('#generationSettings').classList.contains('hidden'))};$('#closeSettings').onclick=()=>{$('#generationSettings').classList.add('hidden');$('#settingsBtn').classList.remove('active')};$('#imageFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await attachImage(f);styleWorkflowSummary();updateCreationModeGuide()}catch(err){toast(err.message)}};$('#videoFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await attachVideo(f);updateCreationModeGuide()}catch(err){toast(err.message)}};$('#removeVideo').onclick=removeVideoAttachment;setupMaskEditor();
  $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');$('#retouchLibrary').onclick=()=>renderLibrary('retouch','Mes retouches générées','standard');$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos espace isolé','nsfw');$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
  $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelAnime').onclick=()=>createConversationForProfile('companion-anime');$('#modelMotion').onclick=()=>createConversationForProfile('motion');$('#modelNsfw').onclick=()=>createConversationForProfile('nsfw');const nsfwGate=$('#nsfwGate');nsfwGate.checked=loadJSON('lva_nsfw_gate',false);nsfwGate.onchange=()=>{localStorage.setItem('lva_nsfw_gate',JSON.stringify(!!nsfwGate.checked));if(!nsfwGate.checked&&activeConversationId&&conversationFor(activeConversationId).profile==='nsfw'){createBlankConversation('auto');toast('Espace NSFW désactivé.')}updateCreationModeGuide()};document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
