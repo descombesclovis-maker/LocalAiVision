@@ -139,6 +139,16 @@ class MediaModels(unittest.TestCase):
 
 
 class LoraLibrary(unittest.TestCase):
+    def test_general_catalog_is_curated_and_described(self):
+        rows = server._general_lora_catalog()
+        self.assertGreater(len(rows), 20)
+        self.assertTrue(all(x.get('description') and x.get('category') for x in rows))
+        names = {x.get('name') for x in rows}
+        self.assertNotIn('Super_Realistic_Ahegao_for_Hunyuan_Video', names)
+        self.assertNotIn('Emma_Watson_Hunyuan_video_Lora', names)
+        self.assertIn('Walking_Animation_Hunyuan_Video', names)
+        self.assertIn('Orbit_Cam_Character_Hunyuan_Video', names)
+
     def test_lora_stack_inserts_loader_between_hunyuan_sources_and_consumers(self):
         api = {
             '1': {'class_type': 'DualCLIPLoader', 'inputs': {}},
