@@ -21,11 +21,9 @@ _comfy_info_cache = {"time": 0, "data": {}}
 _engine_lock = threading.RLock()
 _comfy_lock = threading.Lock()
 _setup_lock = threading.Lock()
-_model_lab_lock = threading.Lock()
 _comfy_proc = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-MODEL_LAB = {"state": "idle", "message": "En attente", "error": None, "started_at": None}
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 
 IGNORE_JSON = {"package.json", "tsconfig.json", "config.json"}
@@ -420,14 +418,10 @@ def _restart_owned_comfyui():
 
 def _media_component_for_workflow(current):
     values = ' '.join(str(v).lower() for n in current.values() for v in n.get('inputs', {}).values() if isinstance(v, str))
-    if 'juggernaut-xl_v9_rundiffusionphoto_v2.safetensors' in values:
-        return 'photo-juggernaut'
-    if 'epicrealismxl_vx1finalkiss.safetensors' in values:
-        return 'photo-epicrealism'
-    if 'wan2.2_ti2v_5b_fp16.safetensors' in values:
-        return 'video-wan22'
+    if 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors' in values:
+        return 'isolated-video'
     profile = workflows.profile(current)
-    return 'image' if profile == 'sdxl' else 'anime' if profile == 'animagine' else 'motion' if profile == 'vace' else 'video' if profile == 'wan' else None
+    return 'image' if profile == 'sdxl' else 'video' if profile == 'wan' else 'isolated-video' if profile == 'hunyuan15' else None
 
 
 def _preflight_with_media_repair(current):
@@ -447,7 +441,7 @@ def _preflight_with_media_repair(current):
         _wait_for_setup()
         _setup_lock.acquire()
     try:
-        labels = {'image':'RealVisXL (photo / retouche)','anime':'Animagine XL (anime)','motion':'Wan VACE 1.3B (mouvement)','video':'Wan (vidéo)','photo-juggernaut':'Juggernaut XL v9 (labo photo)','photo-epicrealism':'EpicRealism XL (labo photo)','video-wan22':'Wan 2.2 TI2V 5B (labo vidéo)'}
+        labels = {'image':'RealVisXL (photo)','video':'Wan 2.1 1.3B (vidéo)','isolated-video':'HunyuanVideo 1.5 (espace isolé)'}
         label = labels.get(component, component)
         STARTUP.update(state='running', message='Préparation automatique : ' + label, error=None, started_at=time.time())
         bootstrap_windows.PROGRESS = lambda message: STARTUP.update(message=message)
@@ -606,18 +600,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/health":
             online, detail = comfy_online()
-            media = {'image': {'ready': False}, 'anime': {'ready': False}, 'video': {'ready': False}, 'motion': {'ready': False}}
+            media = {'image': {'ready': False}, 'video': {'ready': False}, 'isolated-video': {'ready': False}}
             try:
                 from local_app import bootstrap_windows
-                media = {'image': bootstrap_windows.media_status('image'), 'anime': bootstrap_windows.media_status('anime'), 'video': bootstrap_windows.media_status('video'), 'motion': bootstrap_windows.media_status('motion')}
+                media = {
+                    'image': bootstrap_windows.media_status('image'),
+                    'video': bootstrap_windows.media_status('video'),
+                    'isolated-video': bootstrap_windows.media_status('isolated-video')
+                }
             except Exception:
                 pass
-            try:
-                from local_app import bootstrap_windows
-                lab_models = bootstrap_windows.startup_model_lab_status()
-            except Exception:
-                lab_models = {}
-            self.send_json({"online":online,"detail":detail,"url":COMFY,"llm":llm.status(), "startup": dict(STARTUP), "model_lab": dict(MODEL_LAB), "lab_models": lab_models, "media": media, "version": VERSION})
+            self.send_json({"online":online,"detail":detail,"url":COMFY,"llm":llm.status(), "startup": dict(STARTUP), "media": media, "version": VERSION})
             return
         if u.path == "/api/logs":
             parts = []
@@ -677,7 +670,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
         if u.path == "/api/setup":
-            if body.get("component", "engines") not in ("engines", "image", "anime", "video", "motion"):
+            if body.get("component", "engines") not in ("engines", "image", "video", "isolated-video"):
                 self.send_json({"error": "Composant inconnu"}, 400)
                 return
             started = start_setup(body.get("component", "engines"))
@@ -760,30 +753,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_response(404); self.end_headers()
 
-def _model_lab_worker():
-    try:
-        from local_app import bootstrap_windows
-        MODEL_LAB.update(state='running', message='Préparation du labo de modèles…', error=None, started_at=time.time())
-        def progress(message):
-            MODEL_LAB.update(message=message)
-        bootstrap_windows.ensure_startup_model_lab(progress=progress)
-        _comfy_info_cache['time'] = 0
-        _comfy_info_cache['data'] = {}
-        MODEL_LAB.update(state='ready', message='Modèles de test prêts.', error=None, started_at=None)
-    except Exception as exc:
-        MODEL_LAB.update(state='error', message='Téléchargement labo à reprendre', error=str(exc), started_at=None)
-        print('[LocalVisionAI][Model Lab]', exc, flush=True)
-    finally:
-        _model_lab_lock.release()
-
-
-def start_model_lab_downloads():
-    if not _model_lab_lock.acquire(blocking=False):
-        return False
-    threading.Thread(target=_model_lab_worker, daemon=True).start()
-    return True
-
-
 def _setup_worker(component):
     try:
         from local_app import bootstrap_windows
@@ -813,10 +782,9 @@ def _setup_worker(component):
                 raise RuntimeError("\n".join(errors))
         else:
             STARTUP['message'] = "Téléchargement des modèles " + (
-                "image / retouche (RealVisXL)" if component == 'image'
-                else "anime (Animagine XL 4.0)" if component == 'anime'
-                else "mouvement vidéo (Wan VACE 1.3B)" if component == 'motion'
-                else "vidéo (Wan)")
+                "photo (RealVisXL)" if component == 'image'
+                else "vidéo isolée (HunyuanVideo 1.5)" if component == 'isolated-video'
+                else "vidéo (Wan 2.1)")
             bootstrap_windows.ensure_media(component)
             _comfy_info_cache['time'] = 0
         STARTUP.update(state="ready", message="Composants prêts. Le chat démarre à la première demande.", error=None, started_at=None)
@@ -825,8 +793,11 @@ def _setup_worker(component):
         print("[LocalVisionAI]", exc, flush=True)
     finally:
         _setup_lock.release()
-        if component == "engines" and os.environ.get("LOCALVISIONAI_SKIP_SETUP") != "1":
-            start_model_lab_downloads()
+        if component == "engines":
+            try:
+                bootstrap_windows.cleanup_obsolete_media()
+            except Exception:
+                pass
 
 
 def start_setup(component="engines"):
