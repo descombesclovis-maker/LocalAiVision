@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s);
 let comfyReady=false,llmReady=false,workflows=[],activeConversationId=null,imageData=null,imageName=null,videoData=null,lastHealth=null;
-let loraCatalog=[],selectedLoras=loadJSON('lva_selected_loras',[]);
+let loraCatalog=[],loraRemoteCatalog=[],selectedLoras=loadJSON('lva_selected_loras',[]);
 let conversations=loadJSON('lva_conversations_v2',{}),library=loadJSON('lva_library',[]);
 let modalSelection={image:null,video:null},modalStep=1;
 let styleCatalog=[],graphicStyle=loadJSON('lva_graphic_style','none'),stylePreviews=loadJSON('lva_style_previews',{});
@@ -121,21 +121,36 @@ function loadReferenceImage(file){
  const reader=new FileReader();reader.onload=()=>{imageData=String(reader.result||'');imageName=file.name;renderIsolatedMode();toast('Image de départ ajoutée.')};reader.onerror=()=>toast('Impossible de lire cette image.');reader.readAsDataURL(file);
 }
 function loraCompatibilityText(x){const base=String(x.base_model||x.compatibility||'').trim();return base||'Compatibilité non déclarée'}
+function loraMatches(x,q){return !q||[x.name,x.filename,x.base_model,x.compatibility,x.category,x.description,(x.trained_words||[]).join(' ')].join(' ').toLowerCase().includes(q)}
 function renderLoraCatalog(filter=''){
- const box=$('#loraCatalog');if(!box)return;const q=String(filter||'').toLowerCase().trim();box.innerHTML='';
- const rows=loraCatalog.filter(x=>!q||[x.name,x.filename,x.base_model,(x.trained_words||[]).join(' ')].join(' ').toLowerCase().includes(q));
- if(!rows.length){box.innerHTML='<div class="lora-empty">Aucun LoRA local détecté. Ajoute un .safetensors dans ComfyUI/models/loras puis actualise.</div>';return}
+ const localBox=$('#loraCatalog'),remoteBox=$('#loraRemoteCatalog');if(!localBox||!remoteBox)return;const q=String(filter||'').toLowerCase().trim();localBox.innerHTML='';remoteBox.innerHTML='';
+ const rows=loraCatalog.filter(x=>loraMatches(x,q));
+ if(!rows.length)localBox.innerHTML='<div class="lora-empty">Aucun LoRA local correspondant. Les .safetensors présents dans ComfyUI/models/loras apparaissent ici.</div>';
  for(const x of rows){
   const id=x.path||x.filename,selected=selectedLoras.find(v=>v.path===id),card=document.createElement('div');card.className='lora-card'+(selected?' selected':'');
-  const words=(x.trained_words||[]).join(', '),size=x.size?((x.size/1024/1024).toFixed(0)+' Mo'):'';
-  card.innerHTML='<div class="lora-main"><b>'+esc(x.name||x.filename)+'</b><small>'+esc(loraCompatibilityText(x))+(size?' · '+size:'')+'</small>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><label>Force <input type="number" min="-2" max="2" step="0.05" value="'+esc(selected?.strength??1)+'"></label><button type="button">'+(selected?'Retirer':'Activer')+'</button>';
+  const words=(x.trained_words||[]).join(', '),size=x.size?((x.size/1024/1024).toFixed(0)+' Mo'):'',desc=x.description||'LoRA installé localement.';
+  card.innerHTML='<div class="lora-main"><b>'+esc(x.name||x.filename)+'</b><small>'+esc(loraCompatibilityText(x))+(size?' · '+size:'')+'</small><span>'+esc(desc)+'</span>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><label>Force <input type="number" min="-2" max="2" step="0.05" value="'+esc(selected?.strength??1)+'"></label><button type="button">'+(selected?'Retirer':'Activer')+'</button>';
   const strength=card.querySelector('input'),button=card.querySelector('button');
   strength.onchange=()=>{const found=selectedLoras.find(v=>v.path===id);if(found){found.strength=Number(strength.value)||1;localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras))}};
   button.onclick=()=>{const at=selectedLoras.findIndex(v=>v.path===id);if(at>=0)selectedLoras.splice(at,1);else selectedLoras.push({path:id,strength:Number(strength.value)||1});localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras));renderLoraCatalog($('#loraSearch')?.value||'')};
-  box.appendChild(card);
+  localBox.appendChild(card);
+ }
+ const remote=loraRemoteCatalog.filter(x=>loraMatches(x,q));
+ if(!remote.length)remoteBox.innerHTML='<div class="lora-empty">Aucun élément correspondant dans le catalogue général.</div>';
+ for(const x of remote){
+  const card=document.createElement('div');card.className='lora-card catalog-card'+(x.installed?' installed':'');
+  const words=(x.trained_words||[]).join(', ');
+  card.innerHTML='<div class="lora-main"><b>'+esc(x.name)+'</b><small>'+esc(x.category||'Catalogue général')+' · '+esc(x.compatibility||x.base_model||'Hunyuan Video')+'</small><span>'+esc(x.description||'LoRA du catalogue général Bjornulf.')+'</span>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><div></div><button type="button" '+(x.installed?'disabled':'')+'>'+(x.installed?'Installé ✓':'Télécharger')+'</button>';
+  const button=card.querySelector('button');if(!x.installed)button.onclick=()=>installCatalogLora(x,button);
+  remoteBox.appendChild(card);
  }
 }
-async function refreshLoras(){try{const d=await api('/api/loras');loraCatalog=d.loras||[];renderLoraCatalog($('#loraSearch')?.value||'')}catch(e){if($('#loraCatalog'))$('#loraCatalog').innerHTML='<div class="lora-empty">'+esc(e.message)+'</div>'}
+async function installCatalogLora(x,button){
+ button.disabled=true;button.textContent='Téléchargement…';
+ try{await api('/api/loras/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lora_id:x.lora_id})});toast('LoRA installé.');await refreshLoras()}
+ catch(e){toast(e.message);button.disabled=false;button.textContent='Télécharger'}
+}
+async function refreshLoras(){try{const d=await api('/api/loras');loraCatalog=d.loras||[];loraRemoteCatalog=d.catalog||[];renderLoraCatalog($('#loraSearch')?.value||'')}catch(e){if($('#loraCatalog'))$('#loraCatalog').innerHTML='<div class="lora-empty">'+esc(e.message)+'</div>'}
 }
 function renameProfile(key){const next=prompt('Nouveau nom du modèle',profileLabel(key));if(next===null)return;const clean=next.trim();if(clean)modelAliases['profile:'+key]=clean;else delete modelAliases['profile:'+key];localStorage.setItem('lva_model_aliases',JSON.stringify(modelAliases));renderProfileLabels()}
 
