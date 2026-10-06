@@ -28,7 +28,6 @@
         <label class="nsfw-gate"><input id="nsfwGate" type="checkbox"><span>Activer l’espace NSFW sur cet appareil</span></label>
         <p class="nsfw-note">Univers séparé : HunyuanVideo 1.5. Le prompt est traduit en anglais puis envoyé directement au modèle.</p>
         <div id="nsfwLibraryLinks" class="nsfw-library-links hidden">
-          <button class="library-item" id="nsfwPhotosLibrary"><span>▧</span><span>Photos espace isolé</span><em id="nsfwPhotoCount"></em></button>
           <button class="library-item" id="nsfwVideosLibrary"><span>▣</span><span>Vidéos espace isolé</span><em id="nsfwVideoCount"></em></button>
         </div>
       </div>
@@ -60,7 +59,6 @@
           <div id="nsfwModePanel" class="nsfw-mode-panel hidden"><p>HunyuanVideo 1.5 · texte → vidéo</p></div>
           <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>
           <div id="composerReplyState" class="composer-reply-state" aria-live="polite">LocalAiVision vous répond</div>
-          <div id="attachment" class="attachment hidden"><span id="imageName"></span><button id="editMask" type="button">Peindre le masque</button><span id="maskState"></span><button id="removeImage" type="button" aria-label="Retirer l’image">×</button></div><div id="videoAttachment" class="attachment hidden"><span id="videoName"></span><span class="attachment-kind">Vidéo de référence</span><button id="removeVideo" type="button" aria-label="Retirer la vidéo">×</button></div>
           <div id="generationSettings" class="generation-settings hidden">
             <div class="settings-head"><div><b>Paramètres</b><span>Les champs vides conservent les réglages du workflow.</span></div><button id="closeSettings" type="button">×</button></div>
             <div class="style-section"><div class="style-heading"><b>Style graphique</b><button id="resetStyle" type="button">Sans style imposé</button></div><p class="style-note">Aperçus illustratifs. Tu peux les remplacer par tes propres résultats locaux.</p><div id="styleGrid" class="style-grid"></div><p id="styleWorkflow" class="style-selection"></p><button id="generateStylePreview" type="button">Créer un aperçu avec mon modèle</button><p class="style-note">Une sélection manuelle de workflow reste prioritaire.</p></div>
@@ -74,7 +72,6 @@
               <label>FPS<input id="settingFps" type="number" min="1" step="1" placeholder="Workflow"></label>
               <label>Largeur<input id="settingWidth" type="number" min="8" step="8" placeholder="Workflow"></label>
               <label>Hauteur<input id="settingHeight" type="number" min="8" step="8" placeholder="Workflow"></label>
-              <label>Force de retouche<input id="settingDenoise" type="number" min="0" max="1" step="0.05" value="0.75"></label>
               <label id="settingImageModelRow">Workflow image<select id="settingImageModel"></select></label>
               <label id="settingVideoModelRow">Workflow vidéo standard<select id="settingVideoModel"></select></label>
               <label>Température du chat<input id="settingTemperature" type="number" min="0" max="2" step="0.1" value="0.7"></label>
@@ -86,9 +83,7 @@
           </div>
           <div class="composer-row">
             <div class="left-tools">
-              <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Vidéo</option></select>
-              <button id="attachBtn" class="round" aria-label="Ajouter une image" title="Ajouter une image">＋</button><button id="videoAttachBtn" class="round" aria-label="Ajouter une vidéo de référence" title="Ajouter une vidéo de référence">▶</button><button id="settingsBtn" class="round settings-button" aria-label="Paramètres de génération">⚙</button>
-              <input id="imageFile" type="file" accept="image/*" hidden><input id="videoFile" type="file" accept="video/*" hidden>
+              <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Vidéo</option></select><button id="settingsBtn" class="round settings-button" aria-label="Paramètres de génération">⚙</button>
             </div>
             <button id="send" class="send" aria-label="Envoyer">↑</button>
           </div>
@@ -120,7 +115,6 @@
   </div>
 </div>
 
-<div class="modal-backdrop hidden" id="maskModal"><div class="model-modal mask-modal" role="dialog" aria-modal="true" aria-labelledby="maskTitle"><div class="modal-head"><div><h2 id="maskTitle">Zone à retoucher</h2><p>Peins la zone à modifier. Le reste de l’image sera conservé.</p></div><button id="closeMask" class="modal-close" aria-label="Fermer le masque">×</button></div><div class="mask-tools"><label>Taille du pinceau <input id="brushSize" type="range" min="2" max="120" value="35"></label><button id="undoMask">Annuler le trait</button><button id="clearMask">Effacer le masque</button></div><div class="mask-stage"><img id="maskSource" alt="Image à retoucher"><canvas id="maskCanvas" aria-label="Peindre la zone à retoucher"></canvas></div><p class="mask-help">Ferme cette fenêtre, puis choisis Retouche et décris la modification.</p></div></div>
 <div id="toast" role="status"></div>
 <script src="/assets/intent.js"></script>
 <script src="/assets/mask.js"></script>
