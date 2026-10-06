@@ -403,14 +403,38 @@ def _prepare_chat(body):
     return messages
 
 
+def _ensure_chat_components():
+    """Install the local text engine lazily; media generation does not depend on it."""
+    status = llm.status()
+    if status.get("engine") and status.get("model"):
+        return
+    from local_app import bootstrap_windows
+    previous_progress = bootstrap_windows.PROGRESS
+    try:
+        bootstrap_windows.PROGRESS = lambda message: STARTUP.update(message=message)
+        STARTUP.update(state="running", message="Préparation du chat local…", error=None, started_at=time.time())
+        if not status.get("engine"):
+            bootstrap_windows.ensure_llama()
+        if not status.get("model"):
+            bootstrap_windows.ensure_model()
+        STARTUP.update(state="ready", message="Chat local prêt.", error=None, started_at=None)
+    except Exception as exc:
+        STARTUP.update(state="error", message="Installation du chat à reprendre", error=str(exc), started_at=None)
+        raise
+    finally:
+        bootstrap_windows.PROGRESS = previous_progress
+
+
 def run_chat(body):
     with _engine_lock:
+        _ensure_chat_components()
         messages = _prepare_chat(body)
         return llm.chat(messages, body.get("settings") or {})
 
 
 def run_chat_stream(body):
     with _engine_lock:
+        _ensure_chat_components()
         messages = _prepare_chat(body)
         yield from llm.chat_stream(messages, body.get("settings") or {})
 
@@ -550,18 +574,23 @@ def run_generation(body):
         settings = body.get('settings') or {}
         source_prompt = (body.get('prompt') or '').strip()
         source_negative = body.get('negative')
-        try:
-            prompt_en = translate_visual_prompt_to_english(source_prompt)
-            negative_en = translate_visual_prompt_to_english(source_negative) if isinstance(source_negative, str) and source_negative.strip() else source_negative
-        finally:
-            llm.stop_server()
+        if settings.get('prompt_translation'):
+            _ensure_chat_components()
+            try:
+                prepared_prompt = translate_visual_prompt_to_english(source_prompt)
+                prepared_negative = translate_visual_prompt_to_english(source_negative) if isinstance(source_negative, str) and source_negative.strip() else source_negative
+            finally:
+                llm.stop_server()
+        else:
+            prepared_prompt = source_prompt
+            prepared_negative = source_negative
         if settings.get('exact_prompt'):
-            prompt = prompt_en
-            negative = negative_en
+            prompt = prepared_prompt
+            negative = prepared_negative
             effective_style = None
         else:
             prompt, negative, effective_style = prepare_visual_request(
-                prompt_en, settings.get('style'), negative_en, settings.get('reserved_profile'), settings.get('technical_quality', True))
+                prepared_prompt, settings.get('style'), prepared_negative, settings.get('reserved_profile'), settings.get('technical_quality', True))
         count = max(1, min(int(settings.get('count') or 1), 4))
         base_seed = settings.get('seed')
         prepared = []
@@ -813,13 +842,9 @@ def _setup_worker(component):
             # an already installed image engine from working (or vice versa).
             errors = []
             for label, action in (("ComfyUI", bootstrap_windows.ensure_comfy),
-                                  ("llama.cpp", bootstrap_windows.ensure_llama),
-                                  ("Qwen3", bootstrap_windows.ensure_model),
                                   ("RealVisXL image", lambda: bootstrap_windows.ensure_media('image'))):
                 STARTUP['message'] = "Installation / vérification : " + label
                 try:
-                    if label == "llama.cpp":
-                        llm.stop_server()
                     action()
                     if label == "ComfyUI" and not ensure_comfyui():
                         raise RuntimeError("ComfyUI ne démarre pas ; consulte logs/comfy.log.")
@@ -837,7 +862,7 @@ def _setup_worker(component):
                 else "vidéo (Wan 2.1)")
             bootstrap_windows.ensure_media(component)
             _comfy_info_cache['time'] = 0
-        STARTUP.update(state="ready", message="Composants prêts. Le chat démarre à la première demande.", error=None, started_at=None)
+        STARTUP.update(state="ready", message="Moteur média prêt. Le chat local sera préparé seulement à sa première utilisation.", error=None, started_at=None)
     except Exception as exc:
         STARTUP.update(state="error", message="Installation à reprendre", error=str(exc), started_at=None)
         print("[LocalVisionAI]", exc, flush=True)
