@@ -1,0 +1,155 @@
+{
+  "1": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "clip_name2": "byt5_small_glyphxl_fp16.safetensors",
+      "type": "hunyuan_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "HunyuanImage 2.1 Text Encoders"
+    }
+  },
+  "2": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "HunyuanImage 2.1 Distilled FP8"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "hunyuan_image_2.1_vae_fp16.safetensors"
+    },
+    "_meta": {
+      "title": "HunyuanImage 2.1 VAE"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "A detailed photographic scene with natural lighting.",
+      "clip": [
+        "1",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "5": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": [
+        "4",
+        0
+      ],
+      "guidance": 3.25
+    },
+    "_meta": {
+      "title": "Distilled Guidance 3.25"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": [
+        "1",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "7": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "shift": 4
+    },
+    "_meta": {
+      "title": "HunyuanImage Shift 4"
+    }
+  },
+  "8": {
+    "class_type": "EmptyHunyuanImageLatent",
+    "inputs": {
+      "width": 1536,
+      "height": 1536,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Balanced Image Size"
+    }
+  },
+  "9": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "7",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "8",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "8-Step Distilled Sampler"
+    }
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode Image"
+    }
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "image/LocalVisionAI_HunyuanImage21",
+      "images": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

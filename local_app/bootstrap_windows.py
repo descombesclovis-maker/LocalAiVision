@@ -294,6 +294,16 @@ MEDIA_MODELS = {
         ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
          'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')
     ],
+    'isolated-image': [
+        ('diffusion_models', 'hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanImage_2.1_ComfyUI/resolve/main/split_files/diffusion_models/hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors'),
+        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanImage_2.1_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanImage_2.1_ComfyUI/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
+        ('vae', 'hunyuan_image_2.1_vae_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanImage_2.1_ComfyUI/resolve/main/split_files/vae/hunyuan_image_2.1_vae_fp16.safetensors')
+    ],
     'isolated-video': [
         ('diffusion_models', 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
          'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors'),
@@ -303,6 +313,18 @@ MEDIA_MODELS = {
          'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
         ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
          'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors')
+    ],
+    'isolated-video-i2v': [
+        ('diffusion_models', 'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors'),
+        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
+        ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors'),
+        ('clip_vision', 'sigclip_vision_patch14_384.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/clip_vision/sigclip_vision_patch14_384.safetensors')
     ],
 }
 

@@ -24,7 +24,7 @@ _setup_lock = threading.Lock()
 _comfy_proc = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.3.1"
+VERSION = "2.4.0"
 
 
 IGNORE_JSON = {"package.json", "tsconfig.json", "config.json"}
@@ -488,10 +488,22 @@ def _restart_owned_comfyui():
 
 def _media_component_for_workflow(current):
     values = ' '.join(str(v).lower() for n in current.values() for v in n.get('inputs', {}).values() if isinstance(v, str))
+    if 'hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors' in values:
+        return 'isolated-image'
+    if 'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors' in values:
+        return 'isolated-video-i2v'
     if 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors' in values:
         return 'isolated-video'
     profile = workflows.profile(current)
-    return 'image' if profile == 'sdxl' else 'video' if profile == 'wan' else 'isolated-video' if profile == 'hunyuan15' else None
+    if profile == 'sdxl':
+        return 'image'
+    if profile == 'wan':
+        return 'video'
+    if profile == 'hunyuanimage21':
+        return 'isolated-image'
+    if profile == 'hunyuan15-i2v-step':
+        return 'isolated-video-i2v'
+    return 'isolated-video' if profile == 'hunyuan15' else None
 
 
 def _preflight_with_media_repair(current):
@@ -511,7 +523,13 @@ def _preflight_with_media_repair(current):
         _wait_for_setup()
         _setup_lock.acquire()
     try:
-        labels = {'image':'RealVisXL (photo)','video':'Wan 2.1 1.3B (vidéo)','isolated-video':'HunyuanVideo 1.5 (espace isolé)'}
+        labels = {
+            'image':'RealVisXL (photo)',
+            'video':'Wan 2.1 1.3B (vidéo)',
+            'isolated-image':'HunyuanImage 2.1 distilled FP8 (espace isolé)',
+            'isolated-video':'HunyuanVideo 1.5 T2V (espace isolé)',
+            'isolated-video-i2v':'HunyuanVideo 1.5 I2V step-distilled (espace isolé)',
+        }
         label = labels.get(component, component)
         STARTUP.update(state='running', message='Préparation automatique : ' + label, error=None, started_at=time.time())
         bootstrap_windows.PROGRESS = lambda message: STARTUP.update(message=message)
@@ -685,7 +703,9 @@ class Handler(BaseHTTPRequestHandler):
                 media = {
                     'image': bootstrap_windows.media_status('image'),
                     'video': bootstrap_windows.media_status('video'),
-                    'isolated-video': bootstrap_windows.media_status('isolated-video')
+                    'isolated-image': bootstrap_windows.media_status('isolated-image'),
+                    'isolated-video': bootstrap_windows.media_status('isolated-video'),
+                    'isolated-video-i2v': bootstrap_windows.media_status('isolated-video-i2v')
                 }
             except Exception:
                 pass
@@ -749,7 +769,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
         if u.path == "/api/setup":
-            if body.get("component", "engines") not in ("engines", "image", "video", "isolated-video"):
+            if body.get("component", "engines") not in ("engines", "image", "video", "isolated-image", "isolated-video", "isolated-video-i2v"):
                 self.send_json({"error": "Composant inconnu"}, 400)
                 return
             started = start_setup(body.get("component", "engines"))
@@ -858,7 +878,9 @@ def _setup_worker(component):
         else:
             STARTUP['message'] = "Téléchargement des modèles " + (
                 "photo (RealVisXL)" if component == 'image'
-                else "vidéo isolée (HunyuanVideo 1.5)" if component == 'isolated-video'
+                else "photo isolée (HunyuanImage 2.1)" if component == 'isolated-image'
+                else "vidéo isolée T2V (HunyuanVideo 1.5)" if component == 'isolated-video'
+                else "vidéo isolée I2V (HunyuanVideo 1.5 step-distilled)" if component == 'isolated-video-i2v'
                 else "vidéo (Wan 2.1)")
             bootstrap_windows.ensure_media(component)
             _comfy_info_cache['time'] = 0

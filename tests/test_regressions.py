@@ -54,6 +54,26 @@ class Workflows(unittest.TestCase):
         })
         self.assertEqual(workflows.profile(api), 'hunyuan15')
 
+    def test_hunyuan_image_distilled_profile_and_defaults(self):
+        wf = json.loads((ROOT / 'Isolated HunyuanImage 2.1.json').read_text(encoding='utf-8'))
+        self.assertEqual(workflows.profile(wf), 'hunyuanimage21')
+        sampler = next(n for n in wf.values() if n['class_type'] == 'KSampler')
+        guidance = next(n for n in wf.values() if n['class_type'] == 'FluxGuidance')
+        sampling = next(n for n in wf.values() if n['class_type'] == 'ModelSamplingSD3')
+        self.assertEqual(sampler['inputs']['steps'], 8)
+        self.assertEqual(sampler['inputs']['cfg'], 1.0)
+        self.assertEqual(guidance['inputs']['guidance'], 3.25)
+        self.assertEqual(sampling['inputs']['shift'], 4)
+
+    def test_hunyuan_i2v_step_distilled_quality_presets(self):
+        wf = json.loads((ROOT / 'Isolated HunyuanVideo 1.5 I2V.json').read_text(encoding='utf-8'))
+        self.assertEqual(workflows.profile(wf), 'hunyuan15-i2v-step')
+        workflows.apply_inputs(wf, 'gentle camera motion', image_ref={'name': 'start.png'}, settings={'seed': 0, 'quality': 'quality'})
+        scheduler = next(n for n in wf.values() if n['class_type'] == 'BasicScheduler')
+        loader = next(n for n in wf.values() if n['class_type'] == 'LoadImage')
+        self.assertEqual(scheduler['inputs']['steps'], 12)
+        self.assertEqual(loader['inputs']['image'], 'start.png')
+
     def test_negative_prompt_can_be_empty(self):
         wf = {'1': {'class_type': 'CLIPTextEncode', 'inputs': {'text': 'old'}, '_meta': {'title': 'Negative Prompt'}}}
         workflows.apply_inputs(wf, prompt='x', negative='')
@@ -79,13 +99,19 @@ class PromptTranslation(unittest.TestCase):
 
 class MediaModels(unittest.TestCase):
     def test_only_minimal_media_components_remain(self):
-        self.assertEqual(set(boot.MEDIA_MODELS), {'image', 'video', 'isolated-video'})
+        self.assertEqual(set(boot.MEDIA_MODELS), {'image', 'video', 'isolated-image', 'isolated-video', 'isolated-video-i2v'})
         self.assertIn('RealVisXL_V5.0_fp16.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['image']])
         self.assertIn('wan2.1_t2v_1.3B_fp16.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['video']])
+        self.assertIn('hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors',
+                      [n for _f, n, _u in boot.MEDIA_MODELS['isolated-image']])
         self.assertIn('hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video']])
+        self.assertIn('hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
+                      [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video-i2v']])
+        self.assertIn('sigclip_vision_patch14_384.safetensors',
+                      [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video-i2v']])
 
     def test_media_status_reports_ready_file(self):
         with tempfile.TemporaryDirectory() as folder:
