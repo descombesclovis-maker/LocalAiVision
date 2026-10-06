@@ -156,6 +156,8 @@ def preflight(api, info):
 def profile(api):
     values = ' '.join(str(v).lower() for n in api.values() for k, v in n.get('inputs', {}).items() if isinstance(v, str) and k in ('ckpt_name','unet_name','model_name','vae_name','clip_name'))
     types = ' '.join(n['class_type'].lower() for n in api.values())
+    if 'hunyuanvideo1.5' in values or 'hunyuanvideo15' in types or 'hunyuan_video_15' in values:
+        return 'hunyuan15'
     if 'wanvace' in types or 'vace' in values:
         return 'vace'
     if 'animate' in values or 'wananimate' in types:
@@ -252,14 +254,14 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
                 node['inputs'][key] = seed
     # Defaults preserve each workflow. Known model profiles are used only when
     # the user explicitly requests a preset; advanced settings take precedence.
-    presets = {'schnell': (4, 4, 4), 'sdxl': (16, 25, 35), 'animagine': (18, 24, 28), 'flux': (16, 24, 32), 'wan': (12, 20, 30), 'vace': (12, 20, 28)}
+    presets = {'sdxl': (16, 25, 35), 'wan': (12, 20, 30), 'hunyuan15': (12, 20, 28)}
     quality = settings.get('quality', 'workflow')
     steps = settings.get('steps')
     if steps is None and quality in ('draft', 'balanced', 'quality') and kind in presets:
         steps = presets[kind][('draft', 'balanced', 'quality').index(quality)]
     if steps is not None and (int(steps) < 1 or int(steps) > 10000):
         raise ValueError('Le nombre d’étapes doit être compris entre 1 et 10000.')
-    video = kind in ('wan', 'vace', 'ltx')
+    video = kind in ('wan', 'hunyuan15')
     dims = {'1:1': (512,512), '16:9': (832,480), '9:16': (480,832), '4:3': (640,480), '3:4': (480,640)} if video else {'1:1': (1024,1024), '16:9': (1344,768), '9:16': (768,1344), '4:3': (1152,864), '3:4': (864,1152)}
     width, height = dims.get(settings.get('aspect'), (None, None))
     width, height = settings.get('width') or width, settings.get('height') or height
@@ -283,7 +285,7 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
         if not effective_fps:
             raise ValueError('Renseigne les FPS pour calculer le nombre d’images de la vidéo.')
         frames = max(1, round(float(duration) * float(effective_fps)))
-        stride = 4 if kind in ('wan', 'vace') else 8 if kind == 'ltx' else 1
+        stride = 4 if kind in ('wan', 'hunyuan15') else 1
         frames = max(1, round((frames - 1) / stride) * stride + 1)
     for node in api.values():
         inp = node['inputs']
