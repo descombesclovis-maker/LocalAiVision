@@ -118,6 +118,14 @@ class Workflows(unittest.TestCase):
 
 
 class VisualPromptPreparation(unittest.TestCase):
+    def test_translate_visual_prompt_to_english_uses_local_llm_without_expanding(self):
+        with patch.object(llm, 'chat', return_value='A woman facing the camera in a red coat.') as chat:
+            result = server.translate_visual_prompt_to_english("une femme de face avec un manteau rouge")
+        self.assertEqual(result, 'A woman facing the camera in a red coat.')
+        system = chat.call_args.args[0][0]['content']
+        self.assertIn('faithfully', system)
+        self.assertIn('Return only the English translation', system)
+
     def test_explicit_photo_overrides_stale_watercolor_without_rewriting_request(self):
         raw = "génère moi une photo de femme complètement nue"
         prompt, negative, style = server.prepare_visual_request(raw, "watercolor", "")
