@@ -5,15 +5,9 @@ let modalSelection={image:null,video:null},modalStep=1;
 let styleCatalog=[],graphicStyle=loadJSON('lva_graphic_style','none'),stylePreviews=loadJSON('lva_style_previews',{});
 let modelAliases=loadJSON('lva_model_aliases',{});
 let activeChatController=null,activeChatConversationId=null,activeChatStopRequested=false;
-const RESERVED_ANIME_WORKFLOW='Reserved Companion Anime.json';
-const MOTION_WORKFLOW='Video Motion VACE 1.3B.json';
-const NSFW_IMAGE_WORKFLOW="LAB Photo - Juggernaut XL v9.json";
-const NSFW_VIDEO_WORKFLOW="LAB Video - Wan 2.2 TI2V 5B.json";
-const NSFW_IMAGE_I2I_WORKFLOW='NSFW Image to Image.json';
-const NSFW_MOTION_WORKFLOW='NSFW Motion Video.json';
-let nsfwCreationMode=loadJSON('lva_nsfw_creation_mode','image');
-let nsfwImageMode=loadJSON('lva_nsfw_image_mode','text');
-let nsfwPromptMode=loadJSON('lva_nsfw_prompt_mode','exact');
+const STANDARD_IMAGE_WORKFLOW='text to image sdxl.json';
+const STANDARD_VIDEO_WORKFLOW='Video Wan texte.json';
+const ISOLATED_VIDEO_WORKFLOW='Isolated HunyuanVideo 1.5.json';
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
@@ -27,11 +21,9 @@ Adapte la longueur à la demande. Par défaut, écris comme dans une vraie conve
 Ne prétends pas avoir consulté Internet, un fichier ou une application si ce n’est pas réellement le cas.`;
 const kinds={image:['Image','▧'],retouch:['Retouche','✦'],video:['Vidéo','▣'],'video-heavy':['Vidéo lourd','▣'],motion:['Mouvement vidéo','↝']};
 const PROFILE_DEFAULTS={
- auto:{label:'Automatique',sub:'LocalVision choisit le moteur selon la demande'},
- 'companion-realistic':{label:'Companion Réaliste',sub:'Photo · RealVisXL V5 · vidéo Wan'},
- 'companion-anime':{label:'Companion Anime',sub:'Image Animagine XL · Texte → Vidéo Wan'},
- motion:{label:'Wan VACE 1.3B',sub:'Vidéo → Vidéo · transfert de mouvement'},
- nsfw:{label:'NSFW',sub:'Image personnage + vidéo mouvement + prompt'}
+ auto:{label:'Automatique',sub:'LocalVision choisit entre photo et vidéo'},
+ 'companion-realistic':{label:'Standard',sub:'Photo RealVisXL V5 · vidéo Wan 2.1'},
+ nsfw:{label:'Espace isolé',sub:'HunyuanVideo 1.5 · texte → vidéo'}
 };
 
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f}catch{return f}}
@@ -69,55 +61,31 @@ function createBlankConversation(profile='auto'){
 }
 function applyProfileSettings(c,profile){
  c.profile=profile||'auto';
- if(profile==='companion-realistic'){c.settings.image=bestWorkflowId('text to image sdxl.json');c.settings.video=bestWorkflowId('Video Wan texte.json');}
- else if(profile==='companion-anime'){c.settings.image=bestWorkflowId(RESERVED_ANIME_WORKFLOW);c.settings.video=bestWorkflowId('Reserved Companion Anime Video.json')||bestWorkflowId('Video Wan texte.json');}
- else if(profile==='motion'){c.settings.motion=bestWorkflowId(MOTION_WORKFLOW);}
- else if(profile==='nsfw'){c.settings.image=bestWorkflowId(NSFW_IMAGE_WORKFLOW);c.settings.video=null;c.settings.motion=bestWorkflowId(NSFW_MOTION_WORKFLOW);}
+ c.settings.motion=null;c.settings.retouch=null;
+ if(profile==='companion-realistic'){c.settings.image=bestWorkflowId(STANDARD_IMAGE_WORKFLOW);c.settings.video=bestWorkflowId(STANDARD_VIDEO_WORKFLOW);}
+ else if(profile==='nsfw'){c.settings.image=null;c.settings.video=bestWorkflowId(ISOLATED_VIDEO_WORKFLOW);}
 }
 async function createConversationForProfile(profile){
  if(profile==='nsfw'&&!$('#nsfwGate')?.checked){toast('Coche d’abord « Activer l’espace NSFW » dans le menu.');showSidebar();return null}
  const c=createBlankConversation(profile);$('#taskMode').value='auto';hideSidebar();
  if(profile==='companion-realistic'&&!lastHealth?.media?.image?.ready)toast('RealVisXL sera repris/téléchargé automatiquement à la première génération.');
- if(profile==='companion-anime'&&!lastHealth?.media?.anime?.ready){toast('Préparation d’Animagine XL…');installComponent('anime')}
- if(profile==='motion'&&!lastHealth?.media?.motion?.ready){toast('Préparation de Wan VACE 1.3B (~4,3 Go)…');installComponent('motion')}
- if(profile==='nsfw'&&!lastHealth?.media?.motion?.ready){toast('Préparation du moteur de mouvement…');installComponent('motion')}
+ if(profile==='nsfw'&&!lastHealth?.media?.['isolated-video']?.ready){toast('Préparation de HunyuanVideo 1.5…');installComponent('isolated-video')}
  syncModelSelectors();renderProfileLabels();return c;
 }
 function updateCreationModeGuide(){
- const c=activeConversationId?conversationFor(activeConversationId):null,isolated=c?.profile==='nsfw';
+ const conv=activeConversationId?conversationFor(activeConversationId):null,isolated=conv?.profile==='nsfw';
  document.body.classList.toggle('nsfw-active',!!isolated);
- const panel=$('#nsfwModePanel'),guide=$('#creationModeGuide'),prompt=$('#prompt'),motionOpt=$('#taskMode option[value="motion"]');
+ const panel=$('#nsfwModePanel'),guide=$('#creationModeGuide'),prompt=$('#prompt');
  if(panel)panel.classList.toggle('hidden',!isolated);
- if(guide){
-   if(isolated){
-     guide.innerHTML=nsfwCreationMode==='motion'
-       ?'<b>Espace isolé · Personnage en mouvement</b><span>Photo du personnage + vidéo des mouvements + prompt sont demandés dans le panneau ci-dessous.</span>'
-       :'<b>Espace isolé · Image</b><span>Choisis Texte → image ou Image → image dans le panneau ci-dessous.</span>';
-   }else{
-     guide.innerHTML='<b>Création standard</b><span>Vidéo : prompt seul = texte → vidéo · image + prompt = image → vidéo</span>';
-   }
- }
- if(prompt)prompt.placeholder=isolated?(nsfwCreationMode==='motion'?'Décris le rendu et le mouvement souhaités…':'Décris l’image souhaitée…'):'Écris ton message…';
- if(motionOpt){motionOpt.textContent=isolated?'Mouvement vidéo (géré automatiquement)':'Mouvement vidéo';motionOpt.disabled=!!isolated}
- const imgBtn=$('#attachBtn'),vidBtn=$('#videoAttachBtn');
- if(imgBtn)imgBtn.classList.toggle('hidden',!!isolated);
- if(vidBtn)vidBtn.classList.toggle('hidden',!!isolated);
+ if(guide)guide.innerHTML=isolated
+   ?'<b>Espace isolé · HunyuanVideo 1.5</b><span>Texte → vidéo · traduction anglaise automatique · prompt envoyé directement au modèle.</span>'
+   :'<b>Création standard</b><span>RealVisXL V5 pour les photos · Wan 2.1 pour les vidéos.</span>';
+ if(prompt)prompt.placeholder=isolated?'Décris la vidéo souhaitée…':'Écris ton message…';
  const isolatedLinks=$('#nsfwLibraryLinks');
  if(isolatedLinks)isolatedLinks.classList.toggle('hidden',!loadJSON('lva_nsfw_gate',false));
- const imageTab=$('#nsfwModeImage'),motionTab=$('#nsfwModeMotion');
- if(imageTab)imageTab.classList.toggle('active',nsfwCreationMode==='image');
- if(motionTab)motionTab.classList.toggle('active',nsfwCreationMode==='motion');
- $('#nsfwImageModePanel')?.classList.toggle('hidden',nsfwCreationMode!=='image');
- $('#nsfwMotionModePanel')?.classList.toggle('hidden',nsfwCreationMode!=='motion');
- if($('#nsfwImageMode'))$('#nsfwImageMode').value=nsfwImageMode;
- if($('#nsfwPromptMode'))$('#nsfwPromptMode').value=nsfwPromptMode;
- $('#nsfwImageReferenceRow')?.classList.toggle('hidden',nsfwImageMode!=='image');
- if($('#nsfwImageReferenceState'))$('#nsfwImageReferenceState').textContent=imageData?'Image prête':'Aucune image';
- if($('#nsfwCharacterState'))$('#nsfwCharacterState').textContent=imageData?'Photo prête':'Aucune photo';
- if($('#nsfwMotionState'))$('#nsfwMotionState').textContent=videoData?'Vidéo prête':'Aucune vidéo';
 }
 function renderProfileLabels(){
- const map={modelAuto:'auto',modelRealistic:'companion-realistic',modelAnime:'companion-anime',modelMotion:'motion',modelNsfw:'nsfw'};
+ const map={modelAuto:'auto',modelRealistic:'companion-realistic',modelNsfw:'nsfw'};
  const active=activeConversationId?conversations[activeConversationId]:null;for(const [id,key] of Object.entries(map)){const b=$('#'+id);if(!b)continue;const strong=b.querySelector('b'),small=b.querySelector('small');if(strong)strong.textContent=profileLabel(key);if(small)small.textContent=profileSub(key);b.classList.toggle('active',active?.profile===key)}
  updateCreationModeGuide();
 }
@@ -177,32 +145,31 @@ async function deleteLibraryItem(id){const item=library.find(x=>x._id===id);if(!
 function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
 
 async function sendMessage(){
- if($('#send').disabled)return;const text=$('#prompt').value.trim();if(!text)return;if(!activeConversationId)createBlankConversation();const c=conversationFor(activeConversationId);addMessage(activeConversationId,{role:'user',text});$('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();const mode=$('#taskMode').value;let task=mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode;const isolated=c.profile==='nsfw';
+ if($('#send').disabled)return;
+ const text=$('#prompt').value.trim();if(!text)return;
+ if(!activeConversationId)createBlankConversation();
+ const conv=conversationFor(activeConversationId);
+ addMessage(activeConversationId,{role:'user',text});
+ $('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();
+ const mode=$('#taskMode').value;
+ let task=mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode;
  let model=null;
- if(isolated){
-   if(nsfwCreationMode==='motion'){
-     if(!imageData||!videoData){addMessage(activeConversationId,{role:'assistant',text:'Il manque les éléments requis : choisis la photo du personnage et la vidéo des mouvements dans le panneau du mode « Personnage en mouvement ».'});updateCreationModeGuide();return}
-     task='motion';model=workflowById(bestWorkflowId(NSFW_MOTION_WORKFLOW));
-   }else{
-     task='image';
-     if(nsfwImageMode==='image'){
-       if(!imageData){addMessage(activeConversationId,{role:'assistant',text:'Le mode Image → image demande une image de référence. Choisis-la dans le panneau dédié.'});updateCreationModeGuide();return}
-       model=workflowById(bestWorkflowId(NSFW_IMAGE_I2I_WORKFLOW));
-     }else{
-       model=workflowById(bestWorkflowId(NSFW_IMAGE_WORKFLOW));
-     }
-   }
+ if(conv.profile==='nsfw'){
+   task='video';
+   model=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
  }else{
-   if(mode==='auto'&&!task&&(c.profile==='companion-realistic'||c.profile==='companion-anime'||!!c.settings?.image))task=implicitVisualGenerationRequest(text);
-   if(mode==='auto'&&task==='video'&&imageData&&videoData)task='motion';
-   if(mode==='auto'&&!task&&imageData&&videoData&&/\b(mouvement|motion|anime|animer|reprend|reprendre|copie|copier|utilise|utiliser)\b/i.test(text))task='motion';
+   if(mode==='auto'&&!task&&(conv.profile==='companion-realistic'||!!conv.settings?.image))task=implicitVisualGenerationRequest(text);
+   if(task==='image'&&conv.profile==='companion-realistic')model=workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
+   if(task==='video'&&conv.profile==='companion-realistic')model=workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW));
  }
- if(task){c.messages[c.messages.length-1].mediaRequest=true;save()}if(!task){await startChat(c,text);return}
- if(!model)model=selectedModelForConversation(c,task,text);
- if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche dans cette conversation.'});return}await startGeneration(task,model,text)
+ if(task){conv.messages[conv.messages.length-1].mediaRequest=true;save()}
+ if(!task){await startChat(conv,text);return}
+ if(!model)model=selectedModelForConversation(conv,task,text);
+ if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche.'});return}
+ await startGeneration(task,model,text)
 }
 function numberSetting(id){const e=$(id);if(!e)return null;const raw=e.value.trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null}
-function readGenerationSettings(task){const isVideo=task==='video'||task==='motion',c=activeConversationId?conversationFor(activeConversationId):null,isIsolated=c?.profile==='nsfw';return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),denoise:task==='retouch'?numberSetting('#settingDenoise'):null,keepSeed:$('#settingKeep').checked,style:isIsolated&&nsfwPromptMode==='exact'?'none':graphicStyle,technical_quality:isIsolated&&nsfwPromptMode==='exact'?false:$('#settingTechnicalQuality')?.checked!==false,reserved_profile:isIsolated?'nsfw':null,exact_prompt:isIsolated&&nsfwPromptMode==='exact'}}
+function readGenerationSettings(task){const isVideo=task==='video',conv=activeConversationId?conversationFor(activeConversationId):null,isIsolated=conv?.profile==='nsfw';return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),keepSeed:$('#settingKeep').checked,style:isIsolated?'none':graphicStyle,technical_quality:isIsolated?false:$('#settingTechnicalQuality')?.checked!==false,reserved_profile:null,exact_prompt:isIsolated}}
 function readChatSettings(){return {temperature:Math.min(2,Math.max(0,numberSetting('#settingTemperature')??0.7)),max_tokens:Math.min(8192,Math.max(128,numberSetting('#settingMaxTokens')??2048)),system:$('#settingSystem').value.trim()}}
 async function startChat(c,text){
  const id=activeConversationId,history=c.messages.filter(m=>m.text&&!m.loading&&!m.error).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text})),settings=readChatSettings(),messages=[];if(settings.system)messages.push({role:'system',content:settings.system});messages.push(...history);$('#send').disabled=true;dismissKeyboard();setChatAnswering(true);const loading={role:'assistant',loading:true,chatLoading:true,status:'LocalAiVision vous répond'};c.messages.push(loading);c.updatedAt=new Date().toISOString();save();const loadingEl=renderMessage(loading);scrollBottom();let live=null,liveEl=null,answer='';activeChatController=new AbortController();activeChatConversationId=id;activeChatStopRequested=false;
@@ -223,22 +190,28 @@ async function attachVideo(file){if(!file)return;const maxBytes=350*1024*1024;if
 function removeVideoAttachment(){videoData=null;$('#videoFile').value='';$('#videoAttachment').classList.add('hidden');styleWorkflowSummary();updateCreationModeGuide()}
 
 let pollingHealth=false,lastSetupState=null;
-async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{const comfyBefore=comfyReady,h=await api('/api/health');lastHealth=h;comfyReady=!!h.online;llmReady=!!h.llm?.online;const becameReady=h.online&&!comfyBefore;if(becameReady||(h.startup?.state==='ready'&&lastSetupState==='running')){const listing=await api('/api/workflows');workflows=listing.workflows;syncModelSelectors();if(styleCatalog.length)renderStyles()}lastSetupState=h.startup?.state;const elapsed=h.startup?.state==='running'&&h.startup?.started_at?Math.max(0,Math.floor(Date.now()/1000-h.startup.started_at)):0,elapsedText=elapsed>=60?' · '+Math.floor(elapsed/60)+' min '+String(elapsed%60).padStart(2,'0')+' s':elapsed>=5?' · '+elapsed+' s':'';const mediaText=h.online?' · photo '+(h.media?.image?.ready?'prête':'à préparer')+' · anime '+(h.media?.anime?.ready?'prêt':'à la demande')+' · vidéo '+(h.media?.video?.ready?'prête':'à préparer')+' · mouvement '+(h.media?.motion?.ready?'prêt':'à la demande'):'';const labText=h.model_lab?.state==='running'?' · labo: '+(h.model_lab.message||'téléchargement…'):h.model_lab?.state==='ready'?' · labo prêt':h.model_lab?.state==='error'?' · labo à reprendre':'';const text=h.startup?.state==='running'?(h.startup.message+elapsedText):h.startup?.state==='error'?'Installation à reprendre':h.online?('Moteurs connectés'+mediaText+labText+' · chat à la demande'):'Moteur image / vidéo arrêté';$('#statusText').textContent=text;$('.status').className='status '+(h.online||llmReady?'ok':'bad');$('#engineSummary').textContent=text;$('#engineDetail').textContent=h.startup?.error||'En Automatique, LocalVisionAI choisit le workflow selon ta demande. Les menus Paramètres permettent de le remplacer sans changer de conversation. RealVisXL, Animagine, Wan et VACE sont installés indépendamment.';$('#installImage').textContent=h.media?.image?.ready?'RealVisXL installé ✓':'Installer / reprendre RealVisXL';$('#installVideo').textContent=h.media?.video?.ready?'Wan vidéo installé ✓':'Installer Wan (texte → vidéo)';$('#installMotion').textContent=h.media?.motion?.ready?'Wan VACE 1.3B installé ✓':'Installer Wan VACE 1.3B (mouvement)';for(const id of ['#retrySetup','#installImage','#installVideo','#installMotion'])$(id).disabled=h.startup?.state==='running';document.querySelectorAll('.message[data-loading="1"] .generation-label').forEach(label=>{label.textContent=h.startup?.state==='running'?(h.startup.message+elapsedText):(label.dataset.defaultText||label.textContent)});if(h.startup?.state==='error')$('#enginePanel').open=true}catch(e){$('#engineSummary').textContent='Serveur local injoignable';$('#engineDetail').textContent=e.message}finally{pollingHealth=false}}
+async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
+ const comfyBefore=comfyReady,h=await api('/api/health');lastHealth=h;comfyReady=!!h.online;llmReady=!!h.llm?.online;
+ if(h.online&&!comfyBefore||(h.startup?.state==='ready'&&lastSetupState==='running')){const listing=await api('/api/workflows');workflows=listing.workflows;syncModelSelectors();if(styleCatalog.length)renderStyles()}
+ lastSetupState=h.startup?.state;
+ const mediaText=h.online?' · photo '+(h.media?.image?.ready?'prête':'à préparer')+' · vidéo '+(h.media?.video?.ready?'prête':'à préparer')+' · isolé '+(h.media?.['isolated-video']?.ready?'prêt':'à préparer'):'';
+ const text=h.startup?.state==='running'?(h.startup.message||'Préparation…'):h.startup?.state==='error'?'Installation à reprendre':h.online?('Moteurs connectés'+mediaText):'Moteur image / vidéo arrêté';
+ $('#statusText').textContent=text;$('.status').className='status '+(h.online||llmReady?'ok':'bad');$('#engineSummary').textContent=text;
+ $('#engineDetail').textContent=h.startup?.error||'Configuration minimale : RealVisXL V5 pour la photo, Wan 2.1 pour la vidéo, HunyuanVideo 1.5 dans l’espace isolé.';
+ $('#installImage').textContent=h.media?.image?.ready?'RealVisXL installé ✓':'Installer / reprendre RealVisXL';
+ $('#installVideo').textContent=h.media?.video?.ready?'Wan vidéo installé ✓':'Installer Wan 2.1';
+ $('#installMotion').textContent=h.media?.['isolated-video']?.ready?'HunyuanVideo 1.5 installé ✓':'Installer HunyuanVideo 1.5';
+ for(const id of ['#retrySetup','#installImage','#installVideo','#installMotion']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
+ if(h.startup?.state==='error')$('#enginePanel').open=true
+}catch(e){$('#engineSummary').textContent='Serveur local injoignable';$('#engineDetail').textContent=e.message}finally{pollingHealth=false}}
 async function installComponent(component){try{const d=await api('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({component})});toast(d.started?'Préparation lancée. Les téléchargements incomplets sont repris automatiquement.':'Une installation est déjà en cours.');await pollHealth()}catch(e){toast(e.message)}}
 async function refresh(){await pollHealth();try{const d=await api('/api/workflows');workflows=d.workflows;for(const c of Object.values(conversations)){normalizeConversation(c);if(c.profile&&c.profile!=='auto')applyProfileSettings(c,c.profile)}syncModelSelectors();styleCatalog=await api('/assets/styles.json');renderStyles()}catch(e){toast(e.message)}renderProfileLabels();renderConversationList($('#conversationSearch').value);renderLibraryCounts();if(!activeConversationId){const existing=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(existing)openConversation(existing.id);else createBlankConversation()}}
 
 function setup(){
- $('#nsfwModeImage').onclick=()=>{nsfwCreationMode='image';localStorage.setItem('lva_nsfw_creation_mode',JSON.stringify(nsfwCreationMode));updateCreationModeGuide()};
- $('#nsfwModeMotion').onclick=()=>{nsfwCreationMode='motion';localStorage.setItem('lva_nsfw_creation_mode',JSON.stringify(nsfwCreationMode));updateCreationModeGuide()};
- $('#nsfwImageMode').onchange=e=>{nsfwImageMode=e.target.value==='image'?'image':'text';localStorage.setItem('lva_nsfw_image_mode',JSON.stringify(nsfwImageMode));if(nsfwImageMode==='text'){imageData=null;$('#imageFile').value='';$('#attachment').classList.add('hidden')}updateCreationModeGuide()};
- $('#nsfwPromptMode').onchange=e=>{nsfwPromptMode=e.target.value==='profile'?'profile':'exact';localStorage.setItem('lva_nsfw_prompt_mode',JSON.stringify(nsfwPromptMode));updateCreationModeGuide()};
- $('#nsfwPickImageForImage').onclick=()=>$('#imageFile').click();
- $('#nsfwPickCharacterImage').onclick=()=>$('#imageFile').click();
- $('#nsfwPickMotionVideo').onclick=()=>$('#videoFile').click();
  $('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});$('#attachBtn').onclick=()=>$('#imageFile').click();$('#videoAttachBtn').onclick=()=>$('#videoFile').click();$('#settingsBtn').onclick=()=>{$('#generationSettings').classList.toggle('hidden');$('#settingsBtn').classList.toggle('active',!$('#generationSettings').classList.contains('hidden'))};$('#closeSettings').onclick=()=>{$('#generationSettings').classList.add('hidden');$('#settingsBtn').classList.remove('active')};$('#imageFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await attachImage(f);styleWorkflowSummary();updateCreationModeGuide()}catch(err){toast(err.message)}};$('#videoFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await attachVideo(f);updateCreationModeGuide()}catch(err){toast(err.message)}};$('#removeVideo').onclick=removeVideoAttachment;setupMaskEditor();
- $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');$('#retouchLibrary').onclick=()=>renderLibrary('retouch','Mes retouches générées','standard');$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos espace isolé','nsfw');$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
- $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelAnime').onclick=()=>createConversationForProfile('companion-anime');$('#modelMotion').onclick=()=>createConversationForProfile('motion');$('#modelNsfw').onclick=()=>createConversationForProfile('nsfw');const nsfwGate=$('#nsfwGate');nsfwGate.checked=loadJSON('lva_nsfw_gate',false);nsfwGate.onchange=()=>{localStorage.setItem('lva_nsfw_gate',JSON.stringify(!!nsfwGate.checked));if(!nsfwGate.checked&&activeConversationId&&conversationFor(activeConversationId).profile==='nsfw'){createBlankConversation('auto');toast('Espace NSFW désactivé.')}updateCreationModeGuide()};document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
- $('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installMotion').onclick=()=>installComponent('motion');$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
+ $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
+ $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=()=>createConversationForProfile('nsfw');const nsfwGate=$('#nsfwGate');nsfwGate.checked=loadJSON('lva_nsfw_gate',false);nsfwGate.onchange=()=>{localStorage.setItem('lva_nsfw_gate',JSON.stringify(!!nsfwGate.checked));if(!nsfwGate.checked&&activeConversationId&&conversationFor(activeConversationId).profile==='nsfw'){createBlankConversation('auto');toast('Espace NSFW désactivé.')}updateCreationModeGuide()};document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
+ $('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installMotion').onclick=()=>installComponent('isolated-video');$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
  const savedSettings=loadJSON('lva_settings_v1',{});if(!Object.hasOwn(savedSettings,'settingSystem')||savedSettings.settingSystem===LEGACY_CHAT_SYSTEM){savedSettings.settingSystem=DEFAULT_CHAT_SYSTEM;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))}if(!localStorage.getItem('lva_chat_tokens_v14')&&(!Object.hasOwn(savedSettings,'settingMaxTokens')||Number(savedSettings.settingMaxTokens)<=1024)){savedSettings.settingMaxTokens='2048';localStorage.setItem('lva_chat_tokens_v14','1')}
  document.querySelectorAll('[id^="setting"],#taskMode').forEach(el=>{if(!['INPUT','SELECT','TEXTAREA'].includes(el.tagName)||el.id.endsWith('Model')||el.id==='settingsBtn')return;if(Object.hasOwn(savedSettings,el.id)){if(el.type==='checkbox')el.checked=!!savedSettings[el.id];else el.value=savedSettings[el.id]}el.addEventListener('change',()=>{savedSettings[el.id]=el.type==='checkbox'?el.checked:el.value;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))})});
  // v2.1: remove the old reserved red theme and clear a stale style once so a
