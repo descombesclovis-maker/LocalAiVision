@@ -118,3 +118,9 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
 .lora-card label{font-size:10px;color:#777;display:grid;gap:3px}.lora-card input{width:100%;height:30px;border:1px solid #333;background:#151519;color:#eee;border-radius:7px;padding:0 6px}
 .lora-note,.lora-empty{font-size:11px;color:#666b73;line-height:1.4}.lora-empty{padding:10px}
 @media(max-width:700px){.lora-card{grid-template-columns:1fr}.lora-card label{max-width:120px}}
+
+.lora-section-title{font-size:10px;font-weight:700;letter-spacing:.08em;color:#62626c;margin:12px 0 7px}
+.lora-catalog.remote{max-height:380px}
+.lora-card.catalog-card{grid-template-columns:minmax(0,1fr) 1px auto}
+.lora-card.catalog-card.installed{opacity:.72}
+.lora-card button:disabled{cursor:default;opacity:.55}
