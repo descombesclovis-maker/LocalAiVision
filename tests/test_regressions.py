@@ -138,6 +138,28 @@ class MediaModels(unittest.TestCase):
             self.assertTrue(any('animagine-xl-4.0-opt.safetensors' in x for x in removed))
 
 
+class LoraLibrary(unittest.TestCase):
+    def test_lora_stack_inserts_loader_between_hunyuan_sources_and_consumers(self):
+        api = {
+            '1': {'class_type': 'DualCLIPLoader', 'inputs': {}},
+            '2': {'class_type': 'UNETLoader', 'inputs': {}},
+            '3': {'class_type': 'CLIPTextEncode', 'inputs': {'clip': ['1', 0], 'text': 'x'}},
+            '4': {'class_type': 'ModelSamplingSD3', 'inputs': {'model': ['2', 0], 'shift': 4}},
+        }
+        with patch.object(server, '_local_lora_metadata', return_value=[{'path': 'quality/test.safetensors'}]):
+            out = server._apply_lora_stack(copy.deepcopy(api), [{'path': 'quality/test.safetensors', 'strength': 0.8}])
+        loader = next(n for n in out.values() if n['class_type'] == 'LoraLoader')
+        loader_id = next(k for k, n in out.items() if n is loader)
+        self.assertEqual(out['3']['inputs']['clip'], [loader_id, 1])
+        self.assertEqual(out['4']['inputs']['model'], [loader_id, 0])
+        self.assertEqual(loader['inputs']['strength_model'], 0.8)
+
+    def test_lora_stack_rejects_unknown_local_file(self):
+        with patch.object(server, '_local_lora_metadata', return_value=[]):
+            with self.assertRaises(ValueError):
+                server._apply_lora_stack({'1': {'class_type': 'UNETLoader', 'inputs': {}}}, [{'path': 'missing.safetensors'}])
+
+
 class ServerHTTP(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

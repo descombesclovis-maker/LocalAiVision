@@ -1,5 +1,6 @@
 const $=s=>document.querySelector(s);
-let comfyReady=false,llmReady=false,workflows=[],activeConversationId=null,imageData=null,videoData=null,lastHealth=null;
+let comfyReady=false,llmReady=false,workflows=[],activeConversationId=null,imageData=null,imageName=null,videoData=null,lastHealth=null;
+let loraCatalog=[],selectedLoras=loadJSON('lva_selected_loras',[]);
 let conversations=loadJSON('lva_conversations_v2',{}),library=loadJSON('lva_library',[]);
 let modalSelection={image:null,video:null},modalStep=1;
 let styleCatalog=[],graphicStyle=loadJSON('lva_graphic_style','none'),stylePreviews=loadJSON('lva_style_previews',{});
@@ -7,7 +8,11 @@ let modelAliases=loadJSON('lva_model_aliases',{});
 let activeChatController=null,activeChatConversationId=null,activeChatStopRequested=false;
 const STANDARD_IMAGE_WORKFLOW='text to image sdxl.json';
 const STANDARD_VIDEO_WORKFLOW='Video Wan texte.json';
+const ISOLATED_IMAGE_WORKFLOW='Isolated HunyuanImage 2.1.json';
 const ISOLATED_VIDEO_WORKFLOW='Isolated HunyuanVideo 1.5.json';
+const ISOLATED_I2V_WORKFLOW='Isolated HunyuanVideo 1.5 I2V.json';
+let isolatedTaskMode=loadJSON('lva_isolated_task_mode','image');
+let isolatedVideoMode=loadJSON('lva_isolated_video_mode','t2v');
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
@@ -23,7 +28,7 @@ const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo
 const PROFILE_DEFAULTS={
  auto:{label:'Automatique',sub:'LocalVision choisit entre photo et vidéo'},
  'companion-realistic':{label:'Standard',sub:'Photo RealVisXL V5 · vidéo Wan 2.1'},
- nsfw:{label:'Espace isolé',sub:'HunyuanVideo 1.5 · texte → vidéo'}
+ nsfw:{label:'Espace isolé',sub:'HunyuanImage 2.1 · HunyuanVideo 1.5'}
 };
 
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f}catch{return f}}
@@ -62,13 +67,13 @@ function createBlankConversation(profile='auto'){
 function applyProfileSettings(c,profile){
  c.profile=profile||'auto';
  if(profile==='companion-realistic'){c.settings.image=bestWorkflowId(STANDARD_IMAGE_WORKFLOW);c.settings.video=bestWorkflowId(STANDARD_VIDEO_WORKFLOW);}
- else if(profile==='nsfw'){c.settings.image=null;c.settings.video=bestWorkflowId(ISOLATED_VIDEO_WORKFLOW);}
+ else if(profile==='nsfw'){c.settings.image=bestWorkflowId(ISOLATED_IMAGE_WORKFLOW);c.settings.video=bestWorkflowId(ISOLATED_VIDEO_WORKFLOW);}
 }
 async function createConversationForProfile(profile){
  if(profile==='nsfw'&&!$('#nsfwGate')?.checked){toast('Coche d’abord « Activer l’espace NSFW » dans le menu.');showSidebar();return null}
  const c=createBlankConversation(profile);$('#taskMode').value='auto';hideSidebar();
  if(profile==='companion-realistic'&&!lastHealth?.media?.image?.ready)toast('RealVisXL sera repris/téléchargé automatiquement à la première génération.');
- if(profile==='nsfw'&&!lastHealth?.media?.['isolated-video']?.ready){toast('Préparation de HunyuanVideo 1.5…');installComponent('isolated-video')}
+ if(profile==='nsfw'&&!lastHealth?.media?.['isolated-image']?.ready){toast('Préparation de HunyuanImage 2.1…');installComponent('isolated-image')}
  syncModelSelectors();renderProfileLabels();return c;
 }
 function updateCreationModeGuide(){
@@ -77,16 +82,60 @@ function updateCreationModeGuide(){
  const panel=$('#nsfwModePanel'),guide=$('#creationModeGuide'),prompt=$('#prompt');
  if(panel)panel.classList.toggle('hidden',!isolated);
  if(guide)guide.innerHTML=isolated
-   ?'<b>Espace isolé · HunyuanVideo 1.5</b><span>Texte → vidéo · traduction anglaise automatique · prompt envoyé directement au modèle.</span>'
+   ?'<b>Espace isolé · Hunyuan</b><span>HunyuanImage 2.1 · HunyuanVideo 1.5 T2V/I2V · prompt direct par défaut.</span>'
    :'<b>Création standard</b><span>RealVisXL V5 pour les photos · Wan 2.1 pour les vidéos.</span>';
- if(prompt)prompt.placeholder=isolated?'Décris la vidéo souhaitée…':'Écris ton message…';
+ if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris la photo souhaitée…':'Décris le mouvement ou la vidéo souhaitée…'):'Écris ton message…';
  const isolatedLinks=$('#nsfwLibraryLinks');
  if(isolatedLinks)isolatedLinks.classList.toggle('hidden',!loadJSON('lva_nsfw_gate',false));
 }
 function renderProfileLabels(){
  const map={modelAuto:'auto',modelRealistic:'companion-realistic',modelNsfw:'nsfw'};
  const active=activeConversationId?conversations[activeConversationId]:null;for(const [id,key] of Object.entries(map)){const b=$('#'+id);if(!b)continue;const strong=b.querySelector('b'),small=b.querySelector('small');if(strong)strong.textContent=profileLabel(key);if(small)small.textContent=profileSub(key);b.classList.toggle('active',active?.profile===key)}
- updateCreationModeGuide();
+ updateCreationModeGuide();renderIsolatedMode();
+}
+function renderIsolatedMode(){
+ const isolated=activeConversationId&&conversationFor(activeConversationId).profile==='nsfw';if(!isolated)return;
+ $('#isolatedModeImage')?.classList.toggle('active',isolatedTaskMode==='image');
+ $('#isolatedModeVideo')?.classList.toggle('active',isolatedTaskMode==='video');
+ $('#isolatedPhotoInfo')?.classList.toggle('hidden',isolatedTaskMode!=='image');
+ $('#isolatedVideoControls')?.classList.toggle('hidden',isolatedTaskMode!=='video');
+ const source=$('#isolatedVideoSource');if(source)source.value=isolatedVideoMode;
+ const needImage=isolatedTaskMode==='video'&&isolatedVideoMode==='i2v';
+ $('#isolatedImageAttachment')?.classList.toggle('hidden',!needImage);
+ if($('#referenceImageName'))$('#referenceImageName').textContent=imageName||'Aucune image jointe';
+ $('#clearReferenceImage')?.classList.toggle('hidden',!imageData);
+ $('#loraPanel')?.classList.toggle('hidden',!isolated);
+}
+function chooseIsolatedTask(mode){
+ isolatedTaskMode=mode==='video'?'video':'image';localStorage.setItem('lva_isolated_task_mode',JSON.stringify(isolatedTaskMode));renderProfileLabels();
+ const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'isolated-video-i2v':'isolated-video');
+ if(!lastHealth?.media?.[component]?.ready)installComponent(component);
+}
+function chooseIsolatedVideoMode(mode){
+ isolatedVideoMode=mode==='i2v'?'i2v':'t2v';localStorage.setItem('lva_isolated_video_mode',JSON.stringify(isolatedVideoMode));renderProfileLabels();
+ const component=isolatedVideoMode==='i2v'?'isolated-video-i2v':'isolated-video';if(!lastHealth?.media?.[component]?.ready)installComponent(component);
+}
+function clearReferenceImage(){imageData=null;imageName=null;const input=$('#referenceImageInput');if(input)input.value='';renderIsolatedMode()}
+function loadReferenceImage(file){
+ if(!file)return;if(!file.type?.startsWith('image/')){toast('Choisis un fichier image.');return}
+ const reader=new FileReader();reader.onload=()=>{imageData=String(reader.result||'');imageName=file.name;renderIsolatedMode();toast('Image de départ ajoutée.')};reader.onerror=()=>toast('Impossible de lire cette image.');reader.readAsDataURL(file);
+}
+function loraCompatibilityText(x){const base=String(x.base_model||x.compatibility||'').trim();return base||'Compatibilité non déclarée'}
+function renderLoraCatalog(filter=''){
+ const box=$('#loraCatalog');if(!box)return;const q=String(filter||'').toLowerCase().trim();box.innerHTML='';
+ const rows=loraCatalog.filter(x=>!q||[x.name,x.filename,x.base_model,(x.trained_words||[]).join(' ')].join(' ').toLowerCase().includes(q));
+ if(!rows.length){box.innerHTML='<div class="lora-empty">Aucun LoRA local détecté. Ajoute un .safetensors dans ComfyUI/models/loras puis actualise.</div>';return}
+ for(const x of rows){
+  const id=x.path||x.filename,selected=selectedLoras.find(v=>v.path===id),card=document.createElement('div');card.className='lora-card'+(selected?' selected':'');
+  const words=(x.trained_words||[]).join(', '),size=x.size?((x.size/1024/1024).toFixed(0)+' Mo'):'';
+  card.innerHTML='<div class="lora-main"><b>'+esc(x.name||x.filename)+'</b><small>'+esc(loraCompatibilityText(x))+(size?' · '+size:'')+'</small>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><label>Force <input type="number" min="-2" max="2" step="0.05" value="'+esc(selected?.strength??1)+'"></label><button type="button">'+(selected?'Retirer':'Activer')+'</button>';
+  const strength=card.querySelector('input'),button=card.querySelector('button');
+  strength.onchange=()=>{const found=selectedLoras.find(v=>v.path===id);if(found){found.strength=Number(strength.value)||1;localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras))}};
+  button.onclick=()=>{const at=selectedLoras.findIndex(v=>v.path===id);if(at>=0)selectedLoras.splice(at,1);else selectedLoras.push({path:id,strength:Number(strength.value)||1});localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras));renderLoraCatalog($('#loraSearch')?.value||'')};
+  box.appendChild(card);
+ }
+}
+async function refreshLoras(){try{const d=await api('/api/loras');loraCatalog=d.loras||[];renderLoraCatalog($('#loraSearch')?.value||'')}catch(e){if($('#loraCatalog'))$('#loraCatalog').innerHTML='<div class="lora-empty">'+esc(e.message)+'</div>'}
 }
 function renameProfile(key){const next=prompt('Nouveau nom du modèle',profileLabel(key));if(next===null)return;const clean=next.trim();if(clean)modelAliases['profile:'+key]=clean;else delete modelAliases['profile:'+key];localStorage.setItem('lva_model_aliases',JSON.stringify(modelAliases));renderProfileLabels()}
 
@@ -137,6 +186,7 @@ function renderLibraryCounts(){
  const p=standard.filter(x=>x.kind==='image').length,v=standard.filter(x=>x.kind==='video').length;
  if($('#photoCount'))$('#photoCount').textContent=p||'';
  if($('#videoCount'))$('#videoCount').textContent=v||'';
+ if($('#nsfwPhotoCount'))$('#nsfwPhotoCount').textContent=isolated.filter(x=>x.kind==='image').length||'';
  if($('#nsfwVideoCount'))$('#nsfwVideoCount').textContent=isolated.filter(x=>x.kind==='video').length||'';
 }
 function addLibrary(result,kind,promptText,profile='auto'){library.unshift({...result,_id:crypto.randomUUID(),kind,prompt:promptText,profile,createdAt:new Date().toISOString()});save();renderLibraryCounts()}
@@ -154,8 +204,12 @@ async function sendMessage(){
  let task=mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode;
  let model=null;
  if(conv.profile==='nsfw'){
-   task='video';
-   model=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
+   task=isolatedTaskMode;
+   if(task==='image')model=workflowById(bestWorkflowId(ISOLATED_IMAGE_WORKFLOW));
+   else if(isolatedVideoMode==='i2v'){
+     if(!imageData){addMessage(activeConversationId,{role:'assistant',text:'Ajoute une image de départ pour utiliser Image → Vidéo.'});return}
+     model=workflowById(bestWorkflowId(ISOLATED_I2V_WORKFLOW));
+   }else model=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
  }else{
    if(mode==='auto'&&!task&&(conv.profile==='companion-realistic'||!!conv.settings?.image))task=implicitVisualGenerationRequest(text);
    if(task==='image')model=workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
@@ -178,7 +232,7 @@ async function startChat(c,text){
 }
 async function startGeneration(task,model,promptText,previewStyle=null){
  const id=activeConversationId,c=conversationFor(id);c.messages.push({role:'assistant',loading:true,mediaType:task});c.updatedAt=new Date().toISOString();save();if(id===activeConversationId){renderMessage(c.messages[c.messages.length-1]);scrollBottom()}$('#send').disabled=true;
- try{const d=await api('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({workflow:model.id,prompt:promptText,negative:$('#settingNegative').value,image:null,image_name:null,video:null,video_name:null,mask:null,settings:readGenerationSettings(task)})});if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);addMessage(id,{role:'assistant',error:true,text:'Erreur de génération : '+e.message});toast(e.message)}finally{$('#send').disabled=false}
+ try{const useReference=model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW)&&!!imageData;const settings=readGenerationSettings(task);settings.loras=selectedLoras;const d=await api('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({workflow:model.id,prompt:promptText,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);addMessage(id,{role:'assistant',error:true,text:'Erreur de génération : '+e.message});toast(e.message)}finally{$('#send').disabled=false}
 }
 function outputFiles(h){const files=[];for(const o of Object.values(h.outputs||{}))for(const key of ['videos','gifs','images'])for(const file of o[key]||[]){if(file?.filename&&!files.some(x=>x.filename===file.filename&&x.subfolder===file.subfolder))files.push(file)}return files}
 async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Tu peux renvoyer ta demande.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed&&!files.length)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){addMessage(id,{role:'assistant',result:file});addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
@@ -190,24 +244,27 @@ async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
  const comfyBefore=comfyReady,h=await api('/api/health');lastHealth=h;comfyReady=!!h.online;llmReady=!!h.llm?.online;
  if(h.online&&!comfyBefore||(h.startup?.state==='ready'&&lastSetupState==='running')){const listing=await api('/api/workflows');workflows=listing.workflows;syncModelSelectors();if(styleCatalog.length)renderStyles()}
  lastSetupState=h.startup?.state;
- const mediaText=h.online?' · photo '+(h.media?.image?.ready?'prête':'à préparer')+' · vidéo '+(h.media?.video?.ready?'prête':'à préparer')+' · isolé '+(h.media?.['isolated-video']?.ready?'prêt':'à préparer'):'';
+ const isolatedReady=h.media?.['isolated-image']?.ready&&h.media?.['isolated-video']?.ready;
+ const mediaText=h.online?' · photo '+(h.media?.image?.ready?'prête':'à préparer')+' · vidéo '+(h.media?.video?.ready?'prête':'à préparer')+' · Hunyuan '+(isolatedReady?'prêt':'à préparer'):'';
  const text=h.startup?.state==='running'?(h.startup.message||'Préparation…'):h.startup?.state==='error'?'Installation à reprendre':h.online?('Moteurs connectés'+mediaText):'Moteur image / vidéo arrêté';
  $('#statusText').textContent=text;$('.status').className='status '+(h.online||llmReady?'ok':'bad');$('#engineSummary').textContent=text;
- $('#engineDetail').textContent=h.startup?.error||'Configuration minimale : RealVisXL V5 pour la photo, Wan 2.1 pour la vidéo, HunyuanVideo 1.5 dans l’espace isolé.';
+ $('#engineDetail').textContent=h.startup?.error||'Configuration : RealVisXL/Wan en standard ; HunyuanImage 2.1 et HunyuanVideo 1.5 T2V/I2V dans l’espace isolé.';
  $('#installImage').textContent=h.media?.image?.ready?'RealVisXL installé ✓':'Installer / reprendre RealVisXL';
  $('#installVideo').textContent=h.media?.video?.ready?'Wan vidéo installé ✓':'Installer Wan 2.1';
- $('#installMotion').textContent=h.media?.['isolated-video']?.ready?'HunyuanVideo 1.5 installé ✓':'Installer HunyuanVideo 1.5';
- for(const id of ['#retrySetup','#installImage','#installVideo','#installMotion']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
+ $('#installIsolatedImage').textContent=h.media?.['isolated-image']?.ready?'HunyuanImage 2.1 installé ✓':'Installer HunyuanImage 2.1';
+ $('#installMotion').textContent=h.media?.['isolated-video']?.ready?'HunyuanVideo T2V installé ✓':'Installer HunyuanVideo T2V';
+ $('#installI2V').textContent=h.media?.['isolated-video-i2v']?.ready?'HunyuanVideo I2V installé ✓':'Installer HunyuanVideo I2V';
+ for(const id of ['#retrySetup','#installImage','#installVideo','#installIsolatedImage','#installMotion','#installI2V']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
  if(h.startup?.state==='error')$('#enginePanel').open=true
 }catch(e){$('#engineSummary').textContent='Serveur local injoignable';$('#engineDetail').textContent=e.message}finally{pollingHealth=false}}
 async function installComponent(component){try{const d=await api('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({component})});toast(d.started?'Préparation lancée. Les téléchargements incomplets sont repris automatiquement.':'Une installation est déjà en cours.');await pollHealth()}catch(e){toast(e.message)}}
-async function refresh(){await pollHealth();try{const d=await api('/api/workflows');workflows=d.workflows;for(const c of Object.values(conversations)){normalizeConversation(c);if(c.profile&&c.profile!=='auto')applyProfileSettings(c,c.profile)}syncModelSelectors();styleCatalog=await api('/assets/styles.json');renderStyles()}catch(e){toast(e.message)}renderProfileLabels();renderConversationList($('#conversationSearch').value);renderLibraryCounts();if(!activeConversationId){const existing=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(existing)openConversation(existing.id);else createBlankConversation()}}
+async function refresh(){await pollHealth();try{const d=await api('/api/workflows');workflows=d.workflows;for(const c of Object.values(conversations)){normalizeConversation(c);if(c.profile&&c.profile!=='auto')applyProfileSettings(c,c.profile)}syncModelSelectors();styleCatalog=await api('/assets/styles.json');renderStyles()}catch(e){toast(e.message)}await refreshLoras();renderProfileLabels();renderConversationList($('#conversationSearch').value);renderLibraryCounts();if(!activeConversationId){const existing=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(existing)openConversation(existing.id);else createBlankConversation()}}
 
 function setup(){
  $('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});$('#settingsBtn').onclick=()=>{$('#generationSettings').classList.toggle('hidden');$('#settingsBtn').classList.toggle('active',!$('#generationSettings').classList.contains('hidden'))};$('#closeSettings').onclick=()=>{$('#generationSettings').classList.add('hidden');$('#settingsBtn').classList.remove('active')};
- $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
+ $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos espace isolé','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
  $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=()=>createConversationForProfile('nsfw');const nsfwGate=$('#nsfwGate');nsfwGate.checked=loadJSON('lva_nsfw_gate',false);nsfwGate.onchange=()=>{localStorage.setItem('lva_nsfw_gate',JSON.stringify(!!nsfwGate.checked));if(!nsfwGate.checked&&activeConversationId&&conversationFor(activeConversationId).profile==='nsfw'){createBlankConversation('auto');toast('Espace NSFW désactivé.')}updateCreationModeGuide()};document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
- $('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installMotion').onclick=()=>installComponent('isolated-video');$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
+ $('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installIsolatedImage').onclick=()=>installComponent('isolated-image');$('#installMotion').onclick=()=>installComponent('isolated-video');$('#installI2V').onclick=()=>installComponent('isolated-video-i2v');$('#isolatedModeImage').onclick=()=>chooseIsolatedTask('image');$('#isolatedModeVideo').onclick=()=>chooseIsolatedTask('video');$('#isolatedVideoSource').onchange=e=>chooseIsolatedVideoMode(e.target.value);$('#attachReferenceImageBtn').onclick=()=>$('#referenceImageInput').click();$('#referenceImageInput').onchange=e=>loadReferenceImage(e.target.files?.[0]);$('#clearReferenceImage').onclick=clearReferenceImage;$('#refreshLoras').onclick=refreshLoras;$('#loraSearch').oninput=e=>renderLoraCatalog(e.target.value);$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
  const savedSettings=loadJSON('lva_settings_v1',{});if(!Object.hasOwn(savedSettings,'settingSystem')||savedSettings.settingSystem===LEGACY_CHAT_SYSTEM){savedSettings.settingSystem=DEFAULT_CHAT_SYSTEM;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))}if(!localStorage.getItem('lva_chat_tokens_v14')&&(!Object.hasOwn(savedSettings,'settingMaxTokens')||Number(savedSettings.settingMaxTokens)<=1024)){savedSettings.settingMaxTokens='2048';localStorage.setItem('lva_chat_tokens_v14','1')}
  document.querySelectorAll('[id^="setting"],#taskMode').forEach(el=>{if(!['INPUT','SELECT','TEXTAREA'].includes(el.tagName)||el.id.endsWith('Model')||el.id==='settingsBtn')return;if(Object.hasOwn(savedSettings,el.id)){if(el.type==='checkbox')el.checked=!!savedSettings[el.id];else el.value=savedSettings[el.id]}el.addEventListener('change',()=>{savedSettings[el.id]=el.type==='checkbox'?el.checked:el.value;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))})});
  // v2.1: remove the old reserved red theme and clear a stale style once so a

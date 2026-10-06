@@ -154,7 +154,7 @@ def _candidate_comfy_roots():
             yield root
 
 def _managed_comfy_vram_args():
-    """Use ComfyUI low-VRAM mode automatically on the primary NVIDIA GPU up to 16 GB."""
+    """Use low-VRAM mode automatically only on genuinely constrained NVIDIA GPUs."""
     global _comfy_vram_args_cache
     if _comfy_vram_args_cache is not None:
         return list(_comfy_vram_args_cache)
@@ -177,7 +177,7 @@ def _managed_comfy_vram_args():
                 creationflags=creationflags,
             )
             totals = [int(line.strip()) for line in probe.stdout.splitlines() if line.strip().isdigit()]
-            if totals and totals[0] <= 16384:
+            if totals and totals[0] <= 12288:
                 args = ("--lowvram",)
         except (OSError, subprocess.SubprocessError, ValueError):
             pass
@@ -206,6 +206,109 @@ def _comfy_working_dir():
         if cmd and cwd:
             return Path(cwd)
     return None
+
+
+def _local_lora_metadata():
+    """Return metadata for LoRA files already present on this machine."""
+    cwd = _comfy_working_dir()
+    if cwd is None:
+        return []
+    root = cwd / 'models' / 'loras'
+    if not root.is_dir():
+        return []
+
+    catalog = {}
+    bjornulf = cwd / 'custom_nodes' / 'Bjornulf_custom_nodes' / 'civitai' / 'parsed_lora_hunyuan_video_loras.json'
+    if bjornulf.is_file():
+        try:
+            for item in json.loads(bjornulf.read_text(encoding='utf-8')):
+                name = str(item.get('name') or '').strip()
+                if name:
+                    catalog[name + '.safetensors'] = item
+        except Exception:
+            pass
+
+    result = []
+    for path in sorted(root.rglob('*.safetensors'), key=lambda p: str(p).lower()):
+        try:
+            rel = path.relative_to(root).as_posix()
+            meta = dict(catalog.get(path.name, {}))
+            sidecar = path.with_suffix('.json')
+            if sidecar.is_file():
+                try:
+                    local = json.loads(sidecar.read_text(encoding='utf-8'))
+                    if isinstance(local, dict):
+                        meta.update(local)
+                except Exception:
+                    pass
+            words = meta.get('trained_words') or meta.get('trigger_words') or []
+            if isinstance(words, str):
+                words = [x.strip() for x in words.split(',') if x.strip()]
+            result.append({
+                'name': meta.get('name') or path.stem,
+                'filename': path.name,
+                'path': rel,
+                'size': path.stat().st_size,
+                'base_model': meta.get('base_model') or meta.get('compatibility') or '',
+                'trained_words': words if isinstance(words, list) else [],
+                'source': meta.get('source') or ('Bjornulf/CivitAI' if path.name in catalog else 'local'),
+            })
+        except OSError:
+            continue
+    return result
+
+
+def _apply_lora_stack(api, selections):
+    """Insert standard ComfyUI LoraLoader nodes for explicitly selected local LoRAs."""
+    if not selections:
+        return api
+    available = {x['path'] for x in _local_lora_metadata()}
+    clean = []
+    for raw in selections[:8]:
+        if not isinstance(raw, dict):
+            continue
+        path = str(raw.get('path') or '').replace('\\', '/').strip('/')
+        if path not in available:
+            raise ValueError('LoRA local introuvable : ' + path)
+        strength = float(raw.get('strength', 1.0))
+        if not -2.0 <= strength <= 2.0:
+            raise ValueError('La force LoRA doit être comprise entre -2 et 2.')
+        clean.append((path, strength))
+    if not clean:
+        return api
+
+    model_source = next(((nid, 0) for nid, n in api.items() if n['class_type'] in ('UNETLoader', 'CheckpointLoaderSimple')), None)
+    clip_source = next(((nid, 0) for nid, n in api.items() if n['class_type'] in ('DualCLIPLoader', 'CLIPLoader')), None)
+    if model_source is None or clip_source is None:
+        raise ValueError('Ce workflow ne permet pas encore l’empilement automatique de LoRA.')
+
+    original_ids = list(api)
+    model_ref, clip_ref = [model_source[0], model_source[1]], [clip_source[0], clip_source[1]]
+    next_id = max([int(x) for x in api if str(x).isdigit()] or [0]) + 1
+    first_model_ref, first_clip_ref = list(model_ref), list(clip_ref)
+    for path, strength in clean:
+        nid = str(next_id); next_id += 1
+        api[nid] = {
+            'class_type': 'LoraLoader',
+            'inputs': {
+                'model': list(model_ref),
+                'clip': list(clip_ref),
+                'lora_name': path,
+                'strength_model': strength,
+                'strength_clip': strength,
+            },
+            '_meta': {'title': 'LocalVisionAI LoRA · ' + Path(path).stem},
+        }
+        model_ref, clip_ref = [nid, 0], [nid, 1]
+
+    for nid in original_ids:
+        node = api[nid]
+        for key, value in list(node.get('inputs', {}).items()):
+            if value == first_model_ref:
+                node['inputs'][key] = list(model_ref)
+            elif value == first_clip_ref:
+                node['inputs'][key] = list(clip_ref)
+    return api
 
 
 def store_comfy_input(name, data):
@@ -620,6 +723,7 @@ def run_generation(body):
             else:
                 run_settings['seed'] = int(base_seed) + (0 if settings.get('keepSeed') else index)
             current = apply_user_inputs(current, prompt, negative, image_ref, run_settings, mask_ref, video_ref)
+            current = _apply_lora_stack(current, run_settings.get('loras') or [])
             _preflight_with_media_repair(current)
             prepared.append(current)
         # Only the subprocess created by this application may be stopped.
@@ -726,6 +830,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/workflows":
             self.send_json({"workflows":scan_workflows()})
+            return
+        if u.path == "/api/loras":
+            self.send_json({"loras": _local_lora_metadata()})
             return
         if u.path == "/api/workflow":
             rel = parse_qs(u.query).get("id",[None])[0]
