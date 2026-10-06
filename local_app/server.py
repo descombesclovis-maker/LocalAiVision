@@ -22,8 +22,9 @@ _engine_lock = threading.RLock()
 _comfy_lock = threading.Lock()
 _setup_lock = threading.Lock()
 _comfy_proc = None
+_comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 
 
 IGNORE_JSON = {"package.json", "tsconfig.json", "config.json"}
@@ -152,16 +153,49 @@ def _candidate_comfy_roots():
             seen.add(key)
             yield root
 
+def _managed_comfy_vram_args():
+    """Use ComfyUI low-VRAM mode automatically on the primary NVIDIA GPU up to 16 GB."""
+    global _comfy_vram_args_cache
+    if _comfy_vram_args_cache is not None:
+        return list(_comfy_vram_args_cache)
+
+    mode = os.environ.get("LOCALVISION_COMFY_VRAM_MODE", "auto").strip().lower()
+    if mode in ("low", "lowvram"):
+        _comfy_vram_args_cache = ("--lowvram",)
+        return list(_comfy_vram_args_cache)
+    if mode in ("normal", "none", "off", "disabled"):
+        _comfy_vram_args_cache = ()
+        return []
+
+    args = ()
+    if mode in ("", "auto"):
+        try:
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            probe = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=3, check=False,
+                creationflags=creationflags,
+            )
+            totals = [int(line.strip()) for line in probe.stdout.splitlines() if line.strip().isdigit()]
+            if totals and totals[0] <= 16384:
+                args = ("--lowvram",)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
+    _comfy_vram_args_cache = args
+    return list(args)
+
+
 def _comfy_command(root):
     # Launch the Python child directly: no BAT wrapper, no frozen EXE recursion.
+    launch = ["--listen", HOST, "--port", "8188", "--disable-auto-launch"] + _managed_comfy_vram_args()
     for py, main in ((root / "python_embeded/python.exe", root / "ComfyUI/main.py"),
                      (root / "python_embeded/python.exe", root / "main.py"),
                      (root / ".venv/Scripts/python.exe", root / "main.py"),
                      (root / "venv/Scripts/python.exe", root / "main.py")):
         if py.exists() and main.exists():
-            return [str(py), str(main), "--listen", HOST, "--port", "8188", "--disable-auto-launch"], main.parent
+            return [str(py), str(main)] + launch, main.parent
     if not getattr(sys, "frozen", False) and (root / "main.py").exists():
-        return [sys.executable, str(root / "main.py"), "--listen", HOST, "--port", "8188", "--disable-auto-launch"], root
+        return [sys.executable, str(root / "main.py")] + launch, root
     return None, None
 
 
@@ -344,6 +378,18 @@ def apply_user_inputs(api, prompt="", negative=None, image_ref=None, settings=No
 def comfy_busy():
     state = comfy_get("/queue")
     return bool(state.get("queue_running") or state.get("queue_pending"))
+
+
+def _free_comfy_if_idle():
+    """Unload ComfyUI models only after every queued generation has finished."""
+    try:
+        state = comfy_get("/queue")
+        if state.get("queue_running") or state.get("queue_pending"):
+            return False
+        comfy_post("/free", {"unload_models": True, "free_memory": True})
+        return True
+    except Exception:
+        return False
 
 
 def _prepare_chat(body):
@@ -574,6 +620,10 @@ def history(prompt_id):
         queue = comfy_get('/queue')
         active = queue.get('queue_running', []) + queue.get('queue_pending', [])
         result['_missing'] = not any(len(item)>1 and item[1]==prompt_id for item in active)
+    else:
+        # Outputs remain on disk; unloading the finished models gives the chat
+        # or the next media engine the maximum available GPU memory.
+        _free_comfy_if_idle()
     return result
 
 class Handler(BaseHTTPRequestHandler):
