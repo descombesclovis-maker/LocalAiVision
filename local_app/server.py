@@ -371,6 +371,28 @@ def run_chat_stream(body):
         yield from llm.chat_stream(messages, body.get("settings") or {})
 
 
+def translate_visual_prompt_to_english(text):
+    raw = (text or '').strip()
+    if not raw:
+        return raw
+    translated = llm.chat([
+        {'role': 'system', 'content': (
+            'Translate the following image or video generation prompt faithfully into natural English. '
+            'Preserve all requested details, negations, numbers, viewpoint, framing, pose, clothing, '
+            'actions, adjectives and proper nouns. Do not add explanations or creative details. '
+            'Return only the English translation. If already English, return it unchanged.'
+        )},
+        {'role': 'user', 'content': raw}
+    ], {'temperature': 0.0, 'top_p': 0.1, 'max_tokens': 2048})
+    value = (translated or '').strip()
+    value = re.sub(r'^(?:translation|english|translated prompt)\\s*:\\s*', '', value, flags=re.I).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1].strip()
+    if not value:
+        raise RuntimeError("La traduction anglaise du prompt n'a renvoyé aucun texte.")
+    return value
+
+
 def _wait_for_setup(timeout=7200):
     deadline = time.monotonic() + timeout
     while _setup_lock.locked():
@@ -486,13 +508,20 @@ def run_generation(body):
             data = base64.b64decode(body['video'].split(',', 1)[-1], validate=True)
             video_ref = store_comfy_input(Path(body.get('video_name') or 'reference.mp4').name, data)
         settings = body.get('settings') or {}
+        source_prompt = (body.get('prompt') or '').strip()
+        source_negative = body.get('negative')
+        try:
+            prompt_en = translate_visual_prompt_to_english(source_prompt)
+            negative_en = translate_visual_prompt_to_english(source_negative) if isinstance(source_negative, str) and source_negative.strip() else source_negative
+        finally:
+            llm.stop_server()
         if settings.get('exact_prompt'):
-            prompt = (body.get('prompt') or '').strip()
-            negative = body.get('negative')
+            prompt = prompt_en
+            negative = negative_en
             effective_style = None
         else:
             prompt, negative, effective_style = prepare_visual_request(
-                body.get('prompt', ''), settings.get('style'), body.get('negative'), settings.get('reserved_profile'), settings.get('technical_quality', True))
+                prompt_en, settings.get('style'), negative_en, settings.get('reserved_profile'), settings.get('technical_quality', True))
         count = max(1, min(int(settings.get('count') or 1), 4))
         base_seed = settings.get('seed')
         prepared = []
