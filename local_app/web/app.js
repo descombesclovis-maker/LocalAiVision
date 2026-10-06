@@ -19,7 +19,7 @@ Pour les questions générales, utilise tes connaissances internes sans simuler 
 Adapte la longueur à la demande. Par défaut, écris comme dans une vraie conversation : phrases fluides, paragraphes courts, pas d’introduction scolaire ni de conclusion automatique. Utilise le Markdown naturellement : **mots importants en gras**, petites listes seulement quand elles aident, et quelques émojis bien choisis quand ils rendent la réponse plus vivante — jamais à chaque phrase.
 
 Ne prétends pas avoir consulté Internet, un fichier ou une application si ce n’est pas réellement le cas.`;
-const kinds={image:['Image','▧'],retouch:['Retouche','✦'],video:['Vidéo','▣'],'video-heavy':['Vidéo lourd','▣'],motion:['Mouvement vidéo','↝']};
+const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo','▣']};
 const PROFILE_DEFAULTS={
  auto:{label:'Automatique',sub:'LocalVision choisit entre photo et vidéo'},
  'companion-realistic':{label:'Standard',sub:'Photo RealVisXL V5 · vidéo Wan 2.1'},
@@ -52,8 +52,8 @@ function dismissKeyboard(){const p=$('#prompt');if(document.activeElement===p)p.
 function setChatAnswering(active){document.querySelector('.composer')?.classList.toggle('chat-answering',!!active)}
 async function stopActiveChat(){if(!activeChatController)return;activeChatStopRequested=true;try{fetch('/api/chat/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{})}catch{}activeChatController.abort()}
 
-function normalizeConversation(c){c.settings=c.settings||{};for(const k of ['image','video','motion','retouch'])if(!(k in c.settings))c.settings[k]=null;c.messages=Array.isArray(c.messages)?c.messages:[];return c}
-function conversationFor(id){if(!conversations[id])conversations[id]={id,title:'Nouvelle conversation',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),profile:'auto',settings:{image:null,video:null,motion:null,retouch:null},messages:[]};return normalizeConversation(conversations[id])}
+function normalizeConversation(c){c.settings=c.settings||{};for(const k of ['image','video'])if(!(k in c.settings))c.settings[k]=null;delete c.settings.motion;delete c.settings.retouch;c.messages=Array.isArray(c.messages)?c.messages:[];return c}
+function conversationFor(id){if(!conversations[id])conversations[id]={id,title:'Nouvelle conversation',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),profile:'auto',settings:{image:null,video:null},messages:[]};return normalizeConversation(conversations[id])}
 function titleForConversation(c){return c?.title||'Nouvelle conversation'}
 function createBlankConversation(profile='auto'){
  const c={id:crypto.randomUUID(),title:profile==='auto'?'Nouvelle conversation':profileLabel(profile),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),profile,settings:{image:null,video:null,motion:null,retouch:null},messages:[]};
@@ -61,7 +61,6 @@ function createBlankConversation(profile='auto'){
 }
 function applyProfileSettings(c,profile){
  c.profile=profile||'auto';
- c.settings.motion=null;c.settings.retouch=null;
  if(profile==='companion-realistic'){c.settings.image=bestWorkflowId(STANDARD_IMAGE_WORKFLOW);c.settings.video=bestWorkflowId(STANDARD_VIDEO_WORKFLOW);}
  else if(profile==='nsfw'){c.settings.image=null;c.settings.video=bestWorkflowId(ISOLATED_VIDEO_WORKFLOW);}
 }
@@ -94,7 +93,7 @@ function renameProfile(key){const next=prompt('Nouveau nom du modèle',profileLa
 function renderConversationList(filter=''){
  const box=$('#conversationsList');box.innerHTML='';const rows=Object.values(conversations).map(normalizeConversation).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).filter(c=>titleForConversation(c).toLowerCase().includes(filter.toLowerCase()));
  if(!rows.length){box.innerHTML='<div class="empty-conversations">Aucune conversation</div>';return}
- for(const c of rows){const row=document.createElement('div');row.className='conversation-row';const b=document.createElement('button');b.className='conversation-item'+(activeConversationId===c.id?' active':'');const n=['image','video','motion','retouch'].filter(k=>c.settings?.[k]).length;b.innerHTML='<span class="conversation-icon">◌</span><span class="conversation-main"><span class="conversation-title">'+esc(titleForConversation(c))+'</span><span class="conversation-meta">'+(c.profile&&c.profile!=='auto'?esc(profileLabel(c.profile)):n?`${n} modèle${n>1?'s':''} imposé${n>1?'s':''}`:'Sélection automatique')+'</span></span><i class="conversation-dot '+(n?'ready':'')+'"></i>';b.onclick=()=>openConversation(c.id);const controls=document.createElement('span');controls.className='conversation-controls';const rename=document.createElement('button');rename.className='tiny-action';rename.title='Renommer';rename.textContent='✎';rename.onclick=e=>{e.stopPropagation();renameConversation(c.id)};const del=document.createElement('button');del.className='tiny-action';del.title='Supprimer';del.textContent='×';del.onclick=e=>{e.stopPropagation();deleteConversation(c.id)};controls.append(rename,del);row.append(b,controls);box.appendChild(row)}
+ for(const c of rows){const row=document.createElement('div');row.className='conversation-row';const b=document.createElement('button');b.className='conversation-item'+(activeConversationId===c.id?' active':'');const n=['image','video'].filter(k=>c.settings?.[k]).length;b.innerHTML='<span class="conversation-icon">◌</span><span class="conversation-main"><span class="conversation-title">'+esc(titleForConversation(c))+'</span><span class="conversation-meta">'+(c.profile&&c.profile!=='auto'?esc(profileLabel(c.profile)):n?`${n} modèle${n>1?'s':''} imposé${n>1?'s':''}`:'Sélection automatique')+'</span></span><i class="conversation-dot '+(n?'ready':'')+'"></i>';b.onclick=()=>openConversation(c.id);const controls=document.createElement('span');controls.className='conversation-controls';const rename=document.createElement('button');rename.className='tiny-action';rename.title='Renommer';rename.textContent='✎';rename.onclick=e=>{e.stopPropagation();renameConversation(c.id)};const del=document.createElement('button');del.className='tiny-action';del.title='Supprimer';del.textContent='×';del.onclick=e=>{e.stopPropagation();deleteConversation(c.id)};controls.append(rename,del);row.append(b,controls);box.appendChild(row)}
 }
 function renameConversation(id){const c=conversationFor(id),next=prompt('Renommer la conversation',titleForConversation(c));if(next===null)return;const clean=next.trim();if(!clean)return;c.title=clean;c.updatedAt=new Date().toISOString();save();renderConversationList($('#conversationSearch').value)}
 function deleteConversation(id){const c=conversationFor(id);if(!confirm('Supprimer « '+titleForConversation(c)+' » ?'))return;delete conversations[id];if(activeConversationId===id){activeConversationId=null;const next=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(next)openConversation(next.id);else createBlankConversation()}save();renderConversationList($('#conversationSearch').value)}
@@ -104,7 +103,7 @@ function resultUrl(x){return '/api/view?filename='+encodeURIComponent(x.filename
 function renderMessage(m){
  const wrap=document.createElement('div');wrap.className='message '+(m.role==='user'?'user':'assistant');if(m.loading)wrap.dataset.loading='1';
  if(m.text||m.streaming){const b=document.createElement('div');b.className='bubble'+(m.streaming?' streaming':'');if(m.role==='assistant'&&!m.streaming)renderAssistantText(b,m.text);else b.textContent=m.text||'';wrap.appendChild(b)}
- if(m.loading){if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=(m.mediaType==='video'||m.mediaType==='motion')?'Génération de la vidéo…':m.mediaType==='retouch'?'Génération de la retouche…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
+ if(m.loading){if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=m.mediaType==='video'?'Génération de la vidéo…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
  if(m.result){const f=document.createElement('div');f.className='generation-frame';const src=resultUrl(m.result),video=/\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'');f.innerHTML=video?'<video class="result-media" controls src="'+src+'"></video>':'<img class="result-media" src="'+src+'">';wrap.appendChild(f)}
  $('#messages').appendChild(wrap);return wrap;
 }
@@ -113,7 +112,7 @@ function addMessage(id,m){const c=conversationFor(id);c.messages.push(m);c.updat
 function removeLoading(id){const c=conversationFor(id);c.messages=c.messages.filter(m=>!m.loading);c.updatedAt=new Date().toISOString();save();if(id===activeConversationId)$('#messages').querySelectorAll('.message[data-loading="1"]').forEach(x=>x.remove())}
 
 function modelsFor(task){return workflows.filter(w=>task==='image'?w.kind==='image':w.kind==='video'||w.kind==='video-heavy')}
-function resultKindForModel(model){return ['video','video-heavy','motion'].includes(model?.kind)?'video':'image'}
+function resultKindForModel(model){return ['video','video-heavy'].includes(model?.kind)?'video':'image'}
 function selectedModelForConversation(c,task,promptText=''){
  const style=styleCatalog.find(x=>x.id===graphicStyle);return chooseStyleWorkflow(task,workflows,c.settings?.[task],style,!!imageData,task==='image'?stylePreviews[graphicStyle]:null,promptText,!!videoData);
 }
@@ -159,8 +158,8 @@ async function sendMessage(){
    model=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
  }else{
    if(mode==='auto'&&!task&&(conv.profile==='companion-realistic'||!!conv.settings?.image))task=implicitVisualGenerationRequest(text);
-   if(task==='image'&&conv.profile==='companion-realistic')model=workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
-   if(task==='video'&&conv.profile==='companion-realistic')model=workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW));
+   if(task==='image')model=workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
+   if(task==='video')model=workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW));
  }
  if(task){conv.messages[conv.messages.length-1].mediaRequest=true;save()}
  if(!task){await startChat(conv,text);return}
