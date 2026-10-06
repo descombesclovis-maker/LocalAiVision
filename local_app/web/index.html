@@ -71,8 +71,11 @@
           <div id="loraPanel" class="lora-panel hidden">
             <div class="lora-head"><div><b>LoRA locaux</b><span>Bibliothèque détectée dans ComfyUI/models/loras</span></div><button id="refreshLoras" type="button">Actualiser</button></div>
             <input id="loraSearch" type="search" placeholder="Rechercher un LoRA, un déclencheur, un modèle de base…">
+            <div class="lora-section-title">INSTALLÉS SUR CET APPAREIL</div>
             <div id="loraCatalog" class="lora-catalog"></div>
-            <p class="lora-note">La compatibilité affichée vient des métadonnées disponibles. « Hunyuan Video » ne garantit pas automatiquement HunyuanVideo 1.5.</p>
+            <div class="lora-section-title">CATALOGUE BJORNULF · GÉNÉRAL</div>
+            <div id="loraRemoteCatalog" class="lora-catalog remote"></div>
+            <p class="lora-note">Le catalogue intégré contient uniquement une sélection générale : caméra, mouvement, styles, décors et personnages/créatures fictifs. Les entrées sont annoncées pour « Hunyuan Video » ; leur compatibilité avec HunyuanVideo 1.5 doit être testée au cas par cas.</p>
           </div>
           <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>
           <div id="composerReplyState" class="composer-reply-state" aria-live="polite">LocalAiVision vous répond</div>
