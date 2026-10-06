@@ -1,0 +1,427 @@
+[
+  {
+    "name": "Rem__Re_Zero__Hunyuan_Video_Character_Lora",
+    "lora_id": 1033325,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Rem__Re_Zero__Hunyuan_Video_Character_Lora_45263956.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1158953",
+    "trained_words": [
+      "kxsr"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Hunyuan_Video_Lora_-_Yor",
+    "lora_id": 1055994,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Hunyuan_Video_Lora_-_Yor_46607353.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1184914",
+    "trained_words": [
+      "dagger",
+      "black dress",
+      "gold accessories",
+      "yor forger"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Hunyuan_Video_Lora_-_AnimeShots",
+    "lora_id": 1064343,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Hunyuan_Video_Lora_-_AnimeShots_47127332.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1194497",
+    "trained_words": [
+      "anime"
+    ],
+    "category": "Style",
+    "description": "Cadrages et rendu inspirés de plans d’animation."
+  },
+  {
+    "name": "Walking_Animation_Hunyuan_Video",
+    "lora_id": 1032126,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Walking_Animation_Hunyuan_Video_45192417.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1157591",
+    "trained_words": [
+      "kxsr"
+    ],
+    "category": "Mouvement",
+    "description": "Spécialisation de mouvement pour les séquences de marche et la cadence corporelle."
+  },
+  {
+    "name": "Minrill_Style_Animation_-_Hunyuan_Video_LoRA",
+    "lora_id": 1120207,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Minrill_Style_Animation_-_Hunyuan_Video_LoRA_50431057.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1258988",
+    "trained_words": [
+      "minrill style animation"
+    ],
+    "category": "Style",
+    "description": "Rendu d’animation stylisé."
+  },
+  {
+    "name": "Zero_Suit_Samus_-_Metroid__Hunyuan_Video_",
+    "lora_id": 1104251,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Zero_Suit_Samus_-_Metroid__Hunyuan_Video__49549908.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1240480",
+    "trained_words": [
+      "s4mus woman",
+      "ponytail",
+      "zer0Suit"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Orbit_Cam_Character_Hunyuan_Video",
+    "lora_id": 1032826,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Orbit_Cam_Character_Hunyuan_Video_45235085.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1158379",
+    "trained_words": [
+      "kxsr"
+    ],
+    "category": "Caméra",
+    "description": "Mouvement de caméra orbital autour d’un sujet."
+  },
+  {
+    "name": "Himiko_Toga_-_Realistic___Animated__Hunyuan_Video_",
+    "lora_id": 1086330,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Himiko_Toga_-_Realistic___Animated__Hunyuan_Video__48509177.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1219916",
+    "trained_words": [
+      "T0gA_H!m1k0, anime style, blonde hair, bangs, twin buns, yellow eyes, wide grin, sharp teeth"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Megumin___hunyuan_video",
+    "lora_id": 1095939,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Megumin___hunyuan_video_49082567.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1231001",
+    "trained_words": [
+      "Megumin"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "This_Is_Fine__meme__-_Hunyuan_Video_Lora",
+    "lora_id": 1035870,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/This_Is_Fine__meme__-_Hunyuan_Video_Lora_45413866.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1161881",
+    "trained_words": [
+      "kxsr"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Hunyuan_Video_-_Alf_-_LoRA_-_1980s_television_Character",
+    "lora_id": 1051048,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Hunyuan_Video_-_Alf_-_LoRA_-_1980s_television_Character_46313206.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1179361",
+    "trained_words": [
+      "alfman"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "mika__blue_archive____hunyuan_video",
+    "lora_id": 1065138,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/mika__blue_archive____hunyuan_video_47171868.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1195431",
+    "trained_words": [
+      "mika"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Pixel_style_hunyuan_video_model",
+    "lora_id": 1144459,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Pixel_style_hunyuan_video_model_51822477.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1287140",
+    "trained_words": [
+      "Pixel anime pixel art drawing."
+    ],
+    "category": "Style",
+    "description": "Esthétique pixel-art / jeu rétro."
+  },
+  {
+    "name": "kitagawa_marin___hunyuan_video",
+    "lora_id": 1086275,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/kitagawa_marin___hunyuan_video_48501199.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1219847",
+    "trained_words": [
+      "kitagawa marin"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Ciri_-_The_Witcher_4__Hunyuan_Video_",
+    "lora_id": 1137571,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Ciri_-_The_Witcher_4__Hunyuan_Video__51409962.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1279184",
+    "trained_words": [
+      "ciri4 with long braid wearing an armor"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Monica_s_apartment_Hunyuan_Video_lora",
+    "lora_id": 1089122,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Monica_s_apartment_Hunyuan_Video_lora_48673748.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1223166",
+    "trained_words": [
+      "mosapar",
+      "a vibrant living room"
+    ],
+    "category": "Décor",
+    "description": "Décor intérieur récurrent pour maintenir une ambiance cohérente."
+  },
+  {
+    "name": "Super_Saiyan_Hunyuan_Video_Lora",
+    "lora_id": 1038512,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Super_Saiyan_Hunyuan_Video_Lora_45561703.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1164936",
+    "trained_words": [
+      "kxsr"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Plana__blue_archive__普拉娜_Hunyuan_Video____Chenkin",
+    "lora_id": 1088631,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Plana__blue_archive__普拉娜_Hunyuan_Video____Chenkin_48635739.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1222573",
+    "trained_words": [
+      "A girl wearing a dark sailor-style outfit with a white scarf and a choker, who has long white hair, red eyes, and a light pink halo."
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Avatar_Hunyuan_Video_LoRa",
+    "lora_id": 1075511,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Avatar_Hunyuan_Video_LoRa_47850501.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1207362",
+    "trained_words": [],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Katou_Megumi___hunyuan_video",
+    "lora_id": 1049399,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Katou_Megumi___hunyuan_video_46212991.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1177487",
+    "trained_words": [
+      "katou megumi"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "noa__blue_archive____hunyuan_video",
+    "lora_id": 1040525,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/noa__blue_archive____hunyuan_video_46631400.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1185463",
+    "trained_words": [
+      "noa \\(blue archive\\)"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Shadowheart_-_Baldur_s_Gate_3__Hunyuan_Video_",
+    "lora_id": 1104643,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Shadowheart_-_Baldur_s_Gate_3__Hunyuan_Video__49582678.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1240952",
+    "trained_words": [
+      "dark leather vest",
+      "hair in a long braid",
+      "shadowheart"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Hera_Syndulla___Hunyuan_Video_LORA",
+    "lora_id": 1139076,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Hera_Syndulla___Hunyuan_Video_LORA_51526974.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1280993",
+    "trained_words": [
+      "hera"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Buratino___Co__Hunyuan_Video_",
+    "lora_id": 1105109,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Buratino___Co__Hunyuan_Video__49648606.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1241506",
+    "trained_words": [
+      "Malvina",
+      "Bazilio",
+      "Buratino",
+      "Alisa"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "makise_kurisu___hunyuan_video",
+    "lora_id": 1121474,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/makise_kurisu___hunyuan_video_50513678.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1260457",
+    "trained_words": [
+      "makise kurisu"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Hunyuan_video_-_bogged_-_LoRA",
+    "lora_id": 1035770,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Hunyuan_video_-_bogged_-_LoRA_45628400.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1166218",
+    "trained_words": [],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Renamon_Digimon_hunyuan_video_lora",
+    "lora_id": 1097416,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Renamon_Digimon_hunyuan_video_lora_51801429.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1286872",
+    "trained_words": [
+      "renamon"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Blu__Hunyuan_Video_Lora_",
+    "lora_id": 1086057,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Blu__Hunyuan_Video_Lora__48570554.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1219604",
+    "trained_words": [],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Baby_Sinclair__Hunyuan_Video_",
+    "lora_id": 1073579,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Baby_Sinclair__Hunyuan_Video__47729448.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1205141",
+    "trained_words": [
+      "b4by_d1n0"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Meisho_doto__umamusume__for_Hunyuan_Video",
+    "lora_id": 1106102,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Meisho_doto__umamusume__for_Hunyuan_Video_50344604.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1242672",
+    "trained_words": [
+      "meisho doto (umamusume)"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Nekomiya_Mana_LoRA_for_Hunyuan_Video",
+    "lora_id": 1096010,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Nekomiya_Mana_LoRA_for_Hunyuan_Video_49092529.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1231089",
+    "trained_words": [
+      "nekomiya mana, 1girl,"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Natsu_Dragneel_hunyuan_video_Character_Lora_by_ComfyOnline",
+    "lora_id": 1085968,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Natsu_Dragneel_hunyuan_video_Character_Lora_by_ComfyOnline_48482826.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1219490",
+    "trained_words": [
+      "Natsu_dragneel"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Civitai_Logo__Hunyuan_Video_",
+    "lora_id": 1113899,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Civitai_Logo__Hunyuan_Video__50098973.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1251718",
+    "trained_words": [
+      "civitaiLogo"
+    ],
+    "category": "Graphisme",
+    "description": "LoRA graphique pour tests de logo et d’identité visuelle."
+  },
+  {
+    "name": "sonic_the_manhog_2019_lora_hunyuan_video",
+    "lora_id": 1074683,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/sonic_the_manhog_2019_lora_hunyuan_video_47788941.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1206408",
+    "trained_words": [
+      "sonicthemanhog2004"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Reverse_Mermaid_Hunyuan_Video_Lora",
+    "lora_id": 1035388,
+    "base_model": "Hunyuan Video",
+    "image_path": "loras/lora_hunyuan_video/Reverse_Mermaid_Hunyuan_Video_Lora_45377336.jpeg",
+    "download_url": "https://civitai.com/api/download/models/1161307",
+    "trained_words": [
+      "kxsr"
+    ],
+    "category": "Personnage / créature",
+    "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  }
+]
