@@ -282,66 +282,54 @@ if __name__ == "__main__":
 
 
 MEDIA_MODELS = {
-    'image': [('checkpoints', 'RealVisXL_V5.0_fp16.safetensors',
-               'https://huggingface.co/SG161222/RealVisXL_V5.0/resolve/main/RealVisXL_V5.0_fp16.safetensors?download=true')],
-    'anime': [('checkpoints', 'animagine-xl-4.0-opt.safetensors',
-               'https://huggingface.co/cagliostrolab/animagine-xl-4.0/resolve/main/animagine-xl-4.0-opt.safetensors?download=true')],
+    'image': [
+        ('checkpoints', 'RealVisXL_V5.0_fp16.safetensors',
+         'https://huggingface.co/SG161222/RealVisXL_V5.0/resolve/main/RealVisXL_V5.0_fp16.safetensors?download=true')
+    ],
     'video': [
-        ('diffusion_models', 'wan2.1_t2v_1.3B_fp16.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors'),
-        ('diffusion_models', 'wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors'),
-        ('vae', 'wan_2.1_vae.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors'),
-        ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors'),
-        ('clip_vision', 'clip_vision_h.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors')],
-    # VACE 1.3B is the practical motion-transfer lane for a 12 GB GPU. It reuses
-    # Wan's text encoder/VAE when those are already installed, so only the
-    # diffusion model is new on an existing Wan setup.
-    'motion': [
-        ('diffusion_models', 'wan2.1_vace_1.3B_fp16.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors'),
-        ('vae', 'wan_2.1_vae.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors'),
-        ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors', 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')],
-    # Independent candidates used by the model laboratory. They are deliberately
-    # separate from the normal RealVisXL / Animagine / Wan profiles so tests can
-    # never replace a known-working model.
-    'photo-juggernaut': [
-        ('checkpoints', 'Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors',
-         'https://huggingface.co/RunDiffusion/Juggernaut-XL-v9/resolve/main/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors')],
-    'photo-epicrealism': [
-        ('checkpoints', 'epicrealismXL_vx1Finalkiss.safetensors',
-         'https://huggingface.co/John6666/epicrealism-xl-v8kiss-sdxl/resolve/main/epicrealismXL_vx1Finalkiss.safetensors')],
-    'video-wan22': [
-        ('diffusion_models', 'wan2.2_ti2v_5B_fp16.safetensors',
-         'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors'),
-        ('vae', 'wan2.2_vae.safetensors',
-         'https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors'),
+        ('diffusion_models', 'wan2.1_t2v_1.3B_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors'),
+        ('vae', 'wan_2.1_vae.safetensors',
+         'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors'),
         ('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
-         'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')]
+         'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors')
+    ],
+    'isolated-video': [
+        ('diffusion_models', 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors'),
+        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
+        ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors')
+    ],
 }
 
 
-STARTUP_MODEL_LAB = ('photo-juggernaut', 'photo-epicrealism', 'video-wan22')
-
-
-def ensure_startup_model_lab(progress=None):
-    """Download the optional test pack without changing normal model profiles."""
-    global PROGRESS
-    previous = PROGRESS
-    if progress is not None:
-        PROGRESS = progress
-    try:
-        for component in STARTUP_MODEL_LAB:
-            ensure_media(component)
-    finally:
-        PROGRESS = previous
-    return True
-
-
-def startup_model_lab_status():
-    return {component: media_status(component) for component in STARTUP_MODEL_LAB}
+OBSOLETE_APP_MODELS = {
+    'checkpoints': {
+        'animagine-xl-4.0-opt.safetensors',
+        'Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors',
+        'epicrealismXL_vx1Finalkiss.safetensors',
+    },
+    'diffusion_models': {
+        'wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors',
+        'wan2.1_vace_1.3B_fp16.safetensors',
+        'wan2.2_ti2v_5B_fp16.safetensors',
+        'ltx-2.3-22b-dev-fp8.safetensors',
+        'flux1-schnell-fp8.safetensors',
+    },
+    'vae': {
+        'wan2.2_vae.safetensors',
+    },
+    'clip_vision': {
+        'clip_vision_h.safetensors',
+    },
+}
 
 
 def _media_model_dir(create_engine=False):
-    # Use the same discovery order as the server so downloads reach the engine
-    # that will actually run, including an existing local ComfyUI installation.
     from local_app import server
     root = next((r for r in server._candidate_comfy_roots() if server._comfy_command(r)[0]), None)
     if root is None and create_engine:
@@ -350,6 +338,27 @@ def _media_model_dir(create_engine=False):
     if root is None:
         return None
     return (root / 'ComfyUI/models') if (root / 'ComfyUI/main.py').exists() else root / 'models'
+
+
+def cleanup_obsolete_media():
+    """Remove only legacy model files installed by older LocalVisionAI builds."""
+    model_dir = _media_model_dir(False)
+    removed = []
+    if model_dir is None:
+        return removed
+    for folder, names in OBSOLETE_APP_MODELS.items():
+        for name in names:
+            path = model_dir / folder / name
+            try:
+                if path.is_file():
+                    path.unlink()
+                    removed.append(str(path))
+                part = path.with_suffix(path.suffix + '.part')
+                if part.is_file():
+                    part.unlink()
+            except OSError:
+                pass
+    return removed
 
 
 def media_status(component):
