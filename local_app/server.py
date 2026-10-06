@@ -24,7 +24,8 @@ _setup_lock = threading.Lock()
 _comfy_proc = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.4.0"
+VERSION = "2.4.1"
+LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 
 
 IGNORE_JSON = {"package.json", "tsconfig.json", "config.json"}
@@ -208,6 +209,66 @@ def _comfy_working_dir():
     return None
 
 
+def _general_lora_catalog():
+    try:
+        rows = json.loads(LORA_CATALOG.read_text(encoding='utf-8'))
+    except Exception:
+        return []
+    local = {x.get('filename') for x in _local_lora_metadata()} if '_local_lora_metadata' in globals() else set()
+    result = []
+    for item in rows if isinstance(rows, list) else []:
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        row['filename'] = str(row.get('name') or 'lora') + '.safetensors'
+        row['installed'] = row['filename'] in local
+        row['compatibility'] = 'Hunyuan Video · compatibilité HunyuanVideo 1.5 non garantie'
+        result.append(row)
+    return result
+
+
+def _install_general_lora(lora_id):
+    item = next((x for x in _general_lora_catalog() if str(x.get('lora_id')) == str(lora_id)), None)
+    if item is None:
+        raise ValueError('LoRA absent du catalogue général intégré.')
+    cwd = _comfy_working_dir()
+    if cwd is None:
+        raise RuntimeError('ComfyUI local introuvable.')
+    folder = cwd / 'models' / 'loras' / 'Bjornulf_civitAI' / 'hunyuan_video'
+    folder.mkdir(parents=True, exist_ok=True)
+    safe_name = re.sub(r'[^\w .()\-]+', '_', str(item.get('name') or 'lora'), flags=re.UNICODE).strip('. ') or 'lora'
+    target = folder / (safe_name + '.safetensors')
+    if not target.exists():
+        part = target.with_suffix(target.suffix + '.part')
+        req = Request(str(item['download_url']), headers={'User-Agent':'LocalVisionAI/2.4'})
+        try:
+            with urlopen(req, timeout=60) as response, part.open('wb') as out:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    out.write(chunk)
+            if part.stat().st_size < 1024:
+                raise RuntimeError('Téléchargement LoRA incomplet.')
+            part.replace(target)
+        except Exception:
+            try: part.unlink(missing_ok=True)
+            except Exception: pass
+            raise
+    sidecar = target.with_suffix('.json')
+    sidecar.write_text(json.dumps({
+        'name': item.get('name'),
+        'base_model': item.get('base_model'),
+        'compatibility': item.get('compatibility'),
+        'trained_words': item.get('trained_words') or [],
+        'category': item.get('category'),
+        'description': item.get('description'),
+        'source': 'Bjornulf/CivitAI',
+        'lora_id': item.get('lora_id'),
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
+    return {'ok': True, 'path': target.relative_to(cwd / 'models' / 'loras').as_posix()}
+
+
 def _local_lora_metadata():
     """Return metadata for LoRA files already present on this machine."""
     cwd = _comfy_working_dir()
@@ -252,6 +313,8 @@ def _local_lora_metadata():
                 'base_model': meta.get('base_model') or meta.get('compatibility') or '',
                 'trained_words': words if isinstance(words, list) else [],
                 'source': meta.get('source') or ('Bjornulf/CivitAI' if path.name in catalog else 'local'),
+                'category': meta.get('category') or '',
+                'description': meta.get('description') or '',
             })
         except OSError:
             continue
@@ -832,7 +895,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"workflows":scan_workflows()})
             return
         if u.path == "/api/loras":
-            self.send_json({"loras": _local_lora_metadata()})
+            self.send_json({"loras": _local_lora_metadata(), "catalog": _general_lora_catalog()})
             return
         if u.path == "/api/workflow":
             rel = parse_qs(u.query).get("id",[None])[0]
@@ -899,6 +962,12 @@ class Handler(BaseHTTPRequestHandler):
                 result=upload_image(Path(body.get("name","input.png")).name,base64.b64decode(b64))
                 self.send_json({"ok":True,"file":result})
             except Exception as e: self.send_json({"error":str(e)},502)
+            return
+        if u.path == "/api/loras/install":
+            try:
+                self.send_json(_install_general_lora(body.get('lora_id')))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
             return
         if u.path == "/api/delete-output":
             try:
