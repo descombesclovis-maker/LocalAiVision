@@ -25,6 +25,7 @@ py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name 
   --hidden-import local_app.workflows ^
   --hidden-import local_app.nsfw_profile ^
   --add-data "local_app\web;local_app\web" ^
+  --add-data "local_app\data;local_app\data" ^
   --add-data "local_app\bootstrap_windows.py;local_app" ^
   --add-data "local_app\server.py;local_app" ^
   --add-data "local_app\llm.py;local_app" ^
