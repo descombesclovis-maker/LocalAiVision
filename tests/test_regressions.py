@@ -41,7 +41,11 @@ class Workflows(unittest.TestCase):
         self.assertFalse(text['inputs']['think'])
         self.assertEqual(sampling['inputs']['shift'], 7)
         self.assertEqual(guider['inputs']['cfg'], 6)
-        self.assertEqual(scheduler['inputs']['steps'], 50)
+        self.assertEqual(scheduler['inputs']['steps'], 20)
+        conditioning = next(n for n in wf.values() if n['class_type'] == 'HYOmniWeavingConditioning')
+        video = next(n for n in wf.values() if n['class_type'] == 'CreateVideo')
+        self.assertEqual(conditioning['inputs']['length'], 161)
+        self.assertEqual(video['inputs']['fps'], 16)
 
     def test_hunyuan_image_distilled_profile_and_defaults(self):
         wf = json.loads((ROOT / 'Isolated HunyuanImage 2.1.json').read_text(encoding='utf-8'))
@@ -61,8 +65,12 @@ class Workflows(unittest.TestCase):
         scheduler = next(n for n in wf.values() if n['class_type'] == 'BasicScheduler')
         loader = next(n for n in wf.values() if n['class_type'] == 'LoadImage')
         text = next(n for n in wf.values() if n['class_type'] == 'HYOmniWeavingTextEncode' and n['_meta']['title'] == 'Positive Prompt')
-        self.assertEqual(scheduler['inputs']['steps'], 50)
+        self.assertEqual(scheduler['inputs']['steps'], 28)
         self.assertEqual(loader['inputs']['image'], 'start.png')
+        conditioning = next(n for n in wf.values() if n['class_type'] == 'HYOmniWeavingConditioning')
+        video = next(n for n in wf.values() if n['class_type'] == 'CreateVideo')
+        self.assertEqual(conditioning['inputs']['length'], 161)
+        self.assertEqual(video['inputs']['fps'], 16)
         self.assertFalse(text['inputs']['think'])
         self.assertEqual(text['inputs']['prompt'], 'gentle camera motion')
 

@@ -92,7 +92,7 @@
       "task": "t2v",
       "width": 848,
       "height": 480,
-      "length": 81,
+      "length": 161,
       "batch_size": 1
     },
     "_meta": {
@@ -141,11 +141,11 @@
         0
       ],
       "scheduler": "simple",
-      "steps": 50,
+      "steps": 20,
       "denoise": 1
     },
     "_meta": {
-      "title": "OmniWeaving 50-Step Scheduler"
+      "title": "OmniWeaving 20-Step Fast Scheduler"
     }
   },
   "10": {

@@ -266,8 +266,8 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
         'wan': (12, 20, 30),
         'hunyuan15': (12, 20, 28),
         'hunyuan15-i2v-step': (4, 8, 12),
-        'omniweaving-t2v': (24, 36, 50),
-        'omniweaving-i2v': (24, 36, 50),
+        'omniweaving-t2v': (16, 20, 28),
+        'omniweaving-i2v': (16, 20, 28),
         'hunyuanimage21': (8, 8, 8),
     }
     quality = settings.get('quality', 'workflow')
