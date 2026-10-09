@@ -31,28 +31,17 @@ class Workflows(unittest.TestCase):
         self.assertEqual(wf['8']['inputs']['seed'], 0)
         self.assertEqual(wf['4']['inputs']['text'], 'a forest')
 
-    def test_hunyuan_profile_is_video(self):
-        wf = json.loads((ROOT / 'Isolated HunyuanVideo 1.5.json').read_text(encoding='utf-8'))
-        api = workflows.to_api(wf, {
-            'DualCLIPLoader': spec(clip_name1=[['qwen_2.5_vl_7b_fp8_scaled.safetensors']],
-                                   clip_name2=[['byt5_small_glyphxl_fp16.safetensors']],
-                                   type=[['hunyuan_video_15']], device=[['default']]),
-            'UNETLoader': spec(unet_name=[['hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors']],
-                               weight_dtype=[['default']]),
-            'VAELoader': spec(vae_name=[['hunyuanvideo15_vae_fp16.safetensors']]),
-            'CLIPTextEncode': spec(text=['STRING'], clip=['CLIP']),
-            'ModelSamplingSD3': spec(shift=['FLOAT'], model=['MODEL']),
-            'CFGGuider': spec(cfg=['FLOAT'], model=['MODEL'], positive=['CONDITIONING'], negative=['CONDITIONING']),
-            'BasicScheduler': spec(scheduler=[['simple']], steps=['INT'], denoise=['FLOAT'], model=['MODEL']),
-            'RandomNoise': spec(noise_seed=['INT']),
-            'KSamplerSelect': spec(sampler_name=[['euler']]),
-            'EmptyHunyuanVideo15Latent': spec(width=['INT'], height=['INT'], length=['INT'], batch_size=['INT']),
-            'SamplerCustomAdvanced': spec(noise=['NOISE'], guider=['GUIDER'], sampler=['SAMPLER'], sigmas=['SIGMAS'], latent_image=['LATENT']),
-            'VAEDecode': spec(samples=['LATENT'], vae=['VAE']),
-            'CreateVideo': spec(images=['IMAGE'], fps=['FLOAT']),
-            'SaveVideo': spec(video=['VIDEO'], filename_prefix=['STRING'], format=[['auto']], codec=[['h264']]),
-        })
-        self.assertEqual(workflows.profile(api), 'hunyuan15')
+    def test_omniweaving_t2v_profile_and_defaults(self):
+        wf = json.loads((ROOT / 'Isolated HY-OmniWeaving T2V.json').read_text(encoding='utf-8'))
+        self.assertEqual(workflows.profile(wf), 'omniweaving-t2v')
+        text = next(n for n in wf.values() if n['class_type'] == 'HYOmniWeavingTextEncode' and n['_meta']['title'] == 'Positive Prompt')
+        sampling = next(n for n in wf.values() if n['class_type'] == 'ModelSamplingSD3')
+        guider = next(n for n in wf.values() if n['class_type'] == 'CFGGuider')
+        scheduler = next(n for n in wf.values() if n['class_type'] == 'BasicScheduler')
+        self.assertFalse(text['inputs']['think'])
+        self.assertEqual(sampling['inputs']['shift'], 7)
+        self.assertEqual(guider['inputs']['cfg'], 6)
+        self.assertEqual(scheduler['inputs']['steps'], 50)
 
     def test_hunyuan_image_distilled_profile_and_defaults(self):
         wf = json.loads((ROOT / 'Isolated HunyuanImage 2.1.json').read_text(encoding='utf-8'))
@@ -65,14 +54,17 @@ class Workflows(unittest.TestCase):
         self.assertEqual(guidance['inputs']['guidance'], 3.25)
         self.assertEqual(sampling['inputs']['shift'], 4)
 
-    def test_hunyuan_i2v_step_distilled_quality_presets(self):
-        wf = json.loads((ROOT / 'Isolated HunyuanVideo 1.5 I2V.json').read_text(encoding='utf-8'))
-        self.assertEqual(workflows.profile(wf), 'hunyuan15-i2v-step')
+    def test_omniweaving_i2v_quality_presets_and_reference(self):
+        wf = json.loads((ROOT / 'Isolated HY-OmniWeaving I2V.json').read_text(encoding='utf-8'))
+        self.assertEqual(workflows.profile(wf), 'omniweaving-i2v')
         workflows.apply_inputs(wf, 'gentle camera motion', image_ref={'name': 'start.png'}, settings={'seed': 0, 'quality': 'quality'})
         scheduler = next(n for n in wf.values() if n['class_type'] == 'BasicScheduler')
         loader = next(n for n in wf.values() if n['class_type'] == 'LoadImage')
-        self.assertEqual(scheduler['inputs']['steps'], 12)
+        text = next(n for n in wf.values() if n['class_type'] == 'HYOmniWeavingTextEncode' and n['_meta']['title'] == 'Positive Prompt')
+        self.assertEqual(scheduler['inputs']['steps'], 50)
         self.assertEqual(loader['inputs']['image'], 'start.png')
+        self.assertFalse(text['inputs']['think'])
+        self.assertEqual(text['inputs']['prompt'], 'gentle camera motion')
 
     def test_negative_prompt_can_be_empty(self):
         wf = {'1': {'class_type': 'CLIPTextEncode', 'inputs': {'text': 'old'}, '_meta': {'title': 'Negative Prompt'}}}
@@ -106,11 +98,13 @@ class MediaModels(unittest.TestCase):
                       [n for _f, n, _u in boot.MEDIA_MODELS['video']])
         self.assertIn('hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['isolated-image']])
-        self.assertIn('hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
+        self.assertIn('hy_omniweaving_hunyuanvideo15_transformer_fp8_e4m3fn_patched.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video']])
-        self.assertIn('hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
+        self.assertIn('hy_omniweaving_hunyuanvideo15_transformer_fp8_e4m3fn_patched.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video-i2v']])
-        self.assertIn('sigclip_vision_patch14_384.safetensors',
+        self.assertIn('image_encoder.safetensors',
+                      [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video-i2v']])
+        self.assertIn('image_embedder.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['isolated-video-i2v']])
 
     def test_media_status_reports_ready_file(self):
@@ -163,6 +157,19 @@ class LoraLibrary(unittest.TestCase):
         self.assertEqual(out['3']['inputs']['clip'], [loader_id, 1])
         self.assertEqual(out['4']['inputs']['model'], [loader_id, 0])
         self.assertEqual(loader['inputs']['strength_model'], 0.8)
+
+    def test_omniweaving_lora_stack_is_model_only(self):
+        api = {
+            '1': {'class_type': 'HYOmniWeavingTextEncoderLoader', 'inputs': {}},
+            '2': {'class_type': 'HYOmniWeavingUNetLoader', 'inputs': {}},
+            '3': {'class_type': 'ModelSamplingSD3', 'inputs': {'model': ['2', 0], 'shift': 7}},
+        }
+        with patch.object(server, '_local_lora_metadata', return_value=[{'path': 'motion/test.safetensors'}]):
+            out = server._apply_lora_stack(copy.deepcopy(api), [{'path': 'motion/test.safetensors', 'strength': 0.5}])
+        loader = next(n for n in out.values() if n['class_type'] == 'LoraLoaderModelOnly')
+        loader_id = next(k for k, n in out.items() if n is loader)
+        self.assertEqual(out['3']['inputs']['model'], [loader_id, 0])
+        self.assertEqual(loader['inputs']['strength_model'], 0.5)
 
     def test_lora_stack_rejects_unknown_local_file(self):
         with patch.object(server, '_local_lora_metadata', return_value=[]):

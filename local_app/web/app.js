@@ -9,8 +9,8 @@ let activeChatController=null,activeChatConversationId=null,activeChatStopReques
 const STANDARD_IMAGE_WORKFLOW='text to image sdxl.json';
 const STANDARD_VIDEO_WORKFLOW='Video Wan texte.json';
 const ISOLATED_IMAGE_WORKFLOW='Isolated HunyuanImage 2.1.json';
-const ISOLATED_VIDEO_WORKFLOW='Isolated HunyuanVideo 1.5.json';
-const ISOLATED_I2V_WORKFLOW='Isolated HunyuanVideo 1.5 I2V.json';
+const ISOLATED_VIDEO_WORKFLOW='Isolated HY-OmniWeaving T2V.json';
+const ISOLATED_I2V_WORKFLOW='Isolated HY-OmniWeaving I2V.json';
 let isolatedTaskMode=loadJSON('lva_isolated_task_mode','image');
 let isolatedVideoMode=loadJSON('lva_isolated_video_mode','t2v');
 
@@ -28,7 +28,7 @@ const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo
 const PROFILE_DEFAULTS={
  auto:{label:'Automatique',sub:'LocalVision choisit entre photo et vidéo'},
  'companion-realistic':{label:'Standard',sub:'Photo RealVisXL V5 · vidéo Wan 2.1'},
- nsfw:{label:'Espace isolé',sub:'HunyuanImage 2.1 · HunyuanVideo 1.5'}
+ nsfw:{label:'Espace isolé',sub:'HunyuanImage 2.1 · HY-OmniWeaving'}
 };
 
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f}catch{return f}}
@@ -82,7 +82,7 @@ function updateCreationModeGuide(){
  const panel=$('#nsfwModePanel'),guide=$('#creationModeGuide'),prompt=$('#prompt');
  if(panel)panel.classList.toggle('hidden',!isolated);
  if(guide)guide.innerHTML=isolated
-   ?'<b>Espace isolé · Hunyuan</b><span>HunyuanImage 2.1 · HunyuanVideo 1.5 T2V/I2V · prompt direct par défaut.</span>'
+   ?'<b>Espace isolé · Hunyuan</b><span>HunyuanImage 2.1 · HY-OmniWeaving T2V/I2V · prompt direct par défaut.</span>'
    :'<b>Création standard</b><span>RealVisXL V5 pour les photos · Wan 2.1 pour les vidéos.</span>';
  if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris la photo souhaitée…':'Décris le mouvement ou la vidéo souhaitée…'):'Écris ton message…';
  const isolatedLinks=$('#nsfwLibraryLinks');
@@ -263,12 +263,12 @@ async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
  const mediaText=h.online?' · photo '+(h.media?.image?.ready?'prête':'à préparer')+' · vidéo '+(h.media?.video?.ready?'prête':'à préparer')+' · Hunyuan '+(isolatedReady?'prêt':'à préparer'):'';
  const text=h.startup?.state==='running'?(h.startup.message||'Préparation…'):h.startup?.state==='error'?'Installation à reprendre':h.online?('Moteurs connectés'+mediaText):'Moteur image / vidéo arrêté';
  $('#statusText').textContent=text;$('.status').className='status '+(h.online||llmReady?'ok':'bad');$('#engineSummary').textContent=text;
- $('#engineDetail').textContent=h.startup?.error||'Configuration : RealVisXL/Wan en standard ; HunyuanImage 2.1 et HunyuanVideo 1.5 T2V/I2V dans l’espace isolé.';
+ $('#engineDetail').textContent=h.startup?.error||'Configuration : RealVisXL/Wan en standard ; HunyuanImage 2.1 et HY-OmniWeaving T2V/I2V dans l’espace isolé.';
  $('#installImage').textContent=h.media?.image?.ready?'RealVisXL installé ✓':'Installer / reprendre RealVisXL';
  $('#installVideo').textContent=h.media?.video?.ready?'Wan vidéo installé ✓':'Installer Wan 2.1';
  $('#installIsolatedImage').textContent=h.media?.['isolated-image']?.ready?'HunyuanImage 2.1 installé ✓':'Installer HunyuanImage 2.1';
- $('#installMotion').textContent=h.media?.['isolated-video']?.ready?'HunyuanVideo T2V installé ✓':'Installer HunyuanVideo T2V';
- $('#installI2V').textContent=h.media?.['isolated-video-i2v']?.ready?'HunyuanVideo I2V installé ✓':'Installer HunyuanVideo I2V';
+ $('#installMotion').textContent=h.media?.['isolated-video']?.ready?'HY-OmniWeaving T2V installé ✓':'Installer HY-OmniWeaving T2V';
+ $('#installI2V').textContent=h.media?.['isolated-video-i2v']?.ready?'HY-OmniWeaving I2V installé ✓':'Installer HY-OmniWeaving I2V';
  for(const id of ['#retrySetup','#installImage','#installVideo','#installIsolatedImage','#installMotion','#installI2V']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
  if(h.startup?.state==='error')$('#enginePanel').open=true
 }catch(e){$('#engineSummary').textContent='Serveur local injoignable';$('#engineDetail').textContent=e.message}finally{pollingHealth=false}}

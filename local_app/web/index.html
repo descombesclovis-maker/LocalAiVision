@@ -24,7 +24,7 @@
       </div>
       <div class="section-title nsfw-title">ESPACE ISOLÉ</div>
       <div class="reserved-models" id="nsfwModels">
-        <div class="reserved-row"><button class="reserved-model" id="modelNsfw"><span class="reserved-icon">◈</span><span class="reserved-copy"><b>Espace isolé</b><small>HunyuanImage 2.1 · HunyuanVideo 1.5</small></span><i></i></button><button class="reserved-rename" data-rename-profile="nsfw" title="Renommer">✎</button></div>
+        <div class="reserved-row"><button class="reserved-model" id="modelNsfw"><span class="reserved-icon">◈</span><span class="reserved-copy"><b>Espace isolé</b><small>HunyuanImage 2.1 · HY-OmniWeaving</small></span><i></i></button><button class="reserved-rename" data-rename-profile="nsfw" title="Renommer">✎</button></div>
         <label class="nsfw-gate"><input id="nsfwGate" type="checkbox"><span>Activer l’espace NSFW sur cet appareil</span></label>
         <p class="nsfw-note">Univers séparé Hunyuan : photo, T2V et I2V facultatif. Prompt direct par défaut ; traduction locale uniquement si tu l’actives.</p>
         <div id="nsfwLibraryLinks" class="nsfw-library-links hidden">
@@ -54,17 +54,17 @@
       </div>
 
       <div class="composer-wrap">
-        <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installIsolatedImage">Installer HunyuanImage 2.1</button><button id="installMotion">Installer HunyuanVideo T2V</button><button id="installI2V">Installer HunyuanVideo I2V</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
+        <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installIsolatedImage">Installer HunyuanImage 2.1</button><button id="installMotion">Installer HY-OmniWeaving T2V</button><button id="installI2V">Installer HY-OmniWeaving I2V</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
         <div class="composer">
           <div id="creationModeGuide" class="creation-mode-guide" aria-live="polite"></div>
           <div id="nsfwModePanel" class="nsfw-mode-panel hidden">
-            <div class="nsfw-mode-tabs"><button id="isolatedModeImage" type="button">Photo · HunyuanImage 2.1</button><button id="isolatedModeVideo" type="button">Vidéo · HunyuanVideo 1.5</button></div>
+            <div class="nsfw-mode-tabs"><button id="isolatedModeImage" type="button">Photo · HunyuanImage 2.1</button><button id="isolatedModeVideo" type="button">Vidéo · HY-OmniWeaving</button></div>
             <div class="nsfw-mode-body">
               <div id="isolatedPhotoInfo" class="nsfw-mode-info">HunyuanImage 2.1 distilled FP8 · 8 étapes · 1536×1536 équilibré par défaut.</div>
               <div id="isolatedVideoControls" class="hidden">
                 <label>Mode vidéo<select id="isolatedVideoSource"><option value="t2v">Texte → Vidéo</option><option value="i2v">Image → Vidéo (facultatif)</option></select></label>
                 <div id="isolatedImageAttachment" class="attachment hidden"><button id="attachReferenceImageBtn" type="button">+ Image de départ</button><span id="referenceImageName">Aucune image jointe</span><button id="clearReferenceImage" type="button" class="hidden">×</button><input id="referenceImageInput" type="file" accept="image/*" hidden></div>
-                <div class="nsfw-mode-info">I2V rapide : step-distilled FP8, 8 étapes par défaut. Profil qualité : 12 étapes.</div>
+                <div class="nsfw-mode-info">HY-OmniWeaving I2V · 50 étapes par défaut · presets 24 / 36 / 50 · mode think désactivé.</div>
               </div>
             </div>
           </div>

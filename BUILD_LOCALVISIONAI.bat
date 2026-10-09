@@ -34,8 +34,8 @@ py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name 
   --add-data "text to image sdxl.json;." ^
   --add-data "Video Wan texte.json;." ^
   --add-data "Isolated HunyuanImage 2.1.json;." ^
-  --add-data "Isolated HunyuanVideo 1.5.json;." ^
-  --add-data "Isolated HunyuanVideo 1.5 I2V.json;." ^
+  --add-data "Isolated HY-OmniWeaving T2V.json;." ^
+  --add-data "Isolated HY-OmniWeaving I2V.json;." ^
   local_app\launcher.py
 
 if errorlevel 1 goto FAIL
