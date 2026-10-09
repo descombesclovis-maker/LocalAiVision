@@ -99,11 +99,37 @@ class SettingsUi(unittest.TestCase):
                         'isolatedModeImage','isolatedModeT2V','isolatedModeI2V'):
             self.assertIn(f'id="{control}"', html)
 
+    def test_updater_button_is_available_in_sidebar(self):
+        html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
+        source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('id="updateBtn"', html)
+        self.assertIn("/api/update/check", source)
+        self.assertIn("/api/update/install", source)
+
     def test_settings_visibility_hides_incompatible_controls(self):
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
         self.assertIn("accordionLoras')?.classList.toggle('hidden',!(isolated&&isolatedTaskMode==='video'))", source)
         self.assertIn("chooseIsolatedCreationMode('i2v')", source)
+
+
+class SelfUpdater(unittest.TestCase):
+    def test_release_asset_only_accepts_official_repo_asset(self):
+        release = {'assets': [{'name': server.UPDATE_ASSET, 'browser_download_url':
+            'https://github.com/descombesclovis-maker/LocalAiVision/releases/download/build-1/LocalVisionAI-Windows.zip'}]}
+        asset = server._update_asset_from_release(release)
+        self.assertEqual(asset['name'], server.UPDATE_ASSET)
+
+    def test_release_asset_rejects_wrong_host_or_repo(self):
+        release = {'assets': [{'name': server.UPDATE_ASSET, 'browser_download_url':
+            'https://example.com/LocalVisionAI-Windows.zip'}]}
+        with self.assertRaises(RuntimeError):
+            server._update_asset_from_release(release)
+
+    def test_build_info_has_version_and_build_tag(self):
+        info = server.build_info()
+        self.assertTrue(info.get('version'))
+        self.assertTrue(info.get('build_tag'))
 
 
 class PromptTranslation(unittest.TestCase):

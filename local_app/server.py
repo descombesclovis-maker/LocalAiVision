@@ -1,4 +1,4 @@
-import base64, json, mimetypes, os, re, subprocess, sys, threading, time, uuid
+import base64, hashlib, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote
@@ -21,12 +21,17 @@ _comfy_info_cache = {"time": 0, "data": {}}
 _engine_lock = threading.RLock()
 _comfy_lock = threading.Lock()
 _setup_lock = threading.Lock()
+_update_lock = threading.Lock()
 _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.6.1"
+VERSION = "2.7.0"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
+BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
+UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
+UPDATE_API = "https://api.github.com/repos/" + UPDATE_REPO + "/releases/latest"
+UPDATE_ASSET = "LocalVisionAI-Windows.zip"
 
 
 IGNORE_JSON = {"package.json", "tsconfig.json", "config.json"}
@@ -43,6 +48,196 @@ _STYLE_PATTERNS = (
     ("illustration", re.compile(r"\b(illustration|gouache|dessin(?:[ée]e?)?)\b", re.I)),
     ("cinema", re.compile(r"\b(cin[ée]ma(?:tographique)?|cinematic|film\s*still)\b", re.I)),
 )
+
+
+def build_info():
+    info = {'version': VERSION, 'build_tag': 'source', 'commit': '', 'run_number': 0}
+    try:
+        saved = json.loads(BUILD_INFO_PATH.read_text(encoding='utf-8-sig'))
+        if isinstance(saved, dict):
+            info.update(saved)
+    except Exception:
+        pass
+    info['version'] = str(info.get('version') or VERSION)
+    info['build_tag'] = str(info.get('build_tag') or 'source')
+    return info
+
+
+def _latest_update_release():
+    req = Request(
+        UPDATE_API,
+        headers={
+            'User-Agent': 'LocalVisionAI/' + VERSION,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        },
+    )
+    with urlopen(req, timeout=15) as response:
+        release = json.load(response)
+    if not isinstance(release, dict):
+        raise RuntimeError('Réponse GitHub invalide.')
+    return release
+
+
+def _update_asset_from_release(release):
+    for asset in release.get('assets') or []:
+        if isinstance(asset, dict) and asset.get('name') == UPDATE_ASSET:
+            url = str(asset.get('browser_download_url') or '')
+            if url.startswith('https://github.com/' + UPDATE_REPO + '/releases/download/'):
+                return asset
+    raise RuntimeError('Le dernier build ne contient pas le paquet Windows de mise à jour.')
+
+
+def update_status():
+    current = build_info()
+    release = _latest_update_release()
+    asset = _update_asset_from_release(release)
+    latest_tag = str(release.get('tag_name') or '')
+    available = bool(latest_tag and latest_tag != current.get('build_tag'))
+    return {
+        'ok': True,
+        'available': available,
+        'current_version': current.get('version'),
+        'current_build': current.get('build_tag'),
+        'latest_version': str(release.get('name') or latest_tag).replace('LocalVisionAI ', '').strip(),
+        'latest_build': latest_tag,
+        'published_at': release.get('published_at'),
+        'size': int(asset.get('size') or 0),
+    }
+
+
+def _download_update_exe(release, asset):
+    safe_tag = re.sub(r'[^A-Za-z0-9._-]+', '_', str(release.get('tag_name') or 'latest'))
+    folder = DATA / 'updates' / safe_tag
+    folder.mkdir(parents=True, exist_ok=True)
+    archive = folder / UPDATE_ASSET
+    part = archive.with_suffix('.zip.part')
+    req = Request(
+        str(asset['browser_download_url']),
+        headers={'User-Agent': 'LocalVisionAI/' + VERSION, 'Accept': 'application/octet-stream'},
+    )
+    digest = hashlib.sha256()
+    with urlopen(req, timeout=60) as response, part.open('wb') as out:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            out.write(chunk)
+            digest.update(chunk)
+    if part.stat().st_size < 5 * 1024 * 1024:
+        part.unlink(missing_ok=True)
+        raise RuntimeError('Paquet de mise à jour incomplet.')
+    expected = str(asset.get('digest') or '')
+    if expected.startswith('sha256:') and digest.hexdigest().lower() != expected[7:].lower():
+        part.unlink(missing_ok=True)
+        raise RuntimeError('La vérification SHA-256 de la mise à jour a échoué.')
+    part.replace(archive)
+    staged = folder / 'LocalVisionAI.new.exe'
+    with zipfile.ZipFile(archive) as zf:
+        member = next((n for n in zf.namelist() if Path(n).name.lower() == 'localvisionai.exe'), None)
+        if member is None:
+            raise RuntimeError('LocalVisionAI.exe est absent du paquet téléchargé.')
+        with zf.open(member) as src, staged.open('wb') as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+    if staged.stat().st_size < 5 * 1024 * 1024 or staged.read_bytes()[:2] != b'MZ':
+        staged.unlink(missing_ok=True)
+        raise RuntimeError('Le nouvel exécutable Windows est invalide.')
+    return staged
+
+
+def _write_update_helper(staged):
+    if os.name != 'nt' or not getattr(sys, 'frozen', False):
+        raise RuntimeError('La mise à jour automatique est disponible uniquement dans LocalVisionAI.exe sous Windows.')
+    current = Path(sys.executable).resolve()
+    folder = DATA / 'updates'
+    folder.mkdir(parents=True, exist_ok=True)
+    script = folder / 'apply_update.ps1'
+    log = DATA / 'logs' / 'update.log'
+    script.write_text(r'''param(
+  [int]$ParentPid,
+  [string]$CurrentExe,
+  [string]$NewExe,
+  [string]$LogPath
+)
+$ErrorActionPreference = "Stop"
+function Write-UpdateLog([string]$Text) {
+  $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+  Add-Content -LiteralPath $LogPath -Value "[$stamp] $Text" -Encoding UTF8
+}
+try {
+  Write-UpdateLog "Waiting for LocalVisionAI process $ParentPid"
+  Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 700
+  $backup = "$CurrentExe.previous"
+  Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+  $replaced = $false
+  for ($i = 0; $i -lt 30 -and -not $replaced; $i++) {
+    try {
+      if (Test-Path -LiteralPath $CurrentExe) {
+        Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
+      }
+      Copy-Item -LiteralPath $NewExe -Destination $CurrentExe -Force
+      $replaced = $true
+    } catch {
+      if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $CurrentExe)) {
+        Move-Item -LiteralPath $backup -Destination $CurrentExe -Force -ErrorAction SilentlyContinue
+      }
+      Start-Sleep -Milliseconds 500
+    }
+  }
+  if (-not $replaced) { throw "Impossible de remplacer LocalVisionAI.exe après plusieurs tentatives." }
+  if ((Get-Item -LiteralPath $CurrentExe).Length -lt 5MB) { throw "Le nouvel EXE est anormalement petit." }
+  Write-UpdateLog "Update installed; restarting $CurrentExe"
+  Start-Process -FilePath $CurrentExe
+  Start-Sleep -Seconds 3
+  Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+} catch {
+  Write-UpdateLog ("Update failed: " + $_.Exception.Message)
+  try {
+    if ((Test-Path -LiteralPath "$CurrentExe.previous") -and -not (Test-Path -LiteralPath $CurrentExe)) {
+      Move-Item -LiteralPath "$CurrentExe.previous" -Destination $CurrentExe -Force
+    }
+  } catch {}
+}
+''', encoding='utf-8')
+    return script, current, log
+
+
+def _exit_for_update():
+    try:
+        stop_engines()
+    except Exception:
+        pass
+    os._exit(0)
+
+
+def install_latest_update():
+    if not _update_lock.acquire(blocking=False):
+        raise RuntimeError('Une mise à jour est déjà en cours.')
+    try:
+        current = build_info()
+        release = _latest_update_release()
+        asset = _update_asset_from_release(release)
+        latest_tag = str(release.get('tag_name') or '')
+        if latest_tag == current.get('build_tag'):
+            return {'ok': True, 'updated': False, 'message': 'LocalVisionAI est déjà à jour.'}
+        staged = _download_update_exe(release, asset)
+        script, current_exe, log = _write_update_helper(staged)
+        subprocess.Popen(
+            [
+                'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                '-File', str(script),
+                '-ParentPid', str(os.getpid()),
+                '-CurrentExe', str(current_exe),
+                '-NewExe', str(staged),
+                '-LogPath', str(log),
+            ],
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        )
+        threading.Timer(1.5, _exit_for_update).start()
+        return {'ok': True, 'updated': True, 'restarting': True, 'latest_build': latest_tag}
+    finally:
+        _update_lock.release()
 
 
 def _style_catalog():
@@ -998,6 +1193,12 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             self.send_json({"online":online,"detail":detail,"url":COMFY,"llm":llm.status(), "startup": dict(STARTUP), "media": media, "version": VERSION})
             return
+        if u.path == "/api/update/check":
+            try:
+                self.send_json(update_status())
+            except Exception as e:
+                self.send_json({"error": str(e)}, 502)
+            return
         if u.path == "/api/logs":
             parts = []
             for name in ("startup.log", "comfy.log", "llm.log"):
@@ -1075,6 +1276,12 @@ class Handler(BaseHTTPRequestHandler):
                 dest.write_text(json.dumps(body["workflow"],ensure_ascii=False,indent=2),encoding="utf-8")
                 self.send_json({"ok":True,"id":"imported/" + dest.name})
             except Exception as e: self.send_json({"error":str(e)},400)
+            return
+        if u.path == "/api/update/install":
+            try:
+                self.send_json(install_latest_update())
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
             return
         if u.path == "/api/upload":
             try:

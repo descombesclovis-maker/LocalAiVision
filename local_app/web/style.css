@@ -169,3 +169,7 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
   .settings-accordion>summary small{text-align:left}
   .nsfw-mode-tabs-three{grid-template-columns:1fr}
 }
+
+/* v2.7 — in-app updater. */
+.update-button{color:#cfd0d6!important;border-top:1px solid #1d1d22!important;margin-top:4px}
+.update-info{font-size:10px;color:#55555e;padding:0 10px 3px;min-height:13px}

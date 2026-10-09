@@ -16,6 +16,9 @@ if errorlevel 1 goto FAIL
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
+for /f "tokens=2 delims="" %%V in ('findstr /r /c:"VERSION = " local_app\server.py') do set "LVA_VERSION=%%V"
+> local_app\data\build_info.json echo {"version":"%LVA_VERSION%","build_tag":"local","commit":"local","run_number":0}
+
 py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name LocalVisionAI ^
   --collect-all webview ^
   --hidden-import local_app ^
