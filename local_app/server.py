@@ -24,7 +24,7 @@ _setup_lock = threading.Lock()
 _comfy_proc = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.5.2"
+VERSION = "2.6.0"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 
 

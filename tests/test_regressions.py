@@ -80,6 +80,32 @@ class Workflows(unittest.TestCase):
         self.assertEqual(wf['1']['inputs']['text'], '')
 
 
+class SettingsUi(unittest.TestCase):
+    def test_prompt_precedes_popup_and_mode_is_not_in_composer_row(self):
+        html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
+        self.assertLess(html.index('id="prompt"'), html.index('id="generationSettings"'))
+        row = html[html.index('<div class="composer-row">'):html.index('</div>\n         ', html.index('<div class="composer-row">'))]
+        self.assertNotIn('id="taskMode"', row)
+        self.assertIn('id="settingsBtn"', row)
+
+    def test_settings_accordion_order_and_controls(self):
+        html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
+        ids = ['accordionStyles', 'accordionLoras', 'accordionAdvanced', 'accordionSimple', 'accordionMode']
+        positions = [html.index(f'id="{item}"') for item in ids]
+        self.assertEqual(positions, sorted(positions))
+        for control in ('settingQuality','settingSteps','settingAspect','settingSeed','settingCount',
+                        'settingDuration','settingFps','settingWidth','settingHeight','settingNegative',
+                        'settingTemperature','settingMaxTokens','settingSystem','taskMode',
+                        'isolatedModeImage','isolatedModeT2V','isolatedModeI2V'):
+            self.assertIn(f'id="{control}"', html)
+
+    def test_settings_visibility_hides_incompatible_controls(self):
+        source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
+        self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
+        self.assertIn("accordionLoras')?.classList.toggle('hidden',!(isolated&&isolatedTaskMode==='video'))", source)
+        self.assertIn("chooseIsolatedCreationMode('i2v')", source)
+
+
 class PromptTranslation(unittest.TestCase):
     def test_translation_uses_local_llm_faithfully(self):
         with patch.object(llm, 'chat', return_value='A person facing the camera in a red coat.') as chat:

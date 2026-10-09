@@ -56,55 +56,108 @@
       <div class="composer-wrap">
         <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installIsolatedImage">Installer HunyuanImage 2.1</button><button id="installMotion">Installer HY-OmniWeaving T2V</button><button id="installI2V">Installer HY-OmniWeaving I2V</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
         <div class="composer">
-          <div id="creationModeGuide" class="creation-mode-guide" aria-live="polite"></div>
-          <div id="nsfwModePanel" class="nsfw-mode-panel hidden">
-            <div class="nsfw-mode-tabs"><button id="isolatedModeImage" type="button">Photo · HunyuanImage 2.1</button><button id="isolatedModeVideo" type="button">Vidéo · HY-OmniWeaving</button></div>
-            <div class="nsfw-mode-body">
-              <div id="isolatedPhotoInfo" class="nsfw-mode-info">HunyuanImage 2.1 distilled FP8 · 8 étapes · 1536×1536 équilibré par défaut.</div>
-              <div id="isolatedVideoControls" class="hidden">
-                <label>Mode vidéo<select id="isolatedVideoSource"><option value="t2v">Texte → Vidéo</option><option value="i2v">Image → Vidéo (facultatif)</option></select></label>
-                <div id="isolatedImageAttachment" class="attachment hidden"><button id="attachReferenceImageBtn" type="button">+ Image de départ</button><span id="referenceImageName">Aucune image jointe</span><button id="clearReferenceImage" type="button" class="hidden">×</button><input id="referenceImageInput" type="file" accept="image/*" hidden></div>
-                <div class="nsfw-mode-info">HY-OmniWeaving T2V/I2V · environ 10 s à 16 FPS (161 images) · 20 étapes par défaut · presets 16 / 20 / 28 · mode think désactivé.</div>
-              </div>
-            </div>
-          </div>
-          <div id="loraPanel" class="lora-panel hidden">
-            <div class="lora-head"><div><b>LoRA locaux</b><span>Bibliothèque détectée dans ComfyUI/models/loras</span></div><button id="refreshLoras" type="button">Actualiser</button></div>
-            <input id="loraSearch" type="search" placeholder="Rechercher un LoRA, un déclencheur, un modèle de base…">
-            <div class="lora-section-title">INSTALLÉS SUR CET APPAREIL</div>
-            <div id="loraCatalog" class="lora-catalog"></div>
-            <div class="lora-section-title">CATALOGUE LORA · GÉNÉRAL</div>
-            <div id="loraRemoteCatalog" class="lora-catalog remote"></div>
-            <p class="lora-note">Le catalogue intégré regroupe une sélection générale issue de plusieurs sources : caméra, mouvement, styles, décors et personnages/créatures fictifs. Les LoRA « Hunyuan Video » anciens ne sont pas garantis compatibles avec HY-OmniWeaving / HunyuanVideo 1.5 et doivent être testés au cas par cas.</p>
-          </div>
           <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>
           <div id="composerReplyState" class="composer-reply-state" aria-live="polite">LocalAiVision vous répond</div>
-          <div id="generationSettings" class="generation-settings hidden">
-            <div class="settings-head"><div><b>Paramètres</b><span>Les champs vides conservent les réglages du workflow.</span></div><button id="closeSettings" type="button">×</button></div>
-            <div class="style-section"><div class="style-heading"><b>Style graphique</b><button id="resetStyle" type="button">Sans style imposé</button></div><p class="style-note">Aperçus illustratifs. Tu peux les remplacer par tes propres résultats locaux.</p><div id="styleGrid" class="style-grid"></div><p id="styleWorkflow" class="style-selection"></p><button id="generateStylePreview" type="button">Créer un aperçu avec mon modèle</button><p class="style-note">Une sélection manuelle de workflow reste prioritaire.</p></div>
-            <div class="settings-grid">
-              <label>Qualité<select id="settingQuality"><option value="workflow" selected>Réglages du workflow</option><option value="draft">Rapide</option><option value="balanced">Équilibrée</option><option value="quality">Soignée</option></select></label>
-              <label>Étapes<input id="settingSteps" type="number" min="1" placeholder="Workflow"></label>
-              <label>Format<select id="settingAspect"><option value="auto" selected>Workflow</option><option value="1:1">Carré 1:1</option><option value="16:9">Paysage 16:9</option><option value="9:16">Portrait 9:16</option><option value="4:3">4:3</option><option value="3:4">3:4</option></select></label>
-              <label>Seed<input id="settingSeed" type="number" min="0" placeholder="Aléatoire"></label>
-              <label>Nombre de résultats<select id="settingCount"><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></label>
-              <label>Durée vidéo (s)<input id="settingDuration" type="number" min="0.1" step="0.1" placeholder="Workflow"></label>
-              <label>FPS<input id="settingFps" type="number" min="1" step="1" placeholder="Workflow"></label>
-              <label>Largeur<input id="settingWidth" type="number" min="8" step="8" placeholder="Workflow"></label>
-              <label>Hauteur<input id="settingHeight" type="number" min="8" step="8" placeholder="Workflow"></label>
-              <label id="settingImageModelRow">Workflow image<select id="settingImageModel"></select></label>
-              <label id="settingVideoModelRow">Workflow vidéo standard<select id="settingVideoModel"></select></label>
-              <label>Température du chat<input id="settingTemperature" type="number" min="0" max="2" step="0.1" value="0.7"></label>
-              <label>Max tokens<input id="settingMaxTokens" type="number" min="128" max="8192" step="128" value="2048"></label>
+
+          <div id="generationSettings" class="generation-settings hidden" role="dialog" aria-label="Réglages">
+            <div class="settings-head">
+              <div><b>Réglages</b><span id="creationModeGuide" class="settings-context" aria-live="polite"></span></div>
+              <button id="closeSettings" type="button" aria-label="Fermer les réglages">×</button>
             </div>
-            <label class="settings-wide">Éléments à éviter (prompt négatif)<textarea id="settingNegative" rows="2" placeholder="Facultatif ; certains modèles ignorent ce champ."></textarea></label>
-            <label class="settings-wide">Instructions du chat<textarea id="settingSystem" rows="5">Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique. Garde le fil de la conversation, réponds en français sauf demande contraire, utilise tes connaissances internes sans simuler de recherche Internet, propose spontanément une solution concrète quand l’utilisateur a un problème, et écris comme dans une vraie conversation. Utilise naturellement **le gras**, des listes courtes quand elles aident et quelques émojis bien choisis, sans en abuser. N’invente pas ce que tu ne sais pas.</textarea></label>
-            <div class="settings-toggle"><label><input id="settingKeep" type="checkbox"> Conserver le seed pour le lot</label><label><input id="settingTechnicalQuality" type="checkbox" checked> Amélioration technique neutre</label><label><input id="settingPromptTranslation" type="checkbox"> Traduire le prompt avec le LLM local</label></div><div class="model-rename-settings"><select id="renameModelSelect"></select><button id="renameModelBtn" type="button">Renommer le modèle</button></div>
+
+            <div class="settings-accordions">
+              <details id="accordionStyles" class="settings-accordion">
+                <summary><span>Styles graphiques</span><small>Rendu visuel et aperçu</small></summary>
+                <div class="settings-accordion-body">
+                  <div class="style-section">
+                    <div class="style-heading"><b>Style graphique</b><button id="resetStyle" type="button">Sans style imposé</button></div>
+                    <p class="style-note">Le style sélectionné est réellement ajouté à la préparation du prompt des modèles standard. Un style écrit directement dans le prompt reste prioritaire.</p>
+                    <div id="styleGrid" class="style-grid"></div>
+                    <p id="styleWorkflow" class="style-selection"></p>
+                    <button id="generateStylePreview" type="button">Créer un aperçu avec mon modèle</button>
+                  </div>
+                </div>
+              </details>
+
+              <details id="accordionLoras" class="settings-accordion">
+                <summary><span>LoRA</span><small>Bibliothèque locale et catalogue</small></summary>
+                <div class="settings-accordion-body">
+                  <div id="loraPanel" class="lora-panel">
+                    <div class="lora-head"><div><b>LoRA locaux</b><span>ComfyUI/models/loras · appliqués au modèle vidéo isolé</span></div><button id="refreshLoras" type="button">Actualiser</button></div>
+                    <input id="loraSearch" type="search" placeholder="Rechercher un LoRA, un déclencheur, un modèle de base…">
+                    <div class="lora-section-title">INSTALLÉS SUR CET APPAREIL</div>
+                    <div id="loraCatalog" class="lora-catalog"></div>
+                    <div class="lora-section-title">CATALOGUE LORA · GÉNÉRAL</div>
+                    <div id="loraRemoteCatalog" class="lora-catalog remote"></div>
+                    <p class="lora-note">Cette section n’est affichée que pour la vidéo de l’espace isolé, afin de ne pas appliquer un LoRA Hunyuan Video à un moteur incompatible.</p>
+                  </div>
+                </div>
+              </details>
+
+              <details id="accordionAdvanced" class="settings-accordion">
+                <summary><span>Réglages avancés</span><small>Étapes, seed, dimensions, prompts et chat</small></summary>
+                <div class="settings-accordion-body">
+                  <div class="settings-grid">
+                    <label class="visual-only">Étapes<input id="settingSteps" type="number" min="1" max="10000" placeholder="Workflow"></label>
+                    <label class="visual-only">Seed<input id="settingSeed" type="number" min="0" placeholder="Aléatoire"></label>
+                    <label class="video-only">FPS<input id="settingFps" type="number" min="1" step="1" placeholder="Workflow"></label>
+                    <label class="visual-only">Largeur<input id="settingWidth" type="number" min="8" step="8" placeholder="Workflow"></label>
+                    <label class="visual-only">Hauteur<input id="settingHeight" type="number" min="8" step="8" placeholder="Workflow"></label>
+                    <label id="settingImageModelRow" class="standard-only visual-only">Workflow image<select id="settingImageModel"></select></label>
+                    <label id="settingVideoModelRow" class="standard-only visual-only">Workflow vidéo<select id="settingVideoModel"></select></label>
+                    <label class="chat-only">Température du chat<input id="settingTemperature" type="number" min="0" max="2" step="0.1" value="0.7"></label>
+                    <label class="chat-only">Max tokens<input id="settingMaxTokens" type="number" min="128" max="8192" step="128" value="2048"></label>
+                  </div>
+                  <label class="settings-wide visual-only">Éléments à éviter (prompt négatif)<textarea id="settingNegative" rows="2" placeholder="Facultatif ; transmis au workflow quand il possède un conditionnement négatif."></textarea></label>
+                  <label class="settings-wide chat-only">Instructions du chat<textarea id="settingSystem" rows="5">Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique. Garde le fil de la conversation, réponds en français sauf demande contraire, utilise tes connaissances internes sans simuler de recherche Internet, propose spontanément une solution concrète quand l’utilisateur a un problème, et écris comme dans une vraie conversation. Utilise naturellement **le gras**, des listes courtes quand elles aident et quelques émojis bien choisis, sans en abuser. N’invente pas ce que tu ne sais pas.</textarea></label>
+                  <div class="settings-toggle">
+                    <label class="visual-only"><input id="settingKeep" type="checkbox"> Conserver le seed pour le lot</label>
+                    <label id="technicalQualityRow" class="standard-only visual-only"><input id="settingTechnicalQuality" type="checkbox" checked> Amélioration technique neutre</label>
+                    <label class="visual-only"><input id="settingPromptTranslation" type="checkbox"> Traduire le prompt avec le LLM local</label>
+                  </div>
+                  <div class="model-rename-settings standard-only"><select id="renameModelSelect"></select><button id="renameModelBtn" type="button">Renommer le modèle</button></div>
+                </div>
+              </details>
+
+              <details id="accordionSimple" class="settings-accordion" open>
+                <summary><span>Réglages simples</span><small>Qualité, format, quantité et durée</small></summary>
+                <div class="settings-accordion-body">
+                  <div class="settings-grid">
+                    <label class="visual-only">Qualité<select id="settingQuality"><option value="workflow" selected>Réglages du workflow</option><option value="draft">Rapide</option><option value="balanced">Équilibrée</option><option value="quality">Soignée</option></select></label>
+                    <label class="visual-only">Format<select id="settingAspect"><option value="auto" selected>Workflow</option><option value="1:1">Carré 1:1</option><option value="16:9">Paysage 16:9</option><option value="9:16">Portrait 9:16</option><option value="4:3">4:3</option><option value="3:4">3:4</option></select></label>
+                    <label class="visual-only">Nombre de résultats<select id="settingCount"><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></label>
+                    <label class="video-only">Durée vidéo (s)<input id="settingDuration" type="number" min="0.1" step="0.1" placeholder="Workflow"></label>
+                  </div>
+                </div>
+              </details>
+
+              <details id="accordionMode" class="settings-accordion" open>
+                <summary><span>T2V / I2V / Image / Chat</span><small>Choisir ce que le prochain message doit produire</small></summary>
+                <div class="settings-accordion-body">
+                  <div id="standardModeControls" class="mode-control-panel">
+                    <label>Mode de la prochaine demande
+                      <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Texte → Vidéo</option></select>
+                    </label>
+                  </div>
+
+                  <div id="nsfwModePanel" class="nsfw-mode-panel hidden">
+                    <div class="nsfw-mode-tabs nsfw-mode-tabs-three">
+                      <button id="isolatedModeImage" type="button">Image · HunyuanImage 2.1</button>
+                      <button id="isolatedModeT2V" type="button">T2V · HY-OmniWeaving</button>
+                      <button id="isolatedModeI2V" type="button">I2V · HY-OmniWeaving</button>
+                    </div>
+                    <select id="isolatedVideoSource" class="hidden" aria-hidden="true"><option value="t2v">Texte → Vidéo</option><option value="i2v">Image → Vidéo</option></select>
+                    <div id="isolatedPhotoInfo" class="nsfw-mode-info">HunyuanImage 2.1 distilled FP8 · 8 étapes par défaut.</div>
+                    <div id="isolatedVideoInfo" class="nsfw-mode-info hidden">HY-OmniWeaving · environ 10 s à 16 FPS (161 images) · 20 étapes par défaut · presets 16 / 20 / 28.</div>
+                    <div id="isolatedImageAttachment" class="attachment hidden"><button id="attachReferenceImageBtn" type="button">+ Image de départ</button><span id="referenceImageName">Aucune image jointe</span><button id="clearReferenceImage" type="button" class="hidden">×</button><input id="referenceImageInput" type="file" accept="image/*" hidden></div>
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
+
           <div class="composer-row">
-            <div class="left-tools">
-              <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Vidéo</option></select><button id="settingsBtn" class="round settings-button" aria-label="Paramètres de génération">⚙</button>
-            </div>
+            <div class="left-tools"><button id="settingsBtn" class="round settings-button" aria-label="Ouvrir les réglages" title="Réglages">⚙</button></div>
             <button id="send" class="send" aria-label="Envoyer">↑</button>
           </div>
         </div>

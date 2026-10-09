@@ -76,17 +76,37 @@ async function createConversationForProfile(profile){
  if(profile==='nsfw'&&!lastHealth?.media?.['isolated-image']?.ready){toast('Préparation de HunyuanImage 2.1…');installComponent('isolated-image')}
  syncModelSelectors();renderProfileLabels();return c;
 }
+function currentCreationKind(){
+ const conv=activeConversationId?conversationFor(activeConversationId):null;
+ if(conv?.profile==='nsfw')return isolatedTaskMode==='video'?'video':'image';
+ const mode=$('#taskMode')?.value||'auto';
+ return mode==='chat'?'chat':mode==='video'?'video':mode==='image'?'image':'auto';
+}
+function updateSettingsVisibility(){
+ const conv=activeConversationId?conversationFor(activeConversationId):null;
+ const isolated=conv?.profile==='nsfw',kind=currentCreationKind(),visual=kind!=='chat';
+ const video=kind==='video'||kind==='auto',chat=kind==='chat'||kind==='auto';
+ $('#standardModeControls')?.classList.toggle('hidden',isolated);
+ $('#nsfwModePanel')?.classList.toggle('hidden',!isolated);
+ $('#accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat');
+ $('#accordionLoras')?.classList.toggle('hidden',!(isolated&&isolatedTaskMode==='video'));
+ document.querySelectorAll('.standard-only').forEach(e=>e.classList.toggle('settings-field-hidden',isolated));
+ document.querySelectorAll('.visual-only').forEach(e=>e.classList.toggle('settings-field-hidden',!visual));
+ document.querySelectorAll('.video-only').forEach(e=>e.classList.toggle('settings-field-hidden',!video));
+ document.querySelectorAll('.chat-only').forEach(e=>e.classList.toggle('settings-field-hidden',!chat||isolated));
+ $('#accordionSimple')?.classList.toggle('hidden',!visual);
+}
 function updateCreationModeGuide(){
  const conv=activeConversationId?conversationFor(activeConversationId):null,isolated=conv?.profile==='nsfw';
  document.body.classList.toggle('nsfw-active',!!isolated);
- const panel=$('#nsfwModePanel'),guide=$('#creationModeGuide'),prompt=$('#prompt');
- if(panel)panel.classList.toggle('hidden',!isolated);
+ const guide=$('#creationModeGuide'),prompt=$('#prompt');
  if(guide)guide.innerHTML=isolated
-   ?'<b>Espace isolé · Hunyuan</b><span>HunyuanImage 2.1 · HY-OmniWeaving T2V/I2V · prompt direct par défaut.</span>'
-   :'<b>Création standard</b><span>RealVisXL V5 pour les photos · Wan 2.1 pour les vidéos.</span>';
- if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris la photo souhaitée…':'Décris le mouvement ou la vidéo souhaitée…'):'Écris ton message…';
+   ?'<b>Espace isolé · Hunyuan</b> <span>HunyuanImage 2.1 · HY-OmniWeaving T2V/I2V · prompt direct.</span>'
+   :'<b>Création standard</b> <span>RealVisXL V5 · Wan 2.1 · chat local.</span>';
+ if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):'Écris ton message…';
  const isolatedLinks=$('#nsfwLibraryLinks');
  if(isolatedLinks)isolatedLinks.classList.toggle('hidden',!loadJSON('lva_nsfw_gate',false));
+ updateSettingsVisibility();
 }
 function renderProfileLabels(){
  const map={modelAuto:'auto',modelRealistic:'companion-realistic',modelNsfw:'nsfw'};
@@ -94,26 +114,29 @@ function renderProfileLabels(){
  updateCreationModeGuide();renderIsolatedMode();
 }
 function renderIsolatedMode(){
- const isolated=activeConversationId&&conversationFor(activeConversationId).profile==='nsfw';if(!isolated)return;
- $('#isolatedModeImage')?.classList.toggle('active',isolatedTaskMode==='image');
- $('#isolatedModeVideo')?.classList.toggle('active',isolatedTaskMode==='video');
- $('#isolatedPhotoInfo')?.classList.toggle('hidden',isolatedTaskMode!=='image');
- $('#isolatedVideoControls')?.classList.toggle('hidden',isolatedTaskMode!=='video');
- const source=$('#isolatedVideoSource');if(source)source.value=isolatedVideoMode;
- const needImage=isolatedTaskMode==='video'&&isolatedVideoMode==='i2v';
- $('#isolatedImageAttachment')?.classList.toggle('hidden',!needImage);
- if($('#referenceImageName'))$('#referenceImageName').textContent=imageName||'Aucune image jointe';
- $('#clearReferenceImage')?.classList.toggle('hidden',!imageData);
- $('#loraPanel')?.classList.toggle('hidden',!isolated);
+ const isolated=activeConversationId&&conversationFor(activeConversationId).profile==='nsfw';
+ if(isolated){
+  $('#isolatedModeImage')?.classList.toggle('active',isolatedTaskMode==='image');
+  $('#isolatedModeT2V')?.classList.toggle('active',isolatedTaskMode==='video'&&isolatedVideoMode==='t2v');
+  $('#isolatedModeI2V')?.classList.toggle('active',isolatedTaskMode==='video'&&isolatedVideoMode==='i2v');
+  $('#isolatedPhotoInfo')?.classList.toggle('hidden',isolatedTaskMode!=='image');
+  $('#isolatedVideoInfo')?.classList.toggle('hidden',isolatedTaskMode!=='video');
+  const source=$('#isolatedVideoSource');if(source)source.value=isolatedVideoMode;
+  const needImage=isolatedTaskMode==='video'&&isolatedVideoMode==='i2v';
+  $('#isolatedImageAttachment')?.classList.toggle('hidden',!needImage);
+  if($('#referenceImageName'))$('#referenceImageName').textContent=imageName||'Aucune image jointe';
+  $('#clearReferenceImage')?.classList.toggle('hidden',!imageData);
+ }
+ updateSettingsVisibility();
 }
-function chooseIsolatedTask(mode){
- isolatedTaskMode=mode==='video'?'video':'image';localStorage.setItem('lva_isolated_task_mode',JSON.stringify(isolatedTaskMode));renderProfileLabels();
+function chooseIsolatedCreationMode(mode){
+ if(mode==='image'){isolatedTaskMode='image'}
+ else{isolatedTaskMode='video';isolatedVideoMode=mode==='i2v'?'i2v':'t2v'}
+ localStorage.setItem('lva_isolated_task_mode',JSON.stringify(isolatedTaskMode));
+ localStorage.setItem('lva_isolated_video_mode',JSON.stringify(isolatedVideoMode));
+ renderProfileLabels();
  const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'isolated-video-i2v':'isolated-video');
  if(!lastHealth?.media?.[component]?.ready)installComponent(component);
-}
-function chooseIsolatedVideoMode(mode){
- isolatedVideoMode=mode==='i2v'?'i2v':'t2v';localStorage.setItem('lva_isolated_video_mode',JSON.stringify(isolatedVideoMode));renderProfileLabels();
- const component=isolatedVideoMode==='i2v'?'isolated-video-i2v':'isolated-video';if(!lastHealth?.media?.[component]?.ready)installComponent(component);
 }
 function clearReferenceImage(){imageData=null;imageName=null;const input=$('#referenceImageInput');if(input)input.value='';renderIsolatedMode()}
 function loadReferenceImage(file){
@@ -282,10 +305,10 @@ async function installComponent(component){try{const d=await api('/api/setup',{m
 async function refresh(){await pollHealth();try{const d=await api('/api/workflows');workflows=d.workflows;for(const c of Object.values(conversations)){normalizeConversation(c);if(c.profile&&c.profile!=='auto')applyProfileSettings(c,c.profile)}syncModelSelectors();styleCatalog=await api('/assets/styles.json');renderStyles()}catch(e){toast(e.message)}await refreshLoras();renderProfileLabels();renderConversationList($('#conversationSearch').value);renderLibraryCounts();if(!activeConversationId){const existing=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(existing)openConversation(existing.id);else createBlankConversation()}}
 
 function setup(){
- $('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});$('#settingsBtn').onclick=()=>{$('#generationSettings').classList.toggle('hidden');$('#settingsBtn').classList.toggle('active',!$('#generationSettings').classList.contains('hidden'))};$('#closeSettings').onclick=()=>{$('#generationSettings').classList.add('hidden');$('#settingsBtn').classList.remove('active')};
+ $('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
  $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos espace isolé','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
  $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=()=>createConversationForProfile('nsfw');const nsfwGate=$('#nsfwGate');nsfwGate.checked=loadJSON('lva_nsfw_gate',false);nsfwGate.onchange=()=>{localStorage.setItem('lva_nsfw_gate',JSON.stringify(!!nsfwGate.checked));if(!nsfwGate.checked&&activeConversationId&&conversationFor(activeConversationId).profile==='nsfw'){createBlankConversation('auto');toast('Espace NSFW désactivé.')}updateCreationModeGuide()};document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
- $('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installIsolatedImage').onclick=()=>installComponent('isolated-image');$('#installMotion').onclick=()=>installComponent('isolated-video');$('#installI2V').onclick=()=>installComponent('isolated-video-i2v');$('#isolatedModeImage').onclick=()=>chooseIsolatedTask('image');$('#isolatedModeVideo').onclick=()=>chooseIsolatedTask('video');$('#isolatedVideoSource').onchange=e=>chooseIsolatedVideoMode(e.target.value);$('#attachReferenceImageBtn').onclick=()=>$('#referenceImageInput').click();$('#referenceImageInput').onchange=e=>loadReferenceImage(e.target.files?.[0]);$('#clearReferenceImage').onclick=clearReferenceImage;$('#refreshLoras').onclick=refreshLoras;$('#loraSearch').oninput=e=>renderLoraCatalog(e.target.value);$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
+ $('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');$('#settingsBtn').classList.remove('active');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installIsolatedImage').onclick=()=>installComponent('isolated-image');$('#installMotion').onclick=()=>installComponent('isolated-video');$('#installI2V').onclick=()=>installComponent('isolated-video-i2v');$('#isolatedModeImage').onclick=()=>chooseIsolatedCreationMode('image');$('#isolatedModeT2V').onclick=()=>chooseIsolatedCreationMode('t2v');$('#isolatedModeI2V').onclick=()=>chooseIsolatedCreationMode('i2v');$('#attachReferenceImageBtn').onclick=()=>$('#referenceImageInput').click();$('#referenceImageInput').onchange=e=>loadReferenceImage(e.target.files?.[0]);$('#clearReferenceImage').onclick=clearReferenceImage;$('#refreshLoras').onclick=refreshLoras;$('#loraSearch').oninput=e=>renderLoraCatalog(e.target.value);$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
  const savedSettings=loadJSON('lva_settings_v1',{});if(!Object.hasOwn(savedSettings,'settingSystem')||savedSettings.settingSystem===LEGACY_CHAT_SYSTEM){savedSettings.settingSystem=DEFAULT_CHAT_SYSTEM;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))}if(!localStorage.getItem('lva_chat_tokens_v14')&&(!Object.hasOwn(savedSettings,'settingMaxTokens')||Number(savedSettings.settingMaxTokens)<=1024)){savedSettings.settingMaxTokens='2048';localStorage.setItem('lva_chat_tokens_v14','1')}
  document.querySelectorAll('[id^="setting"],#taskMode').forEach(el=>{if(!['INPUT','SELECT','TEXTAREA'].includes(el.tagName)||el.id.endsWith('Model')||el.id==='settingsBtn')return;if(Object.hasOwn(savedSettings,el.id)){if(el.type==='checkbox')el.checked=!!savedSettings[el.id];else el.value=savedSettings[el.id]}el.addEventListener('change',()=>{savedSettings[el.id]=el.type==='checkbox'?el.checked:el.value;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))})});
  // v2.1: remove the old reserved red theme and clear a stale style once so a
