@@ -158,6 +158,9 @@ def profile(api):
     types = ' '.join(n['class_type'].lower() for n in api.values())
     if 'hunyuanimage2.1' in values or 'emptyhunyuanimagelatent' in types:
         return 'hunyuanimage21'
+    if 'hyomniweaving' in types or 'hy_omniweaving' in values:
+        tasks = {str(n.get('inputs', {}).get('task', '')).lower() for n in api.values()}
+        return 'omniweaving-i2v' if 'i2v' in tasks else 'omniweaving-t2v'
     if 'hunyuanvideo1.5_480p_i2v_step_distilled' in values:
         return 'hunyuan15-i2v-step'
     if 'hunyuanvideo1.5' in values or 'hunyuanvideo15' in types or 'hunyuan_video_15' in values:
@@ -191,7 +194,7 @@ def text_roles(api):
             return
         seen.add(nid)
         node = api[nid]
-        if node['class_type'].startswith('CLIPTextEncode'):
+        if node['class_type'].startswith('CLIPTextEncode') or node['class_type'] == 'HYOmniWeavingTextEncode':
             roles.setdefault(nid, set()).add(role)
             return
         for value in node['inputs'].values():
@@ -210,7 +213,7 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
     for nid, node in api.items():
         inp = node['inputs']
         title = node.get('_meta', {}).get('title', '').lower()
-        if node['class_type'].startswith('CLIPTextEncode'):
+        if node['class_type'].startswith('CLIPTextEncode') or node['class_type'] == 'HYOmniWeavingTextEncode':
             role = roles.get(nid, {'negative' if 'negative' in title or 'négatif' in title else 'positive'})
             # Conditioning helper nodes (notably Wan VACE) can make a graph walk
             # reach both encoders from both sampler branches. An explicit node
@@ -223,7 +226,7 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
                 raise ValueError('Le même encodeur texte alimente les prompts positif et négatif. Sépare ces deux encodeurs dans ComfyUI.')
             value = negative if role == {'negative'} else prompt
             if value is not None and (value or role == {'negative'}):
-                for key in ('text', 'text_g', 'text_l'):
+                for key in ('text', 'text_g', 'text_l', 'prompt'):
                     if key in inp and not isinstance(inp[key], list):
                         inp[key] = value
         else:
@@ -263,6 +266,8 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
         'wan': (12, 20, 30),
         'hunyuan15': (12, 20, 28),
         'hunyuan15-i2v-step': (4, 8, 12),
+        'omniweaving-t2v': (24, 36, 50),
+        'omniweaving-i2v': (24, 36, 50),
         'hunyuanimage21': (8, 8, 8),
     }
     quality = settings.get('quality', 'workflow')
@@ -271,7 +276,7 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
         steps = presets[kind][('draft', 'balanced', 'quality').index(quality)]
     if steps is not None and (int(steps) < 1 or int(steps) > 10000):
         raise ValueError('Le nombre d’étapes doit être compris entre 1 et 10000.')
-    video = kind in ('wan', 'hunyuan15', 'hunyuan15-i2v-step')
+    video = kind in ('wan', 'hunyuan15', 'hunyuan15-i2v-step', 'omniweaving-t2v', 'omniweaving-i2v')
     if video:
         dims = {'1:1': (512,512), '16:9': (832,480), '9:16': (480,832), '4:3': (640,480), '3:4': (480,640)}
     elif kind == 'hunyuanimage21':
@@ -304,7 +309,7 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
         if not effective_fps:
             raise ValueError('Renseigne les FPS pour calculer le nombre d’images de la vidéo.')
         frames = max(1, round(float(duration) * float(effective_fps)))
-        stride = 4 if kind in ('wan', 'hunyuan15', 'hunyuan15-i2v-step') else 1
+        stride = 4 if kind in ('wan', 'hunyuan15', 'hunyuan15-i2v-step', 'omniweaving-t2v', 'omniweaving-i2v') else 1
         frames = max(1, round((frames - 1) / stride) * stride + 1)
     for node in api.values():
         inp = node['inputs']

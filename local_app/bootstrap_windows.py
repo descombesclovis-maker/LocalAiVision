@@ -13,6 +13,11 @@ MODEL_NAME = "Qwen3-8B-Q4_K_M.gguf"
 PROGRESS = None
 _DOWNLOAD_LOCKS = {}
 _DOWNLOAD_LOCKS_GUARD = threading.Lock()
+OMNIWEAVING_COMFY_COMMIT = "a9fd2c7416c047566591b42663d64b8239456224"
+OMNIWEAVING_COMFY_ARCHIVE = (
+    "https://github.com/Shiba-2-shiba/hy_omniweaving_comfyui_unofficial/archive/"
+    + OMNIWEAVING_COMFY_COMMIT + ".zip"
+)
 
 
 def _download_lock(dest):
@@ -305,26 +310,28 @@ MEDIA_MODELS = {
          'https://huggingface.co/Comfy-Org/HunyuanImage_2.1_ComfyUI/resolve/main/split_files/vae/hunyuan_image_2.1_vae_fp16.safetensors')
     ],
     'isolated-video': [
-        ('diffusion_models', 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors'),
-        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('diffusion_models', 'hy_omniweaving_hunyuanvideo15_transformer_fp8_e4m3fn_patched.safetensors',
+         'https://huggingface.co/Shiba-2-shiba/HY-OmniWeaving_HunyuanVideo_1.5_FP8_Patched/resolve/main/hy_omniweaving_hunyuanvideo15_transformer_fp8_e4m3fn_patched.safetensors?download=true'),
+        ('text_encoders', 'qwen_2.5_vl_7b_finetuned_model.safetensors',
+         'https://huggingface.co/tencent/HY-OmniWeaving/resolve/main/text_encoder/ckpt/text_encoder_model.safetensors?download=true'),
         ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
          'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
-        ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors')
+        ('vae', 'hunyuanvideo15_vae_fp32.safetensors',
+         'https://huggingface.co/vafipas663/HY-OmniWeaving_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp32.safetensors?download=true')
     ],
     'isolated-video-i2v': [
-        ('diffusion_models', 'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors'),
-        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('diffusion_models', 'hy_omniweaving_hunyuanvideo15_transformer_fp8_e4m3fn_patched.safetensors',
+         'https://huggingface.co/Shiba-2-shiba/HY-OmniWeaving_HunyuanVideo_1.5_FP8_Patched/resolve/main/hy_omniweaving_hunyuanvideo15_transformer_fp8_e4m3fn_patched.safetensors?download=true'),
+        ('text_encoders', 'qwen_2.5_vl_7b_finetuned_model.safetensors',
+         'https://huggingface.co/tencent/HY-OmniWeaving/resolve/main/text_encoder/ckpt/text_encoder_model.safetensors?download=true'),
         ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
          'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
-        ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors'),
-        ('clip_vision', 'sigclip_vision_patch14_384.safetensors',
-         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/clip_vision/sigclip_vision_patch14_384.safetensors')
+        ('vae', 'hunyuanvideo15_vae_fp32.safetensors',
+         'https://huggingface.co/vafipas663/HY-OmniWeaving_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp32.safetensors?download=true'),
+        ('clip_vision', 'image_encoder.safetensors',
+         'https://huggingface.co/Runware/Flex-Redux/resolve/main/image_encoder/model.safetensors?download=true'),
+        ('clip_vision', 'image_embedder.safetensors',
+         'https://huggingface.co/Runware/Flex-Redux/resolve/main/image_embedder/diffusion_pytorch_model.safetensors?download=true')
     ],
 }
 
@@ -337,6 +344,8 @@ OBSOLETE_APP_MODELS = {
     },
     'diffusion_models': {
         'wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors',
+        'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
+        'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
         'wan2.1_vace_1.3B_fp16.safetensors',
         'wan2.2_ti2v_5B_fp16.safetensors',
         'ltx-2.3-22b-dev-fp8.safetensors',
@@ -344,9 +353,11 @@ OBSOLETE_APP_MODELS = {
     },
     'vae': {
         'wan2.2_vae.safetensors',
+        'hunyuanvideo15_vae_fp16.safetensors',
     },
     'clip_vision': {
         'clip_vision_h.safetensors',
+        'sigclip_vision_patch14_384.safetensors',
     },
 }
 
@@ -360,6 +371,52 @@ def _media_model_dir(create_engine=False):
     if root is None:
         return None
     return (root / 'ComfyUI/models') if (root / 'ComfyUI/main.py').exists() else root / 'models'
+
+
+def _omniweaving_extension_dir(create_engine=False):
+    model_dir = _media_model_dir(create_engine)
+    return (model_dir.parent / 'custom_nodes' / 'hy_omniweaving_comfyui_unofficial') if model_dir else None
+
+
+def omniweaving_extension_status():
+    target = _omniweaving_extension_dir(False)
+    return bool(target and (target / 'nodes.py').is_file())
+
+
+def ensure_omniweaving_extension():
+    target = _omniweaving_extension_dir(True)
+    if target is None:
+        raise RuntimeError('Installation ComfyUI introuvable pour OmniWeaving.')
+    marker = target / '.localvision_commit'
+    if (target / 'nodes.py').is_file():
+        if not marker.exists():
+            # Respect an extension installed manually by the user.
+            return True
+        if marker.read_text(encoding='utf-8', errors='ignore').strip() == OMNIWEAVING_COMFY_COMMIT:
+            return True
+
+    archive = DATA / ('hy_omniweaving_comfyui_' + OMNIWEAVING_COMFY_COMMIT[:8] + '.zip')
+    _download(OMNIWEAVING_COMFY_ARCHIVE, archive, 'Téléchargement du pont ComfyUI HY-OmniWeaving…', min_bytes=10_000)
+    extract = DATA / '_extract_omniweaving'
+    if extract.exists():
+        shutil.rmtree(extract, ignore_errors=True)
+    extract.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as z:
+        z.extractall(extract)
+    source = next((p for p in extract.iterdir() if p.is_dir() and p.name.startswith('hy_omniweaving_comfyui_unofficial-')), None)
+    if source is None or not (source / 'nodes.py').is_file():
+        raise RuntimeError('Extension HY-OmniWeaving téléchargée mais contenu invalide.')
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, target)
+    marker.write_text(OMNIWEAVING_COMFY_COMMIT, encoding='utf-8')
+    shutil.rmtree(extract, ignore_errors=True)
+    try:
+        archive.unlink()
+    except OSError:
+        pass
+    return True
 
 
 def cleanup_obsolete_media():
@@ -392,7 +449,11 @@ def media_status(component):
         path = model_dir / folder / name if model_dir else None
         size = path.stat().st_size if path and path.is_file() else 0
         files.append({'name': name, 'path': str(path) if path else '', 'ready': size >= 1024**2, 'size': size})
-    return {'ready': bool(files) and all(x['ready'] for x in files), 'files': files}
+    extension_ready = True
+    if component in ('isolated-video', 'isolated-video-i2v'):
+        extension_ready = omniweaving_extension_status()
+    return {'ready': bool(files) and all(x['ready'] for x in files) and extension_ready,
+            'files': files, 'extension_ready': extension_ready}
 
 
 def ensure_media(component):
@@ -401,6 +462,8 @@ def ensure_media(component):
     model_dir = _media_model_dir(True)
     if model_dir is None:
         raise RuntimeError('Installation ComfyUI introuvable pour les modèles média.')
+    if component in ('isolated-video', 'isolated-video-i2v'):
+        ensure_omniweaving_extension()
     for folder, name, url in MEDIA_MODELS[component]:
         _download(url, model_dir / folder / name, 'Téléchargement : ' + name, min_bytes=1024**2)
     return True

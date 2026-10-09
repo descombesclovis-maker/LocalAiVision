@@ -24,7 +24,7 @@ _setup_lock = threading.Lock()
 _comfy_proc = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.4.1"
+VERSION = "2.5.0"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 
 
@@ -222,7 +222,7 @@ def _general_lora_catalog():
         row = dict(item)
         row['filename'] = str(row.get('name') or 'lora') + '.safetensors'
         row['installed'] = row['filename'] in local
-        row['compatibility'] = 'Hunyuan Video · compatibilité HunyuanVideo 1.5 non garantie'
+        row['compatibility'] = 'Hunyuan Video · compatibilité HY-OmniWeaving non garantie'
         result.append(row)
     return result
 
@@ -340,15 +340,38 @@ def _apply_lora_stack(api, selections):
     if not clean:
         return api
 
-    model_source = next(((nid, 0) for nid, n in api.items() if n['class_type'] in ('UNETLoader', 'CheckpointLoaderSimple')), None)
-    clip_source = next(((nid, 0) for nid, n in api.items() if n['class_type'] in ('DualCLIPLoader', 'CLIPLoader')), None)
-    if model_source is None or clip_source is None:
+    model_source = next(((nid, 0) for nid, n in api.items()
+                         if n['class_type'] in ('UNETLoader', 'CheckpointLoaderSimple', 'HYOmniWeavingUNetLoader')), None)
+    if model_source is None:
         raise ValueError('Ce workflow ne permet pas encore l’empilement automatique de LoRA.')
 
     original_ids = list(api)
-    model_ref, clip_ref = [model_source[0], model_source[1]], [clip_source[0], clip_source[1]]
+    model_ref = [model_source[0], model_source[1]]
+    first_model_ref = list(model_ref)
     next_id = max([int(x) for x in api if str(x).isdigit()] or [0]) + 1
-    first_model_ref, first_clip_ref = list(model_ref), list(clip_ref)
+    omni = api[model_source[0]]['class_type'] == 'HYOmniWeavingUNetLoader'
+
+    if omni:
+        for path, strength in clean:
+            nid = str(next_id); next_id += 1
+            api[nid] = {
+                'class_type': 'LoraLoaderModelOnly',
+                'inputs': {'model': list(model_ref), 'lora_name': path, 'strength_model': strength},
+                '_meta': {'title': 'LocalVisionAI OmniWeaving LoRA · ' + Path(path).stem},
+            }
+            model_ref = [nid, 0]
+        for nid in original_ids:
+            node = api[nid]
+            for key, value in list(node.get('inputs', {}).items()):
+                if value == first_model_ref:
+                    node['inputs'][key] = list(model_ref)
+        return api
+
+    clip_source = next(((nid, 0) for nid, n in api.items() if n['class_type'] in ('DualCLIPLoader', 'CLIPLoader')), None)
+    if clip_source is None:
+        raise ValueError('Ce workflow ne permet pas encore l’empilement automatique de LoRA.')
+    clip_ref = [clip_source[0], clip_source[1]]
+    first_clip_ref = list(clip_ref)
     for path, strength in clean:
         nid = str(next_id); next_id += 1
         api[nid] = {
@@ -656,11 +679,11 @@ def _media_component_for_workflow(current):
     values = ' '.join(str(v).lower() for n in current.values() for v in n.get('inputs', {}).values() if isinstance(v, str))
     if 'hunyuanimage2.1_distilled_fp8_e4m3fn.safetensors' in values:
         return 'isolated-image'
-    if 'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors' in values:
-        return 'isolated-video-i2v'
-    if 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors' in values:
-        return 'isolated-video'
     profile = workflows.profile(current)
+    if profile == 'omniweaving-i2v':
+        return 'isolated-video-i2v'
+    if profile == 'omniweaving-t2v':
+        return 'isolated-video'
     if profile == 'sdxl':
         return 'image'
     if profile == 'wan':
@@ -681,7 +704,10 @@ def _preflight_with_media_repair(current):
         component = _media_component_for_workflow(current)
         # Only self-repair missing model/file choices. Structural workflow errors
         # must remain visible instead of triggering unrelated downloads.
-        if component is None or 'valeur ou fichier indisponible' not in text:
+        repairable = 'valeur ou fichier indisponible' in text
+        if component in ('isolated-video', 'isolated-video-i2v') and 'nœud manquant : HYOmniWeaving' in text:
+            repairable = True
+        if component is None or not repairable:
             raise
 
     from local_app import bootstrap_windows
@@ -693,8 +719,8 @@ def _preflight_with_media_repair(current):
             'image':'RealVisXL (photo)',
             'video':'Wan 2.1 1.3B (vidéo)',
             'isolated-image':'HunyuanImage 2.1 distilled FP8 (espace isolé)',
-            'isolated-video':'HunyuanVideo 1.5 T2V (espace isolé)',
-            'isolated-video-i2v':'HunyuanVideo 1.5 I2V step-distilled (espace isolé)',
+            'isolated-video':'HY-OmniWeaving T2V (espace isolé)',
+            'isolated-video-i2v':'HY-OmniWeaving I2V (espace isolé)',
         }
         label = labels.get(component, component)
         STARTUP.update(state='running', message='Préparation automatique : ' + label, error=None, started_at=time.time())
@@ -864,7 +890,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/health":
             online, detail = comfy_online()
-            media = {'image': {'ready': False}, 'video': {'ready': False}, 'isolated-video': {'ready': False}}
+            media = {'image': {'ready': False}, 'video': {'ready': False}, 'isolated-image': {'ready': False},
+                     'isolated-video': {'ready': False}, 'isolated-video-i2v': {'ready': False}}
             try:
                 from local_app import bootstrap_windows
                 media = {
@@ -1055,8 +1082,8 @@ def _setup_worker(component):
             STARTUP['message'] = "Téléchargement des modèles " + (
                 "photo (RealVisXL)" if component == 'image'
                 else "photo isolée (HunyuanImage 2.1)" if component == 'isolated-image'
-                else "vidéo isolée T2V (HunyuanVideo 1.5)" if component == 'isolated-video'
-                else "vidéo isolée I2V (HunyuanVideo 1.5 step-distilled)" if component == 'isolated-video-i2v'
+                else "vidéo isolée T2V (HY-OmniWeaving)" if component == 'isolated-video'
+                else "vidéo isolée I2V (HY-OmniWeaving)" if component == 'isolated-video-i2v'
                 else "vidéo (Wan 2.1)")
             bootstrap_windows.ensure_media(component)
             _comfy_info_cache['time'] = 0
