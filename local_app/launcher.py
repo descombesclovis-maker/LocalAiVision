@@ -40,7 +40,7 @@ def main():
     logs.mkdir(parents=True, exist_ok=True)
     log = (logs / 'startup.log').open('a', encoding='utf-8', buffering=1)
     sys.stdout = sys.stderr = log
-    print('\n=== LocalVisionAI 2.1 ===', flush=True)
+    print('\n=== LocalVisionAI ===', flush=True)
     httpd = None
     try:
         from local_app import server
@@ -48,6 +48,19 @@ def main():
         if existing and existing.get('app') == 'LocalVisionAI':
             if existing.get('version') != server.VERSION:
                 raise RuntimeError('Une autre version de LocalVisionAI occupe déjà le port 3000. Ferme cette ancienne version une fois, puis relance celle-ci.')
+            # The running instance owns the HTTP server. Opening a second native
+            # window would leave it orphaned if the owner is closed first.
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    'LocalVisionAI est déjà ouvert.\n\nUtilise la fenêtre déjà lancée.',
+                    'LocalVisionAI',
+                    0x40,
+                )
+            except Exception:
+                pass
+            return
         else:
             try:
                 httpd = server.ThreadingHTTPServer((server.HOST, server.PORT), server.Handler)

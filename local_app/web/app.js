@@ -254,9 +254,9 @@ async function waitResults(pids,id,model,promptText,task,previewStyle=null){cons
 
 function showSidebar(){$('#sidebar').classList.remove('closed')}
 function hideSidebar(){$('#sidebar').classList.add('closed')}
-let pollingHealth=false,lastSetupState=null;
+let pollingHealth=false,lastSetupState=null,healthFailures=0;
 async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
- const comfyBefore=comfyReady,h=await api('/api/health');lastHealth=h;comfyReady=!!h.online;llmReady=!!h.llm?.online;
+ const comfyBefore=comfyReady,h=await api('/api/health');healthFailures=0;lastHealth=h;comfyReady=!!h.online;llmReady=!!h.llm?.online;
  if(h.online&&!comfyBefore||(h.startup?.state==='ready'&&lastSetupState==='running')){const listing=await api('/api/workflows');workflows=listing.workflows;syncModelSelectors();if(styleCatalog.length)renderStyles()}
  lastSetupState=h.startup?.state;
  const isolatedReady=h.media?.['isolated-image']?.ready&&h.media?.['isolated-video']?.ready;
@@ -271,7 +271,13 @@ async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
  $('#installI2V').textContent=h.media?.['isolated-video-i2v']?.ready?'HY-OmniWeaving I2V installé ✓':'Installer HY-OmniWeaving I2V';
  for(const id of ['#retrySetup','#installImage','#installVideo','#installIsolatedImage','#installMotion','#installI2V']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
  if(h.startup?.state==='error')$('#enginePanel').open=true
-}catch(e){$('#engineSummary').textContent='Serveur local injoignable';$('#engineDetail').textContent=e.message}finally{pollingHealth=false}}
+}catch(e){
+ healthFailures++;
+ if(healthFailures>=3){
+   $('#engineSummary').textContent='Serveur local injoignable';
+   $('#engineDetail').textContent=e.message+' · Ferme les doublons de LocalVisionAI puis relance une seule instance.';
+ }
+}finally{pollingHealth=false}}
 async function installComponent(component){try{const d=await api('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({component})});toast(d.started?'Préparation lancée. Les téléchargements incomplets sont repris automatiquement.':'Une installation est déjà en cours.');await pollHealth()}catch(e){toast(e.message)}}
 async function refresh(){await pollHealth();try{const d=await api('/api/workflows');workflows=d.workflows;for(const c of Object.values(conversations)){normalizeConversation(c);if(c.profile&&c.profile!=='auto')applyProfileSettings(c,c.profile)}syncModelSelectors();styleCatalog=await api('/assets/styles.json');renderStyles()}catch(e){toast(e.message)}await refreshLoras();renderProfileLabels();renderConversationList($('#conversationSearch').value);renderLibraryCounts();if(!activeConversationId){const existing=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(existing)openConversation(existing.id);else createBlankConversation()}}
 

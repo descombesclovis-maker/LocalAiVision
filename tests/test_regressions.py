@@ -205,6 +205,18 @@ class ServerHTTP(unittest.TestCase):
             self.assertFalse(self.call('/api/health')['online'])
 
 
+class LauncherResilience(unittest.TestCase):
+    def test_launcher_rejects_second_native_instance(self):
+        source = (ROOT / 'local_app' / 'launcher.py').read_text(encoding='utf-8')
+        self.assertIn('LocalVisionAI est déjà ouvert', source)
+        self.assertIn('return', source)
+
+    def test_http_handler_tolerates_client_disconnects(self):
+        source = (ROOT / 'local_app' / 'server.py').read_text(encoding='utf-8')
+        self.assertIn('ConnectionAbortedError', source)
+        self.assertIn('ConnectionResetError', source)
+
+
 class Lifecycle(unittest.TestCase):
     def test_portable_python_selected_not_application_exe(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -867,21 +867,36 @@ def history(prompt_id):
     return result
 
 class Handler(BaseHTTPRequestHandler):
+    def _write_response(self, raw):
+        try:
+            self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            # WebView/browser navigation can cancel an in-flight localhost
+            # request. That is a normal client disconnect, not a server crash.
+            return False
+        return True
+
     def send_json(self, data, status=200):
         raw = json.dumps(data, ensure_ascii=False).encode()
-        self.send_response(status)
-        self.send_header("Content-Type","application/json; charset=utf-8")
-        self.send_header("Content-Length",str(len(raw)))
-        self.send_header("Cache-Control","no-store")
-        self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type","application/json; charset=utf-8")
+            self.send_header("Content-Length",str(len(raw)))
+            self.send_header("Cache-Control","no-store")
+            self.end_headers()
+            self._write_response(raw)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            pass
 
     def send_bytes(self, data, content_type="application/octet-stream", status=200):
-        self.send_response(status)
-        self.send_header("Content-Type",content_type)
-        self.send_header("Content-Length",str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type",content_type)
+            self.send_header("Content-Length",str(len(data)))
+            self.end_headers()
+            self._write_response(data)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            pass
 
     def do_GET(self):
         u = urlparse(self.path)
