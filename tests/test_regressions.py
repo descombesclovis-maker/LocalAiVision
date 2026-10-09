@@ -142,6 +142,12 @@ class LoraLibrary(unittest.TestCase):
         self.assertNotIn('Emma_Watson_Hunyuan_video_Lora', names)
         self.assertIn('Walking_Animation_Hunyuan_Video', names)
         self.assertIn('Orbit_Cam_Character_Hunyuan_Video', names)
+        self.assertIn('Move_Enhancer_V3_20', names)
+        move = next(x for x in rows if x.get('name') == 'Move_Enhancer_V3_20')
+        self.assertEqual(move.get('category'), 'Mouvement')
+        self.assertEqual(move.get('source'), 'TensorHub / NoArtifact')
+        self.assertIn('8itchWalk4', move.get('trained_words') or [])
+        self.assertIn('non garanti', move.get('compatibility') or '')
 
     def test_lora_stack_inserts_loader_between_hunyuan_sources_and_consumers(self):
         api = {

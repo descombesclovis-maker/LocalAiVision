@@ -24,7 +24,7 @@ _setup_lock = threading.Lock()
 _comfy_proc = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.5.0"
+VERSION = "2.5.1"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 
 
@@ -222,7 +222,8 @@ def _general_lora_catalog():
         row = dict(item)
         row['filename'] = str(row.get('name') or 'lora') + '.safetensors'
         row['installed'] = row['filename'] in local
-        row['compatibility'] = 'Hunyuan Video · compatibilité HY-OmniWeaving non garantie'
+        row['compatibility'] = row.get('compatibility') or 'Hunyuan Video · compatibilité HY-OmniWeaving non garantie'
+        row['source'] = row.get('source') or 'Bjornulf/CivitAI'
         result.append(row)
     return result
 
@@ -234,7 +235,7 @@ def _install_general_lora(lora_id):
     cwd = _comfy_working_dir()
     if cwd is None:
         raise RuntimeError('ComfyUI local introuvable.')
-    folder = cwd / 'models' / 'loras' / 'Bjornulf_civitAI' / 'hunyuan_video'
+    folder = cwd / 'models' / 'loras' / 'LocalVisionAI_catalog' / 'hunyuan_video'
     folder.mkdir(parents=True, exist_ok=True)
     safe_name = re.sub(r'[^\w .()\-]+', '_', str(item.get('name') or 'lora'), flags=re.UNICODE).strip('. ') or 'lora'
     target = folder / (safe_name + '.safetensors')
@@ -263,7 +264,9 @@ def _install_general_lora(lora_id):
         'trained_words': item.get('trained_words') or [],
         'category': item.get('category'),
         'description': item.get('description'),
-        'source': 'Bjornulf/CivitAI',
+        'source': item.get('source') or 'Catalogue LocalVisionAI',
+        'source_url': item.get('source_url') or item.get('original_model_url') or '',
+        'sha256': item.get('sha256') or '',
         'lora_id': item.get('lora_id'),
     }, ensure_ascii=False, indent=2), encoding='utf-8')
     return {'ok': True, 'path': target.relative_to(cwd / 'models' / 'loras').as_posix()}

@@ -423,5 +423,25 @@
     ],
     "category": "Personnage / créature",
     "description": "LoRA Hunyuan Video général issu du catalogue Bjornulf."
+  },
+  {
+    "name": "Move_Enhancer_V3_20",
+    "lora_id": "tensorhub-825306265736485529-v3",
+    "base_model": "Hunyuan Video",
+    "source": "TensorHub / NoArtifact",
+    "source_url": "https://tensorhub.art/models/825306265736485529/Move-Enhancer-Hunyuan",
+    "original_model_url": "https://civitai.com/models/1186768?modelVersionId=1391442",
+    "download_url": "https://huggingface.co/mktn/tr-ov-tr-bk/resolve/main/00__concept/Move_Enhancer_V3_20.safetensors?download=true",
+    "sha256": "c9e3bc8517140f5d92439249b4ffc9476e20833b939b36f8cd9d1ce6d28881a9",
+    "size_bytes": 161300448,
+    "trained_words": [
+      "8itchWalk4",
+      "8itchM0unt",
+      "BAKw4lk",
+      "BAKM0unt"
+    ],
+    "category": "Mouvement",
+    "compatibility": "Hunyuan Video original · HY-OmniWeaving / HunyuanVideo 1.5 non garanti",
+    "description": "Améliore surtout les mouvements de marche, course, saut et certaines animations de déplacement. V3 recommandée par l’auteur. Peut introduire un biais vers des mouvements/proportions féminins ; réduire la force si ce biais apparaît."
   }
 ]

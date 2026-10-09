@@ -140,7 +140,7 @@ function renderLoraCatalog(filter=''){
  for(const x of remote){
   const card=document.createElement('div');card.className='lora-card catalog-card'+(x.installed?' installed':'');
   const words=(x.trained_words||[]).join(', ');
-  card.innerHTML='<div class="lora-main"><b>'+esc(x.name)+'</b><small>'+esc(x.category||'Catalogue général')+' · '+esc(x.compatibility||x.base_model||'Hunyuan Video')+'</small><span>'+esc(x.description||'LoRA du catalogue général Bjornulf.')+'</span>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><div></div><button type="button" '+(x.installed?'disabled':'')+'>'+(x.installed?'Installé ✓':'Télécharger')+'</button>';
+  card.innerHTML='<div class="lora-main"><b>'+esc(x.name)+'</b><small>'+esc(x.category||'Catalogue général')+' · '+esc(x.compatibility||x.base_model||'Hunyuan Video')+(x.source?' · '+esc(x.source):'')+'</small><span>'+esc(x.description||'LoRA du catalogue général LocalVisionAI.')+'</span>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><div></div><button type="button" '+(x.installed?'disabled':'')+'>'+(x.installed?'Installé ✓':'Télécharger')+'</button>';
   const button=card.querySelector('button');if(!x.installed)button.onclick=()=>installCatalogLora(x,button);
   remoteBox.appendChild(card);
  }
