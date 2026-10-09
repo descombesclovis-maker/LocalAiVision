@@ -22,9 +22,10 @@ _engine_lock = threading.RLock()
 _comfy_lock = threading.Lock()
 _setup_lock = threading.Lock()
 _comfy_proc = None
+_comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.6.0"
+VERSION = "2.6.1"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 
 
@@ -201,7 +202,34 @@ def _comfy_command(root):
 
 
 def _comfy_working_dir():
-    """Return the ComfyUI directory used by the local installation, if known."""
+    """Return the ComfyUI directory that the active server actually uses.
+
+    Older builds simply returned the first installation found on disk. On a
+    machine with several ComfyUI copies this could install models/custom nodes
+    into one tree while requests were sent to another one.
+    """
+    if _comfy_proc is not None and _comfy_proc.poll() is None and _comfy_cwd:
+        return Path(_comfy_cwd)
+    online, detail = comfy_online()
+    if online and isinstance(detail, dict):
+        system = detail.get('system') or {}
+        argv = system.get('argv') or []
+        if isinstance(argv, list):
+            try:
+                if '--base-directory' in argv:
+                    at = argv.index('--base-directory')
+                    base = Path(str(argv[at + 1])).expanduser()
+                    if base.is_absolute() and base.exists():
+                        return base.resolve()
+            except Exception:
+                pass
+            if argv:
+                try:
+                    main = Path(str(argv[0])).expanduser()
+                    if main.is_absolute() and main.name.lower() == 'main.py' and main.is_file():
+                        return main.resolve().parent
+                except Exception:
+                    pass
     for root in _candidate_comfy_roots():
         cmd, cwd = _comfy_command(root)
         if cmd and cwd:
@@ -269,7 +297,25 @@ def _install_general_lora(lora_id):
         'sha256': item.get('sha256') or '',
         'lora_id': item.get('lora_id'),
     }, ensure_ascii=False, indent=2), encoding='utf-8')
-    return {'ok': True, 'path': target.relative_to(cwd / 'models' / 'loras').as_posix()}
+    rel = target.relative_to(cwd / 'models' / 'loras').as_posix()
+    _comfy_info_cache['time'] = 0
+    _comfy_info_cache['data'] = {}
+    restart_required = False
+    if comfy_online()[0]:
+        info = object_info()
+        node = info.get('LoraLoaderModelOnly') or info.get('LoraLoader') or {}
+        choices = []
+        for section in ('required', 'optional'):
+            definition = (node.get('input') or {}).get(section, {}).get('lora_name')
+            if definition and isinstance(definition[0], list):
+                choices.extend(definition[0])
+        if choices and rel not in choices:
+            if _restart_owned_comfyui():
+                _comfy_info_cache['time'] = 0
+                _comfy_info_cache['data'] = {}
+            else:
+                restart_required = True
+    return {'ok': True, 'path': rel, 'restart_required': restart_required}
 
 
 def _local_lora_metadata():
@@ -437,7 +483,7 @@ def delete_comfy_output(filename, subfolder='', typ='output'):
 
 
 def ensure_comfyui(timeout=180):
-    global _comfy_proc
+    global _comfy_proc, _comfy_cwd
     with _comfy_lock:
         if comfy_online()[0]:
             return True
@@ -451,6 +497,7 @@ def ensure_comfyui(timeout=180):
                 with (logs / "comfy.log").open("ab") as log:
                     _comfy_proc = subprocess.Popen(cmd, cwd=str(cwd), stdout=log, stderr=log,
                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                    _comfy_cwd = Path(cwd)
                 break
             else:
                 return False
@@ -662,7 +709,7 @@ def _wait_for_setup(timeout=7200):
 
 
 def _restart_owned_comfyui():
-    global _comfy_proc
+    global _comfy_proc, _comfy_cwd
     proc = _comfy_proc
     if proc is None or proc.poll() is not None:
         return False
@@ -673,9 +720,44 @@ def _restart_owned_comfyui():
         try: proc.kill()
         except Exception: pass
     _comfy_proc = None
+    _comfy_cwd = None
     _comfy_info_cache['time'] = 0
     _comfy_info_cache['data'] = {}
     return ensure_comfyui(timeout=180)
+
+
+OMNIWEAVING_REQUIRED_NODES = {
+    'HYOmniWeavingTextEncoderLoader',
+    'HYOmniWeavingUNetLoader',
+    'HYOmniWeavingVAELoader',
+    'HYOmniWeavingTextEncode',
+    'HYOmniWeavingConditioning',
+    'HYOmniWeavingImagePrep',
+    'HYOmniWeavingI2VSemanticImages',
+    'HYOmniWeavingReduxVisionEncode',
+}
+
+
+def omniweaving_nodes_loaded(info=None):
+    info = object_info() if info is None else info
+    return bool(info) and OMNIWEAVING_REQUIRED_NODES.issubset(set(info))
+
+
+def _ensure_omni_runtime():
+    """Load newly installed OmniWeaving custom nodes into the running ComfyUI."""
+    _comfy_info_cache['time'] = 0
+    _comfy_info_cache['data'] = {}
+    if omniweaving_nodes_loaded():
+        return True
+    if _restart_owned_comfyui():
+        _comfy_info_cache['time'] = 0
+        _comfy_info_cache['data'] = {}
+        if omniweaving_nodes_loaded():
+            return True
+    raise RuntimeError(
+        "HY-OmniWeaving est installé sur disque mais le ComfyUI actuellement actif ne l'a pas chargé. "
+        "Ferme toute autre instance de ComfyUI, puis relance LocalVisionAI une fois."
+    )
 
 
 def _media_component_for_workflow(current):
@@ -733,6 +815,8 @@ def _preflight_with_media_repair(current):
         bootstrap_windows.ensure_media(component)
         _comfy_info_cache['time'] = 0
         _comfy_info_cache['data'] = {}
+        if component in ('isolated-video', 'isolated-video-i2v'):
+            _ensure_omni_runtime()
         STARTUP.update(state='ready', message='Modèles média prêts.', error=None, started_at=None)
     except Exception as exc:
         STARTUP.update(state='error', message='Installation à reprendre', error=str(exc), started_at=None)
@@ -742,16 +826,7 @@ def _preflight_with_media_repair(current):
 
     _comfy_info_cache['time'] = 0
     _comfy_info_cache['data'] = {}
-    try:
-        workflows.preflight(current, object_info())
-    except ValueError:
-        # ComfyUI normally refreshes model lists dynamically. If the instance
-        # is the one started by LocalVisionAI, restart it once to force a scan.
-        if not _restart_owned_comfyui():
-            raise
-        _comfy_info_cache['time'] = 0
-        _comfy_info_cache['data'] = {}
-        workflows.preflight(current, object_info())
+    workflows.preflight(current, object_info())
 
 
 def run_generation(body):
@@ -1105,6 +1180,11 @@ def _setup_worker(component):
                 else "vidéo (Wan 2.1)")
             bootstrap_windows.ensure_media(component)
             _comfy_info_cache['time'] = 0
+            _comfy_info_cache['data'] = {}
+            if component in ('isolated-video', 'isolated-video-i2v'):
+                if not ensure_comfyui():
+                    raise RuntimeError("ComfyUI ne démarre pas ; consulte logs/comfy.log.")
+                _ensure_omni_runtime()
         STARTUP.update(state="ready", message="Moteur média prêt. Le chat local sera préparé seulement à sa première utilisation.", error=None, started_at=None)
     except Exception as exc:
         STARTUP.update(state="error", message="Installation à reprendre", error=str(exc), started_at=None)

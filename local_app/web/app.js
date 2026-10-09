@@ -170,7 +170,7 @@ function renderLoraCatalog(filter=''){
 }
 async function installCatalogLora(x,button){
  button.disabled=true;button.textContent='Téléchargement…';
- try{await api('/api/loras/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lora_id:x.lora_id})});toast('LoRA installé.');await refreshLoras()}
+ try{const d=await api('/api/loras/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lora_id:x.lora_id})});toast(d.restart_required?'LoRA installé. Ferme toute autre instance de ComfyUI puis relance LocalVisionAI.':'LoRA installé et indexé par ComfyUI.');await refreshLoras()}
  catch(e){toast(e.message);button.disabled=false;button.textContent='Télécharger'}
 }
 async function refreshLoras(){try{const d=await api('/api/loras');loraCatalog=d.loras||[];loraRemoteCatalog=d.catalog||[];renderLoraCatalog($('#loraSearch')?.value||'')}catch(e){if($('#loraCatalog'))$('#loraCatalog').innerHTML='<div class="lora-empty">'+esc(e.message)+'</div>'}

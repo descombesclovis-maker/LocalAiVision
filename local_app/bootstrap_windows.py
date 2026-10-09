@@ -364,13 +364,11 @@ OBSOLETE_APP_MODELS = {
 
 def _media_model_dir(create_engine=False):
     from local_app import server
-    root = next((r for r in server._candidate_comfy_roots() if server._comfy_command(r)[0]), None)
-    if root is None and create_engine:
+    cwd = server._comfy_working_dir()
+    if cwd is None and create_engine:
         ensure_comfy()
-        root = ENGINE
-    if root is None:
-        return None
-    return (root / 'ComfyUI/models') if (root / 'ComfyUI/main.py').exists() else root / 'models'
+        cwd = server._comfy_working_dir()
+    return (Path(cwd) / 'models') if cwd else None
 
 
 def _omniweaving_extension_dir(create_engine=False):
@@ -450,10 +448,18 @@ def media_status(component):
         size = path.stat().st_size if path and path.is_file() else 0
         files.append({'name': name, 'path': str(path) if path else '', 'ready': size >= 1024**2, 'size': size})
     extension_ready = True
+    nodes_ready = None
     if component in ('isolated-video', 'isolated-video-i2v'):
         extension_ready = omniweaving_extension_status()
-    return {'ready': bool(files) and all(x['ready'] for x in files) and extension_ready,
-            'files': files, 'extension_ready': extension_ready}
+        try:
+            from local_app import server
+            if server.comfy_online()[0]:
+                nodes_ready = server.omniweaving_nodes_loaded()
+        except Exception:
+            nodes_ready = False
+    runtime_ok = nodes_ready is not False
+    return {'ready': bool(files) and all(x['ready'] for x in files) and extension_ready and runtime_ok,
+            'files': files, 'extension_ready': extension_ready, 'nodes_ready': nodes_ready}
 
 
 def ensure_media(component):

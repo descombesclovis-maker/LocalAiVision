@@ -151,6 +151,31 @@ class MediaModels(unittest.TestCase):
                 target.write_bytes(b'x' * (1024**2))
                 self.assertTrue(boot.media_status('image')['ready'])
 
+    def test_omni_media_status_requires_runtime_nodes_when_comfy_is_online(self):
+        with tempfile.TemporaryDirectory() as folder:
+            model_dir = Path(folder)
+            for sub, name, _url in boot.MEDIA_MODELS['isolated-video']:
+                target = model_dir / sub / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b'x' * (1024**2))
+            ext = model_dir.parent / 'custom_nodes' / 'hy_omniweaving_comfyui_unofficial'
+            ext.mkdir(parents=True)
+            (ext / 'nodes.py').write_text('# test', encoding='utf-8')
+            with patch.object(boot, '_media_model_dir', return_value=model_dir), \
+                 patch.object(server, 'comfy_online', return_value=(True, {})), \
+                 patch.object(server, 'omniweaving_nodes_loaded', return_value=False):
+                status = boot.media_status('isolated-video')
+            self.assertFalse(status['ready'])
+            self.assertFalse(status['nodes_ready'])
+
+    def test_active_comfy_working_dir_uses_system_stats_argv(self):
+        with tempfile.TemporaryDirectory() as folder:
+            main = Path(folder) / 'main.py'
+            main.write_text('', encoding='utf-8')
+            with patch.object(server, '_comfy_proc', None), \
+                 patch.object(server, 'comfy_online', return_value=(True, {'system': {'argv': [str(main)]}})):
+                self.assertEqual(server._comfy_working_dir(), main.parent.resolve())
+
     def test_cleanup_only_targets_known_legacy_files(self):
         with tempfile.TemporaryDirectory() as folder:
             model_dir = Path(folder)
@@ -182,6 +207,11 @@ class LoraLibrary(unittest.TestCase):
         self.assertEqual(move.get('source'), 'TensorHub / NoArtifact')
         self.assertIn('8itchWalk4', move.get('trained_words') or [])
         self.assertIn('non garanti', move.get('compatibility') or '')
+
+    def test_omni_required_node_set_covers_i2v_workflow(self):
+        wf = json.loads((ROOT / 'Isolated HY-OmniWeaving I2V.json').read_text(encoding='utf-8'))
+        custom = {n['class_type'] for n in wf.values() if n['class_type'].startswith('HYOmniWeaving')}
+        self.assertTrue(custom.issubset(server.OMNIWEAVING_REQUIRED_NODES))
 
     def test_lora_stack_inserts_loader_between_hunyuan_sources_and_consumers(self):
         api = {
