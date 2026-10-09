@@ -466,4 +466,6 @@ def ensure_media(component):
         ensure_omniweaving_extension()
     for folder, name, url in MEDIA_MODELS[component]:
         _download(url, model_dir / folder / name, 'Téléchargement : ' + name, min_bytes=1024**2)
+    if component in ('isolated-video', 'isolated-video-i2v'):
+        cleanup_obsolete_media()
     return True
