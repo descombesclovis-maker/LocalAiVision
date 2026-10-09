@@ -177,6 +177,25 @@ class MediaModels(unittest.TestCase):
                 target.write_bytes(b'x' * (1024**2))
                 self.assertTrue(boot.media_status('image')['ready'])
 
+    def test_omni_comfy_api_status_detects_required_latest_api(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cwd = Path(folder)
+            latest = cwd / 'comfy_api' / 'latest'
+            latest.mkdir(parents=True)
+            (latest / '__init__.py').write_text('', encoding='utf-8')
+            with patch.object(server, '_comfy_working_dir', return_value=cwd), \
+                 patch.object(boot, 'ENGINE', cwd.parent / 'managed-engine'):
+                status = boot.omniweaving_comfy_api_status()
+            self.assertTrue(status['ready'])
+
+    def test_omni_comfy_api_status_rejects_old_comfy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cwd = Path(folder)
+            with patch.object(server, '_comfy_working_dir', return_value=cwd), \
+                 patch.object(boot, 'ENGINE', cwd.parent / 'managed-engine'):
+                status = boot.omniweaving_comfy_api_status()
+            self.assertFalse(status['ready'])
+
     def test_omni_media_status_requires_runtime_nodes_when_comfy_is_online(self):
         with tempfile.TemporaryDirectory() as folder:
             model_dir = Path(folder)
@@ -188,6 +207,7 @@ class MediaModels(unittest.TestCase):
             ext.mkdir(parents=True)
             (ext / 'nodes.py').write_text('# test', encoding='utf-8')
             with patch.object(boot, '_media_model_dir', return_value=model_dir), \
+                 patch.object(boot, 'omniweaving_comfy_api_status', return_value={'ready': True, 'cwd': str(model_dir.parent), 'managed': True}), \
                  patch.object(server, 'comfy_online', return_value=(True, {})), \
                  patch.object(server, 'omniweaving_nodes_loaded', return_value=False):
                 status = boot.media_status('isolated-video')

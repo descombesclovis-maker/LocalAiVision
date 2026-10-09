@@ -26,7 +26,7 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.7.0"
+VERSION = "2.7.1"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -903,21 +903,32 @@ def _wait_for_setup(timeout=7200):
         time.sleep(.25)
 
 
-def _restart_owned_comfyui():
+def _stop_owned_comfyui():
     global _comfy_proc, _comfy_cwd
     proc = _comfy_proc
     if proc is None or proc.poll() is not None:
+        _comfy_proc = None
+        _comfy_cwd = None
         return False
     try:
         proc.terminate()
         proc.wait(timeout=8)
     except Exception:
-        try: proc.kill()
-        except Exception: pass
+        try:
+            proc.kill()
+            proc.wait(timeout=5)
+        except Exception:
+            pass
     _comfy_proc = None
     _comfy_cwd = None
     _comfy_info_cache['time'] = 0
     _comfy_info_cache['data'] = {}
+    return True
+
+
+def _restart_owned_comfyui():
+    if not _stop_owned_comfyui():
+        return False
     return ensure_comfyui(timeout=180)
 
 

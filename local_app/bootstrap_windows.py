@@ -83,9 +83,9 @@ def _download(url, dest, label, min_bytes=1024):
         return _download_unlocked(url, dest, label, min_bytes)
 
 
-def ensure_comfy():
+def ensure_comfy(force_repair=False):
     from local_app import server
-    if any(server._comfy_command(root)[0] for root in server._candidate_comfy_roots()):
+    if not force_repair and any(server._comfy_command(root)[0] for root in server._candidate_comfy_roots()):
         return True
     DATA.mkdir(parents=True, exist_ok=True)
     archive = DATA / "ComfyUI_windows_portable_nvidia.7z"
@@ -134,6 +134,66 @@ def ensure_comfy():
     try: archive.unlink()
     except Exception: pass
     shutil.rmtree(target, ignore_errors=True)
+    return True
+
+
+def _path_is_inside(path, parent):
+    try:
+        Path(path).resolve().relative_to(Path(parent).resolve())
+        return True
+    except Exception:
+        return False
+
+
+def omniweaving_comfy_api_status():
+    """Report whether the active ComfyUI exposes the API required by the bridge."""
+    from local_app import server
+    cwd = server._comfy_working_dir()
+    if cwd is None:
+        return {'ready': False, 'cwd': '', 'managed': False}
+    cwd = Path(cwd)
+    latest = cwd / 'comfy_api' / 'latest'
+    managed = _path_is_inside(cwd, ENGINE)
+    return {'ready': latest.is_dir() and (latest / '__init__.py').is_file(),
+            'cwd': str(cwd), 'managed': managed}
+
+
+def ensure_omniweaving_comfy_api():
+    """Upgrade the LocalVisionAI-managed Comfy core when OmniWeaving needs it.
+
+    Models, custom nodes, inputs and outputs live inside the portable tree and
+    are preserved because ensure_comfy(force_repair=True) overlays the latest
+    official portable package instead of deleting the existing engine.
+    """
+    from local_app import server
+    status = omniweaving_comfy_api_status()
+    if status['ready']:
+        return True
+
+    cwd = Path(status['cwd']) if status['cwd'] else None
+    if cwd is not None and not status['managed']:
+        raise RuntimeError(
+            "Le ComfyUI actif est une installation externe trop ancienne pour HY-OmniWeaving. "
+            "Ferme cette instance externe puis relance LocalVisionAI : il utilisera et réparera "
+            "son propre ComfyUI automatiquement."
+        )
+
+    # Updating files underneath a running Python process is unreliable. Stop
+    # only the ComfyUI child process owned by LocalVisionAI, never an external one.
+    server._stop_owned_comfyui()
+    if PROGRESS:
+        PROGRESS("Mise à niveau de ComfyUI requise pour HY-OmniWeaving…")
+    ensure_comfy(force_repair=True)
+
+    # After the official portable package is overlaid, its recent comfy_api
+    # must exist before we proceed to custom-node installation.
+    managed_cwd = ENGINE / 'ComfyUI'
+    latest = managed_cwd / 'comfy_api' / 'latest'
+    if not latest.is_dir() or not (latest / '__init__.py').is_file():
+        raise RuntimeError(
+            "La mise à niveau de ComfyUI est terminée mais l'API requise par HY-OmniWeaving "
+            "est toujours absente. Consulte logs/comfy.log."
+        )
     return True
 
 
@@ -448,18 +508,21 @@ def media_status(component):
         size = path.stat().st_size if path and path.is_file() else 0
         files.append({'name': name, 'path': str(path) if path else '', 'ready': size >= 1024**2, 'size': size})
     extension_ready = True
+    api_ready = True
     nodes_ready = None
     if component in ('isolated-video', 'isolated-video-i2v'):
         extension_ready = omniweaving_extension_status()
         try:
+            api_ready = omniweaving_comfy_api_status()['ready']
             from local_app import server
             if server.comfy_online()[0]:
                 nodes_ready = server.omniweaving_nodes_loaded()
         except Exception:
+            api_ready = False
             nodes_ready = False
     runtime_ok = nodes_ready is not False
-    return {'ready': bool(files) and all(x['ready'] for x in files) and extension_ready and runtime_ok,
-            'files': files, 'extension_ready': extension_ready, 'nodes_ready': nodes_ready}
+    return {'ready': bool(files) and all(x['ready'] for x in files) and extension_ready and api_ready and runtime_ok,
+            'files': files, 'extension_ready': extension_ready, 'api_ready': api_ready, 'nodes_ready': nodes_ready}
 
 
 def ensure_media(component):
@@ -469,6 +532,11 @@ def ensure_media(component):
     if model_dir is None:
         raise RuntimeError('Installation ComfyUI introuvable pour les modèles média.')
     if component in ('isolated-video', 'isolated-video-i2v'):
+        ensure_omniweaving_comfy_api()
+        # Re-resolve the model directory after a managed ComfyUI repair/restart.
+        model_dir = _media_model_dir(True)
+        if model_dir is None:
+            raise RuntimeError('Installation ComfyUI introuvable après mise à niveau.')
         ensure_omniweaving_extension()
     for folder, name, url in MEDIA_MODELS[component]:
         _download(url, model_dir / folder / name, 'Téléchargement : ' + name, min_bytes=1024**2)
