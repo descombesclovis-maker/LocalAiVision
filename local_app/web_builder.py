@@ -221,7 +221,7 @@ class LocalAiWebStore:
         }
         if template == 'cinematic3d':
             root = Path(__file__).resolve().parent / 'web' / 'templates' / 'cinematic3d'
-            for file_name in ('index.html', 'styles.css', 'app.js', 'README.md'):
+            for file_name in ('index.html', 'styles.css', 'app.js', 'quality.mjs', 'README.md'):
                 starter[file_name] = (root / file_name).read_text(encoding='utf-8')
         self.write_files(pid, starter, replace=True)
         return self.payload(pid)
