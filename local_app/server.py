@@ -1530,9 +1530,12 @@ class Handler(BaseHTTPRequestHandler):
                 store = _web_store()
                 project_id = body.get("id")
                 site = store.project_dir(project_id) / "site"
-                result = integrations_cli.vercel_publish(site, bool(body.get("production", True)))
+                production = bool(body.get("production", True))
+                result = integrations_cli.vercel_publish(site, production)
                 if result.get("url"):
-                    store.update_deployment(project_id, {"production_url": result["url"], "last_deployed_at": time.time()})
+                    patch = {"last_deployed_at": time.time()}
+                    patch["production_url" if production else "preview_url"] = result["url"]
+                    store.update_deployment(project_id, patch)
                 payload = store.payload(project_id)
                 payload["deployment_result"] = result
                 self.send_json(payload)
