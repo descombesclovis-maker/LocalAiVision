@@ -56,3 +56,5 @@
 .code-head>div:first-child{display:flex;align-items:center;gap:8px}.code-head small{font-size:8px;color:#71677f}
 
 .deploy-links{display:grid;gap:5px;border:1px solid #2f2142;background:#110a19;border-radius:9px;padding:8px}.deploy-links a,.deploy-links span{display:block;color:#bfa9e6;font-size:9px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.deploy-links a:hover{color:#fff}
+
+.env-row{display:grid;grid-template-columns:1fr 115px;gap:6px}.env-row input,.env-row select{height:34px;border:1px solid #38264f;background:#0f0917;color:#eee;border-radius:8px;padding:0 9px;font-size:9px}
