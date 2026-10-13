@@ -123,6 +123,12 @@ class SettingsUi(unittest.TestCase):
         self.assertIn('/api/web/version/restore', logic)
         self.assertIn('/api/web/file/save', logic)
 
+    def test_localaiweb_does_not_reuse_localvision_saved_state(self):
+        logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
+        self.assertNotIn('localStorage', logic)
+        for key in ('lva_conversations_v2','lva_library','lva_settings_v1','lva_selected_loras'):
+            self.assertNotIn(key, logic)
+
     def test_updater_button_is_available_in_sidebar(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
@@ -135,6 +141,12 @@ class SettingsUi(unittest.TestCase):
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
         self.assertIn("accordionLoras')?.classList.toggle('hidden',!(isolated&&isolatedTaskMode==='video'))", source)
         self.assertIn("chooseIsolatedCreationMode('i2v')", source)
+
+
+class LocalAiWebIsolation(unittest.TestCase):
+    def test_localaiweb_projects_live_under_separate_data_root(self):
+        self.assertEqual(server.WEB_PROJECTS, server.LOCALAIWEB_DATA / 'projects')
+        self.assertEqual(server.LOCALAIWEB_DATA.parent, server.DATA)
 
 
 class LocalAiWebBackend(unittest.TestCase):
