@@ -247,8 +247,9 @@ def codex_apply(site_dir, prompt):
         raise RuntimeError("Prompt Codex vide.")
     instruction = (
         "Work only inside this website project. Implement the request directly in the files. "
-        "Preserve existing user assets and working features. Keep the result polished, responsive, accessible, "
-        "semantic and production-ready. Verify obvious syntax problems before finishing. Request: " + text
+        "Preserve existing user assets and working features. Inspect relevant image assets when the request references a screenshot, logo or visual reference. "
+        "Keep the result polished, responsive, accessible, semantic and production-ready. Run safe validation checks before finishing. "
+        "Never write secrets into browser code or committed files. Request: " + text
     )
     result = _run(cmd + ["exec", "--full-auto", instruction], cwd=site_dir, timeout=900)
     if result.returncode != 0:
