@@ -196,3 +196,13 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
 .send-modern:hover:not(:disabled){transform:translateY(-1px)}
 .send-modern span{font-size:21px;font-weight:650;line-height:1}
 @media(max-width:700px){.composer-tool small{display:none}.composer-tool{width:38px;padding:0;justify-content:center}.send-modern{width:40px;height:40px}}
+
+
+/* v2.9 — LocalAiWeb entry. */
+.main-topbar{height:64px;display:flex;align-items:center;justify-content:center;position:relative;flex:none;padding:8px 20px;z-index:20}
+.main-topbar .open-sidebar{position:absolute!important;left:20px;top:14px}
+.localaiweb-entry{position:relative;isolation:isolate;overflow:hidden;height:42px;padding:0 24px;border:1px solid #9b6cff;background:linear-gradient(135deg,#6d28d9,#8b5cf6 48%,#6d28d9);color:white;border-radius:999px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;box-shadow:0 0 20px #7c3aed66,0 8px 30px #0008;font-size:13px;letter-spacing:.01em;transition:transform .18s ease,box-shadow .18s ease}
+.localaiweb-entry:before{content:"";position:absolute;inset:-80% -20%;z-index:-1;background:linear-gradient(105deg,transparent 35%,#ffffff55 48%,transparent 61%);transform:translateX(-60%);animation:localweb-shimmer 3.2s linear infinite}
+.localaiweb-entry:hover{transform:translateY(-1px) scale(1.015);box-shadow:0 0 30px #8b5cf68a,0 10px 34px #0009}
+.localaiweb-spark{font-size:12px;animation:localweb-twinkle 1.7s ease-in-out infinite}.localaiweb-spark:last-child{animation-delay:.65s}
+@keyframes localweb-shimmer{0%{transform:translateX(-65%) rotate(3deg)}55%,100%{transform:translateX(65%) rotate(3deg)}}@keyframes localweb-twinkle{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
