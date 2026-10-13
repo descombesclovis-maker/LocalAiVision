@@ -230,7 +230,7 @@ class LocalAiWebStore:
         meta['created_at'] = now
         meta['updated_at'] = now
         meta['status'] = 'local'
-        meta['deployment'] = {'github_repo':'','github_branch':'main','github_private':True,'supabase_ref':'','vercel_target':'production','production_url':'','custom_domain':'','last_deployed_at':0}
+        meta['deployment'] = {'github_repo':'','github_branch':'main','github_private':True,'supabase_ref':'','vercel_target':'production','production_url':'','preview_url':'','custom_domain':'','last_deployed_at':0}
         self.write_meta(new_id, meta)
         versions = target / 'versions'
         if versions.is_dir():
@@ -318,7 +318,7 @@ class LocalAiWebStore:
     def update_deployment(self, project_id, patch):
         meta = self.meta(project_id)
         deployment = dict(meta.get('deployment') or {})
-        allowed = {'github_repo','github_branch','github_private','supabase_ref','vercel_target','production_url','custom_domain','last_deployed_at'}
+        allowed = {'github_repo','github_branch','github_private','supabase_ref','vercel_target','production_url','preview_url','custom_domain','last_deployed_at'}
         for key, value in (patch or {}).items():
             if key in allowed:
                 deployment[key] = value
