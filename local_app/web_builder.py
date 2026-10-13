@@ -189,7 +189,8 @@ class LocalAiWebStore:
             raise FileNotFoundError('Projet LocalAiWeb introuvable.')
         new_id = 'web-' + uuid.uuid4().hex[:12]
         target = self.project_dir(new_id)
-        shutil.copytree(source, target, ignore=shutil.ignore_patterns('.git','.vercel','node_modules','.next','dist','build'))
+        shutil.copytree(source, target, ignore=shutil.ignore_patterns('.git','.vercel','node_modules','.next','dist','build',
+                                                                  '.env','.env.local','.env.production','.env.development'))
         meta = json.loads((target / 'project.json').read_text(encoding='utf-8'))
         now = time.time()
         meta['id'] = new_id
