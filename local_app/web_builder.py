@@ -248,20 +248,51 @@ class LocalAiWebStore:
         files = self.text_files(project_id)
         html = files.get('index.html','')
         css = '\n'.join(v for k,v in files.items() if k.endswith('.css'))
-        checks = [
-            {'id':'index','label':'Page principale','ok':bool(html.strip()),'weight':12},
-            {'id':'viewport','label':'Responsive viewport','ok':('name="viewport"' in html or "name='viewport'" in html),'weight':8},
-            {'id':'title','label':'Titre SEO','ok':bool(re.search(r'<title>[^<]{2,}</title>',html,re.I)),'weight':8},
-            {'id':'description','label':'Meta description','ok':bool(re.search(r'name=["\\\']description["\\\']',html,re.I)),'weight':8},
-            {'id':'semantic','label':'HTML sémantique','ok':any(tag in html.lower() for tag in ('<main','<header','<nav','<section','<footer')),'weight':8},
-            {'id':'responsive_css','label':'CSS responsive','ok':('@media' in css or 'clamp(' in css),'weight':10},
-            {'id':'focus','label':'Focus clavier','ok':(':focus' in css or ':focus-visible' in css),'weight':7},
-            {'id':'reduced_motion','label':'Reduced motion','ok':('prefers-reduced-motion' in css),'weight':5},
-        ]
+        js = '\n'.join(v for k,v in files.items() if k.endswith(('.js','.mjs','.ts','.tsx','.jsx')))
+        checks = []
+
+        def add(check_id, ok, label, weight, note=''):
+            checks.append({'id':check_id,'ok':bool(ok),'label':label,'weight':weight,'note':note})
+
+        lower = html.lower()
+        add('index', bool(html.strip()), 'Page principale', 12)
+        add('doctype', '<!doctype html' in lower, 'DOCTYPE HTML5', 3)
+        add('viewport', 'name="viewport"' in html or "name='viewport'" in html, 'Responsive viewport', 8)
+        add('language', '<html' in lower and 'lang=' in lower, 'Langue du document', 4)
+        add('title', bool(re.search(r'<title>[^<]{2,}</title>', html, re.I)), 'Titre SEO', 8)
+        add('description', bool(re.search(r'<meta[^>]+name=["\']description["\']',html,re.I)), 'Meta description', 8)
+        add('semantic', any(tag in lower for tag in ('<main','<header','<nav','<section','<article','<footer')), 'HTML sémantique', 8)
+        add('h1', len(re.findall(r'<h1\b',html,re.I)) == 1, 'Un seul H1 principal', 5)
+        add('responsive_css', bool(re.search(r'@media\s*\(',css,re.I)) or 'clamp(' in css, 'CSS responsive', 10)
+        add('focus', ':focus' in css or ':focus-visible' in css, 'Navigation clavier / focus', 7)
+        add('reduced_motion', 'prefers-reduced-motion' in css, 'Respect reduced motion', 5)
+        images = re.findall(r'<img\b[^>]*>',html,re.I)
+        add('image_alt', not images or all(re.search(r'\balt\s*=',tag,re.I) for tag in images), 'Textes alternatifs images', 7)
+        inputs = re.findall(r'<input\b[^>]*>',html,re.I)
+        labeled = not inputs or ('<label' in lower or all('aria-label=' in tag.lower() or 'type="hidden"' in tag.lower() for tag in inputs))
+        add('form_labels', labeled, 'Libellés de formulaires', 5)
+        add('no_todo', not re.search(r'\b(?:TODO|FIXME|PLACEHOLDER|LOREM IPSUM)\b',html+css+js,re.I), 'Aucun placeholder technique', 6)
+        add('no_inline_secret', not re.search(r'(?:api[_-]?key|secret|password)\s*[:=]\s*["\'][^"\']{8,}',html+css+js,re.I), 'Aucun secret évident dans le code', 8)
+
+        local_refs = re.findall(r'(?:src|href)=["\']([^"\']+)["\']',html,re.I)
+        broken = []
+        for ref in local_refs:
+            clean = ref.split('#',1)[0].split('?',1)[0].strip()
+            if not clean or clean.startswith(('http://','https://','mailto:','tel:','data:','javascript:','#','/web-preview/')):
+                continue
+            if clean.startswith('/'):
+                clean = clean.lstrip('/')
+            if clean and clean not in files and not any(a.get('path') == clean for a in self.assets(project_id)):
+                broken.append(clean)
+        add('local_links', not broken, 'Liens et assets locaux valides', 8, ', '.join(broken[:5]))
+
         total = sum(x['weight'] for x in checks)
-        score = round(100 * sum(x['weight'] for x in checks if x['ok']) / total) if total else 0
+        passed = sum(x['weight'] for x in checks if x['ok'])
+        score = round(100 * passed / total) if total else 0
         blockers = [x for x in checks if not x['ok'] and x['weight'] >= 8]
-        return {'ok': score >= 80 and not blockers, 'score': score, 'checks': checks, 'blockers': blockers}
+        return {'ok': score >= 82 and not blockers, 'score': score, 'checks': checks, 'blockers': blockers,
+                'file_count': len(files), 'asset_count': len(self.assets(project_id))}
+
 
     def restore(self, project_id, version_id):
         path = self.project_dir(project_id) / 'versions' / (safe_id(version_id)+'.json')
