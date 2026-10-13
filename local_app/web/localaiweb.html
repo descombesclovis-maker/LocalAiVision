@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocalAiWeb — LocalAiVision</title>
+<link rel="stylesheet" href="/assets/localaiweb.css">
+</head>
+<body>
+<div class="law-shell">
+  <header class="law-topbar">
+    <div class="law-brand"><button id="lawBack" class="icon-btn" title="Retour à LocalAiVision">←</button><span class="brand-orb">✦</span><div><b>LocalAiWeb</b><small>AI website & app studio</small></div></div>
+    <div class="law-project-switch"><select id="lawProjects"></select><button id="lawNewProject" class="soft-btn">＋ Nouveau</button></div>
+    <div class="law-top-actions">
+      <button id="lawUndo" class="icon-btn" title="Annuler">↶</button><button id="lawRedo" class="icon-btn" title="Rétablir">↷</button>
+      <div class="viewport-switch"><button data-view="desktop" class="active">Desktop</button><button data-view="tablet">Tablette</button><button data-view="mobile">Mobile</button></div>
+      <button id="lawExport" class="soft-btn">Exporter ZIP</button>
+      <button id="lawGithub" class="soft-btn integration-btn">GitHub <span>à connecter</span></button>
+      <button id="lawPublish" class="publish-btn">Publier <span>à connecter</span></button>
+    </div>
+  </header>
+
+  <div class="law-workspace">
+    <aside class="law-left">
+      <div class="rail-tabs">
+        <button class="rail-tab active" data-panel="files">Fichiers</button>
+        <button class="rail-tab" data-panel="assets">Assets</button>
+        <button class="rail-tab" data-panel="versions">Versions</button>
+        <button class="rail-tab" data-panel="services">Services</button>
+      </div>
+      <section id="lawFilesPanel" class="rail-panel">
+        <div class="panel-title"><b>Fichiers</b><span>Projet local</span></div><div id="lawFileTree" class="file-tree"></div>
+      </section>
+      <section id="lawAssetsPanel" class="rail-panel hidden">
+        <div class="panel-title"><b>Assets</b><button id="lawAssetAdd">＋ Ajouter</button></div>
+        <input id="lawAssetInput" type="file" hidden><div id="lawAssets" class="asset-list"></div>
+      </section>
+      <section id="lawVersionsPanel" class="rail-panel hidden">
+        <div class="panel-title"><b>Historique</b><span>Restaurer une version</span></div><div id="lawVersions" class="version-list"></div>
+      </section>
+      <section id="lawServicesPanel" class="rail-panel hidden">
+        <div class="panel-title"><b>Infrastructure</b><span>Architecture complète</span></div>
+        <div class="service-grid">
+          <button data-service="database">▦<b>Database</b><small>SQL · à connecter</small></button>
+          <button data-service="auth">◇<b>Auth & rôles</b><small>Email/OAuth · à connecter</small></button>
+          <button data-service="payments">€<b>Paiements</b><small>Stripe · à connecter</small></button>
+          <button data-service="api">↔<b>APIs</b><small>REST/Webhooks · à connecter</small></button>
+          <button data-service="storage">▣<b>Storage</b><small>Fichiers · local prêt</small></button>
+          <button data-service="realtime">◉<b>Realtime</b><small>Channels · à connecter</small></button>
+          <button data-service="ai">✦<b>IA</b><small>LocalAiVision · prêt</small></button>
+          <button data-service="integrations">⌘<b>Intégrations</b><small>Connecteurs · à connecter</small></button>
+          <button data-service="analytics">⌁<b>Analytics</b><small>Trafic · à connecter</small></button>
+          <button data-service="domains">◎<b>Domaines</b><small>DNS/SSL · à connecter</small></button>
+        </div>
+      </section>
+    </aside>
+
+    <main class="law-center">
+      <div class="preview-toolbar">
+        <div><span class="status-dot"></span><b id="lawPreviewTitle">Aperçu local</b></div>
+        <div class="preview-actions"><button id="lawRefresh">↻</button><button id="lawSelectMode">◎ Édition visuelle</button><button id="lawOpenPreview">↗</button></div>
+      </div>
+      <div id="lawPreviewStage" class="preview-stage desktop"><iframe id="lawPreview" sandbox="allow-scripts allow-forms allow-modals allow-same-origin"></iframe></div>
+      <div id="lawInspector" class="visual-inspector hidden">
+        <div><b>Élément sélectionné</b><span id="lawSelectedTag">—</span></div>
+        <label>Texte<input id="lawElementText"></label>
+        <label>Couleur<input id="lawElementColor" type="color"></label>
+        <label>Fond<input id="lawElementBg" type="color"></label>
+        <label>Taille<input id="lawElementSize" type="number" min="8" max="120"></label>
+        <label>Arrondi<input id="lawElementRadius" type="number" min="0" max="80"></label>
+        <button id="lawApplyVisual">Appliquer</button>
+      </div>
+      <div id="lawCodePanel" class="code-panel hidden">
+        <div class="code-head"><b id="lawCodePath">index.html</b><div><button id="lawCloseCode">Fermer</button><button id="lawSaveCode">Enregistrer</button></div></div>
+        <textarea id="lawCode"></textarea>
+      </div>
+    </main>
+
+    <aside class="law-right">
+      <div class="agent-head"><div class="agent-avatar">✦</div><div><b>Agent LocalAiWeb</b><small>Designer + développeur</small></div><span class="local-pill">LOCAL</span></div>
+      <div id="lawChat" class="agent-chat">
+        <div class="agent-message"><b>Que veux-tu construire ?</b><p>Décris un site, une app ou une modification. Je travaille directement dans les fichiers et l’aperçu se met à jour.</p></div>
+      </div>
+      <div class="quick-prompts">
+        <button data-prompt="Transforme ce site en une expérience premium, spectaculaire et très professionnelle, avec une hiérarchie visuelle forte et des micro-interactions.">Rendre premium</button>
+        <button data-prompt="Optimise parfaitement ce site pour mobile et tablette sans dégrader la version desktop.">Responsive</button>
+        <button data-prompt="Améliore l’accessibilité, la lisibilité, les contrastes, les états de focus et la navigation clavier.">Accessibilité</button>
+      </div>
+      <div class="agent-composer"><textarea id="lawPrompt" placeholder="Construis une landing page premium pour un barber…"></textarea><div><button id="lawAttach" title="Ajouter un asset">＋ Asset</button><button id="lawGenerate">Construire <span>↑</span></button></div></div>
+    </aside>
+  </div>
+
+  <div id="lawToast" class="law-toast"></div>
+</div>
+<script src="/assets/localaiweb.js"></script>
+</body></html>
