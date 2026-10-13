@@ -1592,6 +1592,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/design":
+            try:
+                self.send_json(_web_store().apply_design(body.get("id"), body.get("design") or {}))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/deployment":
             try:
                 self.send_json(_web_store().update_deployment(body.get("id"), body.get("deployment") or {}))
