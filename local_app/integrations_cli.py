@@ -132,6 +132,21 @@ def github_publish(site_dir, repo, branch="main", private=True):
         raise RuntimeError((push.stderr or push.stdout or "push impossible").strip())
     return {"ok": True, "repo": repo, "branch": branch, "url": "https://github.com/" + repo}
 
+def github_pull(site_dir, branch="main"):
+    git = _which("git", "git.exe")
+    if not git:
+        raise RuntimeError("Git n'est pas installé.")
+    site = Path(site_dir)
+    if not (site / ".git").exists():
+        raise RuntimeError("Ce projet n'est pas encore relié à GitHub.")
+    dirty = _run([git, "status", "--porcelain"], cwd=site, timeout=30)
+    if (dirty.stdout or "").strip():
+        raise RuntimeError("Le projet contient des modifications locales. Synchronise-les d'abord vers GitHub avant de récupérer les changements distants.")
+    result = _run([git, "pull", "--rebase", "origin", str(branch or "main")], cwd=site, timeout=180)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "git pull impossible").strip())
+    return {"ok": True, "output": (result.stdout or "")[-2000:]}
+
 def vercel_publish(site_dir, production=True):
     cmd = _vercel_cmd()
     if not cmd:
@@ -145,6 +160,18 @@ def vercel_publish(site_dir, production=True):
     lines = [x.strip() for x in (result.stdout or "").splitlines() if x.strip()]
     url = next((x for x in reversed(lines) if x.startswith("http")), "")
     return {"ok": True, "url": url}
+
+def vercel_add_domain(site_dir, domain):
+    cmd = _vercel_cmd()
+    if not cmd:
+        raise RuntimeError("Vercel CLI n'est pas disponible.")
+    domain = str(domain or "").strip().lower()
+    if not domain or "." not in domain or any(ch.isspace() for ch in domain):
+        raise RuntimeError("Nom de domaine invalide.")
+    result = _run(cmd + ["domains", "add", domain], cwd=site_dir, timeout=180)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "Ajout du domaine impossible").strip())
+    return {"ok": True, "domain": domain, "output": (result.stdout or "")[-2000:]}
 
 def supabase_initialize(site_dir):
     cmd = _supabase_cmd()
