@@ -14,7 +14,7 @@ def safe_id(value):
     return value
 
 def safe_rel(value):
-    raw = str(value or '').replace('\\\\','/').lstrip('/')
+    raw = str(value or '').replace(chr(92),'/').lstrip('/')
     p = Path(raw)
     if not raw or '..' in p.parts:
         raise ValueError('Chemin de fichier LocalAiWeb invalide.')
