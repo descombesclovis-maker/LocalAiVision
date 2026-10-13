@@ -1515,7 +1515,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/web/integrations/status":
             try:
-                self.send_json({"ok": True, "integrations": integrations_cli.status()})
+                self.send_json({"ok": True, "integrations": integrations_cli.status(bool(body.get("deep", False)))})
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
