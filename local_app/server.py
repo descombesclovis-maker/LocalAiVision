@@ -1504,6 +1504,22 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/supabase/link":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.supabase_link(site, body.get("project_ref")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/supabase/push":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.supabase_db_push(site))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/supabase/init":
             try:
                 store = _web_store()
