@@ -525,11 +525,27 @@ class LocalAiWebStore:
         return memory.getvalue()
 
     def save_asset(self, project_id, name, data_url):
-        name = Path(str(name or 'asset.bin')).name
+        # Keep all imported media under the current LocalAiWeb project, never in LocalAiVision history.
+        self.meta(project_id)
+        name = Path(str(name or 'asset.bin').replace(chr(92), '/')).name
+        name = re.sub(r'[^a-zA-Z0-9._ -]', '_', name).strip('. ')
+        if not name: raise ValueError('Nom de fichier invalide.')
+        suffix = Path(name).suffix.lower()
+        allowed = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg', '.glb'}
+        if suffix not in allowed:
+            raise ValueError('Asset non pris en charge : images ou modèles GLB uniquement.')
         try: data = base64.b64decode(str(data_url).split(',',1)[-1], validate=True)
         except Exception: raise ValueError('Asset invalide.')
-        if len(data) > 20*1024*1024: raise ValueError('Asset limité à 20 Mo.')
-        target=self.project_dir(project_id)/'site'/'assets'/name
-        target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
-        meta=self.meta(project_id);meta['updated_at']=time.time();self.write_meta(project_id,meta)
-        return {'ok':True,'path':'assets/'+name,'size':len(data)}
+        limit = 40*1024*1024 if suffix == '.glb' else 20*1024*1024
+        if not data or len(data) > limit:
+            raise ValueError('Asset vide ou trop volumineux (GLB 40 Mo ; images 20 Mo).')
+        if suffix == '.glb':
+            if len(data) < 20 or data[:4] != b'glTF' or int.from_bytes(data[4:8], 'little') != 2 or int.from_bytes(data[8:12], 'little') != len(data):
+                raise ValueError('Modèle GLB 2.0 invalide.')
+        target = self.project_dir(project_id) / 'site' / 'assets' / name
+        target.parent.mkdir(parents=True,exist_ok=True)
+        target.write_bytes(data)
+        meta = self.meta(project_id)
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id,meta)
+        return {'ok':True, 'path':'assets/'+name, 'size':len(data)}
