@@ -1377,6 +1377,19 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/codex/apply":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                store.snapshot(body.get("id"), "Avant modification Codex")
+                result = integrations_cli.codex_apply(site, body.get("prompt"))
+                meta = store.meta(body.get("id")); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
+                store.write_meta(body.get("id"), meta)
+                payload = store.payload(body.get("id")); payload["codex"] = result
+                self.send_json(payload)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/vercel/publish":
             try:
                 store = _web_store()
