@@ -138,6 +138,19 @@ class SettingsUi(unittest.TestCase):
                          '/api/web/supabase/init','/api/web/codex/apply'):
             self.assertIn(endpoint, logic)
 
+    def test_localaiweb_advanced_builder_controls_exist(self):
+        studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
+        logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
+        for control in ('lawNewFile','lawRenameFile','lawDeleteFile','lawGenerateAsset','lawMic',
+                        'lawLinkSupabase','lawPushSupabase','lawPullGithub','lawAddDomain',
+                        'lawElementWeight','lawElementPadding','lawElementOpacity'):
+            self.assertIn(f'id="{control}"', studio)
+        self.assertIn('/api/web/asset/generate', logic)
+        self.assertIn('/api/web/github/pull', logic)
+        self.assertIn('/api/web/supabase/link', logic)
+        self.assertIn('/api/web/vercel/domain', logic)
+        self.assertIn('SpeechRecognition', logic)
+
     def test_updater_button_is_available_in_sidebar(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
@@ -182,6 +195,43 @@ class LocalAiWebBackend(unittest.TestCase):
             with zipfile.ZipFile(io.BytesIO(raw)) as archive:
                 self.assertIn('index.html', archive.namelist())
                 self.assertIn('styles.css', archive.namelist())
+
+
+    def test_project_chat_is_separate_and_persistent(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: '{}')
+            project = store.create('Chat')
+            pid = project['project']['id']
+            store.append_chat(pid, 'user', 'bonjour')
+            store.append_chat(pid, 'assistant', 'salut')
+            self.assertEqual([x['text'] for x in store.payload(pid)['chat']], ['bonjour', 'salut'])
+
+    def test_file_management_and_duplicate_clear_deployment(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: '{}')
+            project = store.create('Files')
+            pid = project['project']['id']
+            store.write_files(pid, {'extra.js': 'const x = 1;'})
+            renamed = store.rename_file(pid, 'extra.js', 'src/extra.js')
+            self.assertIn('src/extra.js', renamed['files'])
+            deleted = store.delete_file(pid, 'src/extra.js')
+            self.assertNotIn('src/extra.js', deleted['files'])
+            store.update_deployment(pid, {'github_repo':'owner/repo','supabase_ref':'abc'})
+            duplicate = store.duplicate_project(pid)
+            self.assertEqual(duplicate['project']['deployment']['github_repo'], '')
+            self.assertEqual(duplicate['project']['deployment']['supabase_ref'], '')
+
+    def test_export_does_not_include_private_env(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: '{}')
+            project = store.create('Private')
+            pid = project['project']['id']
+            site = store.project_dir(pid) / 'site'
+            (site / '.env').write_text('SECRET=never-export', encoding='utf-8')
+            raw = store.export_zip(pid)
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                self.assertNotIn('.env', archive.namelist())
+                self.assertIn('.env.example', archive.namelist())
 
 
 class LocalAiWebQuality(unittest.TestCase):
