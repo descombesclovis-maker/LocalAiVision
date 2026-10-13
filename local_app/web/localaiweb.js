@@ -138,6 +138,11 @@ async function pushSupabase(){
  if(!current)return;const btn=$('#lawPushSupabase');btn.disabled=true;btn.textContent='Migration…';
  try{await post('/api/web/supabase/push',{id:current.project.id});toast('Migrations Supabase appliquées.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Pousser les migrations DB'}
 }
+async function deployPreview(){
+ if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant de créer un aperçu.');return}await persistDeployment();
+ const btn=$('#lawDeployPreview');btn.disabled=true;btn.textContent='Création de l’aperçu…';
+ try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:false});current=d;renderDeployment();const url=d.deployment_result?.url||d.project?.deployment?.preview_url||'';toast(url?'Aperçu Vercel prêt : '+url:'Aperçu Vercel créé.');if(url)window.open(url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Créer un aperçu Vercel'}
+}
 async function deployVercel(){
  if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant de publier.');return}await persistDeployment();const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
  const btn=$('#lawDeployVercel'),top=$('#lawPublish');btn.disabled=true;top.disabled=true;btn.textContent='Déploiement…';
@@ -171,7 +176,7 @@ function startVoice(){
  rec.start();
 }
 function setup(){
- $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
+ $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
  $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));
