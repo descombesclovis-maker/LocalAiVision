@@ -1472,6 +1472,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/integrations/install":
+            try:
+                self.send_json(integrations_cli.install_prerequisites())
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/integrations/connect":
             try:
                 cwd = None
