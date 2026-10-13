@@ -1408,6 +1408,24 @@ class Handler(BaseHTTPRequestHandler):
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == "/api/web/project/rename":
+            try:
+                self.send_json(_web_store().rename_project(body.get("id"), body.get("name")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/project/duplicate":
+            try:
+                self.send_json(_web_store().duplicate_project(body.get("id"), body.get("name")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/project/delete":
+            try:
+                self.send_json(_web_store().delete_project(body.get("id")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/project/create":
             try:
                 self.send_json(_web_store().create(body.get("name") or "Nouveau projet"))
