@@ -102,7 +102,8 @@ async function refreshIntegrations(){
 }
 function renderDeployment(){
  if(!current)return;const d=current.project.deployment||{};
- $('#lawGithubRepo').value=d.github_repo||'';$('#lawGithubBranch').value=d.github_branch||'main';$('#lawGithubPrivate').checked=d.github_private!==false;$('#lawSupabaseRef').value=d.supabase_ref||'';
+ $('#lawGithubRepo').value=d.github_repo||'';$('#lawGithubBranch').value=d.github_branch||'main';$('#lawGithubPrivate').checked=d.github_private!==false;$('#lawSupabaseRef').value=d.supabase_ref||'';$('#lawDomain').value=d.custom_domain||'';
+ const live=$('#lawOpenLive'),state=$('#lawPublishState');if(live){live.classList.toggle('hidden',!d.production_url);live.dataset.url=d.production_url||''}if(state)state.textContent=d.production_url?'mettre à jour':'Vercel';
 }
 async function persistDeployment(){
  if(!current)return;
@@ -121,7 +122,7 @@ async function pullGithub(){
 async function addDomain(){
  if(!current)return;const domain=$('#lawDomain').value.trim();if(!domain)return toast('Indique un nom de domaine.');
  const btn=$('#lawAddDomain');btn.disabled=true;btn.textContent='Ajout du domaine…';
- try{await post('/api/web/vercel/domain',{id:current.project.id,domain});toast('Domaine transmis à Vercel : '+domain)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Ajouter le domaine via Vercel'}
+ try{const d=await post('/api/web/vercel/domain',{id:current.project.id,domain});current=d;renderDeployment();toast('Domaine transmis à Vercel : '+domain)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Ajouter le domaine via Vercel'}
 }
 async function initSupabase(){
  if(!current)return;const btn=$('#lawInitSupabase');btn.disabled=true;btn.textContent='Initialisation…';
@@ -138,8 +139,8 @@ async function pushSupabase(){
 }
 async function deployVercel(){
  if(!current)return;await persistDeployment();const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
- const btn=$('#lawDeployVercel');btn.disabled=true;btn.textContent='Déploiement…';
- try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:true});toast(d.url?'Déployé : '+d.url:'Déploiement Vercel terminé.');if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Déployer sur Vercel'}
+ const btn=$('#lawDeployVercel'),top=$('#lawPublish');btn.disabled=true;top.disabled=true;btn.textContent='Déploiement…';
+ try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:true});current=d;renderProject();renderDeployment();const url=d.deployment_result?.url||d.project?.deployment?.production_url||'';toast(url?'Déployé : '+url:'Déploiement Vercel terminé.');if(url)window.open(url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;top.disabled=false;btn.textContent='Déployer sur Vercel'}
 }
 async function applyCodex(){
  if(!current)return;const text=$('#lawPrompt').value.trim();if(!text)return toast('Écris d’abord la modification à confier à Codex.');
@@ -186,7 +187,7 @@ function setup(){
  $('#lawCloseCode').onclick=()=>$('#lawCodePanel').classList.add('hidden');
  $('#lawUndo').onclick=undo;$('#lawRedo').onclick=redo;
  $('#lawExport').onclick=()=>{if(current)location.href='/api/web/export?id='+encodeURIComponent(current.project.id)};
- $('#lawGithub').onclick=()=>integration('integrations');$('#lawPublish').onclick=()=>integration('domains');
+ $('#lawGithub').onclick=()=>{showPanel('services');$('#lawGithubRepo')?.focus()};$('#lawPublish').onclick=deployVercel;$('#lawOpenLive').onclick=()=>{const u=$('#lawOpenLive').dataset.url;if(u)window.open(u,'_blank')};
  $('#lawAssetAdd').onclick=()=>$('#lawAssetInput').click();$('#lawAttach').onclick=()=>$('#lawAssetInput').click();$('#lawGenerateAsset').onclick=generateAsset;
  $('#lawAssetInput').onchange=e=>{const f=e.target.files?.[0];if(f)addAsset(f);e.target.value=''};
  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(!$('#lawCodePanel').classList.contains('hidden'))saveCode()}if(e.key==='Escape'){$('#lawSettingsModal').classList.add('hidden');$('#lawInspector').classList.add('hidden')}});
