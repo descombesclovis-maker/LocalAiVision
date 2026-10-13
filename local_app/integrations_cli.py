@@ -50,6 +50,7 @@ def status():
     vercel_direct = _which("vercel", "vercel.cmd")
     supabase_direct = _which("supabase", "supabase.exe")
     codex_direct = _which("codex", "codex.cmd", "codex.exe")
+    stripe_direct = _which("stripe", "stripe.exe")
     out = {
         "git": {"installed": bool(git), "ready": bool(git)},
         "github": {"installed": bool(gh), "ready": False},
@@ -58,6 +59,7 @@ def status():
         "vercel": {"installed": bool(vercel_direct or npx), "ready": False, "via_npx": bool(not vercel_direct and npx)},
         "supabase": {"installed": bool(supabase_direct or npx), "ready": False, "via_npx": bool(not supabase_direct and npx)},
         "codex": {"installed": bool(codex_direct or npx), "ready": False, "via_npx": bool(not codex_direct and npx)},
+        "stripe": {"installed": bool(stripe_direct), "ready": False},
     }
     if gh:
         out["github"]["ready"] = _run([gh, "auth", "status"], timeout=20).returncode == 0
@@ -67,6 +69,8 @@ def status():
         out["supabase"]["ready"] = _run([supabase_direct, "projects", "list", "--output", "json"], timeout=30).returncode == 0
     if codex_direct:
         out["codex"]["ready"] = _run([codex_direct, "login", "status"], timeout=20).returncode == 0
+    if stripe_direct:
+        out["stripe"]["ready"] = _run([stripe_direct, "config", "--list"], timeout=20).returncode == 0
     return out
 
 def validate_site(site_dir):
@@ -107,6 +111,11 @@ def connect(provider, cwd=None):
         if not cmd:
             raise RuntimeError("Codex CLI n'est pas disponible.")
         args = cmd
+    elif provider == "stripe":
+        stripe = _which("stripe", "stripe.exe")
+        if not stripe:
+            raise RuntimeError("Stripe CLI n'est pas installé.")
+        args = [stripe, "login"]
     else:
         raise ValueError("Intégration inconnue.")
     subprocess.Popen([str(x) for x in args], cwd=str(cwd) if cwd else None,
