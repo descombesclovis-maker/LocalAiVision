@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s);
 let current=null,selectedFile='index.html',selectMode=false,selectedElement=null;
-let undoStack=[],redoStack=[],codeSaveTimer=null;
+let undoStack=[],redoStack=[],codeSaveTimer=null,integrationState={};
 const api=async(url,opt)=>{const r=await fetch(url,opt);let d={};try{d=await r.json()}catch{}if(!r.ok||d.error)throw new Error(d.error||('Erreur HTTP '+r.status));return d};
 const post=(url,data)=>api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -94,10 +94,11 @@ async function connectIntegration(provider){
 }
 async function refreshIntegrations(){
  try{
-  const d=await post('/api/web/integrations/status',{});
+  const d=await post('/api/web/integrations/status',{});integrationState=d.integrations||{};
   const box=$('#lawIntegrationStatus');box.innerHTML='';
   const order=['github','vercel','supabase','codex','git','node','npm'];
   for(const name of order){const s=d.integrations?.[name];if(!s)continue;const row=document.createElement('div');row.className='integration-row '+(s.ready?'ready':'off');row.innerHTML='<span></span><b>'+name+'</b><small>'+(s.ready?'prêt':(s.installed?'installé, connexion requise':'non installé'))+'</small>';box.appendChild(row)}
+  const state=$('#lawPublishState');if(state&&!current?.project?.deployment?.production_url)state.textContent=integrationState.vercel?.ready?'Vercel':'connexion requise';
  }catch(e){toast('Intégrations : '+e.message)}
 }
 function renderDeployment(){
@@ -111,7 +112,7 @@ async function persistDeployment(){
  current=await post('/api/web/deployment',{id:current.project.id,deployment:d});return d;
 }
 async function publishGithub(){
- if(!current)return;await persistDeployment();const repo=$('#lawGithubRepo').value.trim();if(!repo)return toast('Indique le dépôt GitHub au format utilisateur/dépôt.');
+ if(!current)return;if(!integrationState.github?.ready){showPanel('services');toast('Connecte GitHub avant la synchronisation.');return}await persistDeployment();const repo=$('#lawGithubRepo').value.trim();if(!repo)return toast('Indique le dépôt GitHub au format utilisateur/dépôt.');
  const btn=$('#lawPublishGithub');btn.disabled=true;btn.textContent='Synchronisation…';
  try{const d=await post('/api/web/github/publish',{id:current.project.id,repo,branch:$('#lawGithubBranch').value.trim()||'main',private:$('#lawGithubPrivate').checked});toast('GitHub synchronisé : '+d.repo);if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Synchroniser sur GitHub'}
 }
@@ -129,7 +130,7 @@ async function initSupabase(){
  try{await post('/api/web/supabase/init',{id:current.project.id});toast('Supabase initialisé dans le projet.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Initialiser Supabase'}
 }
 async function linkSupabase(){
- if(!current)return;await persistDeployment();const ref=$('#lawSupabaseRef').value.trim();if(!ref)return toast('Indique la Project Ref Supabase.');
+ if(!current)return;if(!integrationState.supabase?.ready){showPanel('services');toast('Connecte Supabase avant de lier le projet.');return}await persistDeployment();const ref=$('#lawSupabaseRef').value.trim();if(!ref)return toast('Indique la Project Ref Supabase.');
  const btn=$('#lawLinkSupabase');btn.disabled=true;btn.textContent='Liaison…';
  try{await post('/api/web/supabase/link',{id:current.project.id,project_ref:ref});toast('Projet Supabase lié.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Lier le projet Supabase'}
 }
@@ -138,12 +139,12 @@ async function pushSupabase(){
  try{await post('/api/web/supabase/push',{id:current.project.id});toast('Migrations Supabase appliquées.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Pousser les migrations DB'}
 }
 async function deployVercel(){
- if(!current)return;await persistDeployment();const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
+ if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant de publier.');return}await persistDeployment();const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
  const btn=$('#lawDeployVercel'),top=$('#lawPublish');btn.disabled=true;top.disabled=true;btn.textContent='Déploiement…';
  try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:true});current=d;renderProject();renderDeployment();const url=d.deployment_result?.url||d.project?.deployment?.production_url||'';toast(url?'Déployé : '+url:'Déploiement Vercel terminé.');if(url)window.open(url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;top.disabled=false;btn.textContent='Déployer sur Vercel'}
 }
 async function applyCodex(){
- if(!current)return;const text=$('#lawPrompt').value.trim();if(!text)return toast('Écris d’abord la modification à confier à Codex.');
+ if(!current)return;if(!integrationState.codex?.ready){showPanel('services');toast('Connecte ChatGPT / Codex avant d’utiliser ce moteur.');return}const text=$('#lawPrompt').value.trim();if(!text)return toast('Écris d’abord la modification à confier à Codex.');
  const btn=$('#lawUseCodex');btn.disabled=true;btn.textContent='Codex travaille…';snapshotClient();
  try{const d=await post('/api/web/codex/apply',{id:current.project.id,prompt:text});current=d;$('#lawPrompt').value='';renderProject();refreshPreview();addChat(d.codex?.summary||'Modification Codex terminée.');toast('Projet mis à jour avec Codex.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Appliquer la prochaine demande avec Codex'}
 }
