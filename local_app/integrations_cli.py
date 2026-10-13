@@ -64,7 +64,7 @@ def status():
     if supabase:
         out["supabase"]["ready"] = _run(supabase + ["projects", "list", "--output", "json"], timeout=60).returncode == 0
     if codex:
-        probe = _run(codex + ["--version"], timeout=45)
+        probe = _run(codex + ["login", "status"], timeout=45)
         out["codex"]["ready"] = probe.returncode == 0
     return out
 
