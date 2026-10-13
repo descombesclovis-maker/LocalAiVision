@@ -103,7 +103,8 @@ class Cinematic3DTemplateTests(unittest.TestCase):
         self.assertIn('create3dProject', js)
         self.assertIn('template:\'cinematic3d\'', js)
         self.assertIn('saveCreativeBrief', js)
-        self.assertIn('data-model-src=', js)
+        self.assertIn("'data-model-src'", js)
+        self.assertIn("'data-environment-src'", js)
         self.assertTrue((ROOT / 'local_app/web/templates/cinematic3d/app.js').is_file())
 
 
