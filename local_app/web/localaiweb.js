@@ -10,6 +10,18 @@ async function replaceFiles(files){const d=await post('/api/web/project/replace'
 async function undo(){if(!undoStack.length)return toast('Rien à annuler.');redoStack.push(JSON.parse(JSON.stringify(current.files)));await replaceFiles(undoStack.pop())}
 async function redo(){if(!redoStack.length)return toast('Rien à rétablir.');undoStack.push(JSON.parse(JSON.stringify(current.files)));const f=redoStack.pop();await replaceFiles(f)}
 function refreshPreview(){if(!current)return;const frame=$('#lawPreview');frame.src='/web-preview/'+encodeURIComponent(current.project.id)+'/index.html?t='+Date.now();$('#lawPreviewTitle').textContent=current.project.name}
+async function renameProject(){
+ if(!current)return;const name=prompt('Nouveau nom du projet',current.project.name||'');if(!name)return;
+ current=await post('/api/web/project/rename',{id:current.project.id,name});await loadProjects(current.project.id);toast('Projet renommé.');
+}
+async function duplicateProject(){
+ if(!current)return;const name=prompt('Nom de la copie',(current.project.name||'Projet')+' — copie');if(!name)return;
+ const copy=await post('/api/web/project/duplicate',{id:current.project.id,name});await loadProjects(copy.project.id);toast('Projet dupliqué.');
+}
+async function deleteProject(){
+ if(!current)return;if(!confirm('Supprimer définitivement ce projet LocalAiWeb ?'))return;
+ await post('/api/web/project/delete',{id:current.project.id});current=null;await loadProjects();toast('Projet supprimé.');
+}
 async function loadProjects(selectId){const d=await api('/api/web/projects');const s=$('#lawProjects');s.innerHTML='';for(const p of d.projects){const o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o)}if(!d.projects.length){const n=await post('/api/web/project/create',{name:'Mon premier site'});await loadProjects(n.project.id);return}const id=selectId||d.projects[0].id;s.value=id;await loadProject(id)}
 async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];undoStack=[];redoStack=[];renderProject();renderSettings();refreshPreview();runQuality(false).catch(()=>{})}
 function renderProject(){if(!current)return;
@@ -70,7 +82,7 @@ async function saveSettings(){if(!current)return;current=await post('/api/web/se
 async function runQuality(show=true){if(!current)return null;const d=await api('/api/web/preflight?id='+encodeURIComponent(current.project.id));$('#lawQualityScore').textContent=d.score+'/100';$('#lawQuality').classList.toggle('quality-ok',!!d.ok);$('#lawQuality').classList.toggle('quality-bad',!d.ok);const box=$('#lawQualityReport');box.innerHTML='<div class="quality-score"><b>'+d.score+'/100</b><span>'+(d.ok?'Prêt pour publication':'Corrections recommandées')+'</span></div>'+d.checks.map(x=>'<div class="quality-line '+(x.ok?'ok':'bad')+'"><span>'+(x.ok?'✓':'!')+'</span><b>'+esc(x.label)+'</b></div>').join('');if(show){box.classList.remove('hidden');$('#lawSettingsModal').classList.remove('hidden')}return d}
 function setup(){
  $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;$('#lawPublishGithub').onclick=publishGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawDeployVercel').onclick=deployVercel;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
- $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};
+ $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
  $('#lawProjects').onchange=e=>loadProject(e.target.value);
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));
  document.querySelectorAll('.rail-tab').forEach(b=>b.onclick=()=>showPanel(b.dataset.panel));
