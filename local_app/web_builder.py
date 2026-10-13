@@ -268,7 +268,7 @@ class LocalAiWebStore:
         project_settings = project_meta.get('settings') or {}
         project_design = project_meta.get('design') or {}
         requirements = (
-          ' Project requirements: premium visual quality; responsive desktop/tablet/mobile; 
+          ' Project requirements: premium visual quality; responsive desktop/tablet/mobile; '
           'semantic HTML; accessible keyboard focus; useful alt text; SEO title and meta description; '
           'performance-minded assets; prefers-reduced-motion support; polished hover/focus states; '
           'no TODO, FIXME or placeholder copy in the final result. '
