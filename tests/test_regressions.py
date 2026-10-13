@@ -1,4 +1,5 @@
 import copy
+import zipfile
 import io
 import json
 import os
@@ -13,7 +14,7 @@ TEST_DATA = tempfile.TemporaryDirectory()
 os.environ['LOCALVISIONAI_DATA'] = TEST_DATA.name
 os.environ['LOCALVISIONAI_SKIP_SETUP'] = '1'
 
-from local_app import server, workflows, llm, bootstrap_windows as boot
+from local_app import server, workflows, llm, web_builder, bootstrap_windows as boot
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -107,6 +108,21 @@ class SettingsUi(unittest.TestCase):
         self.assertIn('id="automationsWorkspace"', html)
         self.assertIn('id="composerImageBtn"', html)
 
+    def test_localaiweb_studio_has_core_builder_controls(self):
+        html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
+        studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
+        logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
+        self.assertIn('id="localAiWebEntry"', html)
+        self.assertIn("window.location.href='/localaiweb'", (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8'))
+        for control in ('lawPreview','lawFileTree','lawAssets','lawVersions','lawCode','lawPrompt',
+                        'lawUndo','lawRedo','lawExport','lawGithub','lawPublish','lawSelectMode'):
+            self.assertIn(f'id="{control}"', studio)
+        for service in ('database','auth','payments','api','storage','realtime','ai','integrations','analytics','domains'):
+            self.assertIn(f'data-service="{service}"', studio)
+        self.assertIn('/api/web/generate', logic)
+        self.assertIn('/api/web/version/restore', logic)
+        self.assertIn('/api/web/file/save', logic)
+
     def test_updater_button_is_available_in_sidebar(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
@@ -119,6 +135,32 @@ class SettingsUi(unittest.TestCase):
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
         self.assertIn("accordionLoras')?.classList.toggle('hidden',!(isolated&&isolatedTaskMode==='video'))", source)
         self.assertIn("chooseIsolatedCreationMode('i2v')", source)
+
+
+class LocalAiWebBackend(unittest.TestCase):
+    def test_safe_paths_reject_parent_traversal(self):
+        with self.assertRaises(ValueError):
+            web_builder.safe_rel('../outside.html')
+
+    def test_project_create_version_and_restore(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: '{}')
+            project = store.create('Studio test')
+            pid = project['project']['id']
+            self.assertIn('index.html', project['files'])
+            snapshot = store.snapshot(pid, 'Base')
+            store.write_files(pid, {'index.html': '<h1>changed</h1>'})
+            restored = store.restore(pid, snapshot['id'])
+            self.assertIn('Ton prochain site', restored['files']['index.html'])
+
+    def test_export_zip_contains_project_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: '{}')
+            pid = store.create('Export')['project']['id']
+            raw = store.export_zip(pid)
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                self.assertIn('index.html', archive.namelist())
+                self.assertIn('styles.css', archive.namelist())
 
 
 class SelfUpdater(unittest.TestCase):
