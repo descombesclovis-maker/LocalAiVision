@@ -1136,6 +1136,64 @@ def run_generation(body):
 
 
 
+def _web_generate_image_asset(project_id, prompt):
+    prompt = str(prompt or '').strip()
+    if not prompt:
+        raise ValueError("Décris l'image à générer.")
+    result = run_generation({
+        'workflow': 'text to image sdxl.json',
+        'prompt': prompt,
+        'settings': {
+            'count': 1,
+            'quality': 'quality',
+            'technical_quality': True,
+            'exact_prompt': False,
+            'prompt_translation': False,
+        }
+    })
+    prompt_id = result.get('prompt_id')
+    deadline = time.time() + 600
+    info = None
+    while time.time() < deadline:
+        data = history(prompt_id)
+        if prompt_id in data:
+            info = data[prompt_id]
+            break
+        if data.get('_missing'):
+            raise RuntimeError("La génération d'image a disparu de la file ComfyUI.")
+        time.sleep(1.0)
+    if info is None:
+        raise RuntimeError("Délai dépassé pendant la génération de l'asset.")
+
+    chosen = None
+    for output in (info.get('outputs') or {}).values():
+        for key in ('images','gifs'):
+            rows = output.get(key) or []
+            if rows:
+                chosen = rows[0]
+                break
+        if chosen:
+            break
+    if not chosen:
+        raise RuntimeError("ComfyUI n'a renvoyé aucun fichier image exploitable.")
+
+    filename = chosen.get('filename','asset.png')
+    subfolder = chosen.get('subfolder','')
+    typ = chosen.get('type','output')
+    params = f"?filename={quote(filename)}&subfolder={quote(subfolder)}&type={quote(typ)}"
+    with urlopen(COMFY + "/view" + params, timeout=60) as response:
+        raw = response.read()
+        content_type = response.headers.get_content_type() or 'image/png'
+    suffix = mimetypes.guess_extension(content_type) or Path(filename).suffix or '.png'
+    safe_name = 'ai_' + time.strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:6] + suffix
+    store = _web_store()
+    target = store.project_dir(project_id) / 'site' / 'assets' / safe_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(raw)
+    meta = store.meta(project_id); meta['updated_at'] = time.time(); store.write_meta(project_id, meta)
+    return {'ok': True, 'path': 'assets/' + safe_name, 'size': len(raw), 'prompt_id': prompt_id}
+
+
 def upload_image(filename, data):
     boundary = "----LocalVisionAI" + uuid.uuid4().hex
     body = bytearray()
@@ -1434,6 +1492,12 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/version/restore":
             try:
                 self.send_json(_web_store().restore(body.get("id"), body.get("version_id")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/asset/generate":
+            try:
+                self.send_json(_web_generate_image_asset(body.get("id"), body.get("prompt")))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
