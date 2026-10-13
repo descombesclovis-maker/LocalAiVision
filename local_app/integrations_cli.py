@@ -1,4 +1,5 @@
 import os
+import re
 import shutil, subprocess
 from pathlib import Path
 
@@ -186,6 +187,22 @@ def vercel_publish(site_dir, production=True):
     lines = [x.strip() for x in (result.stdout or "").splitlines() if x.strip()]
     url = next((x for x in reversed(lines) if x.startswith("http")), "")
     return {"ok": True, "url": url}
+
+def vercel_add_env(site_dir, name, environment="production"):
+    cmd = _vercel_cmd()
+    if not cmd:
+        raise RuntimeError("Vercel CLI n'est pas disponible.")
+    name = str(name or "").strip().upper()
+    environment = str(environment or "production").strip().lower()
+    if not re.fullmatch(r'[A-Z_][A-Z0-9_]{1,80}', name):
+        raise RuntimeError("Nom de variable invalide.")
+    if environment not in ("production", "preview", "development"):
+        raise RuntimeError("Environnement Vercel invalide.")
+    args = cmd + ["env", "add", name, environment]
+    subprocess.Popen([str(x) for x in args], cwd=str(site_dir),
+                     creationflags=CREATE_NEW_CONSOLE if os.name == "nt" else 0)
+    return {"ok": True, "name": name, "environment": environment,
+            "message": "Vercel va demander la valeur dans une fenêtre séparée. LocalAiWeb ne lit pas le secret."}
 
 def vercel_add_domain(site_dir, domain):
     cmd = _vercel_cmd()
