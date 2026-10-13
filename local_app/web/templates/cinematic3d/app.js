@@ -221,18 +221,38 @@ async function loadProduct(THREE,path){
 }
 
 async function setupEnvironment(THREE){
+  let pmrem,room,hdr;
   try{
-    const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');
-    const pmrem=new THREE.PMREMGenerator(state.renderer);
-    const room=new RoomEnvironment();
-    state.environmentTarget=pmrem.fromScene(room,0.04,.1,100,{size:state.profile.envSize});
+    pmrem=new THREE.PMREMGenerator(state.renderer);
+    const src=(root.dataset.environmentSrc||'').trim();
+    // Real HDR studio light rigs are optionally supplied by the creator per project.
+    if(src){
+      if(!/^assets\/[a-zA-Z0-9_./ -]+\.hdr$/i.test(src)||src.split('/').includes('..')){
+        throw Error('Chemin HDRI incorrect : utilisez assets/studio.hdr.');
+      }
+      try{
+        const {RGBELoader}=await import('three/addons/loaders/RGBELoader.js');
+        hdr=await new RGBELoader().loadAsync(src);
+        state.environmentTarget=pmrem.fromEquirectangular(hdr);
+        setStatus('Éclairage HDRI produit chargé.');
+      }catch(error){
+        console.warn('LocalAiWeb: HDRI failed, using default light rig',error);
+      }
+    }
+    if(!state.environmentTarget){
+      const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');
+      room=new RoomEnvironment();
+      state.environmentTarget=pmrem.fromScene(room,0.04,.1,100,{size:state.profile.envSize});
+    }
     state.scene.environment=state.environmentTarget.texture;
-    state.scene.environmentIntensity=1.05;
-    pmrem.dispose();
-    room.dispose();
+    state.scene.environmentIntensity=1.1;
   }catch(error){
-    // Directional and hemispheric lights still make the scene usable offline.
-    console.info('LocalAiWeb: studio environment fallback',error);
+    // Direct and hemispheric lights still provide a usable scene without reflections.
+    console.info('LocalAiWeb: fallback to studio direct lights',error);
+  }finally{
+    hdr?.dispose();
+    room?.dispose();
+    pmrem?.dispose();
   }
 }
 
