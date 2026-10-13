@@ -96,7 +96,7 @@ async function refreshIntegrations(){
  try{
   const d=await post('/api/web/integrations/status',{});integrationState=d.integrations||{};
   const box=$('#lawIntegrationStatus');box.innerHTML='';
-  const order=['github','vercel','supabase','codex','git','node','npm'];
+  const order=['github','vercel','supabase','stripe','codex','git','node','npm'];
   for(const name of order){const s=d.integrations?.[name];if(!s)continue;const row=document.createElement('div');row.className='integration-row '+(s.ready?'ready':'off');row.innerHTML='<span></span><b>'+name+'</b><small>'+(s.ready?'prêt':(s.installed?'installé, connexion requise':'non installé'))+'</small>';box.appendChild(row)}
   const state=$('#lawPublishState');if(state&&!current?.project?.deployment?.production_url)state.textContent=integrationState.vercel?.ready?'Vercel':'connexion requise';
  }catch(e){toast('Intégrations : '+e.message)}
