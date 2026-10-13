@@ -41,3 +41,6 @@
 .production-action{height:36px;border:1px solid #4a3265;background:#221632;color:#ddd;border-radius:9px;cursor:pointer;font-size:10px}.production-action.strong{background:linear-gradient(135deg,#6d28d9,#8b5cf6);border-color:#8b5cf6;color:white;font-weight:700}.production-note{font-size:8px;line-height:1.45;color:#6f647d;margin:2px 0 0}
 
 .asset-generator{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:10px}.asset-generator input{height:34px;border:1px solid #38264f;background:#0f0917;color:#eee;border-radius:8px;padding:0 9px;font-size:10px}.asset-generator button{border:1px solid #6d47a1;background:linear-gradient(135deg,#5f24bd,#8b5cf6);color:white;border-radius:8px;padding:0 10px;font-size:9px;font-weight:700;cursor:pointer}
+
+.integration-connectors{display:grid;grid-template-columns:1fr 1fr;gap:6px}.integration-connectors button{min-height:34px;border:1px solid #44305e;background:#1c1229;color:#d8cee5;border-radius:8px;font-size:9px;cursor:pointer}.integration-connectors button:hover{border-color:#73539a;background:#27183a}
+.icon-btn.danger{color:#e9a19b;border-color:#5c3434}
