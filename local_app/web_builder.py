@@ -7,6 +7,48 @@ MAX_PROJECT_FILES = 120
 PRIVATE_NAMES = {'.env', '.env.local', '.env.production', '.env.development'}
 IGNORED_DIRS = {'.git', '.vercel', 'node_modules', '.next', 'dist', 'build', '__pycache__'}
 
+
+# Original LocalAiWeb presets inspired by common website/app categories (not third-party copies).
+SITE_KINDS = {
+ 'auto':('Automatique','Infer a suitable website or app type from the user request.'),
+ 'website':('Site vitrine','Create a clear, fast, content-focused business website.'),
+ 'landing':('Landing page','Create a persuasive landing page with a clear conversion goal.'),
+ 'store':('Boutique','Design a functional storefront UI; never pretend checkout or inventory is connected if it is not.'),
+ 'portfolio':('Portfolio','Use polished case studies and expressive but accessible layouts.'),
+ 'saas':('SaaS','Design real product flows, responsive screens, empty and error states.'),
+ 'dashboard':('Dashboard','Use legible data visualizations, filters and meaningful sample data explicitly labeled.'),
+ 'ai_app':('Application IA','Build usable AI tool interfaces with loading and error states; avoid simulating unavailable providers.'),
+ 'mobile':('Application mobile web','Prioritize touch-first and PWA-friendly patterns; do not claim native iOS or Android builds.'),
+ 'extension':('Extension navigateur','Scaffold a browser extension and manifest as needed; browser-extension runtime is not available in the website preview.'),
+ 'editorial':('Editorial / magazine','Use long-form storytelling, photography, clear visual hierarchy and legible typography.'),
+ 'event':('Evenement / campagne','Create an expressive campaign or event site with schedules and clear calls to action.')
+}
+ART_DIRECTIONS = {
+ 'auto':('Libre / selon la demande','Choose the best direction for product, target audience and brand. Do not default to 3D.'),
+ 'minimal':('Sobre / essentiel','Prioritize clarity, restrained typography, speed and accessibility over decorative motion.'),
+ 'professional':('Professionnel premium','Use refined typography, polished components, intentional spacing and high-quality interaction design.'),
+ 'editorial':('Editorial artistique','Use typographic storytelling, art direction and asymmetric compositions while staying legible.'),
+ 'cinematic':('Cinematique','Use scroll-linked narrative, carefully staged transitions and graceful static fallbacks.'),
+ 'spatial3d':('3D produit immersive','If real 3D assets exist, implement interactive product scenes, cinematic camera motion, loading states and mobile/reduced-motion fallbacks. Never invent model assets or claim a 3D reconstruction exists without source data.'),
+ 'experimental':('Experimental / creatif','Use distinctive compositions and original motion without sacrificing usability or accessibility.')
+}
+
+def generation_direction(settings, request=''):
+    """Consistent site category and visual direction for local and connected agents."""
+    settings = settings or {}
+    kind = str(settings.get('site_kind') or 'auto')
+    art = str(settings.get('art_direction') or 'auto')
+    if kind not in SITE_KINDS: kind = 'auto'
+    if art not in ART_DIRECTIONS: art = 'auto'
+    return (
+       'Category: ' + SITE_KINDS[kind][0] + '. ' + SITE_KINDS[kind][1] + ' '
+       'Art direction: ' + ART_DIRECTIONS[art][0] + '. ' + ART_DIRECTIONS[art][1] + ' '
+       'Every site type can use every artistic direction: immersive experiences can present ANY product or industry. '
+       'Plain and simple sites must remain just as valid as spectacular ones. '
+       'Respect explicit user preferences, prioritize real interactions and do not copy proprietary third-party templates. '
+       'Never fake working integrations or external services.'
+    )
+
 def safe_id(value):
     value = str(value or '')
     if not re.fullmatch(r'[a-zA-Z0-9_-]{6,80}', value):
@@ -159,7 +201,8 @@ class LocalAiWebStore:
                                  'updated_at': now, 'framework':'Vanilla HTML/CSS/JS', 'status':'local',
                                  'settings': {'quality':'premium','responsive':True,'accessibility':True,
                                               'seo':True,'performance':True,'micro_interactions':True,
-                                              'reduced_motion':True,'semantic_html':True,'language':'fr'}})
+                                              'reduced_motion':True,'semantic_html':True,'language':'fr',
+                                              'site_kind':'auto','art_direction':'auto'}})
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><span class="eyebrow">LOCALAIWEB</span><h1>Ton prochain site commence ici.</h1><p>Décris ton projet dans le chat à droite. LocalAiWeb construira et modifiera les fichiers en direct.</p><button>Commencer</button></main><script src="app.js"></script></body></html>',
           'styles.css': ':root{font-family:Inter,system-ui,sans-serif;color:#f5f3ff;background:#12091f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 10%,#6d28d955,transparent 35%),#12091f}.hero{min-height:100vh;display:grid;place-content:center;gap:18px;padding:8vw;max-width:1000px}.eyebrow{letter-spacing:.22em;color:#c4b5fd;font-size:12px}h1{font-size:clamp(52px,9vw,118px);line-height:.88;letter-spacing:-.06em;margin:0}p{max-width:680px;color:#c4b5d4;font-size:19px;line-height:1.6}button{width:max-content;border:0;border-radius:999px;background:#8b5cf6;color:#fff;padding:14px 22px;font-weight:700}',
@@ -274,6 +317,7 @@ class LocalAiWebStore:
           'no TODO, FIXME or placeholder copy in the final result. '
           'Language=' + str(project_settings.get('language','fr')) + '. '
           'Quality=' + str(project_settings.get('quality','premium')) + '. '
+          + generation_direction(project_settings, prompt) + ' '
           'Design tokens: brand=' + str(project_design.get('brand','#7c3aed')) +
           ', accent=' + str(project_design.get('accent','#a78bfa')) +
           ', background=' + str(project_design.get('background','#0f0718')) +
@@ -386,9 +430,13 @@ class LocalAiWebStore:
         meta = self.meta(project_id)
         settings = dict(meta.get('settings') or {})
         allowed = {'quality','responsive','accessibility','seo','performance','micro_interactions',
-                   'reduced_motion','semantic_html','language','ai_provider'}
+                   'reduced_motion','semantic_html','language','ai_provider','site_kind','art_direction'}
         for key, value in (patch or {}).items():
             if key in allowed:
+                if key == 'site_kind' and value not in SITE_KINDS:
+                    raise ValueError('Type de projet inconnu.')
+                if key == 'art_direction' and value not in ART_DIRECTIONS:
+                    raise ValueError('Direction artistique inconnue.')
                 settings[key] = value
         meta['settings'] = settings
         meta['updated_at'] = time.time()
