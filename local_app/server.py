@@ -1352,7 +1352,18 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/preflight":
             try:
                 project_id = parse_qs(u.query).get("id", [""])[0]
-                self.send_json(_web_store().preflight(project_id))
+                store = _web_store()
+                report = store.preflight(project_id)
+                syntax = integrations_cli.validate_site(store.project_dir(project_id) / "site")
+                report["syntax"] = syntax
+                if not syntax.get("ok"):
+                    report["ok"] = False
+                    report["score"] = min(int(report.get("score") or 0), 79)
+                    report.setdefault("blockers", []).append({"id":"javascript_syntax","label":"Syntaxe JavaScript","ok":False,"weight":12})
+                    report.setdefault("checks", []).append({"id":"javascript_syntax","label":"Syntaxe JavaScript","ok":False,"weight":12})
+                elif syntax.get("node_available"):
+                    report.setdefault("checks", []).append({"id":"javascript_syntax","label":"Syntaxe JavaScript","ok":True,"weight":12})
+                self.send_json(report)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
