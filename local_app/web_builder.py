@@ -123,9 +123,28 @@ class LocalAiWebStore:
                     out.append({'path': path.relative_to(site).as_posix(), 'size': path.stat().st_size})
         return out
 
+    def chat_history(self, project_id):
+        path = self.project_dir(project_id) / 'chat.json'
+        if not path.is_file():
+            return []
+        try:
+            rows = json.loads(path.read_text(encoding='utf-8'))
+            return rows if isinstance(rows, list) else []
+        except Exception:
+            return []
+
+    def append_chat(self, project_id, role, text):
+        rows = self.chat_history(project_id)
+        rows.append({'role': str(role or 'assistant'), 'text': str(text or '')[:12000], 'time': time.time()})
+        rows = rows[-200:]
+        path = self.project_dir(project_id) / 'chat.json'
+        path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+        return rows
+
     def payload(self, project_id):
         return {'project': self.meta(project_id), 'files': self.text_files(project_id),
-                'versions': self.versions(project_id), 'assets': self.assets(project_id)}
+                'versions': self.versions(project_id), 'assets': self.assets(project_id),
+                'chat': self.chat_history(project_id)}
 
     def create(self, name='Nouveau projet'):
         pid = 'web-' + uuid.uuid4().hex[:12]
@@ -200,6 +219,7 @@ class LocalAiWebStore:
     def generate(self, project_id, prompt):
         prompt = str(prompt or '').strip()
         if not prompt: raise ValueError('Décris la modification ou le site à créer.')
+        self.append_chat(project_id, 'user', prompt)
         current = self.text_files(project_id)
         self.snapshot(project_id, 'Avant : ' + prompt[:80])
         context = json.dumps(current, ensure_ascii=False)
@@ -251,8 +271,10 @@ class LocalAiWebStore:
         meta['last_summary']=str(parsed.get('summary') or prompt)[:240]
         meta['last_quality_score']=quality.get('score')
         self.write_meta(project_id, meta)
+        self.append_chat(project_id, 'assistant', meta['last_summary'])
         return {'ok':True,'summary':meta['last_summary'],'project':meta,'files':saved,
-                'versions':self.versions(project_id),'quality':quality,'auto_repaired':repaired}
+                'versions':self.versions(project_id),'assets':self.assets(project_id),
+                'chat':self.chat_history(project_id),'quality':quality,'auto_repaired':repaired}
 
     def update_deployment(self, project_id, patch):
         meta = self.meta(project_id)
