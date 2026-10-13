@@ -32,12 +32,39 @@ async function applyVisual(){if(!selectedElement)return;const t=$('#lawElementTe
 function toggleVisual(){selectMode=!selectMode;$('#lawSelectMode').classList.toggle('active',selectMode);$('#lawSelectMode').textContent=selectMode?'● Édition active':'◎ Édition visuelle';if(selectMode)wireFrame();else{$('#lawInspector').classList.add('hidden');selectedElement=null}}
 async function addAsset(file){if(!file||!current)return;const r=new FileReader();r.onload=async()=>{try{await post('/api/web/asset',{id:current.project.id,name:file.name,data:r.result});current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset ajouté : '+file.name)}catch(e){toast(e.message)}};r.readAsDataURL(file)}
 function integration(name){const labels={database:'Database SQL',auth:'Authentification & rôles',payments:'Stripe',api:'APIs & webhooks',storage:'Stockage fichiers',realtime:'Realtime',ai:'IA LocalAiVision',integrations:'Intégrations externes',analytics:'Analytics',domains:'Domaines & SSL'};if(name==='storage')return toast('Le stockage local des assets est déjà actif.');if(name==='ai')return toast('L’agent LocalAiWeb utilise déjà le LLM local de LocalAiVision.');toast((labels[name]||name)+' : connecteur prévu, pas encore configuré.')}
+async function refreshIntegrations(){
+ try{
+  const d=await post('/api/web/integrations/status',{});
+  const box=$('#lawIntegrationStatus');box.innerHTML='';
+  const order=['github','vercel','supabase','codex','git','node','npm'];
+  for(const name of order){const s=d.integrations?.[name];if(!s)continue;const row=document.createElement('div');row.className='integration-row '+(s.ready?'ready':'off');row.innerHTML='<span></span><b>'+name+'</b><small>'+(s.ready?'prêt':(s.installed?'installé, connexion requise':'non installé'))+'</small>';box.appendChild(row)}
+ }catch(e){toast('Intégrations : '+e.message)}
+}
+async function publishGithub(){
+ if(!current)return;const repo=$('#lawGithubRepo').value.trim();if(!repo)return toast('Indique le dépôt GitHub au format utilisateur/dépôt.');
+ const btn=$('#lawPublishGithub');btn.disabled=true;btn.textContent='Synchronisation…';
+ try{const d=await post('/api/web/github/publish',{id:current.project.id,repo,branch:$('#lawGithubBranch').value.trim()||'main',private:$('#lawGithubPrivate').checked});toast('GitHub synchronisé : '+d.repo);if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Synchroniser sur GitHub'}
+}
+async function initSupabase(){
+ if(!current)return;const btn=$('#lawInitSupabase');btn.disabled=true;btn.textContent='Initialisation…';
+ try{await post('/api/web/supabase/init',{id:current.project.id});toast('Supabase initialisé dans le projet.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Initialiser Supabase'}
+}
+async function deployVercel(){
+ if(!current)return;const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
+ const btn=$('#lawDeployVercel');btn.disabled=true;btn.textContent='Déploiement…';
+ try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:true});toast(d.url?'Déployé : '+d.url:'Déploiement Vercel terminé.');if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Déployer sur Vercel'}
+}
+async function applyCodex(){
+ if(!current)return;const text=$('#lawPrompt').value.trim();if(!text)return toast('Écris d’abord la modification à confier à Codex.');
+ const btn=$('#lawUseCodex');btn.disabled=true;btn.textContent='Codex travaille…';snapshotClient();
+ try{const d=await post('/api/web/codex/apply',{id:current.project.id,prompt:text});current=d;$('#lawPrompt').value='';renderProject();refreshPreview();addChat(d.codex?.summary||'Modification Codex terminée.');toast('Projet mis à jour avec Codex.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Appliquer la prochaine demande avec Codex'}
+}
 function renderSettings(){if(!current)return;const s=current.project.settings||{};$('#lawSettingQuality').value=s.quality||'premium';$('#lawSettingLanguage').value=s.language||'fr';$('#lawSettingResponsive').checked=s.responsive!==false;$('#lawSettingAccessibility').checked=s.accessibility!==false;$('#lawSettingSeo').checked=s.seo!==false;$('#lawSettingPerformance').checked=s.performance!==false;$('#lawSettingMicro').checked=s.micro_interactions!==false;$('#lawSettingMotion').checked=s.reduced_motion!==false;$('#lawSettingSemantic').checked=s.semantic_html!==false}
 function projectSettings(){return{quality:$('#lawSettingQuality').value,language:$('#lawSettingLanguage').value.trim()||'fr',responsive:$('#lawSettingResponsive').checked,accessibility:$('#lawSettingAccessibility').checked,seo:$('#lawSettingSeo').checked,performance:$('#lawSettingPerformance').checked,micro_interactions:$('#lawSettingMicro').checked,reduced_motion:$('#lawSettingMotion').checked,semantic_html:$('#lawSettingSemantic').checked}}
 async function saveSettings(){if(!current)return;current=await post('/api/web/settings',{id:current.project.id,settings:projectSettings()});renderSettings();$('#lawSettingsModal').classList.add('hidden');toast('Réglages enregistrés.');runQuality(false).catch(()=>{})}
 async function runQuality(show=true){if(!current)return null;const d=await api('/api/web/preflight?id='+encodeURIComponent(current.project.id));$('#lawQualityScore').textContent=d.score+'/100';$('#lawQuality').classList.toggle('quality-ok',!!d.ok);$('#lawQuality').classList.toggle('quality-bad',!d.ok);const box=$('#lawQualityReport');box.innerHTML='<div class="quality-score"><b>'+d.score+'/100</b><span>'+(d.ok?'Prêt pour publication':'Corrections recommandées')+'</span></div>'+d.checks.map(x=>'<div class="quality-line '+(x.ok?'ok':'bad')+'"><span>'+(x.ok?'✓':'!')+'</span><b>'+esc(x.label)+'</b></div>').join('');if(show){box.classList.remove('hidden');$('#lawSettingsModal').classList.remove('hidden')}return d}
 function setup(){
- $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
+ $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;$('#lawPublishGithub').onclick=publishGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawDeployVercel').onclick=deployVercel;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};
  $('#lawProjects').onchange=e=>loadProject(e.target.value);
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));
@@ -57,6 +84,6 @@ function setup(){
  $('#lawGithub').onclick=()=>integration('integrations');$('#lawPublish').onclick=()=>integration('domains');
  $('#lawAssetAdd').onclick=()=>$('#lawAssetInput').click();$('#lawAttach').onclick=()=>$('#lawAssetInput').click();
  $('#lawAssetInput').onchange=e=>{const f=e.target.files?.[0];if(f)addAsset(f);e.target.value=''};
- setupVisualEditing();loadProjects().catch(e=>toast(e.message));
+ setupVisualEditing();refreshIntegrations();loadProjects().catch(e=>toast(e.message));
 }
 setup();
