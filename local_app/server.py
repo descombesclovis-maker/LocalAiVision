@@ -1577,6 +1577,18 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/file/delete":
+            try:
+                self.send_json(_web_store().delete_file(body.get("id"), body.get("path")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/file/rename":
+            try:
+                self.send_json(_web_store().rename_file(body.get("id"), body.get("old_path"), body.get("new_path")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/file/save":
             try:
                 store = _web_store(); pid = body.get("id"); path = web_builder.safe_rel(body.get("path"))
