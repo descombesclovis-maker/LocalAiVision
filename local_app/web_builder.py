@@ -124,7 +124,10 @@ class LocalAiWebStore:
         pid = 'web-' + uuid.uuid4().hex[:12]
         now = time.time()
         self.write_meta(pid, {'id': pid, 'name': str(name or 'Nouveau projet')[:80], 'created_at': now,
-                                 'updated_at': now, 'framework':'Vanilla HTML/CSS/JS', 'status':'local'})
+                                 'updated_at': now, 'framework':'Vanilla HTML/CSS/JS', 'status':'local',
+                                 'settings': {'quality':'premium','responsive':True,'accessibility':True,
+                                              'seo':True,'performance':True,'micro_interactions':True,
+                                              'reduced_motion':True,'semantic_html':True,'language':'fr'}})
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><span class="eyebrow">LOCALAIWEB</span><h1>Ton prochain site commence ici.</h1><p>Décris ton projet dans le chat à droite. LocalAiWeb construira et modifiera les fichiers en direct.</p><button>Commencer</button></main><script src="app.js"></script></body></html>',
           'styles.css': ':root{font-family:Inter,system-ui,sans-serif;color:#f5f3ff;background:#12091f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 10%,#6d28d955,transparent 35%),#12091f}.hero{min-height:100vh;display:grid;place-content:center;gap:18px;padding:8vw;max-width:1000px}.eyebrow{letter-spacing:.22em;color:#c4b5fd;font-size:12px}h1{font-size:clamp(52px,9vw,118px);line-height:.88;letter-spacing:-.06em;margin:0}p{max-width:680px;color:#c4b5d4;font-size:19px;line-height:1.6}button{width:max-content;border:0;border-radius:999px;background:#8b5cf6;color:#fff;padding:14px 22px;font-weight:700}',
@@ -176,6 +179,38 @@ class LocalAiWebStore:
         meta = self.meta(project_id); meta['updated_at']=time.time(); meta['last_summary']=str(parsed.get('summary') or prompt)[:240]
         self.write_meta(project_id, meta)
         return {'ok':True,'summary':meta['last_summary'],'project':meta,'files':saved,'versions':self.versions(project_id)}
+
+    def update_settings(self, project_id, patch):
+        meta = self.meta(project_id)
+        settings = dict(meta.get('settings') or {})
+        allowed = {'quality','responsive','accessibility','seo','performance','micro_interactions',
+                   'reduced_motion','semantic_html','language'}
+        for key, value in (patch or {}).items():
+            if key in allowed:
+                settings[key] = value
+        meta['settings'] = settings
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
+
+    def preflight(self, project_id):
+        files = self.text_files(project_id)
+        html = files.get('index.html','')
+        css = '\n'.join(v for k,v in files.items() if k.endswith('.css'))
+        checks = [
+            {'id':'index','label':'Page principale','ok':bool(html.strip()),'weight':12},
+            {'id':'viewport','label':'Responsive viewport','ok':('name="viewport"' in html or "name='viewport'" in html),'weight':8},
+            {'id':'title','label':'Titre SEO','ok':bool(re.search(r'<title>[^<]{2,}</title>',html,re.I)),'weight':8},
+            {'id':'description','label':'Meta description','ok':bool(re.search(r'name=["\\\']description["\\\']',html,re.I)),'weight':8},
+            {'id':'semantic','label':'HTML sémantique','ok':any(tag in html.lower() for tag in ('<main','<header','<nav','<section','<footer')),'weight':8},
+            {'id':'responsive_css','label':'CSS responsive','ok':('@media' in css or 'clamp(' in css),'weight':10},
+            {'id':'focus','label':'Focus clavier','ok':(':focus' in css or ':focus-visible' in css),'weight':7},
+            {'id':'reduced_motion','label':'Reduced motion','ok':('prefers-reduced-motion' in css),'weight':5},
+        ]
+        total = sum(x['weight'] for x in checks)
+        score = round(100 * sum(x['weight'] for x in checks if x['ok']) / total) if total else 0
+        blockers = [x for x in checks if not x['ok'] and x['weight'] >= 8]
+        return {'ok': score >= 80 and not blockers, 'score': score, 'checks': checks, 'blockers': blockers}
 
     def restore(self, project_id, version_id):
         path = self.project_dir(project_id) / 'versions' / (safe_id(version_id)+'.json')
