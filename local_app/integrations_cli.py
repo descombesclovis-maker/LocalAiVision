@@ -103,3 +103,21 @@ def supabase_initialize(site_dir):
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout or "initialisation Supabase impossible").strip())
     return {"ok": True, "already": False}
+
+
+def codex_apply(site_dir, prompt):
+    cli = _which("codex", "codex.cmd", "codex.exe")
+    if not cli:
+        raise RuntimeError("Codex CLI n'est pas installé.")
+    text = str(prompt or "").strip()
+    if not text:
+        raise RuntimeError("Prompt Codex vide.")
+    instruction = (
+        "Work only inside this website project. Implement the request directly in the files. "
+        "Preserve existing user assets and working features. Keep the result polished, responsive, accessible, "
+        "semantic and production-ready. Verify obvious syntax problems before finishing. Request: " + text
+    )
+    result = _run([cli, "exec", "--full-auto", instruction], cwd=site_dir, timeout=900)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "Codex n'a pas terminé.").strip()[:4000])
+    return {"ok": True, "summary": (result.stdout or result.stderr or "Modification Codex terminée.").strip()[-3000:]}
