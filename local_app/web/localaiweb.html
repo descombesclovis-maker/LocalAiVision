@@ -28,6 +28,7 @@
         <button class="rail-tab active" data-panel="files">Fichiers</button>
         <button class="rail-tab" data-panel="assets">Assets</button>
         <button class="rail-tab" data-panel="versions">Versions</button>
+        <button class="rail-tab" data-panel="design">Design</button>
         <button class="rail-tab" data-panel="services">Services</button>
       </div>
       <section id="lawFilesPanel" class="rail-panel">
@@ -40,6 +41,19 @@
       </section>
       <section id="lawVersionsPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Historique</b><span>Restaurer une version</span></div><div id="lawVersions" class="version-list"></div>
+      </section>
+      <section id="lawDesignPanel" class="rail-panel hidden">
+        <div class="panel-title"><b>Design system</b><span>Variables globales</span></div>
+        <div class="design-grid">
+          <label>Marque<input id="lawDesignBrand" type="color" value="#7c3aed"></label>
+          <label>Accent<input id="lawDesignAccent" type="color" value="#a78bfa"></label>
+          <label>Fond<input id="lawDesignBg" type="color" value="#0f0718"></label>
+          <label>Texte<input id="lawDesignText" type="color" value="#f7f2ff"></label>
+          <label>Police<select id="lawDesignFont"><option value="Inter,system-ui,sans-serif">Inter / système</option><option value="Arial,sans-serif">Arial</option><option value="Georgia,serif">Georgia</option><option value="'Trebuchet MS',sans-serif">Trebuchet</option><option value="system-ui,sans-serif">Système</option></select></label>
+          <label>Arrondi<input id="lawDesignRadius" type="range" min="0" max="32" value="14"><span id="lawDesignRadiusValue">14px</span></label>
+        </div>
+        <button id="lawApplyDesign" class="production-action strong">Appliquer le design system</button>
+        <p class="production-note">Les nouveaux sites Premium sont générés avec des variables CSS globales afin que ces réglages restent cohérents sur toutes les pages.</p>
       </section>
       <section id="lawServicesPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Infrastructure</b><span>Architecture complète</span></div>
