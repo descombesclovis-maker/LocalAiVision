@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#070912">
+  <meta name="description" content="Expérience 3D interactive et cinématique — modèle de démonstration LocalAiWeb personnalisable pour toute marque et tout produit.">
+  <title>NOVA — Une expérience produit en 3D</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+  {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#essentiel">Aller au contenu</a>
+  <header class="site-header" id="haut">
+    <a class="brand" href="#haut" aria-label="NOVA — Accueil"><span class="brand-icon">N</span><span>NOVA <small>STUDIO CONCEPT</small></span></a>
+    <nav aria-label="Navigation principale"><a href="#essentiel">Vision</a><a href="#detail">Détails</a><a href="#contact">Explorer</a></nav>
+    <a class="header-cta" href="#contact">Découvrir <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="essentiel">
+    <section class="experience" id="showcase" data-model-src="" aria-label="Présentation interactive du concept NOVA">
+      <div class="experience-canvas" id="three-stage" aria-hidden="true"></div>
+      <div class="experience-css-fallback" id="three-fallback" aria-hidden="true"><span class="fallback-orb"></span><span class="fallback-ring"></span><span class="fallback-core"></span></div>
+      <div class="experience-haze" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <span class="eyebrow"><i></i> UNE NOUVELLE DIMENSION</span>
+        <h1>La forme<br>du <em>futur.</em></h1>
+        <p>Une démonstration 3D vivante, pensée pour transformer une présentation de produit en véritable expérience.</p>
+        <a class="button-primary" href="#detail">Entrer dans les détails <span aria-hidden="true">↘</span></a>
+      </div>
+      <div class="experience-status" role="status" aria-live="polite" id="scene-status">Initialisation de la scène interactive…</div>
+      <div class="experience-marker" aria-hidden="true"><span>01</span> / 03 <span class="line"></span> DÉCOUVRIR</div>
+      <div class="experience-scroll" aria-hidden="true">DÉFILER <span>↓</span></div>
+      <div class="experience-chapter chapter-one" aria-hidden="true"><span>01 / DESIGN</span><strong>L'essentiel,<br>sans compromis.</strong></div>
+      <div class="experience-chapter chapter-two" aria-hidden="true"><span>02 / MATIÈRE</span><strong>Chaque détail<br>compte.</strong></div>
+    </section>
+    <section class="story" id="detail">
+      <span class="eyebrow"><i></i> LE CONCEPT EN DÉTAIL</span>
+      <div class="story-grid">
+        <h2>Moins d'ordinaire.<br><em>Plus de caractère.</em></h2>
+        <div><p>Un univers où les surfaces, les ombres et le mouvement donnent vie à vos idées. NOVA est un concept de démonstration : importez votre propre fichier <strong>GLB</strong> dans LocalAiWeb pour remplacer l'objet 3D.</p>
+          <a class="text-link" href="#contact">Explorer les possibilités <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="feature-grid">
+        <article><span class="feature-number">01</span><h3>Immersion</h3><p>Une scène WebGL réellement rendue dans le navigateur, avec rotation et variations de caméra.</p></article>
+        <article><span class="feature-number">02</span><h3>Mouvement</h3><p>Des transitions synchronisées au défilement, sans imposer d'animation aux visiteurs sensibles au mouvement.</p></article>
+        <article><span class="feature-number">03</span><h3>Souplesse</h3><p>Une architecture indépendante du produit, adaptée à une boutique, un portfolio ou une présentation.</p></article>
+      </div>
+    </section>
+    <section class="closing" id="contact">
+      <span class="eyebrow"><i></i> CRÉER L'EXCEPTION</span>
+      <h2>Votre histoire.<br><em>Une autre dimension.</em></h2>
+      <p>Personnalisez cette expérience dans LocalAiWeb : texte, couleurs, objet GLB, mouvements et interactions.</p>
+      <a class="button-primary" href="#haut">Revoir l'expérience <span aria-hidden="true">↑</span></a>
+    </section>
+  </main>
+  <footer class="site-footer"><span>NOVA / DEMO LOCALAIWEB</span><span>UNE EXPÉRIENCE WEBGL ADAPTATIVE</span><a href="#haut">RETOUR EN HAUT ↑</a></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
