@@ -132,6 +132,14 @@ function renderSettings(){if(!current)return;const s=current.project.settings||{
 function projectSettings(){return{quality:$('#lawSettingQuality').value,language:$('#lawSettingLanguage').value.trim()||'fr',ai_provider:$('#lawSettingAiProvider').value,responsive:$('#lawSettingResponsive').checked,accessibility:$('#lawSettingAccessibility').checked,seo:$('#lawSettingSeo').checked,performance:$('#lawSettingPerformance').checked,micro_interactions:$('#lawSettingMicro').checked,reduced_motion:$('#lawSettingMotion').checked,semantic_html:$('#lawSettingSemantic').checked}}
 async function saveSettings(){if(!current)return;current=await post('/api/web/settings',{id:current.project.id,settings:projectSettings()});renderSettings();$('#lawSettingsModal').classList.add('hidden');toast('Réglages enregistrés.');runQuality(false).catch(()=>{})}
 async function runQuality(show=true){if(!current)return null;const d=await api('/api/web/preflight?id='+encodeURIComponent(current.project.id));$('#lawQualityScore').textContent=d.score+'/100';$('#lawQuality').classList.toggle('quality-ok',!!d.ok);$('#lawQuality').classList.toggle('quality-bad',!d.ok);const box=$('#lawQualityReport');box.innerHTML='<div class="quality-score"><b>'+d.score+'/100</b><span>'+(d.ok?'Prêt pour publication':'Corrections recommandées')+'</span></div>'+d.checks.map(x=>'<div class="quality-line '+(x.ok?'ok':'bad')+'"><span>'+(x.ok?'✓':'!')+'</span><b>'+esc(x.label)+'</b></div>').join('');if(show){box.classList.remove('hidden');$('#lawSettingsModal').classList.remove('hidden')}return d}
+function handleAssetPaste(e){
+ const items=[...(e.clipboardData?.items||[])];const img=items.find(x=>x.kind==='file'&&x.type.startsWith('image/'));
+ if(!img)return;const file=img.getAsFile();if(file){e.preventDefault();addAsset(file);toast('Image collée dans les assets.')}
+}
+function handleAssetDrop(e){
+ e.preventDefault();const file=[...(e.dataTransfer?.files||[])].find(x=>x.type.startsWith('image/'));
+ if(file)addAsset(file);
+}
 function startVoice(){
  const Ctor=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!Ctor)return toast('La reconnaissance vocale n’est pas disponible dans ce moteur WebView.');
@@ -151,7 +159,7 @@ function setup(){
  document.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>integration(b.dataset.service));
  document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{$('#lawPrompt').value=b.dataset.prompt;generate()});
  $('#lawGenerate').onclick=generate;$('#lawMic').onclick=startVoice;
- $('#lawPrompt').onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();generate()}};
+ $('#lawPrompt').onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();generate()}};$('#lawPrompt').addEventListener('paste',handleAssetPaste);const composer=$('.agent-composer');composer.addEventListener('dragover',e=>{e.preventDefault();composer.classList.add('drop-ready')});composer.addEventListener('dragleave',()=>composer.classList.remove('drop-ready'));composer.addEventListener('drop',e=>{composer.classList.remove('drop-ready');handleAssetDrop(e)});
  $('#lawRefresh').onclick=refreshPreview;
  $('#lawOpenPreview').onclick=()=>window.open('/web-preview/'+current.project.id+'/index.html','_blank');
  $('#lawSelectMode').onclick=toggleVisual;
