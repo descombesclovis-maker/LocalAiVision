@@ -1438,6 +1438,15 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/integrations/connect":
+            try:
+                cwd = None
+                if body.get("id"):
+                    cwd = _web_store().project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.connect(body.get("provider"), cwd))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/integrations/status":
             try:
                 self.send_json({"ok": True, "integrations": integrations_cli.status()})
