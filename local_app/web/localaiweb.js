@@ -105,6 +105,7 @@ function renderDeployment(){
  if(!current)return;const d=current.project.deployment||{};
  $('#lawGithubRepo').value=d.github_repo||'';$('#lawGithubBranch').value=d.github_branch||'main';$('#lawGithubPrivate').checked=d.github_private!==false;$('#lawSupabaseRef').value=d.supabase_ref||'';$('#lawDomain').value=d.custom_domain||'';
  const live=$('#lawOpenLive'),state=$('#lawPublishState');if(live){live.classList.toggle('hidden',!d.production_url);live.dataset.url=d.production_url||''}if(state)state.textContent=d.production_url?'mettre à jour':'Vercel';
+ const links=$('#lawDeployLinks');if(links){const rows=[];if(d.preview_url)rows.push('<a href="'+esc(d.preview_url)+'" target="_blank">Aperçu cloud ↗</a>');if(d.production_url)rows.push('<a href="'+esc(d.production_url)+'" target="_blank">Production ↗</a>');if(d.custom_domain)rows.push('<span>'+esc(d.custom_domain)+'</span>');links.innerHTML=rows.join('');links.classList.toggle('hidden',!rows.length)}
 }
 async function persistDeployment(){
  if(!current)return;
