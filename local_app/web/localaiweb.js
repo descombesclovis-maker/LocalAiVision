@@ -55,7 +55,22 @@ async function generateAsset(){
  try{const d=await post('/api/web/asset/generate',{id:current.project.id,prompt});$('#lawAssetPrompt').value='';current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset généré : '+d.path)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='✦ Générer'}
 }
 async function addAsset(file){if(!file||!current)return;const r=new FileReader();r.onload=async()=>{try{await post('/api/web/asset',{id:current.project.id,name:file.name,data:r.result});current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset ajouté : '+file.name)}catch(e){toast(e.message)}};r.readAsDataURL(file)}
-function integration(name){const labels={database:'Database SQL',auth:'Authentification & rôles',payments:'Stripe',api:'APIs & webhooks',storage:'Stockage fichiers',realtime:'Realtime',ai:'IA LocalAiVision',integrations:'Intégrations externes',analytics:'Analytics',domains:'Domaines & SSL'};if(name==='storage')return toast('Le stockage local des assets est déjà actif.');if(name==='ai')return toast('L’agent LocalAiWeb utilise déjà le LLM local de LocalAiVision.');toast((labels[name]||name)+' : connecteur prévu, pas encore configuré.')}
+function integration(name){
+ const prompts={
+  database:"Ajoute un backend Supabase professionnel à ce projet : schéma SQL versionné dans supabase/migrations, tables nécessaires, contraintes, index, politiques RLS sécurisées et accès côté client uniquement avec les variables publiques. Ne mets aucun secret dans le code client.",
+  auth:"Ajoute Supabase Auth avec inscription, connexion, déconnexion, récupération de mot de passe, états de chargement/erreur, routes ou écrans protégés et rôles si le projet le nécessite. Utilise des politiques RLS cohérentes.",
+  payments:"Ajoute Stripe de manière production-ready. Les clés secrètes doivent rester exclusivement côté serveur ou dans les variables d’environnement du déploiement. Ajoute checkout, états succès/annulation et webhook serveur si nécessaire, sans secret côté navigateur.",
+  api:"Ajoute les endpoints API nécessaires au projet avec validation des entrées, réponses d’erreur propres, séparation client/serveur et variables d’environnement pour les secrets.",
+  storage:"Ajoute une gestion de fichiers avec Supabase Storage : upload, validation des types et tailles, aperçu, suppression, permissions et politiques adaptées.",
+  realtime:"Ajoute Supabase Realtime uniquement là où cela améliore réellement l’application, avec abonnement/désabonnement propre et état de reconnexion.",
+  analytics:"Ajoute une couche analytics respectueuse de la vie privée, compatible avec le déploiement Vercel, sans casser les performances ni le consentement requis.",
+  ai:"Ajoute les fonctionnalités IA demandées en réutilisant l’architecture du projet et en gardant les secrets côté serveur. Prévois états loading, erreurs, quotas et fallback.",
+  integrations:"Prépare une architecture d’intégrations tierces robuste : modules séparés, variables d’environnement documentées dans .env.example, erreurs explicites et webhooks idempotents.",
+  domains:"Prépare ce site pour un domaine personnalisé : URLs canoniques, meta Open Graph, favicon, robots.txt, sitemap.xml et liens absolus configurables par variable publique."
+ };
+ if(prompts[name]){$('#lawPrompt').value=prompts[name];$('#lawPrompt').focus();toast('Instruction '+name+' préparée dans le chat.');return}
+ toast('Service inconnu.')
+}
 async function connectIntegration(provider){
  try{const d=await post('/api/web/integrations/connect',{provider,id:current?.project?.id||null});toast(d.message||('Connexion '+provider+' ouverte.'));setTimeout(()=>refreshIntegrations(),2500)}catch(e){toast(e.message)}
 }
