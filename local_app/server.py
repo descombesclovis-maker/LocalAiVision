@@ -14,7 +14,8 @@ DATA = Path(os.environ.get("LOCALVISIONAI_DATA", str(Path(os.environ.get("LOCALA
 WEB = ROOT / "local_app" / "web"
 IMPORTED = DATA / "workflows" / "imported"
 IMPORTED.mkdir(parents=True, exist_ok=True)
-WEB_PROJECTS = DATA / "localaiweb" / "projects"
+LOCALAIWEB_DATA = DATA / "localaiweb"
+WEB_PROJECTS = LOCALAIWEB_DATA / "projects"
 WEB_PROJECTS.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
 PORT = 3000
@@ -1262,6 +1263,22 @@ class Handler(BaseHTTPRequestHandler):
                 with urlopen(COMFY+"/view"+params,timeout=60) as r:
                     self.send_bytes(r.read(),r.headers.get_content_type())
             except Exception as e: self.send_json({"error":str(e)},502)
+            return
+        if u.path == "/api/web/capabilities":
+            online, _detail = comfy_online()
+            media = {}
+            try:
+                from local_app import bootstrap_windows
+                for component in ("image", "video", "isolated-image", "isolated-video", "isolated-video-i2v"):
+                    media[component] = bootstrap_windows.media_status(component)
+            except Exception:
+                media = {}
+            self.send_json({
+                "llm": llm.status(),
+                "comfy": {"online": online, "url": COMFY},
+                "media": media,
+                "shared_scope": "tools_and_models_only"
+            })
             return
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
