@@ -45,27 +45,27 @@ def status():
     git = _which("git", "git.exe")
     node = _which("node", "node.exe")
     npm = _which("npm", "npm.cmd")
-    vercel = _vercel_cmd()
-    supabase = _supabase_cmd()
-    codex = _codex_cmd()
+    npx = _which("npx", "npx.cmd")
+    vercel_direct = _which("vercel", "vercel.cmd")
+    supabase_direct = _which("supabase", "supabase.exe")
+    codex_direct = _which("codex", "codex.cmd", "codex.exe")
     out = {
         "git": {"installed": bool(git), "ready": bool(git)},
         "github": {"installed": bool(gh), "ready": False},
         "node": {"installed": bool(node), "ready": bool(node)},
         "npm": {"installed": bool(npm), "ready": bool(npm)},
-        "vercel": {"installed": bool(vercel), "ready": False},
-        "supabase": {"installed": bool(supabase), "ready": False},
-        "codex": {"installed": bool(codex), "ready": False},
+        "vercel": {"installed": bool(vercel_direct or npx), "ready": False, "via_npx": bool(not vercel_direct and npx)},
+        "supabase": {"installed": bool(supabase_direct or npx), "ready": False, "via_npx": bool(not supabase_direct and npx)},
+        "codex": {"installed": bool(codex_direct or npx), "ready": False, "via_npx": bool(not codex_direct and npx)},
     }
     if gh:
         out["github"]["ready"] = _run([gh, "auth", "status"], timeout=20).returncode == 0
-    if vercel:
-        out["vercel"]["ready"] = _run(vercel + ["whoami"], timeout=45).returncode == 0
-    if supabase:
-        out["supabase"]["ready"] = _run(supabase + ["projects", "list", "--output", "json"], timeout=60).returncode == 0
-    if codex:
-        probe = _run(codex + ["login", "status"], timeout=45)
-        out["codex"]["ready"] = probe.returncode == 0
+    if vercel_direct:
+        out["vercel"]["ready"] = _run([vercel_direct, "whoami"], timeout=20).returncode == 0
+    if supabase_direct:
+        out["supabase"]["ready"] = _run([supabase_direct, "projects", "list", "--output", "json"], timeout=30).returncode == 0
+    if codex_direct:
+        out["codex"]["ready"] = _run([codex_direct, "login", "status"], timeout=20).returncode == 0
     return out
 
 def connect(provider, cwd=None):
