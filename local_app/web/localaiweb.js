@@ -23,7 +23,7 @@ async function deleteProject(){
  await post('/api/web/project/delete',{id:current.project.id});current=null;await loadProjects();toast('Projet supprimé.');
 }
 async function loadProjects(selectId){const d=await api('/api/web/projects');const s=$('#lawProjects');s.innerHTML='';for(const p of d.projects){const o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o)}if(!d.projects.length){const n=await post('/api/web/project/create',{name:'Mon premier site'});await loadProjects(n.project.id);return}const id=selectId||d.projects[0].id;s.value=id;await loadProject(id)}
-async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];undoStack=[];redoStack=[];renderProject();renderSettings();refreshPreview();runQuality(false).catch(()=>{})}
+async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];undoStack=[];redoStack=[];renderProject();renderSettings();renderDeployment();refreshPreview();runQuality(false).catch(()=>{})}
 function renderProject(){if(!current)return;
  const ft=$('#lawFileTree');ft.innerHTML='';Object.keys(current.files).sort().forEach(path=>{const b=document.createElement('button');b.className='file-item'+(path===selectedFile?' active':'');b.textContent=path;b.onclick=()=>openCode(path);ft.appendChild(b)});
  const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';d.innerHTML='<b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute logos, captures, photos ou exports Figma.</div>';
@@ -60,8 +60,17 @@ async function refreshIntegrations(){
   for(const name of order){const s=d.integrations?.[name];if(!s)continue;const row=document.createElement('div');row.className='integration-row '+(s.ready?'ready':'off');row.innerHTML='<span></span><b>'+name+'</b><small>'+(s.ready?'prêt':(s.installed?'installé, connexion requise':'non installé'))+'</small>';box.appendChild(row)}
  }catch(e){toast('Intégrations : '+e.message)}
 }
+function renderDeployment(){
+ if(!current)return;const d=current.project.deployment||{};
+ $('#lawGithubRepo').value=d.github_repo||'';$('#lawGithubBranch').value=d.github_branch||'main';$('#lawGithubPrivate').checked=d.github_private!==false;$('#lawSupabaseRef').value=d.supabase_ref||'';
+}
+async function persistDeployment(){
+ if(!current)return;
+ const d={github_repo:$('#lawGithubRepo').value.trim(),github_branch:$('#lawGithubBranch').value.trim()||'main',github_private:$('#lawGithubPrivate').checked,supabase_ref:$('#lawSupabaseRef').value.trim(),vercel_target:'production'};
+ current=await post('/api/web/deployment',{id:current.project.id,deployment:d});return d;
+}
 async function publishGithub(){
- if(!current)return;const repo=$('#lawGithubRepo').value.trim();if(!repo)return toast('Indique le dépôt GitHub au format utilisateur/dépôt.');
+ if(!current)return;await persistDeployment();const repo=$('#lawGithubRepo').value.trim();if(!repo)return toast('Indique le dépôt GitHub au format utilisateur/dépôt.');
  const btn=$('#lawPublishGithub');btn.disabled=true;btn.textContent='Synchronisation…';
  try{const d=await post('/api/web/github/publish',{id:current.project.id,repo,branch:$('#lawGithubBranch').value.trim()||'main',private:$('#lawGithubPrivate').checked});toast('GitHub synchronisé : '+d.repo);if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Synchroniser sur GitHub'}
 }
@@ -70,7 +79,7 @@ async function initSupabase(){
  try{await post('/api/web/supabase/init',{id:current.project.id});toast('Supabase initialisé dans le projet.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Initialiser Supabase'}
 }
 async function linkSupabase(){
- if(!current)return;const ref=$('#lawSupabaseRef').value.trim();if(!ref)return toast('Indique la Project Ref Supabase.');
+ if(!current)return;await persistDeployment();const ref=$('#lawSupabaseRef').value.trim();if(!ref)return toast('Indique la Project Ref Supabase.');
  const btn=$('#lawLinkSupabase');btn.disabled=true;btn.textContent='Liaison…';
  try{await post('/api/web/supabase/link',{id:current.project.id,project_ref:ref});toast('Projet Supabase lié.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Lier le projet Supabase'}
 }
@@ -79,7 +88,7 @@ async function pushSupabase(){
  try{await post('/api/web/supabase/push',{id:current.project.id});toast('Migrations Supabase appliquées.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Pousser les migrations DB'}
 }
 async function deployVercel(){
- if(!current)return;const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
+ if(!current)return;await persistDeployment();const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
  const btn=$('#lawDeployVercel');btn.disabled=true;btn.textContent='Déploiement…';
  try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:true});toast(d.url?'Déployé : '+d.url:'Déploiement Vercel terminé.');if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Déployer sur Vercel'}
 }
