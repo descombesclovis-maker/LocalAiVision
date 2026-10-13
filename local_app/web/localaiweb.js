@@ -184,6 +184,7 @@ function setup(){
  $('#lawGithub').onclick=()=>integration('integrations');$('#lawPublish').onclick=()=>integration('domains');
  $('#lawAssetAdd').onclick=()=>$('#lawAssetInput').click();$('#lawAttach').onclick=()=>$('#lawAssetInput').click();$('#lawGenerateAsset').onclick=generateAsset;
  $('#lawAssetInput').onchange=e=>{const f=e.target.files?.[0];if(f)addAsset(f);e.target.value=''};
+ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(!$('#lawCodePanel').classList.contains('hidden'))saveCode()}if(e.key==='Escape'){$('#lawSettingsModal').classList.add('hidden');$('#lawInspector').classList.add('hidden')}});
  setupVisualEditing();refreshIntegrations();loadProjects().catch(e=>toast(e.message));
 }
 setup();
