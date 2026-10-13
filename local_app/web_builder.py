@@ -537,9 +537,9 @@ class LocalAiWebStore:
         name = re.sub(r'[^a-zA-Z0-9._ -]', '_', name).strip('. ')
         if not name: raise ValueError('Nom de fichier invalide.')
         suffix = Path(name).suffix.lower()
-        allowed = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg', '.glb'}
+        allowed = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg', '.glb', '.hdr'}
         if suffix not in allowed:
-            raise ValueError('Asset non pris en charge : images ou modèles GLB uniquement.')
+            raise ValueError('Asset non pris en charge : images, GLB ou éclairages HDR uniquement.')
         try: data = base64.b64decode(str(data_url).split(',',1)[-1], validate=True)
         except Exception: raise ValueError('Asset invalide.')
         limit = 40*1024*1024 if suffix == '.glb' else 20*1024*1024
@@ -555,6 +555,9 @@ class LocalAiWebStore:
             if (data[16:20] != b'JSON' or json_size <= 0
                     or json_size % 4 != 0 or 20 + json_size > len(data)):
                 raise ValueError('Bloc JSON du GLB invalide.')
+        if suffix == '.hdr':
+            if not (data.startswith(b'#?RADIANCE') or data.startswith(b'#?RGBE')):
+                raise ValueError('Fichier HDR Radiance invalide.')
         target = self.project_dir(project_id) / 'site' / 'assets' / name
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_bytes(data)
