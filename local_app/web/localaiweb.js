@@ -106,11 +106,11 @@ async function installIntegrations(){
  try{const d=await post('/api/web/integrations/install',{});toast(d.message||'Installation lancée.');setTimeout(()=>refreshIntegrations(),5000)}catch(e){toast(e.message)}
 }
 async function connectIntegration(provider){
- try{const d=await post('/api/web/integrations/connect',{provider,id:current?.project?.id||null});toast(d.message||('Connexion '+provider+' ouverte.'));setTimeout(()=>refreshIntegrations(),2500)}catch(e){toast(e.message)}
+ try{const d=await post('/api/web/integrations/connect',{provider,id:current?.project?.id||null});toast(d.message||('Connexion '+provider+' ouverte.'));setTimeout(()=>refreshIntegrations(true),4000)}catch(e){toast(e.message)}
 }
-async function refreshIntegrations(){
+async function refreshIntegrations(deep=false){
  try{
-  const d=await post('/api/web/integrations/status',{});integrationState=d.integrations||{};
+  const d=await post('/api/web/integrations/status',{deep:!!deep});integrationState=d.integrations||{};
   const box=$('#lawIntegrationStatus');box.innerHTML='';
   const order=['github','vercel','supabase','stripe','codex','git','node','npm'];
   for(const name of order){const s=d.integrations?.[name];if(!s)continue;const row=document.createElement('div');row.className='integration-row '+(s.ready?'ready':'off');row.innerHTML='<span></span><b>'+name+'</b><small>'+(s.ready?'prêt':(s.installed?'installé, connexion requise':'non installé'))+'</small>';box.appendChild(row)}
@@ -207,7 +207,7 @@ function startVoice(){
  rec.start();
 }
 function setup(){
- $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawInstallIntegrations').onclick=installIntegrations;$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawAddEnv').onclick=addVercelEnv;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
+ $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawInstallIntegrations').onclick=installIntegrations;$('#lawRefreshIntegrations').onclick=()=>refreshIntegrations(true);document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawAddEnv').onclick=addVercelEnv;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
  $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;$('#lawApplyDesign').onclick=applyDesign;$('#lawDesignRadius').oninput=()=>$('#lawDesignRadiusValue').textContent=$('#lawDesignRadius').value+'px';
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));$('#lawBuild').onclick=buildProject;$('#lawPageSelect').onchange=e=>{selectedPreviewPage=e.target.value;refreshPreview()};
