@@ -882,6 +882,16 @@ def _web_store():
     return web_builder.LocalAiWebStore(WEB_PROJECTS, _web_llm_generate)
 
 
+def _web_preview_root(project_id):
+    site = _web_store().project_dir(project_id) / "site"
+    if (site / "package.json").is_file():
+        for name in ("dist", "build", "out"):
+            candidate = site / name
+            if (candidate / "index.html").is_file():
+                return candidate
+    return site
+
+
 def run_chat_stream(body):
     with _engine_lock:
         _ensure_chat_components()
@@ -1385,7 +1395,7 @@ class Handler(BaseHTTPRequestHandler):
                 parts = u.path[len("/web-preview/"):].split("/", 1)
                 project_id = web_builder.safe_id(parts[0])
                 rel = parts[1] if len(parts) > 1 and parts[1] else "index.html"
-                base = (_web_store().project_dir(project_id) / "site").resolve()
+                base = _web_preview_root(project_id).resolve()
                 target = (base / web_builder.safe_rel(rel)).resolve()
                 if not target.is_relative_to(base) or not target.is_file():
                     self.send_response(404); self.end_headers(); return
@@ -1469,6 +1479,22 @@ class Handler(BaseHTTPRequestHandler):
                     payload = store.generate(project_id, body.get("prompt"))
                     payload["provider"] = "local"
                     self.send_json(payload)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/build":
+            try:
+                store = _web_store()
+                project_id = body.get("id")
+                site = store.project_dir(project_id) / "site"
+                result = integrations_cli.build_project(site)
+                meta = store.meta(project_id)
+                meta["updated_at"] = time.time()
+                meta["last_build"] = {"time": time.time(), "kind": result.get("kind"), "message": result.get("message")}
+                store.write_meta(project_id, meta)
+                payload = store.payload(project_id)
+                payload["build"] = result
+                self.send_json(payload)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
