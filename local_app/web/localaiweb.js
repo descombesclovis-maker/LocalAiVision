@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s);
 let current=null,selectedFile='index.html',selectMode=false,selectedElement=null;
-let undoStack=[],redoStack=[];
+let undoStack=[],redoStack=[],codeSaveTimer=null;
 const api=async(url,opt)=>{const r=await fetch(url,opt);let d={};try{d=await r.json()}catch{}if(!r.ok||d.error)throw new Error(d.error||('Erreur HTTP '+r.status));return d};
 const post=(url,data)=>api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -43,7 +43,12 @@ async function deleteFile(){
  if(!current||!selectedFile)return;if(!confirm('Supprimer '+selectedFile+' ?'))return;
  try{current=await post('/api/web/file/delete',{id:current.project.id,path:selectedFile});selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0]||'';renderProject();$('#lawCodePanel').classList.add('hidden');refreshPreview();toast('Fichier supprimé.')}catch(e){toast(e.message)}
 }
-function openCode(path){selectedFile=path;$('#lawCodePath').textContent=path;$('#lawCode').value=current.files[path]||'';$('#lawCodePanel').classList.remove('hidden');renderProject()}
+function openCode(path){selectedFile=path;$('#lawCodePath').textContent=path;$('#lawCode').value=current.files[path]||'';$('#lawCodeState').textContent='Enregistré';$('#lawCodePanel').classList.remove('hidden');renderProject()}
+async function autosaveCode(){
+ if(!current||$('#lawCodePanel').classList.contains('hidden')||!selectedFile)return;
+ const state=$('#lawCodeState');if(state)state.textContent='Enregistrement…';
+ try{const d=await post('/api/web/file/save',{id:current.project.id,path:selectedFile,content:$('#lawCode').value,snapshot:false});current.files=d.files;current.versions=d.versions||current.versions;if(state)state.textContent='Enregistré';refreshPreview()}catch(e){if(state)state.textContent='Erreur';toast('Autosave : '+e.message)}
+}
 async function saveCode(){snapshotClient();const d=await post('/api/web/file/save',{id:current.project.id,path:selectedFile,content:$('#lawCode').value});current.files=d.files;current.versions=d.versions||[];$('#lawCodePanel').classList.add('hidden');renderProject();refreshPreview();toast('Fichier enregistré.')}
 function addChat(text,role='agent'){const d=document.createElement('div');d.className='agent-message'+(role==='user'?' user':'');d.textContent=text;$('#lawChat').appendChild(d);$('#lawChat').scrollTop=$('#lawChat').scrollHeight}
 function renderChatHistory(){
@@ -177,7 +182,7 @@ function setup(){
  $('#lawOpenPreview').onclick=()=>window.open('/web-preview/'+current.project.id+'/index.html','_blank');
  $('#lawSelectMode').onclick=toggleVisual;
  $('#lawApplyVisual').onclick=applyVisual;
- $('#lawSaveCode').onclick=saveCode;
+ $('#lawSaveCode').onclick=saveCode;$('#lawCode').addEventListener('input',()=>{const s=$('#lawCodeState');if(s)s.textContent='Modifié';clearTimeout(codeSaveTimer);codeSaveTimer=setTimeout(autosaveCode,1200)});
  $('#lawCloseCode').onclick=()=>$('#lawCodePanel').classList.add('hidden');
  $('#lawUndo').onclick=undo;$('#lawRedo').onclick=redo;
  $('#lawExport').onclick=()=>{if(current)location.href='/api/web/export?id='+encodeURIComponent(current.project.id)};
