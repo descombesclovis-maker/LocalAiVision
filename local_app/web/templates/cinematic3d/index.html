@@ -20,7 +20,7 @@
     <a class="header-cta" href="#contact">Découvrir <span aria-hidden="true">↗</span></a>
   </header>
   <main id="essentiel">
-    <section class="experience" id="showcase" data-model-src="" aria-label="Présentation interactive du concept NOVA">
+    <section class="experience" id="showcase" data-model-src="" data-quality="auto" aria-label="Présentation interactive du concept NOVA">
       <div class="experience-canvas" id="three-stage" aria-hidden="true"></div>
       <div class="experience-css-fallback" id="three-fallback" aria-hidden="true"><span class="fallback-orb"></span><span class="fallback-ring"></span><span class="fallback-core"></span></div>
       <div class="experience-haze" aria-hidden="true"></div>
@@ -32,6 +32,15 @@
       </div>
       <div class="experience-status" role="status" aria-live="polite" id="scene-status">Initialisation de la scène interactive…</div>
       <div class="experience-marker" aria-hidden="true"><span>01</span> / 03 <span class="line"></span> DÉCOUVRIR</div>
+      <div class="quality-switch">
+        <label for="scene-quality">QUALITÉ DE RENDU</label>
+        <select id="scene-quality" aria-label="Qualité du rendu 3D">
+          <option value="auto">Auto · adaptative</option>
+          <option value="quality">Photo · premium</option>
+          <option value="balanced">Équilibrée</option>
+          <option value="performance">Performance</option>
+        </select>
+      </div>
       <div class="experience-scroll" aria-hidden="true">DÉFILER <span>↓</span></div>
       <div class="experience-chapter chapter-one" aria-hidden="true"><span>01 / DESIGN</span><strong>L'essentiel,<br>sans compromis.</strong></div>
       <div class="experience-chapter chapter-two" aria-hidden="true"><span>02 / MATIÈRE</span><strong>Chaque détail<br>compte.</strong></div>
