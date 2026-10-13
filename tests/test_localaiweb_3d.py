@@ -32,6 +32,13 @@ class Cinematic3DTemplateTests(unittest.TestCase):
             self.assertIn('three@0.186.1', immersive['files']['index.html'])
             self.assertIn('data-model-src=', immersive['files']['index.html'])
             self.assertIn('GLTFLoader', immersive['files']['app.js'])
+            self.assertIn('quality.mjs', immersive['files'])
+            self.assertIn('PMREMGenerator', immersive['files']['app.js'])
+            self.assertIn('RoomEnvironment', immersive['files']['app.js'])
+            self.assertIn('DRACOLoader', immersive['files']['app.js'])
+            self.assertIn('data-quality="auto"', immersive['files']['index.html'])
+            self.assertIn('scene-quality', immersive['files']['index.html'])
+            self.assertIn('data-environment-src=', immersive['files']['index.html'])
             self.assertIn('prefers-reduced-motion', immersive['files']['styles.css'])
             self.assertEqual(immersive['project']['template'], 'cinematic3d')
             self.assertEqual(immersive['project']['settings']['art_direction'], 'spatial3d')
@@ -51,13 +58,21 @@ class Cinematic3DTemplateTests(unittest.TestCase):
             valid = 'data:model/gltf-binary;base64,' + base64.b64encode(minimal_glb()).decode()
             asset = store.save_asset(pid, 'objet.glb', valid)
             self.assertEqual(asset['path'], 'assets/objet.glb')
+            hdr = 'data:application/octet-stream;base64,' + base64.b64encode(b'#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1').decode()
+            hdr_asset = store.save_asset(pid, 'studio.hdr', hdr)
+            self.assertEqual(hdr_asset['path'], 'assets/studio.hdr')
             self.assertNotIn('assets/objet.glb', other['assets'])
             with zipfile.ZipFile(io.BytesIO(store.export_zip(pid))) as archive:
                 self.assertIn('assets/objet.glb', archive.namelist())
+                self.assertIn('assets/studio.hdr', archive.namelist())
+                self.assertIn('quality.mjs', archive.namelist())
             with zipfile.ZipFile(io.BytesIO(store.export_zip(other['project']['id']))) as archive:
                 self.assertNotIn('assets/objet.glb', archive.namelist())
+                self.assertNotIn('assets/studio.hdr', archive.namelist())
             with self.assertRaisesRegex(ValueError, 'GLB'):
                 store.save_asset(pid, 'fake.glb', 'data:application/octet-stream;base64,' + base64.b64encode(b'bad').decode())
+            with self.assertRaisesRegex(ValueError, 'HDR'):
+                store.save_asset(pid, 'bad.hdr', valid)
             with self.assertRaisesRegex(ValueError, 'non pris en charge'):
                 store.save_asset(pid, 'evil.html', valid)
 
@@ -88,7 +103,8 @@ class Cinematic3DTemplateTests(unittest.TestCase):
         self.assertIn('create3dProject', js)
         self.assertIn('template:\'cinematic3d\'', js)
         self.assertIn('saveCreativeBrief', js)
-        self.assertIn('data-model-src=', js)
+        self.assertIn("'data-model-src'", js)
+        self.assertIn("'data-environment-src'", js)
         self.assertTrue((ROOT / 'local_app/web/templates/cinematic3d/app.js').is_file())
 
 

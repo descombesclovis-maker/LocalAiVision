@@ -26,7 +26,7 @@ async function loadProjects(selectId){const d=await api('/api/web/projects');con
 async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];selectedPreviewPage=current.files['index.html']?'index.html':(Object.keys(current.files).find(x=>/\.html?$/i.test(x))||'index.html');undoStack=[];redoStack=[];renderProject();renderSettings();renderCreativeBrief();renderDesign();renderDeployment();renderChatHistory();renderPages();refreshPreview();runQuality(false).catch(()=>{})}
 function renderProject(){if(!current)return;
  const ft=$('#lawFileTree');ft.innerHTML='';Object.keys(current.files).sort().forEach(path=>{const b=document.createElement('button');b.className='file-item'+(path===selectedFile?' active':'');b.textContent=path;b.onclick=()=>openCode(path);ft.appendChild(b)});
- const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';const isImage=/\.(png|jpe?g|webp|gif|svg|avif)$/i.test(a.path);d.innerHTML=(isImage?'<img src="/web-preview/'+encodeURIComponent(current.project.id)+'/'+a.path.split('/').map(encodeURIComponent).join('/')+'" alt="">':(/\.glb$/i.test(a.path)?'<span class="asset-3d-icon">3D</span>':''))+'<div><b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span></div>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute des images ou un fichier GLB pour tes scènes 3D.</div>';
+ const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';const isImage=/\.(png|jpe?g|webp|gif|svg|avif)$/i.test(a.path);d.innerHTML=(isImage?'<img src="/web-preview/'+encodeURIComponent(current.project.id)+'/'+a.path.split('/').map(encodeURIComponent).join('/')+'" alt="">':(/\.glb$/i.test(a.path)?'<span class="asset-3d-icon">3D</span>':/\.hdr$/i.test(a.path)?'<span class="asset-3d-icon">HDR</span>':''))+'<div><b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span></div>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute des images ou un fichier GLB pour tes scènes 3D.</div>';
  const versions=$('#lawVersions');versions.innerHTML='';(current.versions||[]).forEach(v=>{const d=document.createElement('div');d.className='version-card';d.innerHTML='<b>'+esc(v.label||'Version')+'</b><span>'+new Date((v.created_at||0)*1000).toLocaleString()+'</span><button>Restaurer</button>';d.querySelector('button').onclick=()=>restoreVersion(v.id);versions.appendChild(d)});if(!(current.versions||[]).length)versions.innerHTML='<div class="version-card">Les versions apparaîtront après la première modification.</div>';
 }
 function renderPages(){
@@ -88,21 +88,23 @@ async function generateAsset(){
 async function addAsset(file){
  if(!file||!current)return;
  const isGlb=/\.glb$/i.test(file.name);
+ const isHdr=/\.hdr$/i.test(file.name);
  if(isGlb && file.size>40*1024*1024)return toast('Le modèle GLB doit faire moins de 40 Mo. Optimise la géométrie et les textures.');
- if(!isGlb && !file.type.startsWith('image/'))return toast('Formats pris en charge : images et modèles GLB.');
+ if(!isGlb && !isHdr && !file.type.startsWith('image/'))return toast('Formats pris en charge : images, GLB et HDR.');
  const projectId=current.project.id;
  const reader=new FileReader();
  reader.onload=async()=>{
   try{
    const asset=await post('/api/web/asset',{id:projectId,name:file.name,data:reader.result});
    let project=await api('/api/web/project?id='+encodeURIComponent(projectId));
-   if(isGlb && project.files['index.html']?.includes('data-model-src="')){
-    const html=project.files['index.html'].replace(/data-model-src="[^"]*"/,'data-model-src="'+asset.path+'"');
+   const attr=isGlb?'data-model-src':isHdr?'data-environment-src':'';
+   if(attr && project.files['index.html']?.includes(attr+'="')){
+    const html=project.files['index.html'].replace(new RegExp(attr+'="[^"]*"'),attr+'="'+asset.path+'"');
     await post('/api/web/file/save',{id:projectId,path:'index.html',content:html});
     project=await api('/api/web/project?id='+encodeURIComponent(projectId));
    }
    if(current?.project?.id===projectId){current=project;renderProject();refreshPreview();}
-   toast(isGlb?'Modèle GLB importé et connecté à la scène 3D.':'Image ajoutée : '+file.name);
+   toast(isGlb?'Modèle GLB connecté à la scène 3D.':isHdr?'Éclairage HDRI connecté à la scène.':'Image ajoutée : '+file.name);
   }catch(e){toast('Import : '+e.message)}
  };
  reader.readAsDataURL(file);

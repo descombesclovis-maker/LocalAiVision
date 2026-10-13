@@ -33,3 +33,12 @@
 @media(max-width:860px){.site-header nav{display:none}.site-header{padding:22px 24px}.hero-copy{top:calc(28vh - 50px)}.hero-copy h1{font-size:clamp(62px,12vw,100px)}.experience-haze{background:linear-gradient(90deg,#080b14b3 0%,transparent 88%),linear-gradient(0deg,#080b14 0%,transparent 20%)}.story-grid{grid-template-columns:1fr;gap:20px}.feature-grid{grid-template-columns:1fr}.feature-grid article{min-height:160px}.feature-grid h3{margin-top:30px}.site-footer{flex-wrap:wrap}}
 @media(max-width:520px){.experience{height:290vh}.hero-copy{top:25vh;left:24px;right:24px}.hero-copy h1{font-size:clamp(62px,16vw,88px);margin:22px 0}.hero-copy>p{max-width:280px;font-size:13px}.experience-marker{top:87vh;left:24px}.experience-scroll{right:24px;top:87vh}.experience-chapter{left:24px;right:24px}.chapter-one{top:125vh}.chapter-two{top:215vh}.fallback-orb{width:90vw;height:90vw;left:35%;top:51%}.fallback-ring{width:100vw;height:100vw;left:36%;top:52%}.site-footer{flex-direction:column;align-items:flex-start}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}.experience{height:120vh}.experience-chapter,.experience-scroll{display:none}.hero-copy{top:20vh}.experience-canvas,.experience-css-fallback,.experience-haze{height:100vh}.feature-grid article:hover,.button-primary:hover{transform:none}}
+
+/* Adaptive rendering selector belongs to the exported site, not LocalAiVision's saved state. */
+.quality-switch{position:absolute;z-index:9;right:clamp(24px,5.5vw,96px);top:72vh;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:auto}
+.quality-switch label{font-size:9px;font-weight:700;letter-spacing:.17em;color:#c9d6e8}
+.quality-switch select{appearance:auto;border:1px solid #effff466;backdrop-filter:blur(16px);background:#101d2acf;color:#f5f9ff;border-radius:999px;padding:11px 15px;font:600 12px 'DM Sans',sans-serif;cursor:pointer;max-width:190px;box-shadow:0 12px 40px #0005}
+.quality-switch select:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.quality-switch select:hover{border-color:var(--accent)}
+@media(max-width:700px){.quality-switch{top:75vh;right:24px}.quality-switch select{max-width:150px;font-size:11px;padding:9px 10px}.experience-marker{max-width:45%;gap:6px}.experience-marker .line{width:32px}}
+@media(prefers-reduced-motion:reduce){.quality-switch{display:none}}
