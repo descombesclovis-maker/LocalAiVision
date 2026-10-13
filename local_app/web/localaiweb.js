@@ -30,6 +30,19 @@ function renderProject(){if(!current)return;
  const versions=$('#lawVersions');versions.innerHTML='';(current.versions||[]).forEach(v=>{const d=document.createElement('div');d.className='version-card';d.innerHTML='<b>'+esc(v.label||'Version')+'</b><span>'+new Date((v.created_at||0)*1000).toLocaleString()+'</span><button>Restaurer</button>';d.querySelector('button').onclick=()=>restoreVersion(v.id);versions.appendChild(d)});if(!(current.versions||[]).length)versions.innerHTML='<div class="version-card">Les versions apparaîtront après la première modification.</div>';
 }
 function showPanel(name){document.querySelectorAll('.rail-tab').forEach(b=>b.classList.toggle('active',b.dataset.panel===name));for(const n of ['files','assets','versions','services'])$('#law'+n[0].toUpperCase()+n.slice(1)+'Panel').classList.toggle('hidden',n!==name)}
+async function createFile(){
+ if(!current)return;const path=prompt('Chemin du nouveau fichier','components/section.js');if(!path)return;
+ snapshotClient();
+ try{const d=await post('/api/web/file/save',{id:current.project.id,path,content:''});current.files=d.files;current.versions=d.versions||[];selectedFile=path;renderProject();openCode(path);toast('Fichier créé.')}catch(e){toast(e.message)}
+}
+async function renameFile(){
+ if(!current||!selectedFile)return;const next=prompt('Nouveau chemin',selectedFile);if(!next||next===selectedFile)return;
+ try{current=await post('/api/web/file/rename',{id:current.project.id,old_path:selectedFile,new_path:next});selectedFile=next;renderProject();toast('Fichier renommé.')}catch(e){toast(e.message)}
+}
+async function deleteFile(){
+ if(!current||!selectedFile)return;if(!confirm('Supprimer '+selectedFile+' ?'))return;
+ try{current=await post('/api/web/file/delete',{id:current.project.id,path:selectedFile});selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0]||'';renderProject();$('#lawCodePanel').classList.add('hidden');refreshPreview();toast('Fichier supprimé.')}catch(e){toast(e.message)}
+}
 function openCode(path){selectedFile=path;$('#lawCodePath').textContent=path;$('#lawCode').value=current.files[path]||'';$('#lawCodePanel').classList.remove('hidden');renderProject()}
 async function saveCode(){snapshotClient();const d=await post('/api/web/file/save',{id:current.project.id,path:selectedFile,content:$('#lawCode').value});current.files=d.files;current.versions=d.versions||[];$('#lawCodePanel').classList.add('hidden');renderProject();refreshPreview();toast('Fichier enregistré.')}
 function addChat(text,role='agent'){const d=document.createElement('div');d.className='agent-message'+(role==='user'?' user':'');d.textContent=text;$('#lawChat').appendChild(d);$('#lawChat').scrollTop=$('#lawChat').scrollHeight}
@@ -153,7 +166,7 @@ function startVoice(){
 function setup(){
  $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
- $('#lawProjects').onchange=e=>loadProject(e.target.value);
+ $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));
  document.querySelectorAll('.rail-tab').forEach(b=>b.onclick=()=>showPanel(b.dataset.panel));
  document.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>integration(b.dataset.service));
