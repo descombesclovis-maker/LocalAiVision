@@ -161,8 +161,17 @@ class LocalAiWebStore:
         self.snapshot(project_id, 'Avant : ' + prompt[:80])
         context = json.dumps(current, ensure_ascii=False)
         if len(context) > 90000: context = context[:90000]
+        project_settings = self.meta(project_id).get('settings') or {}
+        requirements = (
+          ' Project requirements: premium visual quality; responsive desktop/tablet/mobile; '
+          'semantic HTML; accessible keyboard focus; useful alt text; SEO title and meta description; '
+          'performance-minded assets; prefers-reduced-motion support; polished hover/focus states; '
+          'no TODO, FIXME or placeholder copy in the final result. '
+          'Language=' + str(project_settings.get('language','fr')) + '. '
+          'Quality=' + str(project_settings.get('quality','premium')) + '. '
+        )
         system = (
-          'You are LocalAiWeb, a senior product designer and full-stack front-end engineer. '
+          'You are LocalAiWeb, a senior product designer and full-stack front-end engineer. ' + requirements +
           'Build exceptionally polished, distinctive, production-quality responsive websites. '
           'Prioritize typography, spacing, interaction design, accessibility, responsive behavior, micro-interactions and coherent visual systems. '
           'Return ONLY valid JSON with this shape: {"summary":"short change summary","files":{"index.html":"...","styles.css":"...","app.js":"..."}}. '
