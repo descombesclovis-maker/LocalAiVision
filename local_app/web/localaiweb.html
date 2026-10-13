@@ -92,8 +92,13 @@
         <label>Texte<input id="lawElementText"></label>
         <label>Couleur<input id="lawElementColor" type="color"></label>
         <label>Fond<input id="lawElementBg" type="color"></label>
-        <label>Taille<input id="lawElementSize" type="number" min="8" max="120"></label>
-        <label>Arrondi<input id="lawElementRadius" type="number" min="0" max="80"></label>
+        <label>Taille<input id="lawElementSize" type="number" min="8" max="160"></label>
+        <label>Poids<input id="lawElementWeight" type="number" min="100" max="900" step="100"></label>
+        <label>Alignement<select id="lawElementAlign"><option value="">Auto</option><option value="left">Gauche</option><option value="center">Centre</option><option value="right">Droite</option><option value="justify">Justifié</option></select></label>
+        <label>Padding<input id="lawElementPadding" placeholder="ex. 16px 24px"></label>
+        <label>Margin<input id="lawElementMargin" placeholder="ex. 0 0 24px"></label>
+        <label>Arrondi<input id="lawElementRadius" type="number" min="0" max="120"></label>
+        <label>Opacité<input id="lawElementOpacity" type="number" min="0" max="1" step="0.05"></label>
         <button id="lawApplyVisual">Appliquer</button>
       </div>
       <div id="lawCodePanel" class="code-panel hidden">
