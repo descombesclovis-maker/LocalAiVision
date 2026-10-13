@@ -1,0 +1,26 @@
+name: LocalAiWeb 3D checks
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate application regression suite
+        run: python -m unittest discover -s tests -v
+      - name: Validate LocalAiWeb JavaScript syntax
+        run: |
+          node --check local_app/web/localaiweb.js
+          node --check local_app/web/templates/cinematic3d/app.js
+          node --check local_app/web/app.js
