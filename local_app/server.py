@@ -5,9 +5,9 @@ from urllib.parse import urlparse, parse_qs, quote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 try:
-    from local_app import llm, workflows, web_builder
+    from local_app import llm, workflows, web_builder, integrations_cli
 except ImportError:
-    import llm, workflows, web_builder
+    import llm, workflows, web_builder, integrations_cli
 
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 DATA = Path(os.environ.get("LOCALVISIONAI_DATA", str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "LocalVisionAI")))
@@ -1277,6 +1277,7 @@ class Handler(BaseHTTPRequestHandler):
                 "llm": llm.status(),
                 "comfy": {"online": online, "url": COMFY},
                 "media": media,
+                "integrations": integrations_cli.status(),
                 "shared_scope": "tools_and_models_only"
             })
             return
@@ -1358,6 +1359,37 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/generate":
             try:
                 self.send_json(_web_store().generate(body.get("id"), body.get("prompt")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/integrations/status":
+            try:
+                self.send_json({"ok": True, "integrations": integrations_cli.status()})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/github/publish":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                result = integrations_cli.github_publish(site, body.get("repo"), body.get("branch") or "main", body.get("private", True))
+                self.send_json(result)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/vercel/publish":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.vercel_publish(site, bool(body.get("production", True))))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/supabase/init":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.supabase_initialize(site))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
