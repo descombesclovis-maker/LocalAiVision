@@ -228,9 +228,31 @@ class LocalAiWebStore:
         if not isinstance(files, dict) or 'index.html' not in files:
             raise ValueError("Le modèle n'a pas produit un index.html exploitable.")
         saved = self.write_files(project_id, files, replace=False)
-        meta = self.meta(project_id); meta['updated_at']=time.time(); meta['last_summary']=str(parsed.get('summary') or prompt)[:240]
+        meta = self.meta(project_id)
+        quality = self.preflight(project_id)
+        repaired = False
+        if str((meta.get('settings') or {}).get('quality','premium')) == 'premium' and not quality.get('ok'):
+            failed = ', '.join(x.get('label','') for x in quality.get('checks',[]) if not x.get('ok'))
+            repair_request = (
+                'Quality verification failed on: ' + failed + '. '
+                'Repair the project without removing working features. Ensure production-ready SEO, accessibility, '
+                'responsive behavior, keyboard focus, semantic HTML, valid local asset references and reduced-motion support.'
+            )
+            repair_context = json.dumps(self.text_files(project_id), ensure_ascii=False)
+            repair_answer = self.llm_generate(system, repair_context[:90000], repair_request)
+            repair_parsed = self._extract_json(repair_answer)
+            repair_files = repair_parsed.get('files')
+            if isinstance(repair_files, dict) and 'index.html' in repair_files:
+                saved = self.write_files(project_id, repair_files, replace=False)
+                repaired = True
+                quality = self.preflight(project_id)
+        meta = self.meta(project_id)
+        meta['updated_at']=time.time()
+        meta['last_summary']=str(parsed.get('summary') or prompt)[:240]
+        meta['last_quality_score']=quality.get('score')
         self.write_meta(project_id, meta)
-        return {'ok':True,'summary':meta['last_summary'],'project':meta,'files':saved,'versions':self.versions(project_id)}
+        return {'ok':True,'summary':meta['last_summary'],'project':meta,'files':saved,
+                'versions':self.versions(project_id),'quality':quality,'auto_repaired':repaired}
 
     def update_deployment(self, project_id, patch):
         meta = self.meta(project_id)
