@@ -61,3 +61,20 @@
 
 .page-select{height:27px;max-width:190px;border:1px solid #33234d;background:#110a1b;color:#a99db9;border-radius:7px;padding:0 7px;font-size:9px}
 #lawBuild span{font-size:8px;opacity:.65}
+
+/* Independent LocalAiWeb creation presets — available to all projects, not tied to the demo. */
+.law-new-3d{color:#e7d4ff!important;border-color:#835dc7!important;background:linear-gradient(135deg,#49307d,#292044)!important;font-weight:700;white-space:nowrap}
+.law-new-3d:hover{border-color:#c1a3ff!important;box-shadow:0 0 18px #915af633}
+.law-creative-brief{flex:none;padding:12px 12px 11px;border-bottom:1px solid #ffffff14;background:linear-gradient(120deg,#231235,#150d22)}
+.law-creative-title{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.law-creative-title b{font-size:11px;color:#f5efff}
+.law-creative-title span{font-size:9px;color:#a38bbd}
+.law-creative-pickers{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.law-creative-pickers label{font-size:9px;color:#b8acd0;display:flex;flex-direction:column;gap:5px;min-width:0}
+.law-creative-pickers select{width:100%;min-width:0;border:1px solid #51396b;border-radius:8px;padding:8px 6px;background:#1a1228;color:#eee;font-size:10px;cursor:pointer}
+.law-creative-pickers select:focus-visible{outline:2px solid #a78bfa}
+.law-creative-description{font-size:10px;line-height:1.45;color:#b6aac9;margin:10px 0 6px}
+.law-preset-state{font-size:9px;color:#826a9d}
+.asset-3d-icon{width:44px;height:44px;flex:none;border-radius:9px;display:grid;place-items:center;background:radial-gradient(circle at 20% 10%,#8355c6,#2b194a);font-weight:800;color:#fff;border:1px solid #764ea8;font-size:13px}
+@media(max-width:1350px){.law-project-switch select{min-width:125px}.law-new-3d{font-size:11px;padding:0 8px}}
+@media(max-width:850px){.law-project-switch{display:none}}
