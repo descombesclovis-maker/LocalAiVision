@@ -78,6 +78,8 @@
           <button id="lawDeployVercel" class="production-action strong">Publier en production</button>
           <label>Domaine personnalisé<input id="lawDomain" placeholder="monsite.fr"></label>
           <button id="lawAddDomain" class="production-action">Ajouter le domaine via Vercel</button>
+          <div class="env-row"><input id="lawEnvName" placeholder="STRIPE_SECRET_KEY"><select id="lawEnvTarget"><option value="production">Production</option><option value="preview">Preview</option><option value="development">Development</option></select></div>
+          <button id="lawAddEnv" class="production-action">Ajouter une variable privée Vercel</button>
           <button id="lawUseCodex" class="production-action">Appliquer la prochaine demande avec Codex</button>
           <p class="production-note">LocalAiWeb utilise les sessions déjà authentifiées de GitHub CLI, Vercel CLI, Supabase CLI et Codex. Aucun token n’est enregistré dans les projets.</p>
         </div>
