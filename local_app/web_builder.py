@@ -146,7 +146,7 @@ class LocalAiWebStore:
         if raw.startswith('```'):
             raw = re.sub(r'^```(?:json)?\s*','',raw,flags=re.I)
             raw = re.sub(r'\s*```$','',raw)
-        a,b = raw.find('{'), raw.rfind('v')
+        a,b = raw.find('{'), raw.rfind('}')
         if a < 0 or b <= a:
             raise ValueError("Le modèle n'a pas renvoyé le projet au format JSON attendu.")
         return json.loads(raw[a:b+1])
@@ -162,7 +162,7 @@ class LocalAiWebStore:
           'You are LocalAiWeb, a senior product designer and full-stack front-end engineer. '
           'Build exceptionally polished, distinctive, production-quality responsive websites. '
           'Prioritize typography, spacing, interaction design, accessibility, responsive behavior, micro-interactions and coherent visual systems. '
-          'Return ONLYvalid JSON with this shape: {"summary":"short change summary","files":{"index.html":"...","styles.css":"...","app.js":"..."}}. '
+          'Return ONLY valid JSON with this shape: {"summary":"short change summary","files":{"index.html":"...","styles.css":"...","app.js":"..."}}. '
           'You may add HTML/CSS/JS/JSON/SVG files when useful. Preserve requested existing behavior. '
           'Use relative local paths. Do not emit markdown fences. For images already present under assets/, reference them. '
           'Unless explicitly asked for a framework, produce dependency-free HTML/CSS/JS that runs immediately in preview.'
