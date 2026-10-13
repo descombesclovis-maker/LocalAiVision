@@ -159,6 +159,32 @@ def supabase_initialize(site_dir):
     return {"ok": True, "already": False}
 
 
+def supabase_link(site_dir, project_ref):
+    cmd = _supabase_cmd()
+    if not cmd:
+        raise RuntimeError("Supabase CLI n'est pas disponible.")
+    project_ref = str(project_ref or "").strip()
+    if not project_ref:
+        raise RuntimeError("Référence de projet Supabase manquante.")
+    site = Path(site_dir)
+    if not (site / "supabase" / "config.toml").exists():
+        init = _run(cmd + ["init"], cwd=site, timeout=180)
+        if init.returncode != 0:
+            raise RuntimeError((init.stderr or init.stdout or "initialisation Supabase impossible").strip())
+    result = _run(cmd + ["link", "--project-ref", project_ref], cwd=site, timeout=180)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "liaison Supabase impossible").strip())
+    return {"ok": True, "project_ref": project_ref}
+
+def supabase_db_push(site_dir):
+    cmd = _supabase_cmd()
+    if not cmd:
+        raise RuntimeError("Supabase CLI n'est pas disponible.")
+    result = _run(cmd + ["db", "push"], cwd=site_dir, timeout=300)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "migration Supabase impossible").strip())
+    return {"ok": True, "output": (result.stdout or "")[-2000:]}
+
 def codex_apply(site_dir, prompt):
     cmd = _codex_cmd()
     if not cmd:
