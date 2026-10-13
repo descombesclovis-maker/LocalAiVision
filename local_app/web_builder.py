@@ -235,7 +235,7 @@ class LocalAiWebStore:
         meta = self.meta(project_id)
         settings = dict(meta.get('settings') or {})
         allowed = {'quality','responsive','accessibility','seo','performance','micro_interactions',
-                   'reduced_motion','semantic_html','language'}
+                   'reduced_motion','semantic_html','language','ai_provider'}
         for key, value in (patch or {}).items():
             if key in allowed:
                 settings[key] = value
