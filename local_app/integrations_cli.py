@@ -16,28 +16,53 @@ def _run(args, cwd=None, timeout=120):
         kwargs["creationflags"] = CREATE_NO_WINDOW
     return subprocess.run([str(x) for x in args], **kwargs)
 
+def _vercel_cmd():
+    direct = _which("vercel", "vercel.cmd")
+    if direct:
+        return [direct]
+    npx = _which("npx", "npx.cmd")
+    return [npx, "--yes", "vercel@latest"] if npx else None
+
+def _supabase_cmd():
+    direct = _which("supabase", "supabase.exe")
+    if direct:
+        return [direct]
+    npx = _which("npx", "npx.cmd")
+    return [npx, "--yes", "supabase"] if npx else None
+
+def _codex_cmd():
+    direct = _which("codex", "codex.cmd", "codex.exe")
+    if direct:
+        return [direct]
+    npx = _which("npx", "npx.cmd")
+    return [npx, "--yes", "@openai/codex"] if npx else None
+
+
 def status():
-    tools = {
-        "git": _which("git", "git.exe"),
-        "github": _which("gh", "gh.exe"),
-        "node": _which("node", "node.exe"),
-        "npm": _which("npm", "npm.cmd"),
-        "vercel": _which("vercel", "vercel.cmd"),
-        "supabase": _which("supabase", "supabase.exe"),
-        "codex": _which("codex", "codex.cmd", "codex.exe"),
+    gh = _which("gh", "gh.exe")
+    git = _which("git", "git.exe")
+    node = _which("node", "node.exe")
+    npm = _which("npm", "npm.cmd")
+    vercel = _vercel_cmd()
+    supabase = _supabase_cmd()
+    codex = _codex_cmd()
+    out = {
+        "git": {"installed": bool(git), "ready": bool(git)},
+        "github": {"installed": bool(gh), "ready": False},
+        "node": {"installed": bool(node), "ready": bool(node)},
+        "npm": {"installed": bool(npm), "ready": bool(npm)},
+        "vercel": {"installed": bool(vercel), "ready": False},
+        "supabase": {"installed": bool(supabase), "ready": False},
+        "codex": {"installed": bool(codex), "ready": False},
     }
-    out = {k: {"installed": bool(v), "ready": False} for k,v in tools.items()}
-    out["git"]["ready"] = out["git"]["installed"]
-    out["node"]["ready"] = out["node"]["installed"]
-    out["npm"]["ready"] = out["npm"]["installed"]
-    if tools["github"]:
-        out["github"]["ready"] = _run([tools["github"], "auth", "status"], timeout=20).returncode == 0
-    if tools["vercel"]:
-        out["vercel"]["ready"] = _run([tools["vercel"], "whoami"], timeout=30).returncode == 0
-    if tools["supabase"]:
-        out["supabase"]["ready"] = _run([tools["supabase"], "projects", "list", "--output", "json"], timeout=45).returncode == 0
-    if tools["codex"]:
-        probe = _run([tools["codex"], "--version"], timeout=20)
+    if gh:
+        out["github"]["ready"] = _run([gh, "auth", "status"], timeout=20).returncode == 0
+    if vercel:
+        out["vercel"]["ready"] = _run(vercel + ["whoami"], timeout=45).returncode == 0
+    if supabase:
+        out["supabase"]["ready"] = _run(supabase + ["projects", "list", "--output", "json"], timeout=60).returncode == 0
+    if codex:
+        probe = _run(codex + ["--version"], timeout=45)
         out["codex"]["ready"] = probe.returncode == 0
     return out
 
@@ -79,10 +104,10 @@ def github_publish(site_dir, repo, branch="main", private=True):
     return {"ok": True, "repo": repo, "branch": branch, "url": "https://github.com/" + repo}
 
 def vercel_publish(site_dir, production=True):
-    cli = _which("vercel", "vercel.cmd")
-    if not cli:
+    cmd = _vercel_cmd()
+    if not cmd:
         raise RuntimeError("Vercel CLI n'est pas installé.")
-    args = [cli, "--yes"]
+    args = cmd + ["--yes"]
     if production:
         args.append("--prod")
     result = _run(args, cwd=site_dir, timeout=300)
@@ -93,21 +118,21 @@ def vercel_publish(site_dir, production=True):
     return {"ok": True, "url": url}
 
 def supabase_initialize(site_dir):
-    cli = _which("supabase", "supabase.exe")
-    if not cli:
+    cmd = _supabase_cmd()
+    if not cmd:
         raise RuntimeError("Supabase CLI n'est pas installé.")
     site = Path(site_dir)
     if (site / "supabase" / "config.toml").exists():
         return {"ok": True, "already": True}
-    result = _run([cli, "init"], cwd=site, timeout=120)
+    result = _run(cmd + ["init"], cwd=site, timeout=180)
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout or "initialisation Supabase impossible").strip())
     return {"ok": True, "already": False}
 
 
 def codex_apply(site_dir, prompt):
-    cli = _which("codex", "codex.cmd", "codex.exe")
-    if not cli:
+    cmd = _codex_cmd()
+    if not cmd:
         raise RuntimeError("Codex CLI n'est pas installé.")
     text = str(prompt or "").strip()
     if not text:
@@ -117,7 +142,7 @@ def codex_apply(site_dir, prompt):
         "Preserve existing user assets and working features. Keep the result polished, responsive, accessible, "
         "semantic and production-ready. Verify obvious syntax problems before finishing. Request: " + text
     )
-    result = _run([cli, "exec", "--full-auto", instruction], cwd=site_dir, timeout=900)
+    result = _run(cmd + ["exec", "--full-auto", instruction], cwd=site_dir, timeout=900)
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout or "Codex n'a pas terminé.").strip()[:4000])
     return {"ok": True, "summary": (result.stdout or result.stderr or "Modification Codex terminée.").strip()[-3000:]}
