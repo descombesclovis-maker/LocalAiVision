@@ -13,6 +13,8 @@
     <div class="law-top-actions">
       <button id="lawUndo" class="icon-btn" title="Annuler">↶</button><button id="lawRedo" class="icon-btn" title="Rétablir">↷</button>
       <div class="viewport-switch"><button data-view="desktop" class="active">Desktop</button><button data-view="tablet">Tablette</button><button data-view="mobile">Mobile</button></div>
+      <button id="lawQuality" class="soft-btn">Qualité <span id="lawQualityScore">—</span></button>
+      <button id="lawSettings" class="soft-btn">Réglages</button>
       <button id="lawExport" class="soft-btn">Exporter ZIP</button>
       <button id="lawGithub" class="soft-btn integration-btn">GitHub <span>à connecter</span></button>
       <button id="lawPublish" class="publish-btn">Publier <span>à connecter</span></button>
@@ -89,6 +91,24 @@
     </aside>
   </div>
 
+  <div id="lawSettingsModal" class="law-modal hidden">
+    <div class="law-modal-card">
+      <div class="law-modal-head"><div><b>Réglages LocalAiWeb</b><small>Qualité et comportement du projet</small></div><button id="lawCloseSettings">×</button></div>
+      <div class="law-settings-grid">
+        <label>Qualité<select id="lawSettingQuality"><option value="premium">Premium</option><option value="balanced">Équilibrée</option><option value="fast">Rapide</option></select></label>
+        <label>Langue<input id="lawSettingLanguage" value="fr"></label>
+        <label><input type="checkbox" id="lawSettingResponsive" checked> Responsive</label>
+        <label><input type="checkbox" id="lawSettingAccessibility" checked> Accessibilité</label>
+        <label><input type="checkbox" id="lawSettingSeo" checked> SEO</label>
+        <label><input type="checkbox" id="lawSettingPerformance" checked> Performance</label>
+        <label><input type="checkbox" id="lawSettingMicro" checked> Micro-interactions</label>
+        <label><input type="checkbox" id="lawSettingMotion" checked> Reduced motion</label>
+        <label><input type="checkbox" id="lawSettingSemantic" checked> HTML sémantique</label>
+      </div>
+      <div class="law-modal-actions"><button id="lawRunQuality">Analyser le projet</button><button id="lawSaveSettings" class="publish-btn">Enregistrer</button></div>
+      <div id="lawQualityReport" class="quality-report hidden"></div>
+    </div>
+  </div>
   <div id="lawToast" class="law-toast"></div>
 </div>
 <script src="/assets/localaiweb.js"></script>
