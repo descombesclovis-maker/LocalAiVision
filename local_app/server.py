@@ -1528,16 +1528,26 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/vercel/publish":
             try:
                 store = _web_store()
-                site = store.project_dir(body.get("id")) / "site"
-                self.send_json(integrations_cli.vercel_publish(site, bool(body.get("production", True))))
+                project_id = body.get("id")
+                site = store.project_dir(project_id) / "site"
+                result = integrations_cli.vercel_publish(site, bool(body.get("production", True)))
+                if result.get("url"):
+                    store.update_deployment(project_id, {"production_url": result["url"], "last_deployed_at": time.time()})
+                payload = store.payload(project_id)
+                payload["deployment_result"] = result
+                self.send_json(payload)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
         if u.path == "/api/web/vercel/domain":
             try:
                 store = _web_store()
-                site = store.project_dir(body.get("id")) / "site"
-                self.send_json(integrations_cli.vercel_add_domain(site, body.get("domain")))
+                project_id = body.get("id")
+                site = store.project_dir(project_id) / "site"
+                result = integrations_cli.vercel_add_domain(site, body.get("domain"))
+                store.update_deployment(project_id, {"custom_domain": body.get("domain") or ""})
+                payload = store.payload(project_id); payload["domain_result"] = result
+                self.send_json(payload)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
