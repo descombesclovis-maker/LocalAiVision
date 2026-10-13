@@ -145,6 +145,39 @@ class LocalAiWebStore:
         self.write_files(pid, starter, replace=True)
         return self.payload(pid)
 
+    def rename_project(self, project_id, name):
+        meta = self.meta(project_id)
+        meta['name'] = str(name or 'Projet LocalAiWeb')[:80]
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
+
+    def delete_project(self, project_id):
+        root = self.project_dir(project_id)
+        if root.is_dir():
+            shutil.rmtree(root)
+        return {'ok': True, 'id': project_id}
+
+    def duplicate_project(self, project_id, name=None):
+        source = self.project_dir(project_id)
+        if not source.is_dir():
+            raise FileNotFoundError('Projet LocalAiWeb introuvable.')
+        new_id = 'web-' + uuid.uuid4().hex[:12]
+        target = self.project_dir(new_id)
+        shutil.copytree(source, target, ignore=shutil.ignore_patterns('.git','.vercel','node_modules','.next','dist','build'))
+        meta = json.loads((target / 'project.json').read_text(encoding='utf-8'))
+        now = time.time()
+        meta['id'] = new_id
+        meta['name'] = str(name or (meta.get('name','Projet') + ' — copie'))[:80]
+        meta['created_at'] = now
+        meta['updated_at'] = now
+        meta['status'] = 'local'
+        self.write_meta(new_id, meta)
+        versions = target / 'versions'
+        if versions.is_dir():
+            shutil.rmtree(versions)
+        return self.payload(new_id)
+
     def list_projects(self):
         out = []
         for root in self.root.iterdir() if self.root.is_dir() else []:
