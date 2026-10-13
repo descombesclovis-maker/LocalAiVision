@@ -9,7 +9,7 @@
 <div class="law-shell">
   <header class="law-topbar">
     <div class="law-brand"><button id="lawBack" class="icon-btn" title="Retour à LocalAiVision">←</button><span class="brand-orb">✦</span><div><b>LocalAiWeb</b><small>AI website & app studio</small></div></div>
-    <div class="law-project-switch"><select id="lawProjects"></select><button id="lawNewProject" class="soft-btn">＋ Nouveau</button><button id="lawRenameProject" class="icon-btn" title="Renommer">✎</button><button id="lawDuplicateProject" class="icon-btn" title="Dupliquer">⧉</button><button id="lawDeleteProject" class="icon-btn danger" title="Supprimer">×</button></div>
+    <div class="law-project-switch"><select id="lawProjects"></select><button id="lawNewProject" class="soft-btn">＋ Nouveau</button><button id="lawNew3d" class="soft-btn law-new-3d" title="Créer une expérience 3D interactive avec Three.js">✦ Site 3D</button><button id="lawRenameProject" class="icon-btn" title="Renommer">✎</button><button id="lawDuplicateProject" class="icon-btn" title="Dupliquer">⧉</button><button id="lawDeleteProject" class="icon-btn danger" title="Supprimer">×</button></div>
     <div class="law-top-actions">
       <button id="lawUndo" class="icon-btn" title="Annuler">↶</button><button id="lawRedo" class="icon-btn" title="Rétablir">↷</button>
       <div class="viewport-switch"><button data-view="desktop" class="active">Desktop</button><button data-view="tablet">Tablette</button><button data-view="mobile">Mobile</button></div>
@@ -38,7 +38,7 @@
       <section id="lawAssetsPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Assets</b><button id="lawAssetAdd">＋ Ajouter</button></div>
         <div class="asset-generator"><input id="lawAssetPrompt" placeholder="Décris une image à générer…"><button id="lawGenerateAsset">✦ Générer</button></div>
-        <input id="lawAssetInput" type="file" hidden><div id="lawAssets" class="asset-list"></div>
+        <input id="lawAssetInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,.glb,model/gltf-binary" hidden><div id="lawAssets" class="asset-list"></div>
       </section>
       <section id="lawVersionsPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Historique</b><span>Restaurer une version</span></div><div id="lawVersions" class="version-list"></div>
