@@ -264,14 +264,22 @@ class LocalAiWebStore:
         self.snapshot(project_id, 'Avant : ' + prompt[:80])
         context = json.dumps({'files': current, 'assets': self.assets(project_id)}, ensure_ascii=False)
         if len(context) > 90000: context = context[:90000]
-        project_settings = self.meta(project_id).get('settings') or {}
+        project_meta = self.meta(project_id)
+        project_settings = project_meta.get('settings') or {}
+        project_design = project_meta.get('design') or {}
         requirements = (
-          ' Project requirements: premium visual quality; responsive desktop/tablet/mobile; '
+          ' Project requirements: premium visual quality; responsive desktop/tablet/mobile; 
           'semantic HTML; accessible keyboard focus; useful alt text; SEO title and meta description; '
           'performance-minded assets; prefers-reduced-motion support; polished hover/focus states; '
           'no TODO, FIXME or placeholder copy in the final result. '
           'Language=' + str(project_settings.get('language','fr')) + '. '
           'Quality=' + str(project_settings.get('quality','premium')) + '. '
+          'Design tokens: brand=' + str(project_design.get('brand','#7c3aed')) +
+          ', accent=' + str(project_design.get('accent','#a78bfa')) +
+          ', background=' + str(project_design.get('background','#0f0718')) +
+          ', text=' + str(project_design.get('text','#f7f2ff')) +
+          ', font=' + str(project_design.get('font','Inter,system-ui,sans-serif')) +
+          ', radius=' + str(project_design.get('radius',14)) + 'px. '
         )
         system = (
           'You are LocalAiWeb, a senior product designer and full-stack front-end engineer. ' + requirements +
@@ -347,6 +355,10 @@ class LocalAiWebStore:
             '  --law-font:' + current.get('font','Inter,system-ui,sans-serif') + ';\n'
             '}\n'
             'html,body{font-family:var(--law-font);}\n'
+            'body{background-color:var(--law-bg);color:var(--law-text);}\n'
+            'a{color:var(--law-accent);}\n'
+            ':where(button,.btn,[class*="button"],[class*="btn"]){border-radius:var(--law-radius);}\n'
+            ':where(.primary,.cta,[data-variant="primary"]){background-color:var(--law-brand);color:#fff;}\n'
         )
         css = re.sub(r'/\* LocalAiWeb Design System:start \*/.*?/\* LocalAiWeb Design System:end \*/\s*',
                      '', css, flags=re.S)
