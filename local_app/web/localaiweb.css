@@ -48,3 +48,5 @@
 .preview-toolbar small{font-size:8px;color:#71677f}.status-dot.error{background:#ff6b63;box-shadow:0 0 10px #ff6b6388}
 
 .asset-card{display:flex;align-items:center;gap:8px}.asset-card img{width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid #33234d;background:#0d0815}.asset-card>div{min-width:0}.asset-card b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.agent-composer.drop-ready{border-color:#9b6cff;box-shadow:0 0 0 2px #7c3aed44,0 0 28px #7c3aed33}
