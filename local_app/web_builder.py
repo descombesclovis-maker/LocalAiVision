@@ -46,6 +46,11 @@ def generation_direction(settings, request=''):
        'Every site type can use every artistic direction: immersive experiences can present ANY product or industry. '
        'Plain and simple sites must remain just as valid as spectacular ones. '
        'Respect explicit user preferences, prioritize real interactions and do not copy proprietary third-party templates. '
+       'If the user asks for 3D, use actual Three.js r186 or compatible WebGL rendering with GLTFLoader for supplied GLB assets, '
+       'scroll-linked camera/object choreography, real lighting, loading/error states, adaptive rendering resolution and mobile fallback. '
+       'Do not replace real 3D interaction with a screenshot or pre-rendered video; do not invent a product model. '
+       'If modifying an existing 3D project, preserve its scene, GLB loading and user assets unless explicitly told otherwise. '
+       'Keep animations accessible and respect prefers-reduced-motion. '
        'Never fake working integrations or external services.'
     )
 
@@ -340,7 +345,8 @@ class LocalAiWebStore:
           'Return ONLY valid JSON with this shape: {"summary":"short change summary","files":{"index.html":"...","styles.css":"...","app.js":"..."}}. '
           'You may add HTML/CSS/JS/JSON/SVG files when useful. Preserve requested existing behavior. '
           'Use relative local paths. Do not emit markdown fences. For images already present under assets/, reference them. '
-          'Unless explicitly asked for a framework, produce dependency-free HTML/CSS/JS that runs immediately in preview.'
+          'Unless a 3D experience or framework is requested, produce dependency-free HTML/CSS/JS that runs immediately in preview. '
+          'For 3D scenes, Three.js ES modules are supported via version-pinned import maps and actual GLTFLoader, with a CSS fallback when WebGL or CDN is unavailable.'
         )
         answer = self.llm_generate(system, context, prompt)
         parsed = self._extract_json(answer)
