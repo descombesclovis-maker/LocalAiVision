@@ -1449,7 +1449,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/web/project/create":
             try:
-                self.send_json(_web_store().create(body.get("name") or "Nouveau projet"))
+                self.send_json(_web_store().create(body.get("name") or "Nouveau projet", body.get("template") or "default"))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
@@ -1469,7 +1469,7 @@ class Handler(BaseHTTPRequestHandler):
                     site = store.project_dir(project_id) / "site"
                     store.append_chat(project_id, "user", body.get("prompt"))
                     store.snapshot(project_id, "Avant modification Codex")
-                    result = integrations_cli.codex_apply(site, body.get("prompt"))
+                    result = integrations_cli.codex_apply(site, web_builder.generation_direction(store.meta(project_id).get("settings")) + "\n\nUser request: " + str(body.get("prompt") or ""))
                     meta = store.meta(project_id); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
                     store.write_meta(project_id, meta)
                     store.append_chat(project_id, "assistant", meta["last_summary"])
@@ -1548,7 +1548,7 @@ class Handler(BaseHTTPRequestHandler):
                 site = store.project_dir(project_id) / "site"
                 store.append_chat(project_id, "user", body.get("prompt"))
                 store.snapshot(project_id, "Avant modification Codex")
-                result = integrations_cli.codex_apply(site, body.get("prompt"))
+                result = integrations_cli.codex_apply(site, web_builder.generation_direction(store.meta(project_id).get("settings")) + "\n\nUser request: " + str(body.get("prompt") or ""))
                 meta = store.meta(project_id); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
                 store.write_meta(project_id, meta)
                 store.append_chat(project_id, "assistant", meta["last_summary"])
