@@ -114,19 +114,28 @@ def github_publish(site_dir, repo, branch="main", private=True):
     remote = _run([git, "remote", "get-url", "origin"], cwd=site, timeout=20)
     target = "https://github.com/" + repo + ".git"
     if remote.returncode != 0:
-        _run([git, "remote", "add", "origin", target], cwd=site, timeout=20)
+        added = _run([git, "remote", "add", "origin", target], cwd=site, timeout=20)
+        if added.returncode != 0:
+            raise RuntimeError((added.stderr or added.stdout or "remote GitHub impossible").strip())
+    elif (remote.stdout or "").strip() != target:
+        changed = _run([git, "remote", "set-url", "origin", target], cwd=site, timeout=20)
+        if changed.returncode != 0:
+            raise RuntimeError((changed.stderr or changed.stdout or "mise à jour du remote impossible").strip())
+
+    exists = _run([gh, "repo", "view", repo, "--json", "nameWithOwner"], cwd=site, timeout=30)
+    if exists.returncode != 0:
+        create = [gh, "repo", "create", repo, "--private" if private else "--public"]
+        made = _run(create, cwd=site, timeout=120)
+        if made.returncode != 0:
+            raise RuntimeError((made.stderr or made.stdout or "création GitHub impossible").strip())
+
     _run([git, "add", "-A"], cwd=site, timeout=30)
     state = _run([git, "status", "--porcelain"], cwd=site, timeout=30)
     if (state.stdout or "").strip():
         commit = _run([git, "commit", "-m", "LocalAiWeb: publish project"], cwd=site, timeout=60)
         if commit.returncode != 0:
             raise RuntimeError((commit.stderr or commit.stdout or "commit impossible").strip())
-    exists = _run([gh, "repo", "view", repo, "--json", "nameWithOwner"], cwd=site, timeout=30)
-    if exists.returncode != 0:
-        create = [gh, "repo", "create", repo, "--source", ".", "--remote", "origin", "--private" if private else "--public"]
-        made = _run(create, cwd=site, timeout=120)
-        if made.returncode != 0:
-            raise RuntimeError((made.stderr or made.stdout or "création GitHub impossible").strip())
+    _run([git, "branch", "-M", branch], cwd=site, timeout=20)
     push = _run([git, "push", "-u", "origin", branch], cwd=site, timeout=180)
     if push.returncode != 0:
         raise RuntimeError((push.stderr or push.stdout or "push impossible").strip())
