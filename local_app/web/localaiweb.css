@@ -52,3 +52,5 @@
 .agent-composer.drop-ready{border-color:#9b6cff;box-shadow:0 0 0 2px #7c3aed44,0 0 28px #7c3aed33}
 
 .file-actions{display:flex;gap:4px}.file-actions button{width:26px;height:26px;padding:0;border:1px solid #3b294f;background:#1b1228;color:#bbb;border-radius:7px;cursor:pointer}.file-actions button:hover{color:#fff;border-color:#6d4b90}
+
+.code-head>div:first-child{display:flex;align-items:center;gap:8px}.code-head small{font-size:8px;color:#71677f}
