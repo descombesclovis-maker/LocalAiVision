@@ -1542,6 +1542,14 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/vercel/env":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.vercel_add_env(site, body.get("name"), body.get("environment") or "production"))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/vercel/domain":
             try:
                 store = _web_store()
