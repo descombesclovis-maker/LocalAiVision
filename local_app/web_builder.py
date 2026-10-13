@@ -170,6 +170,38 @@ class LocalAiWebStore:
         self.write_files(pid, starter, replace=True)
         return self.payload(pid)
 
+    def delete_file(self, project_id, rel):
+        p = safe_rel(rel)
+        site = self.project_dir(project_id) / 'site'
+        target = (site / p).resolve()
+        if not target.is_relative_to(site.resolve()):
+            raise ValueError('Chemin invalide.')
+        if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
+            raise ValueError('Ce fichier système ne peut pas être supprimé depuis l’éditeur.')
+        self.snapshot(project_id, 'Avant suppression de ' + p.as_posix())
+        if target.is_file():
+            target.unlink()
+        meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
+        return self.payload(project_id)
+
+    def rename_file(self, project_id, old_rel, new_rel):
+        old = safe_rel(old_rel); new = safe_rel(new_rel)
+        site = self.project_dir(project_id) / 'site'
+        source = (site / old).resolve(); target = (site / new).resolve()
+        if not source.is_relative_to(site.resolve()) or not target.is_relative_to(site.resolve()):
+            raise ValueError('Chemin invalide.')
+        if not source.is_file():
+            raise FileNotFoundError('Fichier introuvable.')
+        if target.exists():
+            raise ValueError('Un fichier existe déjà avec ce nom.')
+        if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
+            raise ValueError('Nom réservé.')
+        self.snapshot(project_id, 'Avant renommage de ' + old.as_posix())
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.replace(target)
+        meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
+        return self.payload(project_id)
+
     def rename_project(self, project_id, name):
         meta = self.meta(project_id)
         meta['name'] = str(name or 'Projet LocalAiWeb')[:80]
