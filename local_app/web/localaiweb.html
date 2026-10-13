@@ -13,6 +13,7 @@
     <div class="law-top-actions">
       <button id="lawUndo" class="icon-btn" title="Annuler">↶</button><button id="lawRedo" class="icon-btn" title="Rétablir">↷</button>
       <div class="viewport-switch"><button data-view="desktop" class="active">Desktop</button><button data-view="tablet">Tablette</button><button data-view="mobile">Mobile</button></div>
+      <button id="lawBuild" class="soft-btn">Build <span id="lawBuildState">local</span></button>
       <button id="lawQuality" class="soft-btn">Qualité <span id="lawQualityScore">—</span></button>
       <button id="lawSettings" class="soft-btn">Réglages</button>
       <button id="lawExport" class="soft-btn">Exporter ZIP</button>
@@ -103,7 +104,7 @@
 
     <main class="law-center">
       <div class="preview-toolbar">
-        <div><span class="status-dot" id="lawRuntimeDot"></span><b id="lawPreviewTitle">Aperçu local</b><small id="lawRuntimeText">runtime OK</small></div>
+        <div><span class="status-dot" id="lawRuntimeDot"></span><b id="lawPreviewTitle">Aperçu local</b><select id="lawPageSelect" class="page-select"></select><small id="lawRuntimeText">runtime OK</small></div>
         <div class="preview-actions"><button id="lawRefresh">↻</button><button id="lawSelectMode">◎ Édition visuelle</button><button id="lawOpenPreview">↗</button></div>
       </div>
       <div id="lawPreviewStage" class="preview-stage desktop"><iframe id="lawPreview" sandbox="allow-scripts allow-forms allow-modals allow-same-origin"></iframe></div>
