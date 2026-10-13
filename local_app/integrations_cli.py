@@ -41,7 +41,7 @@ def _codex_cmd():
     return [npx, "--yes", "@openai/codex"] if npx else None
 
 
-def status():
+def status(deep=False):
     gh = _which("gh", "gh.exe")
     git = _which("git", "git.exe")
     node = _which("node", "node.exe")
@@ -63,12 +63,25 @@ def status():
     }
     if gh:
         out["github"]["ready"] = _run([gh, "auth", "status"], timeout=20).returncode == 0
-    if vercel_direct:
-        out["vercel"]["ready"] = _run([vercel_direct, "whoami"], timeout=20).returncode == 0
-    if supabase_direct:
-        out["supabase"]["ready"] = _run([supabase_direct, "projects", "list", "--output", "json"], timeout=30).returncode == 0
-    if codex_direct:
-        out["codex"]["ready"] = _run([codex_direct, "login", "status"], timeout=20).returncode == 0
+
+    vercel_cmd = [vercel_direct] if vercel_direct else (_vercel_cmd() if deep else None)
+    supabase_cmd = [supabase_direct] if supabase_direct else (_supabase_cmd() if deep else None)
+    codex_cmd = [codex_direct] if codex_direct else (_codex_cmd() if deep else None)
+    if vercel_cmd:
+        try:
+            out["vercel"]["ready"] = _run(vercel_cmd + ["whoami"], timeout=60 if deep else 20).returncode == 0
+        except Exception:
+            pass
+    if supabase_cmd:
+        try:
+            out["supabase"]["ready"] = _run(supabase_cmd + ["projects", "list", "--output", "json"], timeout=90 if deep else 30).returncode == 0
+        except Exception:
+            pass
+    if codex_cmd:
+        try:
+            out["codex"]["ready"] = _run(codex_cmd + ["login", "status"], timeout=60 if deep else 20).returncode == 0
+        except Exception:
+            pass
     if stripe_direct:
         out["stripe"]["ready"] = _run([stripe_direct, "config", "--list"], timeout=20).returncode == 0
     return out
