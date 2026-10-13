@@ -30,6 +30,11 @@ function visualPick(e){if(!selectMode)return;e.preventDefault();e.stopPropagatio
 function rgbToHex(v){const m=String(v).match(/\d+/g);if(!m||m.length<3)return'#000000';return'#'+m.slice(0,3).map(x=>Number(x).toString(16).padStart(2,'0')).join('')}
 async function applyVisual(){if(!selectedElement)return;const t=$('#lawElementText').value;if(t&&!selectedElement.children.length)selectedElement.textContent=t;selectedElement.style.color=$('#lawElementColor').value;selectedElement.style.backgroundColor=$('#lawElementBg').value;selectedElement.style.fontSize=$('#lawElementSize').value+'px';selectedElement.style.borderRadius=$('#lawElementRadius').value+'px';selectedElement.style.outline='';snapshotClient();const doc=$('#lawPreview').contentDocument;const html='<!doctype html>\n'+doc.documentElement.outerHTML;const d=await post('/api/web/file/save',{id:current.project.id,path:'index.html',content:html});current.files=d.files;current.versions=d.versions||[];$('#lawInspector').classList.add('hidden');selectedElement=null;renderProject();refreshPreview();toast('Modification visuelle enregistrée.')}
 function toggleVisual(){selectMode=!selectMode;$('#lawSelectMode').classList.toggle('active',selectMode);$('#lawSelectMode').textContent=selectMode?'● Édition active':'◎ Édition visuelle';if(selectMode)wireFrame();else{$('#lawInspector').classList.add('hidden');selectedElement=null}}
+async function generateAsset(){
+ if(!current)return;const prompt=$('#lawAssetPrompt').value.trim();if(!prompt)return toast('Décris l’image à générer.');
+ const btn=$('#lawGenerateAsset');btn.disabled=true;btn.textContent='Génération…';
+ try{const d=await post('/api/web/asset/generate',{id:current.project.id,prompt});$('#lawAssetPrompt').value='';current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset généré : '+d.path)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='✦ Générer'}
+}
 async function addAsset(file){if(!file||!current)return;const r=new FileReader();r.onload=async()=>{try{await post('/api/web/asset',{id:current.project.id,name:file.name,data:r.result});current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset ajouté : '+file.name)}catch(e){toast(e.message)}};r.readAsDataURL(file)}
 function integration(name){const labels={database:'Database SQL',auth:'Authentification & rôles',payments:'Stripe',api:'APIs & webhooks',storage:'Stockage fichiers',realtime:'Realtime',ai:'IA LocalAiVision',integrations:'Intégrations externes',analytics:'Analytics',domains:'Domaines & SSL'};if(name==='storage')return toast('Le stockage local des assets est déjà actif.');if(name==='ai')return toast('L’agent LocalAiWeb utilise déjà le LLM local de LocalAiVision.');toast((labels[name]||name)+' : connecteur prévu, pas encore configuré.')}
 async function refreshIntegrations(){
@@ -82,7 +87,7 @@ function setup(){
  $('#lawUndo').onclick=undo;$('#lawRedo').onclick=redo;
  $('#lawExport').onclick=()=>{if(current)location.href='/api/web/export?id='+encodeURIComponent(current.project.id)};
  $('#lawGithub').onclick=()=>integration('integrations');$('#lawPublish').onclick=()=>integration('domains');
- $('#lawAssetAdd').onclick=()=>$('#lawAssetInput').click();$('#lawAttach').onclick=()=>$('#lawAssetInput').click();
+ $('#lawAssetAdd').onclick=()=>$('#lawAssetInput').click();$('#lawAttach').onclick=()=>$('#lawAssetInput').click();$('#lawGenerateAsset').onclick=generateAsset;
  $('#lawAssetInput').onchange=e=>{const f=e.target.files?.[0];if(f)addAsset(f);e.target.value=''};
  setupVisualEditing();refreshIntegrations();loadProjects().catch(e=>toast(e.message));
 }
