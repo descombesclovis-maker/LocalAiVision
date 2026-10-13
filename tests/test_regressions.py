@@ -14,7 +14,7 @@ TEST_DATA = tempfile.TemporaryDirectory()
 os.environ['LOCALVISIONAI_DATA'] = TEST_DATA.name
 os.environ['LOCALVISIONAI_SKIP_SETUP'] = '1'
 
-from local_app import server, workflows, llm, web_builder, bootstrap_windows as boot
+from local_app import server, workflows, llm, web_builder, integrations_cli, bootstrap_windows as boot
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -129,6 +129,15 @@ class SettingsUi(unittest.TestCase):
         for key in ('lva_conversations_v2','lva_library','lva_settings_v1','lva_selected_loras'):
             self.assertNotIn(key, logic)
 
+    def test_localaiweb_production_controls_exist(self):
+        studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
+        logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
+        for control in ('lawQuality','lawSettings','lawPublishGithub','lawInitSupabase','lawDeployVercel','lawUseCodex'):
+            self.assertIn(f'id="{control}"', studio)
+        for endpoint in ('/api/web/preflight','/api/web/github/publish','/api/web/vercel/publish',
+                         '/api/web/supabase/init','/api/web/codex/apply'):
+            self.assertIn(endpoint, logic)
+
     def test_updater_button_is_available_in_sidebar(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
@@ -173,6 +182,35 @@ class LocalAiWebBackend(unittest.TestCase):
             with zipfile.ZipFile(io.BytesIO(raw)) as archive:
                 self.assertIn('index.html', archive.namelist())
                 self.assertIn('styles.css', archive.namelist())
+
+
+class LocalAiWebQuality(unittest.TestCase):
+    def test_generator_extracts_valid_json(self):
+        answer = '{"summary":"ok","files":{"index.html":"<h1>ok</h1>","styles.css":"body{}","app.js":""}}'
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: answer)
+            project = store.create('Generator')
+            result = store.generate(project['project']['id'], 'make it better')
+            self.assertIn('<h1>ok</h1>', result['files']['index.html'])
+
+    def test_professional_settings_and_preflight(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = web_builder.LocalAiWebStore(folder, lambda *_: '{}')
+            project = store.create('Quality')
+            pid = project['project']['id']
+            updated = store.update_settings(pid, {'quality':'premium','language':'fr'})
+            self.assertEqual(updated['project']['settings']['quality'], 'premium')
+            report = store.preflight(pid)
+            self.assertIn('score', report)
+            self.assertTrue(any(x['id'] == 'responsive_css' for x in report['checks']))
+
+    def test_cli_status_is_secret_free(self):
+        state = integrations_cli.status()
+        self.assertIn('github', state)
+        self.assertIn('vercel', state)
+        self.assertIn('supabase', state)
+        self.assertNotIn('token', json.dumps(state).lower())
+        self.assertNotIn('password', json.dumps(state).lower())
 
 
 class SelfUpdater(unittest.TestCase):
