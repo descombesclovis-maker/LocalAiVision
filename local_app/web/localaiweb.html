@@ -9,7 +9,7 @@
 <div class="law-shell">
   <header class="law-topbar">
     <div class="law-brand"><button id="lawBack" class="icon-btn" title="Retour à LocalAiVision">←</button><span class="brand-orb">✦</span><div><b>LocalAiWeb</b><small>AI website & app studio</small></div></div>
-    <div class="law-project-switch"><select id="lawProjects"></select><button id="lawNewProject" class="soft-btn">＋ Nouveau</button><button id="lawRenameProject" class="icon-btn" title="Renommer">✎</button><button id="lawDuplicateProject" class="icon-btn" title="Dupliquer">⧉</button><button id="lawDeleteProject" class="icon-btn danger" title="Supprimer">×</button></div>
+    <div class="law-project-switch"><select id="lawProjects"></select><button id="lawNewProject" class="soft-btn">＋ Nouveau</button><button id="lawNew3d" class="soft-btn law-new-3d" title="Créer une expérience 3D interactive avec Three.js">✦ Site 3D</button><button id="lawRenameProject" class="icon-btn" title="Renommer">✎</button><button id="lawDuplicateProject" class="icon-btn" title="Dupliquer">⧉</button><button id="lawDeleteProject" class="icon-btn danger" title="Supprimer">×</button></div>
     <div class="law-top-actions">
       <button id="lawUndo" class="icon-btn" title="Annuler">↶</button><button id="lawRedo" class="icon-btn" title="Rétablir">↷</button>
       <div class="viewport-switch"><button data-view="desktop" class="active">Desktop</button><button data-view="tablet">Tablette</button><button data-view="mobile">Mobile</button></div>
@@ -38,7 +38,7 @@
       <section id="lawAssetsPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Assets</b><button id="lawAssetAdd">＋ Ajouter</button></div>
         <div class="asset-generator"><input id="lawAssetPrompt" placeholder="Décris une image à générer…"><button id="lawGenerateAsset">✦ Générer</button></div>
-        <input id="lawAssetInput" type="file" hidden><div id="lawAssets" class="asset-list"></div>
+        <input id="lawAssetInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,.glb,model/gltf-binary" hidden><div id="lawAssets" class="asset-list"></div>
       </section>
       <section id="lawVersionsPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Historique</b><span>Restaurer une version</span></div><div id="lawVersions" class="version-list"></div>
@@ -130,6 +130,40 @@
 
     <aside class="law-right">
       <div class="agent-head"><div class="agent-avatar">✦</div><div><b>Agent LocalAiWeb</b><small>Designer + développeur</small></div><span class="local-pill">LOCAL</span></div>
+      <div class="law-creative-brief" aria-label="Modele de projet et direction artistique">
+        <div class="law-creative-title"><b>Modèles créatifs</b><button id="lawNew3dCompact" class="law-new-3d-mini" title="Créer un nouveau site 3D">✦ Nouveau 3D</button></div>
+        <div class="law-creative-pickers">
+          <label for="lawSiteKind">Type de projet
+            <select id="lawSiteKind" aria-label="Type de projet">
+              <option value="auto">✦ Automatique</option>
+              <option value="website">Site vitrine</option>
+              <option value="landing">Landing page</option>
+              <option value="store">Boutique / e-commerce</option>
+              <option value="portfolio">Portfolio</option>
+              <option value="saas">Application SaaS</option>
+              <option value="dashboard">Dashboard</option>
+              <option value="ai_app">Application IA</option>
+              <option value="mobile">Application mobile web</option>
+              <option value="extension">Extension navigateur</option>
+              <option value="editorial">Magazine / éditorial</option>
+              <option value="event">Événement / campagne</option>
+            </select>
+          </label>
+          <label for="lawArtDirection">Direction artistique
+            <select id="lawArtDirection" aria-label="Direction artistique">
+              <option value="auto">✦ Libre / automatique</option>
+              <option value="minimal">Sobre / essentiel</option>
+              <option value="professional">Premium professionnel</option>
+              <option value="editorial">Éditorial artistique</option>
+              <option value="cinematic">Cinématique & scroll</option>
+              <option value="spatial3d">3D produit immersive</option>
+              <option value="experimental">Expérimental / créatif</option>
+            </select>
+          </label>
+        </div>
+        <p id="lawCreativeDescription" class="law-creative-description" aria-live="polite">Choisis librement un type de projet et un style. Le résultat reste adapté à ta demande.</p>
+        <small id="lawPresetState" class="law-preset-state">Réglages propres à ce projet LocalAiWeb</small>
+      </div>
       <div id="lawChat" class="agent-chat">
         <div class="agent-message"><b>Que veux-tu construire ?</b><p>Décris un site, une app ou une modification. Je travaille directement dans les fichiers et l’aperçu se met à jour.</p></div>
       </div>

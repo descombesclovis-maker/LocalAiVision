@@ -7,6 +7,53 @@ MAX_PROJECT_FILES = 120
 PRIVATE_NAMES = {'.env', '.env.local', '.env.production', '.env.development'}
 IGNORED_DIRS = {'.git', '.vercel', 'node_modules', '.next', 'dist', 'build', '__pycache__'}
 
+
+# Original LocalAiWeb presets inspired by common website/app categories (not third-party copies).
+SITE_KINDS = {
+ 'auto':('Automatique','Infer a suitable website or app type from the user request.'),
+ 'website':('Site vitrine','Create a clear, fast, content-focused business website.'),
+ 'landing':('Landing page','Create a persuasive landing page with a clear conversion goal.'),
+ 'store':('Boutique','Design a functional storefront UI; never pretend checkout or inventory is connected if it is not.'),
+ 'portfolio':('Portfolio','Use polished case studies and expressive but accessible layouts.'),
+ 'saas':('SaaS','Design real product flows, responsive screens, empty and error states.'),
+ 'dashboard':('Dashboard','Use legible data visualizations, filters and meaningful sample data explicitly labeled.'),
+ 'ai_app':('Application IA','Build usable AI tool interfaces with loading and error states; avoid simulating unavailable providers.'),
+ 'mobile':('Application mobile web','Prioritize touch-first and PWA-friendly patterns; do not claim native iOS or Android builds.'),
+ 'extension':('Extension navigateur','Scaffold a browser extension and manifest as needed; browser-extension runtime is not available in the website preview.'),
+ 'editorial':('Editorial / magazine','Use long-form storytelling, photography, clear visual hierarchy and legible typography.'),
+ 'event':('Evenement / campagne','Create an expressive campaign or event site with schedules and clear calls to action.')
+}
+ART_DIRECTIONS = {
+ 'auto':('Libre / selon la demande','Choose the best direction for product, target audience and brand. Do not default to 3D.'),
+ 'minimal':('Sobre / essentiel','Prioritize clarity, restrained typography, speed and accessibility over decorative motion.'),
+ 'professional':('Professionnel premium','Use refined typography, polished components, intentional spacing and high-quality interaction design.'),
+ 'editorial':('Editorial artistique','Use typographic storytelling, art direction and asymmetric compositions while staying legible.'),
+ 'cinematic':('Cinematique','Use scroll-linked narrative, carefully staged transitions and graceful static fallbacks.'),
+ 'spatial3d':('3D produit immersive','If real 3D assets exist, implement interactive product scenes, cinematic camera motion, loading states and mobile/reduced-motion fallbacks. Never invent model assets or claim a 3D reconstruction exists without source data.'),
+ 'experimental':('Experimental / creatif','Use distinctive compositions and original motion without sacrificing usability or accessibility.')
+}
+
+def generation_direction(settings, request=''):
+    """Consistent site category and visual direction for local and connected agents."""
+    settings = settings or {}
+    kind = str(settings.get('site_kind') or 'auto')
+    art = str(settings.get('art_direction') or 'auto')
+    if kind not in SITE_KINDS: kind = 'auto'
+    if art not in ART_DIRECTIONS: art = 'auto'
+    return (
+       'Category: ' + SITE_KINDS[kind][0] + '. ' + SITE_KINDS[kind][1] + ' '
+       'Art direction: ' + ART_DIRECTIONS[art][0] + '. ' + ART_DIRECTIONS[art][1] + ' '
+       'Every site type can use every artistic direction: immersive experiences can present ANY product or industry. '
+       'Plain and simple sites must remain just as valid as spectacular ones. '
+       'Respect explicit user preferences, prioritize real interactions and do not copy proprietary third-party templates. '
+       'If the user asks for 3D, use actual Three.js r186 or compatible WebGL rendering with GLTFLoader for supplied GLB assets, '
+       'scroll-linked camera/object choreography, real lighting, loading/error states, adaptive rendering resolution and mobile fallback. '
+       'Do not replace real 3D interaction with a screenshot or pre-rendered video; do not invent a product model. '
+       'If modifying an existing 3D project, preserve its scene, GLB loading and user assets unless explicitly told otherwise. '
+       'Keep animations accessible and respect prefers-reduced-motion. '
+       'Never fake working integrations or external services.'
+    )
+
 def safe_id(value):
     value = str(value or '')
     if not re.fullmatch(r'[a-zA-Z0-9_-]{6,80}', value):
@@ -152,14 +199,19 @@ class LocalAiWebStore:
                 'versions': self.versions(project_id), 'assets': self.assets(project_id),
                 'chat': self.chat_history(project_id)}
 
-    def create(self, name='Nouveau projet'):
+    def create(self, name='Nouveau projet', template='default'):
+        if template not in ('default', 'cinematic3d'):
+            raise ValueError('Modèle de projet inconnu.')
         pid = 'web-' + uuid.uuid4().hex[:12]
         now = time.time()
         self.write_meta(pid, {'id': pid, 'name': str(name or 'Nouveau projet')[:80], 'created_at': now,
                                  'updated_at': now, 'framework':'Vanilla HTML/CSS/JS', 'status':'local',
                                  'settings': {'quality':'premium','responsive':True,'accessibility':True,
                                               'seo':True,'performance':True,'micro_interactions':True,
-                                              'reduced_motion':True,'semantic_html':True,'language':'fr'}})
+                                              'reduced_motion':True,'semantic_html':True,'language':'fr',
+                                              'site_kind':'landing' if template == 'cinematic3d' else 'auto',
+                                              'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
+                                 'template':template})
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><span class="eyebrow">LOCALAIWEB</span><h1>Ton prochain site commence ici.</h1><p>Décris ton projet dans le chat à droite. LocalAiWeb construira et modifiera les fichiers en direct.</p><button>Commencer</button></main><script src="app.js"></script></body></html>',
           'styles.css': ':root{font-family:Inter,system-ui,sans-serif;color:#f5f3ff;background:#12091f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 10%,#6d28d955,transparent 35%),#12091f}.hero{min-height:100vh;display:grid;place-content:center;gap:18px;padding:8vw;max-width:1000px}.eyebrow{letter-spacing:.22em;color:#c4b5fd;font-size:12px}h1{font-size:clamp(52px,9vw,118px);line-height:.88;letter-spacing:-.06em;margin:0}p{max-width:680px;color:#c4b5d4;font-size:19px;line-height:1.6}button{width:max-content;border:0;border-radius:999px;background:#8b5cf6;color:#fff;padding:14px 22px;font-weight:700}',
@@ -167,6 +219,10 @@ class LocalAiWebStore:
           '.gitignore': '.env\n.env.local\n.env.production\n.env.development\n.vercel\nnode_modules\n.next\ndist\nbuild\n',
           '.env.example': '# Variables publiques du projet uniquement. Ne committez jamais de secrets.\n'
         }
+        if template == 'cinematic3d':
+            root = Path(__file__).resolve().parent / 'web' / 'templates' / 'cinematic3d'
+            for file_name in ('index.html', 'styles.css', 'app.js', 'README.md'):
+                starter[file_name] = (root / file_name).read_text(encoding='utf-8')
         self.write_files(pid, starter, replace=True)
         return self.payload(pid)
 
@@ -274,6 +330,7 @@ class LocalAiWebStore:
           'no TODO, FIXME or placeholder copy in the final result. '
           'Language=' + str(project_settings.get('language','fr')) + '. '
           'Quality=' + str(project_settings.get('quality','premium')) + '. '
+          + generation_direction(project_settings, prompt) + ' '
           'Design tokens: brand=' + str(project_design.get('brand','#7c3aed')) +
           ', accent=' + str(project_design.get('accent','#a78bfa')) +
           ', background=' + str(project_design.get('background','#0f0718')) +
@@ -288,7 +345,8 @@ class LocalAiWebStore:
           'Return ONLY valid JSON with this shape: {"summary":"short change summary","files":{"index.html":"...","styles.css":"...","app.js":"..."}}. '
           'You may add HTML/CSS/JS/JSON/SVG files when useful. Preserve requested existing behavior. '
           'Use relative local paths. Do not emit markdown fences. For images already present under assets/, reference them. '
-          'Unless explicitly asked for a framework, produce dependency-free HTML/CSS/JS that runs immediately in preview.'
+          'Unless a 3D experience or framework is requested, produce dependency-free HTML/CSS/JS that runs immediately in preview. '
+          'For 3D scenes, Three.js ES modules are supported via version-pinned import maps and actual GLTFLoader, with a CSS fallback when WebGL or CDN is unavailable.'
         )
         answer = self.llm_generate(system, context, prompt)
         parsed = self._extract_json(answer)
@@ -386,9 +444,13 @@ class LocalAiWebStore:
         meta = self.meta(project_id)
         settings = dict(meta.get('settings') or {})
         allowed = {'quality','responsive','accessibility','seo','performance','micro_interactions',
-                   'reduced_motion','semantic_html','language','ai_provider'}
+                   'reduced_motion','semantic_html','language','ai_provider','site_kind','art_direction'}
         for key, value in (patch or {}).items():
             if key in allowed:
+                if key == 'site_kind' and value not in SITE_KINDS:
+                    raise ValueError('Type de projet inconnu.')
+                if key == 'art_direction' and value not in ART_DIRECTIONS:
+                    raise ValueError('Direction artistique inconnue.')
                 settings[key] = value
         meta['settings'] = settings
         meta['updated_at'] = time.time()
@@ -469,11 +531,34 @@ class LocalAiWebStore:
         return memory.getvalue()
 
     def save_asset(self, project_id, name, data_url):
-        name = Path(str(name or 'asset.bin')).name
+        # Keep all imported media under the current LocalAiWeb project, never in LocalAiVision history.
+        self.meta(project_id)
+        name = Path(str(name or 'asset.bin').replace(chr(92), '/')).name
+        name = re.sub(r'[^a-zA-Z0-9._ -]', '_', name).strip('. ')
+        if not name: raise ValueError('Nom de fichier invalide.')
+        suffix = Path(name).suffix.lower()
+        allowed = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg', '.glb'}
+        if suffix not in allowed:
+            raise ValueError('Asset non pris en charge : images ou modèles GLB uniquement.')
         try: data = base64.b64decode(str(data_url).split(',',1)[-1], validate=True)
         except Exception: raise ValueError('Asset invalide.')
-        if len(data) > 20*1024*1024: raise ValueError('Asset limité à 20 Mo.')
-        target=self.project_dir(project_id)/'site'/'assets'/name
-        target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
-        meta=self.meta(project_id);meta['updated_at']=time.time();self.write_meta(project_id,meta)
-        return {'ok':True,'path':'assets/'+name,'size':len(data)}
+        limit = 40*1024*1024 if suffix == '.glb' else 20*1024*1024
+        if not data or len(data) > limit:
+            raise ValueError('Asset vide ou trop volumineux (GLB 40 Mo ; images 20 Mo).')
+        if suffix == '.glb':
+            valid_header = (len(data) >= 24 and data[:4] == b'glTF'
+                            and int.from_bytes(data[4:8], 'little') == 2
+                            and int.from_bytes(data[8:12], 'little') == len(data))
+            if not valid_header:
+                raise ValueError('Modèle GLB 2.0 invalide.')
+            json_size = int.from_bytes(data[12:16], 'little')
+            if (data[16:20] != b'JSON' or json_size <= 0
+                    or json_size % 4 != 0 or 20 + json_size > len(data)):
+                raise ValueError('Bloc JSON du GLB invalide.')
+        target = self.project_dir(project_id) / 'site' / 'assets' / name
+        target.parent.mkdir(parents=True,exist_ok=True)
+        target.write_bytes(data)
+        meta = self.meta(project_id)
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id,meta)
+        return {'ok':True, 'path':'assets/'+name, 'size':len(data)}

@@ -23,10 +23,10 @@ async function deleteProject(){
  await post('/api/web/project/delete',{id:current.project.id});current=null;await loadProjects();toast('Projet supprimé.');
 }
 async function loadProjects(selectId){const d=await api('/api/web/projects');const s=$('#lawProjects');s.innerHTML='';for(const p of d.projects){const o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o)}if(!d.projects.length){const n=await post('/api/web/project/create',{name:'Mon premier site'});await loadProjects(n.project.id);return}const id=selectId||d.projects[0].id;s.value=id;await loadProject(id)}
-async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];selectedPreviewPage=current.files['index.html']?'index.html':(Object.keys(current.files).find(x=>/\.html?$/i.test(x))||'index.html');undoStack=[];redoStack=[];renderProject();renderSettings();renderDesign();renderDeployment();renderChatHistory();renderPages();refreshPreview();runQuality(false).catch(()=>{})}
+async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];selectedPreviewPage=current.files['index.html']?'index.html':(Object.keys(current.files).find(x=>/\.html?$/i.test(x))||'index.html');undoStack=[];redoStack=[];renderProject();renderSettings();renderCreativeBrief();renderDesign();renderDeployment();renderChatHistory();renderPages();refreshPreview();runQuality(false).catch(()=>{})}
 function renderProject(){if(!current)return;
  const ft=$('#lawFileTree');ft.innerHTML='';Object.keys(current.files).sort().forEach(path=>{const b=document.createElement('button');b.className='file-item'+(path===selectedFile?' active':'');b.textContent=path;b.onclick=()=>openCode(path);ft.appendChild(b)});
- const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';const isImage=/\.(png|jpe?g|webp|gif|svg)$/i.test(a.path);d.innerHTML=(isImage?'<img src="/web-preview/'+encodeURIComponent(current.project.id)+'/'+a.path.split('/').map(encodeURIComponent).join('/')+'" alt="">':'')+'<div><b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span></div>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute logos, captures, photos ou exports Figma.</div>';
+ const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';const isImage=/\.(png|jpe?g|webp|gif|svg|avif)$/i.test(a.path);d.innerHTML=(isImage?'<img src="/web-preview/'+encodeURIComponent(current.project.id)+'/'+a.path.split('/').map(encodeURIComponent).join('/')+'" alt="">':(/\.glb$/i.test(a.path)?'<span class="asset-3d-icon">3D</span>':''))+'<div><b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span></div>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute des images ou un fichier GLB pour tes scènes 3D.</div>';
  const versions=$('#lawVersions');versions.innerHTML='';(current.versions||[]).forEach(v=>{const d=document.createElement('div');d.className='version-card';d.innerHTML='<b>'+esc(v.label||'Version')+'</b><span>'+new Date((v.created_at||0)*1000).toLocaleString()+'</span><button>Restaurer</button>';d.querySelector('button').onclick=()=>restoreVersion(v.id);versions.appendChild(d)});if(!(current.versions||[]).length)versions.innerHTML='<div class="version-card">Les versions apparaîtront après la première modification.</div>';
 }
 function renderPages(){
@@ -85,7 +85,28 @@ async function generateAsset(){
  const btn=$('#lawGenerateAsset');btn.disabled=true;btn.textContent='Génération…';
  try{const d=await post('/api/web/asset/generate',{id:current.project.id,prompt});$('#lawAssetPrompt').value='';current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset généré : '+d.path)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='✦ Générer'}
 }
-async function addAsset(file){if(!file||!current)return;const r=new FileReader();r.onload=async()=>{try{await post('/api/web/asset',{id:current.project.id,name:file.name,data:r.result});current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset ajouté : '+file.name)}catch(e){toast(e.message)}};r.readAsDataURL(file)}
+async function addAsset(file){
+ if(!file||!current)return;
+ const isGlb=/\.glb$/i.test(file.name);
+ if(isGlb && file.size>40*1024*1024)return toast('Le modèle GLB doit faire moins de 40 Mo. Optimise la géométrie et les textures.');
+ if(!isGlb && !file.type.startsWith('image/'))return toast('Formats pris en charge : images et modèles GLB.');
+ const projectId=current.project.id;
+ const reader=new FileReader();
+ reader.onload=async()=>{
+  try{
+   const asset=await post('/api/web/asset',{id:projectId,name:file.name,data:reader.result});
+   let project=await api('/api/web/project?id='+encodeURIComponent(projectId));
+   if(isGlb && project.files['index.html']?.includes('data-model-src="')){
+    const html=project.files['index.html'].replace(/data-model-src="[^"]*"/,'data-model-src="'+asset.path+'"');
+    await post('/api/web/file/save',{id:projectId,path:'index.html',content:html});
+    project=await api('/api/web/project?id='+encodeURIComponent(projectId));
+   }
+   if(current?.project?.id===projectId){current=project;renderProject();refreshPreview();}
+   toast(isGlb?'Modèle GLB importé et connecté à la scène 3D.':'Image ajoutée : '+file.name);
+  }catch(e){toast('Import : '+e.message)}
+ };
+ reader.readAsDataURL(file);
+}
 function integration(name){
  const prompts={
   database:"Ajoute un backend Supabase professionnel à ce projet : schéma SQL versionné dans supabase/migrations, tables nécessaires, contraintes, index, politiques RLS sécurisées et accès côté client uniquement avec les variables publiques. Ne mets aucun secret dans le code client.",
@@ -184,8 +205,43 @@ async function applyDesign(){
  const design={brand:$('#lawDesignBrand').value,accent:$('#lawDesignAccent').value,background:$('#lawDesignBg').value,text:$('#lawDesignText').value,font:$('#lawDesignFont').value,radius:Number($('#lawDesignRadius').value)};
  try{current=await post('/api/web/design',{id:current.project.id,design});renderProject();renderDesign();refreshPreview();toast('Design system appliqué au projet.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Appliquer le design system'}
 }
+const artDescriptions={
+  auto:'Le style est choisi selon ton produit, ton public et ta demande.',
+  minimal:'Sobre, accessible et rapide, sans effets superflus.',
+  professional:'Identité premium, hiérarchie visuelle et composants soignés.',
+  editorial:'Typographie expressive, images fortes et narration graphique.',
+  cinematic:'Séquences immersives et animations synchronisées au défilement.',
+  spatial3d:'Objets 3D interactifs, modèles GLB et scènes avec éclairage dynamique.',
+  experimental:'Expérience originale et créative, en préservant une navigation claire.'
+};
+function renderCreativeBrief(){
+ if(!current)return;
+ const s=current.project.settings||{};
+ $('#lawSiteKind').value=s.site_kind||'auto';
+ $('#lawArtDirection').value=s.art_direction||'auto';
+ $('#lawCreativeDescription').textContent=artDescriptions[$('#lawArtDirection').value]||artDescriptions.auto;
+ $('#lawPresetState').textContent='Réglages propres à « '+(current.project.name||'ce projet')+' »';
+}
+async function saveCreativeBrief(){
+ if(!current)return;
+ const id=current.project.id,site_kind=$('#lawSiteKind').value,art_direction=$('#lawArtDirection').value;
+ $('#lawCreativeDescription').textContent=artDescriptions[art_direction]||artDescriptions.auto;
+ const message=$('#lawPresetState');message.textContent='Enregistrement…';
+ try{
+   const d=await post('/api/web/settings',{id,settings:{site_kind,art_direction}});
+   if(current?.project?.id===id){current.project.settings=d.project.settings;message.textContent='Choix enregistrés pour ce projet uniquement';}
+ }catch(e){message.textContent='Erreur de sauvegarde';toast(e.message)}
+}
+async function create3dProject(){
+ const name=prompt('Nom de ton expérience 3D','Expérience 3D premium');
+ if(!name)return;
+ const b=$('#lawNew3d');b.disabled=true;
+ try{const d=await post('/api/web/project/create',{name,template:'cinematic3d'});await loadProjects(d.project.id);toast('Scène 3D créée. Ajoute un GLB dans Assets pour afficher ton produit.');}
+ catch(e){toast('Création 3D : '+e.message)}
+ finally{b.disabled=false}
+}
 function renderSettings(){if(!current)return;const s=current.project.settings||{};$('#lawSettingQuality').value=s.quality||'premium';$('#lawSettingLanguage').value=s.language||'fr';$('#lawSettingAiProvider').value=s.ai_provider||'auto';$('#lawSettingResponsive').checked=s.responsive!==false;$('#lawSettingAccessibility').checked=s.accessibility!==false;$('#lawSettingSeo').checked=s.seo!==false;$('#lawSettingPerformance').checked=s.performance!==false;$('#lawSettingMicro').checked=s.micro_interactions!==false;$('#lawSettingMotion').checked=s.reduced_motion!==false;$('#lawSettingSemantic').checked=s.semantic_html!==false}
-function projectSettings(){return{quality:$('#lawSettingQuality').value,language:$('#lawSettingLanguage').value.trim()||'fr',ai_provider:$('#lawSettingAiProvider').value,responsive:$('#lawSettingResponsive').checked,accessibility:$('#lawSettingAccessibility').checked,seo:$('#lawSettingSeo').checked,performance:$('#lawSettingPerformance').checked,micro_interactions:$('#lawSettingMicro').checked,reduced_motion:$('#lawSettingMotion').checked,semantic_html:$('#lawSettingSemantic').checked}}
+function projectSettings(){return{site_kind:$('#lawSiteKind').value,art_direction:$('#lawArtDirection').value,quality:$('#lawSettingQuality').value,language:$('#lawSettingLanguage').value.trim()||'fr',ai_provider:$('#lawSettingAiProvider').value,responsive:$('#lawSettingResponsive').checked,accessibility:$('#lawSettingAccessibility').checked,seo:$('#lawSettingSeo').checked,performance:$('#lawSettingPerformance').checked,micro_interactions:$('#lawSettingMicro').checked,reduced_motion:$('#lawSettingMotion').checked,semantic_html:$('#lawSettingSemantic').checked}}
 async function saveSettings(){if(!current)return;current=await post('/api/web/settings',{id:current.project.id,settings:projectSettings()});renderSettings();$('#lawSettingsModal').classList.add('hidden');toast('Réglages enregistrés.');runQuality(false).catch(()=>{})}
 async function runQuality(show=true){if(!current)return null;const d=await api('/api/web/preflight?id='+encodeURIComponent(current.project.id));$('#lawQualityScore').textContent=d.score+'/100';$('#lawQuality').classList.toggle('quality-ok',!!d.ok);$('#lawQuality').classList.toggle('quality-bad',!d.ok);const box=$('#lawQualityReport');box.innerHTML='<div class="quality-score"><b>'+d.score+'/100</b><span>'+(d.ok?'Prêt pour publication':'Corrections recommandées')+'</span></div>'+d.checks.map(x=>'<div class="quality-line '+(x.ok?'ok':'bad')+'"><span>'+(x.ok?'✓':'!')+'</span><b>'+esc(x.label)+'</b></div>').join('');if(show){box.classList.remove('hidden');$('#lawSettingsModal').classList.remove('hidden')}return d}
 function handleAssetPaste(e){
@@ -208,6 +264,7 @@ function startVoice(){
 }
 function setup(){
  $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawInstallIntegrations').onclick=installIntegrations;$('#lawRefreshIntegrations').onclick=()=>refreshIntegrations(true);document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawAddEnv').onclick=addVercelEnv;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
+ $('#lawNew3d').onclick=create3dProject;$('#lawNew3dCompact').onclick=create3dProject;$('#lawSiteKind').onchange=saveCreativeBrief;$('#lawArtDirection').onchange=saveCreativeBrief;
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
  $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;$('#lawApplyDesign').onclick=applyDesign;$('#lawDesignRadius').oninput=()=>$('#lawDesignRadiusValue').textContent=$('#lawDesignRadius').value+'px';
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));$('#lawBuild').onclick=buildProject;$('#lawPageSelect').onchange=e=>{selectedPreviewPage=e.target.value;refreshPreview()};
