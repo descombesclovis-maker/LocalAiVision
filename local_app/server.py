@@ -29,7 +29,7 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.9.0"
+VERSION = "3.0.0"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -1290,6 +1290,13 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/preflight":
+            try:
+                project_id = parse_qs(u.query).get("id", [""])[0]
+                self.send_json(_web_store().preflight(project_id))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/export":
             try:
                 project_id = parse_qs(u.query).get("id", [""])[0]
@@ -1351,6 +1358,12 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/generate":
             try:
                 self.send_json(_web_store().generate(body.get("id"), body.get("prompt")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/settings":
+            try:
+                self.send_json(_web_store().update_settings(body.get("id"), body.get("settings") or {}))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
