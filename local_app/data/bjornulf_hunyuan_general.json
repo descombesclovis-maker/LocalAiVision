@@ -443,5 +443,19 @@
     "category": "Mouvement",
     "compatibility": "Hunyuan Video original · HY-OmniWeaving / HunyuanVideo 1.5 non garanti",
     "description": "Améliore surtout les mouvements de marche, course, saut et certaines animations de déplacement. V3 recommandée par l’auteur. Peut introduire un biais vers des mouvements/proportions féminins ; réduire la force si ce biais apparaît."
+  },
+  {
+    "name": "Tencent_Hunyuan_I2V_Embrace",
+    "lora_id": "hf-tencent-hunyuan-i2v-embrace",
+    "base_model": "HunyuanVideo I2V (original)",
+    "source": "Hugging Face / Tencent",
+    "source_url": "https://huggingface.co/tencent/HunyuanVideo-I2V/blob/d9c070c58d44df30d9cdf17170c31e889b818965/hunyuan-video-i2v-720p/lora/embrace_kohaya_weights.safetensors",
+    "download_url": "https://huggingface.co/tencent/HunyuanVideo-I2V/resolve/d9c070c58d44df30d9cdf17170c31e889b818965/hunyuan-video-i2v-720p/lora/embrace_kohaya_weights.safetensors?download=true",
+    "sha256": "4158e9b4c525b2fbcb8fc3ba89ed50e00d0f1bfe04919b67282b824bc621852f",
+    "size_bytes": 684720128,
+    "trained_words": [],
+    "category": "Interaction / I2V",
+    "compatibility": "HunyuanVideo I2V original 720p · HY-OmniWeaving / HunyuanVideo 1.5 non garanti",
+    "description": "LoRA officiel Tencent entraîné pour une interaction rapprochée de deux personnes (embrassade) en I2V. Utile pour tester la cohérence des contacts et déplacements entre deux sujets. Base HunyuanVideo I2V originale : compatibilité OmniWeaving à valider expérimentalement."
   }
 ]

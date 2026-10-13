@@ -173,3 +173,26 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
 /* v2.7 — in-app updater. */
 .update-button{color:#cfd0d6!important;border-top:1px solid #1d1d22!important;margin-top:4px}
 .update-info{font-size:10px;color:#55555e;padding:0 10px 3px;min-height:13px}
+
+
+/* v2.8 — workspace navigation and refined composer controls. */
+.workspace-models{display:grid;gap:6px;margin:0 0 8px}
+.workspace-entry{width:100%;min-height:58px;display:flex;align-items:center;gap:11px;border:1px solid #24242a;background:#101013;color:#ddd;border-radius:13px;padding:10px 11px;text-align:left;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+.workspace-entry:hover{background:#16161a;border-color:#34343c;transform:translateY(-1px)}
+.workspace-entry.nsfw-entry{border-style:dashed}
+.workspace-entry.nsfw-entry.unlocked{border-style:solid}
+.workspace-entry.future-entry{opacity:.82}
+.workspace-icon{width:28px;height:28px;display:grid;place-items:center;border:1px solid #303038;border-radius:9px;color:#aaa;font-size:15px;background:#17171b}
+.workspace-copy{min-width:0;flex:1}.workspace-copy b,.workspace-copy small{display:block}
+.workspace-copy b{font-size:14px;color:#ededf1}.workspace-copy small{font-size:11px;color:#6d6d76;margin-top:3px;line-height:1.35}
+.workspace-chevron{font-size:22px;color:#55555f}
+.lora-stack-count{display:block;margin-top:5px;font-size:10px;color:#8b9d94;font-weight:600}
+.composer-row{margin-top:9px}
+.composer-tool{height:38px;display:inline-flex;align-items:center;gap:7px;border:1px solid #303038;background:#1a1a1f;color:#d5d5db;border-radius:12px;padding:0 11px;cursor:pointer;transition:.15s ease}
+.composer-tool:hover{background:#222228;border-color:#41414a}
+.composer-tool span{font-size:17px;line-height:1}.composer-tool small{font-size:11px;color:#9b9ba5}
+.composer-tool.settings-button.active{background:#f1f1f3;color:#111;border-color:#f1f1f3}.composer-tool.settings-button.active small{color:#444}
+.send-modern{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;box-shadow:0 5px 18px #0006;transition:transform .15s ease,opacity .15s ease}
+.send-modern:hover:not(:disabled){transform:translateY(-1px)}
+.send-modern span{font-size:21px;font-weight:650;line-height:1}
+@media(max-width:700px){.composer-tool small{display:none}.composer-tool{width:38px;padding:0;justify-content:center}.send-modern{width:40px;height:40px}}

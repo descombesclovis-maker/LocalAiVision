@@ -99,6 +99,14 @@ class SettingsUi(unittest.TestCase):
                         'isolatedModeImage','isolatedModeT2V','isolatedModeI2V'):
             self.assertIn(f'id="{control}"', html)
 
+    def test_workspace_navigation_has_single_nsfw_entry_and_future_spaces(self):
+        html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
+        self.assertEqual(html.count('id="modelNsfw"'), 1)
+        self.assertNotIn('id="nsfwGate"', html)
+        self.assertIn('id="websitesWorkspace"', html)
+        self.assertIn('id="automationsWorkspace"', html)
+        self.assertIn('id="composerImageBtn"', html)
+
     def test_updater_button_is_available_in_sidebar(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
@@ -258,6 +266,13 @@ class LoraLibrary(unittest.TestCase):
         wf = json.loads((ROOT / 'Isolated HY-OmniWeaving I2V.json').read_text(encoding='utf-8'))
         custom = {n['class_type'] for n in wf.values() if n['class_type'].startswith('HYOmniWeaving')}
         self.assertTrue(custom.issubset(server.OMNIWEAVING_REQUIRED_NODES))
+
+    def test_catalog_contains_tencent_interaction_lora(self):
+        rows = server._general_lora_catalog()
+        item = next(x for x in rows if x.get('lora_id') == 'hf-tencent-hunyuan-i2v-embrace')
+        self.assertEqual(item.get('source'), 'Hugging Face / Tencent')
+        self.assertIn('Interaction', item.get('category') or '')
+        self.assertIn('non garanti', item.get('compatibility') or '')
 
     def test_lora_stack_inserts_loader_between_hunyuan_sources_and_consumers(self):
         api = {

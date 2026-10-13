@@ -22,15 +22,15 @@
         <div class="reserved-row"><button class="reserved-model" id="modelAuto"><span class="reserved-icon">◎</span><span class="reserved-copy"><b>Automatique</b><small>LocalVision choisit le moteur selon la demande</small></span><i></i></button><button class="reserved-rename" data-rename-profile="auto" title="Renommer">✎</button></div>
         <div class="reserved-row"><button class="reserved-model" id="modelRealistic"><span class="reserved-icon">◆</span><span class="reserved-copy"><b>Standard</b><small>Photo RealVisXL V5 · vidéo Wan 2.1</small></span><i></i></button><button class="reserved-rename" data-rename-profile="companion-realistic" title="Renommer">✎</button></div>
       </div>
-      <div class="section-title nsfw-title">ESPACE ISOLÉ</div>
-      <div class="reserved-models" id="nsfwModels">
-        <div class="reserved-row"><button class="reserved-model" id="modelNsfw"><span class="reserved-icon">◈</span><span class="reserved-copy"><b>Espace isolé</b><small>HunyuanImage 2.1 · HY-OmniWeaving</small></span><i></i></button><button class="reserved-rename" data-rename-profile="nsfw" title="Renommer">✎</button></div>
-        <label class="nsfw-gate"><input id="nsfwGate" type="checkbox"><span>Activer l’espace NSFW sur cet appareil</span></label>
-        <p class="nsfw-note">Univers séparé Hunyuan : photo, T2V et I2V facultatif. Prompt direct par défaut ; traduction locale uniquement si tu l’actives.</p>
-        <div id="nsfwLibraryLinks" class="nsfw-library-links hidden">
-          <button class="library-item" id="nsfwPhotosLibrary"><span>▧</span><span>Photos espace isolé</span><em id="nsfwPhotoCount"></em></button>
-          <button class="library-item" id="nsfwVideosLibrary"><span>▣</span><span>Vidéos espace isolé</span><em id="nsfwVideoCount"></em></button>
-        </div>
+      <div class="section-title nsfw-title">ESPACES</div>
+      <div class="workspace-models">
+        <button class="workspace-entry nsfw-entry" id="modelNsfw"><span class="workspace-icon" id="nsfwLockIcon">⌑</span><span class="workspace-copy"><b>NSFW</b><small id="nsfwEntrySub">Verrouillé · HunyuanImage 2.1 · HY-OmniWeaving</small></span><span class="workspace-chevron">›</span></button>
+        <button class="workspace-entry future-entry" id="websitesWorkspace"><span class="workspace-icon">◇</span><span class="workspace-copy"><b>Sites web</b><small>Créateur de sites et apps · bientôt</small></span><span class="workspace-chevron">›</span></button>
+        <button class="workspace-entry future-entry" id="automationsWorkspace"><span class="workspace-icon">↻</span><span class="workspace-copy"><b>Automatisations</b><small>Workflows récurrents et orchestration · bientôt</small></span><span class="workspace-chevron">›</span></button>
+      </div>
+      <div id="nsfwLibraryLinks" class="nsfw-library-links hidden">
+        <button class="library-item" id="nsfwPhotosLibrary"><span>▧</span><span>Photos NSFW</span><em id="nsfwPhotoCount"></em></button>
+        <button class="library-item" id="nsfwVideosLibrary"><span>▣</span><span>Vidéos NSFW</span><em id="nsfwVideoCount"></em></button>
       </div>
       <div class="section-title library-title">MA BIBLIOTHÈQUE</div>
       <button class="library-item" id="photosLibrary"><span>▧</span><span>Mes photos générées</span><em id="photoCount"></em></button>
@@ -85,7 +85,7 @@
                 <summary><span>LoRA</span><small>Bibliothèque locale et catalogue</small></summary>
                 <div class="settings-accordion-body">
                   <div id="loraPanel" class="lora-panel">
-                    <div class="lora-head"><div><b>LoRA locaux</b><span>ComfyUI/models/loras · appliqués au modèle vidéo isolé</span></div><button id="refreshLoras" type="button">Actualiser</button></div>
+                    <div class="lora-head"><div><b>LoRA locaux</b><span>ComfyUI/models/loras · pile multi-LoRA appliquée à la vidéo NSFW</span><strong id="loraStackCount" class="lora-stack-count">0 / 8 actifs</strong></div><button id="refreshLoras" type="button">Actualiser</button></div>
                     <input id="loraSearch" type="search" placeholder="Rechercher un LoRA, un déclencheur, un modèle de base…">
                     <div class="lora-section-title">INSTALLÉS SUR CET APPAREIL</div>
                     <div id="loraCatalog" class="lora-catalog"></div>
@@ -159,8 +159,11 @@
           </div>
 
           <div class="composer-row">
-            <div class="left-tools"><button id="settingsBtn" class="round settings-button" aria-label="Ouvrir les réglages" title="Réglages">⚙</button></div>
-            <button id="send" class="send" aria-label="Envoyer">↑</button>
+            <div class="left-tools">
+              <button id="composerImageBtn" class="composer-tool" type="button" aria-label="Ajouter une image" title="Ajouter une image pour I2V"><span>＋</span><small>Image</small></button>
+              <button id="settingsBtn" class="composer-tool settings-button" type="button" aria-label="Ouvrir les réglages" title="Réglages"><span>⌘</span><small>Réglages</small></button>
+            </div>
+            <button id="send" class="send send-modern" aria-label="Envoyer" title="Envoyer"><span>↑</span></button>
           </div>
         </div>
       </div>

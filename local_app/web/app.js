@@ -28,7 +28,7 @@ const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo
 const PROFILE_DEFAULTS={
  auto:{label:'Automatique',sub:'LocalVision choisit entre photo et vidéo'},
  'companion-realistic':{label:'Standard',sub:'Photo RealVisXL V5 · vidéo Wan 2.1'},
- nsfw:{label:'Espace isolé',sub:'HunyuanImage 2.1 · HY-OmniWeaving'}
+ nsfw:{label:'NSFW',sub:'HunyuanImage 2.1 · HY-OmniWeaving'}
 };
 
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f}catch{return f}}
@@ -70,7 +70,7 @@ function applyProfileSettings(c,profile){
  else if(profile==='nsfw'){c.settings.image=bestWorkflowId(ISOLATED_IMAGE_WORKFLOW);c.settings.video=bestWorkflowId(ISOLATED_VIDEO_WORKFLOW);}
 }
 async function createConversationForProfile(profile){
- if(profile==='nsfw'&&!$('#nsfwGate')?.checked){toast('Coche d’abord « Activer l’espace NSFW » dans le menu.');showSidebar();return null}
+ if(profile==='nsfw'&&!loadJSON('lva_nsfw_gate',false)){toast('L’espace NSFW est verrouillé. Utilise le bouton NSFW pour le déverrouiller.');showSidebar();return null}
  const c=createBlankConversation(profile);$('#taskMode').value='auto';hideSidebar();
  if(profile==='companion-realistic'&&!lastHealth?.media?.image?.ready)toast('RealVisXL sera repris/téléchargé automatiquement à la première génération.');
  if(profile==='nsfw'&&!lastHealth?.media?.['isolated-image']?.ready){toast('Préparation de HunyuanImage 2.1…');installComponent('isolated-image')}
@@ -101,7 +101,7 @@ function updateCreationModeGuide(){
  document.body.classList.toggle('nsfw-active',!!isolated);
  const guide=$('#creationModeGuide'),prompt=$('#prompt');
  if(guide)guide.innerHTML=isolated
-   ?'<b>Espace isolé · Hunyuan</b> <span>HunyuanImage 2.1 · HY-OmniWeaving T2V/I2V · prompt direct.</span>'
+   ?'<b>NSFW · Hunyuan</b> <span>HunyuanImage 2.1 · HY-OmniWeaving T2V/I2V · prompt direct.</span>'
    :'<b>Création standard</b> <span>RealVisXL V5 · Wan 2.1 · chat local.</span>';
  if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):'Écris ton message…';
  const isolatedLinks=$('#nsfwLibraryLinks');
@@ -111,6 +111,10 @@ function updateCreationModeGuide(){
 function renderProfileLabels(){
  const map={modelAuto:'auto',modelRealistic:'companion-realistic',modelNsfw:'nsfw'};
  const active=activeConversationId?conversations[activeConversationId]:null;for(const [id,key] of Object.entries(map)){const b=$('#'+id);if(!b)continue;const strong=b.querySelector('b'),small=b.querySelector('small');if(strong)strong.textContent=profileLabel(key);if(small)small.textContent=profileSub(key);b.classList.toggle('active',active?.profile===key)}
+ const unlocked=loadJSON('lva_nsfw_gate',false),entry=$('#modelNsfw'),sub=$('#nsfwEntrySub'),icon=$('#nsfwLockIcon');
+ if(entry)entry.classList.toggle('unlocked',unlocked);
+ if(sub)sub.textContent=(unlocked?'Déverrouillé':'Verrouillé')+' · HunyuanImage 2.1 · HY-OmniWeaving';
+ if(icon)icon.textContent=unlocked?'◈':'⌑';
  updateCreationModeGuide();renderIsolatedMode();
 }
 function renderIsolatedMode(){
@@ -138,6 +142,30 @@ function chooseIsolatedCreationMode(mode){
  const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'isolated-video-i2v':'isolated-video');
  if(!lastHealth?.media?.[component]?.ready)installComponent(component);
 }
+function enterNsfwWorkspace(){
+ let unlocked=loadJSON('lva_nsfw_gate',false);
+ if(!unlocked){
+  if(!confirm('Déverrouiller l’espace NSFW sur cet appareil ?\n\nCet espace restera séparé du chat standard et pourra être reverrouillé plus tard depuis ses réglages.'))return;
+  unlocked=true;localStorage.setItem('lva_nsfw_gate','true');toast('Espace NSFW déverrouillé sur cet appareil.');
+ }
+ renderProfileLabels();createConversationForProfile('nsfw');
+}
+function openFutureWorkspace(kind){
+ const title=kind==='websites'?'Sites web':'Automatisations';
+ const text=kind==='websites'
+  ?'Espace préparé pour le créateur de sites et d’apps. Les modèles, l’aperçu live, les fichiers projet et le déploiement seront ajoutés progressivement.'
+  :'Espace préparé pour les workflows récurrents : collecte des éléments client, génération d’assets, préparation de contenus et orchestration des prochaines tâches.';
+ if(!activeConversationId)createBlankConversation('auto');
+ const c=conversationFor(activeConversationId);
+ addMessage(activeConversationId,{role:'assistant',text:'**'+title+'**\n\n'+text+'\n\nPour l’instant, cet espace est volontairement vide de modèles.'});
+ hideSidebar();
+}
+function composerAddImage(){
+ const c=activeConversationId?conversationFor(activeConversationId):null;
+ if(c?.profile!=='nsfw'){toast('L’ajout direct d’image est actuellement relié au mode NSFW I2V. Les espaces Sites web et Automatisations l’utiliseront ensuite.');return}
+ chooseIsolatedCreationMode('i2v');
+ $('#referenceImageInput')?.click();
+}
 function clearReferenceImage(){imageData=null;imageName=null;const input=$('#referenceImageInput');if(input)input.value='';renderIsolatedMode()}
 function loadReferenceImage(file){
  if(!file)return;if(!file.type?.startsWith('image/')){toast('Choisis un fichier image.');return}
@@ -147,6 +175,7 @@ function loraCompatibilityText(x){const base=String(x.base_model||x.compatibilit
 function loraMatches(x,q){return !q||[x.name,x.filename,x.base_model,x.compatibility,x.category,x.description,(x.trained_words||[]).join(' ')].join(' ').toLowerCase().includes(q)}
 function renderLoraCatalog(filter=''){
  const localBox=$('#loraCatalog'),remoteBox=$('#loraRemoteCatalog');if(!localBox||!remoteBox)return;const q=String(filter||'').toLowerCase().trim();localBox.innerHTML='';remoteBox.innerHTML='';
+ const stackCount=$('#loraStackCount');if(stackCount)stackCount.textContent=selectedLoras.length+' / 8 actifs';
  const rows=loraCatalog.filter(x=>loraMatches(x,q));
  if(!rows.length)localBox.innerHTML='<div class="lora-empty">Aucun LoRA local correspondant. Les .safetensors présents dans ComfyUI/models/loras apparaissent ici.</div>';
  for(const x of rows){
@@ -155,7 +184,7 @@ function renderLoraCatalog(filter=''){
   card.innerHTML='<div class="lora-main"><b>'+esc(x.name||x.filename)+'</b><small>'+esc(loraCompatibilityText(x))+(size?' · '+size:'')+'</small><span>'+esc(desc)+'</span>'+(words?'<span>Déclencheurs : '+esc(words)+'</span>':'')+'</div><label>Force <input type="number" min="-2" max="2" step="0.05" value="'+esc(selected?.strength??1)+'"></label><button type="button">'+(selected?'Retirer':'Activer')+'</button>';
   const strength=card.querySelector('input'),button=card.querySelector('button');
   strength.onchange=()=>{const found=selectedLoras.find(v=>v.path===id);if(found){found.strength=Number(strength.value)||1;localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras))}};
-  button.onclick=()=>{const at=selectedLoras.findIndex(v=>v.path===id);if(at>=0)selectedLoras.splice(at,1);else selectedLoras.push({path:id,strength:Number(strength.value)||1});localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras));renderLoraCatalog($('#loraSearch')?.value||'')};
+  button.onclick=()=>{const at=selectedLoras.findIndex(v=>v.path===id);if(at>=0)selectedLoras.splice(at,1);else{if(selectedLoras.length>=8){toast('La pile LoRA est limitée à 8 éléments actifs.');return}selectedLoras.push({path:id,strength:Number(strength.value)||1})}localStorage.setItem('lva_selected_loras',JSON.stringify(selectedLoras));renderLoraCatalog($('#loraSearch')?.value||'')};
   localBox.appendChild(card);
  }
  const remote=loraRemoteCatalog.filter(x=>loraMatches(x,q));
@@ -306,8 +335,8 @@ async function refresh(){await pollHealth();try{const d=await api('/api/workflow
 
 function setup(){
  $('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
- $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos espace isolé','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos espace isolé','nsfw');
- $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=()=>createConversationForProfile('nsfw');const nsfwGate=$('#nsfwGate');nsfwGate.checked=loadJSON('lva_nsfw_gate',false);nsfwGate.onchange=()=>{localStorage.setItem('lva_nsfw_gate',JSON.stringify(!!nsfwGate.checked));if(!nsfwGate.checked&&activeConversationId&&conversationFor(activeConversationId).profile==='nsfw'){createBlankConversation('auto');toast('Espace NSFW désactivé.')}updateCreationModeGuide()};document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
+ $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos NSFW','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos NSFW','nsfw');
+ $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=enterNsfwWorkspace;$('#websitesWorkspace').onclick=()=>openFutureWorkspace('websites');$('#automationsWorkspace').onclick=()=>openFutureWorkspace('automations');$('#composerImageBtn').onclick=composerAddImage;document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
  $('#updateBtn').onclick=async()=>{const b=$('#updateBtn'),info=$('#updateInfo');if(b.disabled)return;b.disabled=true;b.textContent='Vérification…';try{const d=await api('/api/update/check');if(info)info.textContent='Local '+d.current_version+' · dernier '+d.latest_version;if(!d.available){toast('LocalVisionAI est déjà à jour.');b.textContent='✓ LocalVisionAI à jour';setTimeout(()=>{b.textContent='↻ Mettre à jour LocalAiVision';b.disabled=false},2200);return}if(!confirm('Une nouvelle version de LocalVisionAI est disponible.\n\nLa télécharger, remplacer l’EXE actuel puis relancer automatiquement l’application ?')){b.disabled=false;b.textContent='↻ Mettre à jour LocalAiVision';return}b.textContent='Téléchargement de la mise à jour…';const installed=await api('/api/update/install',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(installed.updated){b.textContent='Redémarrage avec la nouvelle version…';toast('Mise à jour téléchargée. LocalVisionAI va redémarrer.')}else{toast(installed.message||'LocalVisionAI est déjà à jour.');b.disabled=false;b.textContent='↻ Mettre à jour LocalAiVision'}}catch(e){toast('Mise à jour impossible : '+e.message);b.disabled=false;b.textContent='↻ Mettre à jour LocalAiVision'}};$('#importBtn').onclick=()=>$('#workflowFile').click();$('#workflowFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wf=JSON.parse(await f.text());await api('/api/import-workflow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,workflow:wf})});toast('Workflow ajouté.');await refresh()}catch(err){toast(err.message)}};$('#comfyBtn').onclick=()=>window.open('http://127.0.0.1:8188','_blank');$('#resetStyle').onclick=()=>{graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));renderStyles()};$('#generateStylePreview').onclick=async()=>{if($('#send').disabled||graphicStyle==='none')return;if(!activeConversationId)createBlankConversation();const model=selectedModelForConversation(conversationFor(activeConversationId),'image');if(!model){toast('Aucun workflow image disponible');return}const sample='A tiny cream-colored stone cabin with a red roof next to a turquoise alpine lake, fir trees, mountain peaks and a curved footpath in the foreground.';const selected=graphicStyle;$('#generationSettings').classList.add('hidden');$('#settingsBtn').classList.remove('active');addMessage(activeConversationId,{role:'user',mediaRequest:true,text:'Créer un aperçu local du style '+styleCatalog.find(s=>s.id===selected)?.name});await startGeneration('image',model,sample,selected);renderStyles()};$('#taskMode').addEventListener('change',()=>{styleWorkflowSummary();updateCreationModeGuide()});$('#retrySetup').onclick=()=>installComponent('engines');$('#installImage').onclick=()=>installComponent('image');$('#installVideo').onclick=()=>installComponent('video');$('#installIsolatedImage').onclick=()=>installComponent('isolated-image');$('#installMotion').onclick=()=>installComponent('isolated-video');$('#installI2V').onclick=()=>installComponent('isolated-video-i2v');$('#isolatedModeImage').onclick=()=>chooseIsolatedCreationMode('image');$('#isolatedModeT2V').onclick=()=>chooseIsolatedCreationMode('t2v');$('#isolatedModeI2V').onclick=()=>chooseIsolatedCreationMode('i2v');$('#attachReferenceImageBtn').onclick=()=>$('#referenceImageInput').click();$('#referenceImageInput').onchange=e=>loadReferenceImage(e.target.files?.[0]);$('#clearReferenceImage').onclick=clearReferenceImage;$('#refreshLoras').onclick=refreshLoras;$('#loraSearch').oninput=e=>renderLoraCatalog(e.target.value);$('#showLog').onclick=async()=>{try{const d=await api('/api/logs');$('#logOutput').textContent=d.text;$('#logOutput').classList.toggle('hidden')}catch(e){toast(e.message)}};$('#renameModelBtn').onclick=()=>{const id=$('#renameModelSelect').value,w=workflowById(id);if(w)renameModel(id,displayModelName(w))};
  const savedSettings=loadJSON('lva_settings_v1',{});if(!Object.hasOwn(savedSettings,'settingSystem')||savedSettings.settingSystem===LEGACY_CHAT_SYSTEM){savedSettings.settingSystem=DEFAULT_CHAT_SYSTEM;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))}if(!localStorage.getItem('lva_chat_tokens_v14')&&(!Object.hasOwn(savedSettings,'settingMaxTokens')||Number(savedSettings.settingMaxTokens)<=1024)){savedSettings.settingMaxTokens='2048';localStorage.setItem('lva_chat_tokens_v14','1')}
  document.querySelectorAll('[id^="setting"],#taskMode').forEach(el=>{if(!['INPUT','SELECT','TEXTAREA'].includes(el.tagName)||el.id.endsWith('Model')||el.id==='settingsBtn')return;if(Object.hasOwn(savedSettings,el.id)){if(el.type==='checkbox')el.checked=!!savedSettings[el.id];else el.value=savedSettings[el.id]}el.addEventListener('change',()=>{savedSettings[el.id]=el.type==='checkbox'?el.checked:el.value;localStorage.setItem('lva_settings_v1',JSON.stringify(savedSettings))})});
