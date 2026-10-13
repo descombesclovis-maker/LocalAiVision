@@ -71,6 +71,12 @@ class LocalAiWebStore:
         site.mkdir(parents=True, exist_ok=True)
         if replace:
             for old in list(site.rglob('*')):
+                try:
+                    rel_parts = old.relative_to(site).parts
+                except Exception:
+                    rel_parts = ()
+                if any(part in IGNORED_DIRS for part in rel_parts) or old.name in PRIVATE_NAMES:
+                    continue
                 if old.is_file() and old.suffix.lower() in ALLOWED_TEXT_EXTENSIONS:
                     try:
                         old.unlink()
