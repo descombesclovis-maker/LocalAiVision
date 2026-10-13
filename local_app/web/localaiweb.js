@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s);
-let current=null,selectedFile='index.html',selectMode=false,selectedElement=null;
+let current=null,selectedFile='index.html',selectedPreviewPage='index.html',selectMode=false,selectedElement=null;
 let undoStack=[],redoStack=[],codeSaveTimer=null,integrationState={};
 const api=async(url,opt)=>{const r=await fetch(url,opt);let d={};try{d=await r.json()}catch{}if(!r.ok||d.error)throw new Error(d.error||('Erreur HTTP '+r.status));return d};
 const post=(url,data)=>api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
@@ -9,7 +9,7 @@ function snapshotClient(){if(current?.files){undoStack.push(JSON.parse(JSON.stri
 async function replaceFiles(files){const d=await post('/api/web/project/replace',{id:current.project.id,files});current.files=d.files;current.versions=d.versions||current.versions;renderProject();refreshPreview()}
 async function undo(){if(!undoStack.length)return toast('Rien à annuler.');redoStack.push(JSON.parse(JSON.stringify(current.files)));await replaceFiles(undoStack.pop())}
 async function redo(){if(!redoStack.length)return toast('Rien à rétablir.');undoStack.push(JSON.parse(JSON.stringify(current.files)));const f=redoStack.pop();await replaceFiles(f)}
-function refreshPreview(){if(!current)return;const frame=$('#lawPreview');frame.src='/web-preview/'+encodeURIComponent(current.project.id)+'/index.html?t='+Date.now();$('#lawPreviewTitle').textContent=current.project.name}
+function refreshPreview(){if(!current)return;const frame=$('#lawPreview');const page=selectedPreviewPage||'index.html';frame.src='/web-preview/'+encodeURIComponent(current.project.id)+'/'+page.split('/').map(encodeURIComponent).join('/')+'?t='+Date.now();$('#lawPreviewTitle').textContent=current.project.name}
 async function renameProject(){
  if(!current)return;const name=prompt('Nouveau nom du projet',current.project.name||'');if(!name)return;
  current=await post('/api/web/project/rename',{id:current.project.id,name});await loadProjects(current.project.id);toast('Projet renommé.');
@@ -23,11 +23,24 @@ async function deleteProject(){
  await post('/api/web/project/delete',{id:current.project.id});current=null;await loadProjects();toast('Projet supprimé.');
 }
 async function loadProjects(selectId){const d=await api('/api/web/projects');const s=$('#lawProjects');s.innerHTML='';for(const p of d.projects){const o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o)}if(!d.projects.length){const n=await post('/api/web/project/create',{name:'Mon premier site'});await loadProjects(n.project.id);return}const id=selectId||d.projects[0].id;s.value=id;await loadProject(id)}
-async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];undoStack=[];redoStack=[];renderProject();renderSettings();renderDesign();renderDeployment();renderChatHistory();refreshPreview();runQuality(false).catch(()=>{})}
+async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];selectedPreviewPage=current.files['index.html']?'index.html':(Object.keys(current.files).find(x=>/\.html?$/i.test(x))||'index.html');undoStack=[];redoStack=[];renderProject();renderSettings();renderDesign();renderDeployment();renderChatHistory();renderPages();refreshPreview();runQuality(false).catch(()=>{})}
 function renderProject(){if(!current)return;
  const ft=$('#lawFileTree');ft.innerHTML='';Object.keys(current.files).sort().forEach(path=>{const b=document.createElement('button');b.className='file-item'+(path===selectedFile?' active':'');b.textContent=path;b.onclick=()=>openCode(path);ft.appendChild(b)});
  const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';const isImage=/\.(png|jpe?g|webp|gif|svg)$/i.test(a.path);d.innerHTML=(isImage?'<img src="/web-preview/'+encodeURIComponent(current.project.id)+'/'+a.path.split('/').map(encodeURIComponent).join('/')+'" alt="">':'')+'<div><b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span></div>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute logos, captures, photos ou exports Figma.</div>';
  const versions=$('#lawVersions');versions.innerHTML='';(current.versions||[]).forEach(v=>{const d=document.createElement('div');d.className='version-card';d.innerHTML='<b>'+esc(v.label||'Version')+'</b><span>'+new Date((v.created_at||0)*1000).toLocaleString()+'</span><button>Restaurer</button>';d.querySelector('button').onclick=()=>restoreVersion(v.id);versions.appendChild(d)});if(!(current.versions||[]).length)versions.innerHTML='<div class="version-card">Les versions apparaîtront après la première modification.</div>';
+}
+function renderPages(){
+ const sel=$('#lawPageSelect');if(!sel||!current)return;
+ const pages=Object.keys(current.files||{}).filter(x=>/\.html?$/i.test(x)).sort();
+ sel.innerHTML='';
+ if(!pages.length){const o=document.createElement('option');o.value='index.html';o.textContent='Aperçu build';sel.appendChild(o);selectedPreviewPage='index.html';return}
+ if(!pages.includes(selectedPreviewPage))selectedPreviewPage=pages.includes('index.html')?'index.html':pages[0];
+ for(const p of pages){const o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o)}
+ sel.value=selectedPreviewPage;
+}
+async function buildProject(){
+ if(!current)return;const btn=$('#lawBuild'),state=$('#lawBuildState');btn.disabled=true;if(state)state.textContent='…';
+ try{const d=await post('/api/web/build',{id:current.project.id});current=d;renderProject();renderPages();const b=d.build||{};if(state)state.textContent=b.kind==='static'?'statique':'ok';toast(b.message||'Build terminé.');refreshPreview()}catch(e){if(state)state.textContent='erreur';toast('Build : '+e.message)}finally{btn.disabled=false}
 }
 function showPanel(name){document.querySelectorAll('.rail-tab').forEach(b=>b.classList.toggle('active',b.dataset.panel===name));for(const n of ['files','assets','versions','design','services'])$('#law'+n[0].toUpperCase()+n.slice(1)+'Panel').classList.toggle('hidden',n!==name)}
 async function createFile(){
@@ -197,14 +210,14 @@ function setup(){
  $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawInstallIntegrations').onclick=installIntegrations;$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawAddEnv').onclick=addVercelEnv;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
  $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;$('#lawApplyDesign').onclick=applyDesign;$('#lawDesignRadius').oninput=()=>$('#lawDesignRadiusValue').textContent=$('#lawDesignRadius').value+'px';
- document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));
+ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));$('#lawBuild').onclick=buildProject;$('#lawPageSelect').onchange=e=>{selectedPreviewPage=e.target.value;refreshPreview()};
  document.querySelectorAll('.rail-tab').forEach(b=>b.onclick=()=>showPanel(b.dataset.panel));
  document.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>integration(b.dataset.service));
  document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{$('#lawPrompt').value=b.dataset.prompt;generate()});
  $('#lawGenerate').onclick=generate;$('#lawMic').onclick=startVoice;
  $('#lawPrompt').onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();generate()}};$('#lawPrompt').addEventListener('paste',handleAssetPaste);const composer=$('.agent-composer');composer.addEventListener('dragover',e=>{e.preventDefault();composer.classList.add('drop-ready')});composer.addEventListener('dragleave',()=>composer.classList.remove('drop-ready'));composer.addEventListener('drop',e=>{composer.classList.remove('drop-ready');handleAssetDrop(e)});
  $('#lawRefresh').onclick=refreshPreview;
- $('#lawOpenPreview').onclick=()=>window.open('/web-preview/'+current.project.id+'/index.html','_blank');
+ $('#lawOpenPreview').onclick=()=>window.open('/web-preview/'+current.project.id+'/'+(selectedPreviewPage||'index.html').split('/').map(encodeURIComponent).join('/'),'_blank');
  $('#lawSelectMode').onclick=toggleVisual;
  $('#lawApplyVisual').onclick=applyVisual;
  $('#lawSaveCode').onclick=saveCode;$('#lawCode').addEventListener('input',()=>{const s=$('#lawCodeState');if(s)s.textContent='Modifié';clearTimeout(codeSaveTimer);codeSaveTimer=setTimeout(autosaveCode,1200)});
