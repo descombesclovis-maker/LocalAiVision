@@ -1592,7 +1592,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/file/save":
             try:
                 store = _web_store(); pid = body.get("id"); path = web_builder.safe_rel(body.get("path"))
-                store.snapshot(pid, "Avant édition de " + str(path))
+                if body.get("snapshot", True):
+                    store.snapshot(pid, "Avant édition de " + str(path))
                 files = store.write_files(pid, {path.as_posix(): body.get("content", "")}, replace=False)
                 meta = store.meta(pid); meta["updated_at"] = time.time(); store.write_meta(pid, meta)
                 self.send_json({"ok": True, "files": files, "versions": store.versions(pid)})
