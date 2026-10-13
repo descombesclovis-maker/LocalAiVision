@@ -101,7 +101,7 @@ class LocalAiWebStore:
             for path in root.glob('*.json'):
                 try:
                     data = json.loads(path.read_text(encoding='utf-8'))
-                    out.append({):v for k,v in data.items() if k != 'files'})
+                    out.append({k:v for k,v in data.items() if k != 'files'})
                 except Exception:
                     pass
         return sorted(out, key=lambda x:x.get('created_at',0), reverse=True)
