@@ -1434,7 +1434,28 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/web/generate":
             try:
-                self.send_json(_web_store().generate(body.get("id"), body.get("prompt")))
+                store = _web_store()
+                project_id = body.get("id")
+                meta = store.meta(project_id)
+                provider = str((meta.get("settings") or {}).get("ai_provider") or "auto")
+                use_codex = provider == "codex"
+                if provider == "auto":
+                    try:
+                        use_codex = bool(integrations_cli.status().get("codex", {}).get("ready"))
+                    except Exception:
+                        use_codex = False
+                if use_codex:
+                    site = store.project_dir(project_id) / "site"
+                    store.snapshot(project_id, "Avant modification Codex")
+                    result = integrations_cli.codex_apply(site, body.get("prompt"))
+                    meta = store.meta(project_id); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
+                    store.write_meta(project_id, meta)
+                    payload = store.payload(project_id); payload["summary"] = meta["last_summary"]; payload["provider"] = "codex"
+                    self.send_json(payload)
+                else:
+                    payload = store.generate(project_id, body.get("prompt"))
+                    payload["provider"] = "local"
+                    self.send_json(payload)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
