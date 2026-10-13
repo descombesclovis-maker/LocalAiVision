@@ -78,3 +78,6 @@
 .asset-3d-icon{width:44px;height:44px;flex:none;border-radius:9px;display:grid;place-items:center;background:radial-gradient(circle at 20% 10%,#8355c6,#2b194a);font-weight:800;color:#fff;border:1px solid #764ea8;font-size:13px}
 @media(max-width:1350px){.law-project-switch select{min-width:125px}.law-new-3d{font-size:11px;padding:0 8px}}
 @media(max-width:850px){.law-project-switch{display:none}}
+
+.law-new-3d-mini{font-size:9px;font-weight:700;background:#3a225e;color:#ddc8ff;border:1px solid #805bb4;border-radius:8px;padding:6px 9px;cursor:pointer}
+.law-new-3d-mini:hover{color:#fff;border-color:#aa7fff}
