@@ -73,6 +73,29 @@ def status():
         out["stripe"]["ready"] = _run([stripe_direct, "config", "--list"], timeout=20).returncode == 0
     return out
 
+def install_prerequisites():
+    if os.name != "nt":
+        raise RuntimeError("L'installation automatique des prérequis est prévue pour Windows.")
+    winget = _which("winget", "winget.exe")
+    if not winget:
+        raise RuntimeError("WinGet n'est pas disponible sur ce Windows.")
+    packages = []
+    if not _which("git", "git.exe"):
+        packages.append("Git.Git")
+    if not _which("gh", "gh.exe"):
+        packages.append("GitHub.cli")
+    if not _which("node", "node.exe") or not _which("npx", "npx.cmd"):
+        packages.append("OpenJS.NodeJS.LTS")
+    if not packages:
+        return {"ok": True, "started": False, "message": "Les prérequis principaux sont déjà installés."}
+    commands = []
+    for package in packages:
+        commands.append('"' + winget + '" install --id ' + package + ' --exact --accept-package-agreements --accept-source-agreements')
+    command = " && ".join(commands) + " && echo. && echo Installation terminee. Redemarre LocalAiVision si les nouveaux outils ne sont pas encore detectes. && pause"
+    subprocess.Popen(["cmd.exe", "/c", command], creationflags=CREATE_NEW_CONSOLE)
+    return {"ok": True, "started": True, "packages": packages,
+            "message": "Installation des prérequis ouverte dans une fenêtre Windows."}
+
 def validate_site(site_dir):
     site = Path(site_dir)
     node = _which("node", "node.exe")
