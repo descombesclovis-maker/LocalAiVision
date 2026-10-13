@@ -68,6 +68,23 @@ def status():
         out["codex"]["ready"] = _run([codex_direct, "login", "status"], timeout=20).returncode == 0
     return out
 
+def validate_site(site_dir):
+    site = Path(site_dir)
+    node = _which("node", "node.exe")
+    issues = []
+    checked = 0
+    if node:
+        for path in sorted(site.rglob("*")):
+            if checked >= 80:
+                break
+            if path.is_file() and path.suffix.lower() in (".js", ".mjs", ".cjs"):
+                checked += 1
+                result = _run([node, "--check", str(path)], cwd=site, timeout=30)
+                if result.returncode != 0:
+                    issues.append({"file": path.relative_to(site).as_posix(),
+                                   "message": (result.stderr or result.stdout or "JavaScript invalide").strip()[:1200]})
+    return {"ok": not issues, "checked": checked, "issues": issues, "node_available": bool(node)}
+
 def connect(provider, cwd=None):
     if provider == "github":
         gh = _which("gh", "gh.exe")
