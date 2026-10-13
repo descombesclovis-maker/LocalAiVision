@@ -229,7 +229,7 @@ class LocalAiWebStore:
         self.append_chat(project_id, 'user', prompt)
         current = self.text_files(project_id)
         self.snapshot(project_id, 'Avant : ' + prompt[:80])
-        context = json.dumps(current, ensure_ascii=False)
+        context = json.dumps({'files': current, 'assets': self.assets(project_id)}, ensure_ascii=False)
         if len(context) > 90000: context = context[:90000]
         project_settings = self.meta(project_id).get('settings') or {}
         requirements = (
@@ -265,7 +265,7 @@ class LocalAiWebStore:
                 'Repair the project without removing working features. Ensure production-ready SEO, accessibility, '
                 'responsive behavior, keyboard focus, semantic HTML, valid local asset references and reduced-motion support.'
             )
-            repair_context = json.dumps(self.text_files(project_id), ensure_ascii=False)
+            repair_context = json.dumps({'files': self.text_files(project_id), 'assets': self.assets(project_id)}, ensure_ascii=False)
             repair_answer = self.llm_generate(system, repair_context[:90000], repair_request)
             repair_parsed = self._extract_json(repair_answer)
             repair_files = repair_parsed.get('files')
