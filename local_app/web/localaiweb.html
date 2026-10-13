@@ -42,16 +42,28 @@
       <section id="lawServicesPanel" class="rail-panel hidden">
         <div class="panel-title"><b>Infrastructure</b><span>Architecture complète</span></div>
         <div class="service-grid">
-          <button data-service="database">▦<b>Database</b><small>SQL · à connecter</small></button>
-          <button data-service="auth">◇<b>Auth & rôles</b><small>Email/OAuth · à connecter</small></button>
-          <button data-service="payments">€<b>Paiements</b><small>Stripe · à connecter</small></button>
-          <button data-service="api">↔<b>APIs</b><small>REST/Webhooks · à connecter</small></button>
-          <button data-service="storage">▣<b>Storage</b><small>Fichiers · local prêt</small></button>
-          <button data-service="realtime">◉<b>Realtime</b><small>Channels · à connecter</small></button>
-          <button data-service="ai">✦<b>IA</b><small>LocalAiVision · prêt</small></button>
-          <button data-service="integrations">⌘<b>Intégrations</b><small>Connecteurs · à connecter</small></button>
-          <button data-service="analytics">⌁<b>Analytics</b><small>Trafic · à connecter</small></button>
-          <button data-service="domains">◎<b>Domaines</b><small>DNS/SSL · à connecter</small></button>
+          <button data-service="database">▦<b>Database</b><small>Supabase SQL</small></button>
+          <button data-service="auth">◇<b>Auth & rôles</b><small>Supabase Auth</small></button>
+          <button data-service="payments">€<b>Paiements</b><small>Stripe · prochain connecteur</small></button>
+          <button data-service="api">↔<b>APIs</b><small>REST/Webhooks</small></button>
+          <button data-service="storage">▣<b>Storage</b><small>Local + Supabase</small></button>
+          <button data-service="realtime">◉<b>Realtime</b><small>Supabase Realtime</small></button>
+          <button data-service="ai">✦<b>IA</b><small>Local + Codex optionnel</small></button>
+          <button data-service="integrations">⌘<b>Intégrations</b><small>GitHub / Vercel / Supabase</small></button>
+          <button data-service="analytics">⌁<b>Analytics</b><small>Vercel Analytics · prochain connecteur</small></button>
+          <button data-service="domains">◎<b>Domaines</b><small>Vercel Domains</small></button>
+        </div>
+        <div class="production-panel">
+          <div class="production-head"><b>Production</b><button id="lawRefreshIntegrations">Actualiser</button></div>
+          <div id="lawIntegrationStatus" class="integration-status"></div>
+          <label>Dépôt GitHub<input id="lawGithubRepo" placeholder="utilisateur/mon-site"></label>
+          <label>Branche<input id="lawGithubBranch" value="main"></label>
+          <label class="inline-check"><input id="lawGithubPrivate" type="checkbox" checked> Dépôt privé</label>
+          <button id="lawPublishGithub" class="production-action">Synchroniser sur GitHub</button>
+          <button id="lawInitSupabase" class="production-action">Initialiser Supabase</button>
+          <button id="lawDeployVercel" class="production-action strong">Déployer sur Vercel</button>
+          <button id="lawUseCodex" class="production-action">Appliquer la prochaine demande avec Codex</button>
+          <p class="production-note">LocalAiWeb utilise les sessions déjà authentifiées de GitHub CLI, Vercel CLI, Supabase CLI et Codex. Aucun token n’est enregistré dans les projets.</p>
         </div>
       </section>
     </aside>
