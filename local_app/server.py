@@ -1446,10 +1446,12 @@ class Handler(BaseHTTPRequestHandler):
                         use_codex = False
                 if use_codex:
                     site = store.project_dir(project_id) / "site"
+                    store.append_chat(project_id, "user", body.get("prompt"))
                     store.snapshot(project_id, "Avant modification Codex")
                     result = integrations_cli.codex_apply(site, body.get("prompt"))
                     meta = store.meta(project_id); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
                     store.write_meta(project_id, meta)
+                    store.append_chat(project_id, "assistant", meta["last_summary"])
                     payload = store.payload(project_id); payload["summary"] = meta["last_summary"]; payload["provider"] = "codex"
                     self.send_json(payload)
                 else:
@@ -1499,12 +1501,15 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/codex/apply":
             try:
                 store = _web_store()
-                site = store.project_dir(body.get("id")) / "site"
-                store.snapshot(body.get("id"), "Avant modification Codex")
+                project_id = body.get("id")
+                site = store.project_dir(project_id) / "site"
+                store.append_chat(project_id, "user", body.get("prompt"))
+                store.snapshot(project_id, "Avant modification Codex")
                 result = integrations_cli.codex_apply(site, body.get("prompt"))
-                meta = store.meta(body.get("id")); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
-                store.write_meta(body.get("id"), meta)
-                payload = store.payload(body.get("id")); payload["codex"] = result
+                meta = store.meta(project_id); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
+                store.write_meta(project_id, meta)
+                store.append_chat(project_id, "assistant", meta["last_summary"])
+                payload = store.payload(project_id); payload["codex"] = result
                 self.send_json(payload)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
