@@ -96,6 +96,38 @@ def install_prerequisites():
     return {"ok": True, "started": True, "packages": packages,
             "message": "Installation des prérequis ouverte dans une fenêtre Windows."}
 
+def build_project(site_dir):
+    site = Path(site_dir)
+    package = site / "package.json"
+    if not package.is_file():
+        return {"ok": True, "kind": "static", "output_dir": str(site), "message": "Projet statique : aucun build requis."}
+    npm = _which("npm", "npm.cmd")
+    if not npm:
+        raise RuntimeError("Node.js/npm est requis pour construire ce projet.")
+    try:
+        config = json.loads(package.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError("package.json invalide : " + str(exc)) from None
+    scripts = config.get("scripts") or {}
+    if "build" not in scripts:
+        raise RuntimeError("Ce projet possède package.json mais aucun script npm build.")
+    install_args = [npm, "ci"] if (site / "package-lock.json").is_file() else [npm, "install"]
+    installed = _run(install_args, cwd=site, timeout=900)
+    if installed.returncode != 0:
+        raise RuntimeError((installed.stderr or installed.stdout or "npm install impossible").strip()[-5000:])
+    built = _run([npm, "run", "build"], cwd=site, timeout=900)
+    if built.returncode != 0:
+        raise RuntimeError((built.stderr or built.stdout or "npm run build impossible").strip()[-5000:])
+    candidates = [site / "dist", site / "build", site / "out", site / ".next" / "static"]
+    output = next((p for p in candidates if (p / "index.html").is_file()), None)
+    if output is None:
+        # Some frameworks build server-rendered output. Vercel can still deploy them,
+        # but the built-in static preview cannot safely emulate their server runtime.
+        return {"ok": True, "kind": "framework", "output_dir": "", "message": "Build réussi. Aperçu statique indisponible pour ce framework.",
+                "output": (built.stdout or built.stderr or "")[-4000:]}
+    return {"ok": True, "kind": "static-build", "output_dir": str(output),
+            "message": "Build terminé.", "output": (built.stdout or built.stderr or "")[-4000:]}
+
 def validate_site(site_dir):
     site = Path(site_dir)
     node = _which("node", "node.exe")
