@@ -121,6 +121,11 @@ async function pullGithub(){
  if(!current)return;const btn=$('#lawPullGithub');btn.disabled=true;btn.textContent='Récupération…';
  try{const d=await post('/api/web/github/pull',{id:current.project.id,branch:$('#lawGithubBranch').value.trim()||'main'});current=d;renderProject();renderDeployment();refreshPreview();toast('Projet synchronisé depuis GitHub.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Récupérer depuis GitHub'}
 }
+async function addVercelEnv(){
+ if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant d’ajouter une variable.');return}
+ const name=$('#lawEnvName').value.trim();if(!name)return toast('Indique le nom de la variable.');
+ try{const d=await post('/api/web/vercel/env',{id:current.project.id,name,environment:$('#lawEnvTarget').value});toast(d.message||'Fenêtre Vercel ouverte.')}catch(e){toast(e.message)}
+}
 async function addDomain(){
  if(!current)return;const domain=$('#lawDomain').value.trim();if(!domain)return toast('Indique un nom de domaine.');
  const btn=$('#lawAddDomain');btn.disabled=true;btn.textContent='Ajout du domaine…';
@@ -177,7 +182,7 @@ function startVoice(){
  rec.start();
 }
 function setup(){
- $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
+ $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawRefreshIntegrations').onclick=refreshIntegrations;document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawAddEnv').onclick=addVercelEnv;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
  $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
  $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));
