@@ -540,8 +540,15 @@ class LocalAiWebStore:
         if not data or len(data) > limit:
             raise ValueError('Asset vide ou trop volumineux (GLB 40 Mo ; images 20 Mo).')
         if suffix == '.glb':
-            if len(data) < 20 or data[:4] != b'glTF' or int.from_bytes(data[4:8], 'little') != 2 or int.from_bytes(data[8:12], 'little') != len(data):
+            valid_header = (len(data) >= 24 and data[:4] == b'glTF'
+                            and int.from_bytes(data[4:8], 'little') == 2
+                            and int.from_bytes(data[8:12], 'little') == len(data))
+            if not valid_header:
                 raise ValueError('Modèle GLB 2.0 invalide.')
+            json_size = int.from_bytes(data[12:16], 'little')
+            if (data[16:20] != b'JSON' or json_size <= 0
+                    or json_size % 4 != 0 or 20 + json_size > len(data)):
+                raise ValueError('Bloc JSON du GLB invalide.')
         target = self.project_dir(project_id) / 'site' / 'assets' / name
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_bytes(data)
