@@ -1483,6 +1483,19 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/github/pull":
+            try:
+                store = _web_store()
+                project_id = body.get("id")
+                site = store.project_dir(project_id) / "site"
+                store.snapshot(project_id, "Avant synchronisation GitHub")
+                result = integrations_cli.github_pull(site, body.get("branch") or "main")
+                meta = store.meta(project_id); meta["updated_at"] = time.time(); store.write_meta(project_id, meta)
+                payload = store.payload(project_id); payload["git"] = result
+                self.send_json(payload)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/codex/apply":
             try:
                 store = _web_store()
@@ -1501,6 +1514,14 @@ class Handler(BaseHTTPRequestHandler):
                 store = _web_store()
                 site = store.project_dir(body.get("id")) / "site"
                 self.send_json(integrations_cli.vercel_publish(site, bool(body.get("production", True))))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/vercel/domain":
+            try:
+                store = _web_store()
+                site = store.project_dir(body.get("id")) / "site"
+                self.send_json(integrations_cli.vercel_add_domain(site, body.get("domain")))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
