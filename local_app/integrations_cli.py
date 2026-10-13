@@ -1,7 +1,9 @@
+import os
 import shutil, subprocess
 from pathlib import Path
 
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+CREATE_NEW_CONSOLE = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
 
 def _which(*names):
     for name in names:
@@ -65,6 +67,33 @@ def status():
         probe = _run(codex + ["--version"], timeout=45)
         out["codex"]["ready"] = probe.returncode == 0
     return out
+
+def connect(provider, cwd=None):
+    if provider == "github":
+        gh = _which("gh", "gh.exe")
+        if not gh:
+            raise RuntimeError("GitHub CLI n'est pas installé.")
+        args = [gh, "auth", "login", "--hostname", "github.com", "--web"]
+    elif provider == "vercel":
+        cmd = _vercel_cmd()
+        if not cmd:
+            raise RuntimeError("Vercel CLI n'est pas disponible.")
+        args = cmd + ["login"]
+    elif provider == "supabase":
+        cmd = _supabase_cmd()
+        if not cmd:
+            raise RuntimeError("Supabase CLI n'est pas disponible.")
+        args = cmd + ["login"]
+    elif provider == "codex":
+        cmd = _codex_cmd()
+        if not cmd:
+            raise RuntimeError("Codex CLI n'est pas disponible.")
+        args = cmd
+    else:
+        raise ValueError("Intégration inconnue.")
+    subprocess.Popen([str(x) for x in args], cwd=str(cwd) if cwd else None,
+                     creationflags=CREATE_NEW_CONSOLE if os.name == "nt" else 0)
+    return {"ok": True, "provider": provider, "message": "Connexion ouverte dans une fenêtre séparée."}
 
 def github_publish(site_dir, repo, branch="main", private=True):
     gh = _which("gh", "gh.exe")
