@@ -231,6 +231,7 @@ class LocalAiWebStore:
         meta['updated_at'] = now
         meta['status'] = 'local'
         meta['deployment'] = {'github_repo':'','github_branch':'main','github_private':True,'supabase_ref':'','vercel_target':'production','production_url':'','preview_url':'','custom_domain':'','last_deployed_at':0}
+        # Keep design/settings in a duplicate but clear deployment credentials/targets.
         self.write_meta(new_id, meta)
         versions = target / 'versions'
         if versions.is_dir():
@@ -314,6 +315,48 @@ class LocalAiWebStore:
         return {'ok':True,'summary':meta['last_summary'],'project':meta,'files':saved,
                 'versions':self.versions(project_id),'assets':self.assets(project_id),
                 'chat':self.chat_history(project_id),'quality':quality,'auto_repaired':repaired}
+
+    def apply_design(self, project_id, design):
+        meta = self.meta(project_id)
+        current = dict(meta.get('design') or {})
+        allowed = {'brand','accent','background','text','font','radius'}
+        for key, value in (design or {}).items():
+            if key not in allowed:
+                continue
+            if key in {'brand','accent','background','text'}:
+                value = str(value or '').strip()
+                if not re.fullmatch(r'#[0-9a-fA-F]{6}', value):
+                    raise ValueError('Couleur invalide : ' + key)
+            elif key == 'radius':
+                value = max(0, min(int(value), 48))
+            else:
+                value = str(value or '')[:120]
+            current[key] = value
+
+        self.snapshot(project_id, 'Avant modification du design system')
+        files = self.text_files(project_id)
+        css_path = 'styles.css' if 'styles.css' in files else next((k for k in files if k.endswith('.css')), 'styles.css')
+        css = files.get(css_path, '')
+        block = (
+            ':root{\n'
+            '  --law-brand:' + current.get('brand','#7c3aed') + ';\n'
+            '  --law-accent:' + current.get('accent','#a78bfa') + ';\n'
+            '  --law-bg:' + current.get('background','#0f0718') + ';\n'
+            '  --law-text:' + current.get('text','#f7f2ff') + ';\n'
+            '  --law-radius:' + str(current.get('radius',14)) + 'px;\n'
+            '  --law-font:' + current.get('font','Inter,system-ui,sans-serif') + ';\n'
+            '}\n'
+            'html,body{font-family:var(--law-font);}\n'
+        )
+        css = re.sub(r'/\* LocalAiWeb Design System:start \*/.*?/\* LocalAiWeb Design System:end \*/\s*',
+                     '', css, flags=re.S)
+        css = '/* LocalAiWeb Design System:start */\n' + block + '/* LocalAiWeb Design System:end */\n' + css
+        self.write_files(project_id, {css_path: css}, replace=False)
+        meta = self.meta(project_id)
+        meta['design'] = current
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
 
     def update_deployment(self, project_id, patch):
         meta = self.meta(project_id)
