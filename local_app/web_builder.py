@@ -172,9 +172,9 @@ class LocalAiWebStore:
 
     def delete_file(self, project_id, rel):
         p = safe_rel(rel)
-        site = self.project_dir(project_id) / 'site'
+        site = (self.project_dir(project_id) / 'site').resolve()
         target = (site / p).resolve()
-        if not target.is_relative_to(site.resolve()):
+        if not target.is_relative_to(site):
             raise ValueError('Chemin invalide.')
         if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
             raise ValueError('Ce fichier système ne peut pas être supprimé depuis l’éditeur.')
@@ -186,9 +186,9 @@ class LocalAiWebStore:
 
     def rename_file(self, project_id, old_rel, new_rel):
         old = safe_rel(old_rel); new = safe_rel(new_rel)
-        site = self.project_dir(project_id) / 'site'
+        site = (self.project_dir(project_id) / 'site').resolve()
         source = (site / old).resolve(); target = (site / new).resolve()
-        if not source.is_relative_to(site.resolve()) or not target.is_relative_to(site.resolve()):
+        if not source.is_relative_to(site) or not target.is_relative_to(site):
             raise ValueError('Chemin invalide.')
         if not source.is_file():
             raise FileNotFoundError('Fichier introuvable.')
