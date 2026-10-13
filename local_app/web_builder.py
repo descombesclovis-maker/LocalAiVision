@@ -194,7 +194,9 @@ class LocalAiWebStore:
                 'versions': self.versions(project_id), 'assets': self.assets(project_id),
                 'chat': self.chat_history(project_id)}
 
-    def create(self, name='Nouveau projet'):
+    def create(self, name='Nouveau projet', template='default'):
+        if template not in ('default', 'cinematic3d'):
+            raise ValueError('Modèle de projet inconnu.')
         pid = 'web-' + uuid.uuid4().hex[:12]
         now = time.time()
         self.write_meta(pid, {'id': pid, 'name': str(name or 'Nouveau projet')[:80], 'created_at': now,
@@ -202,7 +204,9 @@ class LocalAiWebStore:
                                  'settings': {'quality':'premium','responsive':True,'accessibility':True,
                                               'seo':True,'performance':True,'micro_interactions':True,
                                               'reduced_motion':True,'semantic_html':True,'language':'fr',
-                                              'site_kind':'auto','art_direction':'auto'}})
+                                              'site_kind':'landing' if template == 'cinematic3d' else 'auto',
+                                              'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
+                                 'template':template})
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><span class="eyebrow">LOCALAIWEB</span><h1>Ton prochain site commence ici.</h1><p>Décris ton projet dans le chat à droite. LocalAiWeb construira et modifiera les fichiers en direct.</p><button>Commencer</button></main><script src="app.js"></script></body></html>',
           'styles.css': ':root{font-family:Inter,system-ui,sans-serif;color:#f5f3ff;background:#12091f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 10%,#6d28d955,transparent 35%),#12091f}.hero{min-height:100vh;display:grid;place-content:center;gap:18px;padding:8vw;max-width:1000px}.eyebrow{letter-spacing:.22em;color:#c4b5fd;font-size:12px}h1{font-size:clamp(52px,9vw,118px);line-height:.88;letter-spacing:-.06em;margin:0}p{max-width:680px;color:#c4b5d4;font-size:19px;line-height:1.6}button{width:max-content;border:0;border-radius:999px;background:#8b5cf6;color:#fff;padding:14px 22px;font-weight:700}',
@@ -210,6 +214,10 @@ class LocalAiWebStore:
           '.gitignore': '.env\n.env.local\n.env.production\n.env.development\n.vercel\nnode_modules\n.next\ndist\nbuild\n',
           '.env.example': '# Variables publiques du projet uniquement. Ne committez jamais de secrets.\n'
         }
+        if template == 'cinematic3d':
+            root = Path(__file__).resolve().parent / 'web' / 'templates' / 'cinematic3d'
+            for file_name in ('index.html', 'styles.css', 'app.js'):
+                starter[file_name] = (root / file_name).read_text(encoding='utf-8')
         self.write_files(pid, starter, replace=True)
         return self.payload(pid)
 
