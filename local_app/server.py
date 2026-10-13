@@ -5,15 +5,17 @@ from urllib.parse import urlparse, parse_qs, quote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 try:
-    from local_app import llm, workflows
+    from local_app import llm, workflows, web_builder
 except ImportError:
-    import llm, workflows
+    import llm, workflows, web_builder
 
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 DATA = Path(os.environ.get("LOCALVISIONAI_DATA", str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "LocalVisionAI")))
 WEB = ROOT / "local_app" / "web"
 IMPORTED = DATA / "workflows" / "imported"
 IMPORTED.mkdir(parents=True, exist_ok=True)
+WEB_PROJECTS = DATA / "localaiweb" / "projects"
+WEB_PROJECTS.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
 PORT = 3000
 COMFY = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/")
@@ -26,7 +28,7 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "2.8.0"
+VERSION = "2.9.0"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -866,6 +868,19 @@ def run_chat(body):
         return llm.chat(messages, body.get("settings") or {})
 
 
+def _web_llm_generate(system, context, prompt):
+    with _engine_lock:
+        _ensure_chat_components()
+        return llm.chat([
+            {'role': 'system', 'content': system},
+            {'role': 'user', 'content': 'CURRENT PROJECT FILES:\n' + context + '\n\nREQUEST:\n' + prompt},
+        ], {'temperature': 0.35, 'top_p': 0.9, 'max_tokens': 8192})
+
+
+def _web_store():
+    return web_builder.LocalAiWebStore(WEB_PROJECTS, _web_llm_generate)
+
+
 def run_chat_stream(body):
     with _engine_lock:
         _ensure_chat_components()
@@ -1248,6 +1263,46 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_bytes(r.read(),r.headers.get_content_type())
             except Exception as e: self.send_json({"error":str(e)},502)
             return
+        if u.path == "/api/web/projects":
+            self.send_json({"projects": _web_store().list_projects()})
+            return
+        if u.path == "/api/web/project":
+            try:
+                project_id = parse_qs(u.query).get("id", [""])[0]
+                self.send_json(_web_store().payload(project_id))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/export":
+            try:
+                project_id = parse_qs(u.query).get("id", [""])[0]
+                raw = _web_store().export_zip(project_id)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition", 'attachment; filename="LocalAiWeb-' + web_builder.safe_id(project_id) + '.zip"')
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self._write_response(raw)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path.startswith("/web-preview/"):
+            try:
+                parts = u.path[len("/web-preview/"):].split("/", 1)
+                project_id = web_builder.safe_id(parts[0])
+                rel = parts[1] if len(parts) > 1 and parts[1] else "index.html"
+                base = (_web_store().project_dir(project_id) / "site").resolve()
+                target = (base / web_builder.safe_rel(rel)).resolve()
+                if not target.is_relative_to(base) or not target.is_file():
+                    self.send_response(404); self.end_headers(); return
+                self.send_bytes(target.read_bytes(), mimetypes.guess_type(str(target))[0] or "application/octet-stream")
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/localaiweb":
+            p = WEB / "localaiweb.html"
+            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+            return
         if u.path.startswith("/api/asset"):
             # Kept as a stable namespace for future local asset management.
             self.send_json({"ok":True})
@@ -1270,6 +1325,49 @@ class Handler(BaseHTTPRequestHandler):
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == "/api/web/project/create":
+            try:
+                self.send_json(_web_store().create(body.get("name") or "Nouveau projet"))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/generate":
+            try:
+                self.send_json(_web_store().generate(body.get("id"), body.get("prompt")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/file/save":
+            try:
+                store = _web_store(); pid = body.get("id"); path = web_builder.safe_rel(body.get("path"))
+                store.snapshot(pid, "Avant édition de " + str(path))
+                files = store.write_files(pid, {path.as_posix(): body.get("content", "")}, replace=False)
+                meta = store.meta(pid); meta["updated_at"] = time.time(); store.write_meta(pid, meta)
+                self.send_json({"ok": True, "files": files, "versions": store.versions(pid)})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/project/replace":
+            try:
+                store = _web_store(); pid = body.get("id"); store.snapshot(pid, "Avant remplacement")
+                files = store.write_files(pid, body.get("files") or {}, replace=True)
+                meta = store.meta(pid); meta["updated_at"] = time.time(); store.write_meta(pid, meta)
+                self.send_json({"ok": True, "files": files, "versions": store.versions(pid)})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/version/restore":
+            try:
+                self.send_json(_web_store().restore(body.get("id"), body.get("version_id")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/asset":
+            try:
+                self.send_json(_web_store().save_asset(body.get("id"), body.get("name"), body.get("data")))
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/setup":
             if body.get("component", "engines") not in ("engines", "image", "video", "isolated-image", "isolated-video", "isolated-video-i2v"):
                 self.send_json({"error": "Composant inconnu"}, 400)
