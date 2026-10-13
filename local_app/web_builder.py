@@ -4,6 +4,8 @@ from pathlib import Path
 ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.env','.example'}
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_PROJECT_FILES = 120
+PRIVATE_NAMES = {'.env', '.env.local', '.env.production', '.env.development'}
+IGNORED_DIRS = {'.git', '.vercel', 'node_modules', '.next', 'dist', 'build', '__pycache__'}
 
 def safe_id(value):
     value = str(value or '')
@@ -44,6 +46,11 @@ class LocalAiWebStore:
         if not site.is_dir():
             return out
         for path in sorted(site.rglob('*')):
+            rel_parts = path.relative_to(site).parts if path.exists() else ()
+            if any(part in IGNORED_DIRS for part in rel_parts):
+                continue
+            if path.name in PRIVATE_NAMES:
+                continue
             if not path.is_file() or path.suffix.lower() not in ALLOWED_TEXT_EXTENSIONS:
                 continue
             if len(out) >= MAX_PROJECT_FILES:
@@ -131,7 +138,9 @@ class LocalAiWebStore:
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><span class="eyebrow">LOCALAIWEB</span><h1>Ton prochain site commence ici.</h1><p>Décris ton projet dans le chat à droite. LocalAiWeb construira et modifiera les fichiers en direct.</p><button>Commencer</button></main><script src="app.js"></script></body></html>',
           'styles.css': ':root{font-family:Inter,system-ui,sans-serif;color:#f5f3ff;background:#12091f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 10%,#6d28d955,transparent 35%),#12091f}.hero{min-height:100vh;display:grid;place-content:center;gap:18px;padding:8vw;max-width:1000px}.eyebrow{letter-spacing:.22em;color:#c4b5fd;font-size:12px}h1{font-size:clamp(52px,9vw,118px);line-height:.88;letter-spacing:-.06em;margin:0}p{max-width:680px;color:#c4b5d4;font-size:19px;line-height:1.6}button{width:max-content;border:0;border-radius:999px;background:#8b5cf6;color:#fff;padding:14px 22px;font-weight:700}',
-          'app.js': 'console.log("LocalAiWeb ready");'
+          'app.js': 'console.log("LocalAiWeb ready");',
+          '.gitignore': '.env\n.env.local\n.env.production\n.env.development\n.vercel\nnode_modules\n.next\ndist\nbuild\n',
+          '.env.example': '# Variables publiques du projet uniquement. Ne committez jamais de secrets.\n'
         }
         self.write_files(pid, starter, replace=True)
         return self.payload(pid)
@@ -235,7 +244,13 @@ class LocalAiWebStore:
         memory = io.BytesIO()
         with zipfile.ZipFile(memory,'w',zipfile.ZIP_DEFLATED) as archive:
             for path in root.rglob('*') if root.is_dir() else []:
-                if path.is_file(): archive.write(path,path.relative_to(root).as_posix())
+                rel = path.relative_to(root)
+                if any(part in IGNORED_DIRS for part in rel.parts):
+                    continue
+                if path.name in PRIVATE_NAMES:
+                    continue
+                if path.is_file():
+                    archive.write(path, rel.as_posix())
         return memory.getvalue()
 
     def save_asset(self, project_id, name, data_url):
