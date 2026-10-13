@@ -172,6 +172,7 @@ class LocalAiWebStore:
         meta['created_at'] = now
         meta['updated_at'] = now
         meta['status'] = 'local'
+        meta['deployment'] = {'github_repo':'','github_branch':'main','github_private':True,'supabase_ref':'','vercel_target':'production'}
         self.write_meta(new_id, meta)
         versions = target / 'versions'
         if versions.is_dir():
@@ -230,6 +231,18 @@ class LocalAiWebStore:
         meta = self.meta(project_id); meta['updated_at']=time.time(); meta['last_summary']=str(parsed.get('summary') or prompt)[:240]
         self.write_meta(project_id, meta)
         return {'ok':True,'summary':meta['last_summary'],'project':meta,'files':saved,'versions':self.versions(project_id)}
+
+    def update_deployment(self, project_id, patch):
+        meta = self.meta(project_id)
+        deployment = dict(meta.get('deployment') or {})
+        allowed = {'github_repo','github_branch','github_private','supabase_ref','vercel_target'}
+        for key, value in (patch or {}).items():
+            if key in allowed:
+                deployment[key] = value
+        meta['deployment'] = deployment
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
 
     def update_settings(self, project_id, patch):
         meta = self.meta(project_id)
