@@ -54,3 +54,5 @@
 .file-actions{display:flex;gap:4px}.file-actions button{width:26px;height:26px;padding:0;border:1px solid #3b294f;background:#1b1228;color:#bbb;border-radius:7px;cursor:pointer}.file-actions button:hover{color:#fff;border-color:#6d4b90}
 
 .code-head>div:first-child{display:flex;align-items:center;gap:8px}.code-head small{font-size:8px;color:#71677f}
+
+.deploy-links{display:grid;gap:5px;border:1px solid #2f2142;background:#110a19;border-radius:9px;padding:8px}.deploy-links a,.deploy-links span{display:block;color:#bfa9e6;font-size:9px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.deploy-links a:hover{color:#fff}
