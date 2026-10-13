@@ -19,7 +19,7 @@ const state = {
   contextLost:false, mode:'auto', profile:null, adaptiveScale:1,
   progress:0, pointerX:0, pointerY:0, width:0, height:0,
   renderer:null, scene:null, camera:null, rig:null, object:null,
-  mixer:null, procedural:[], environmentTarget:null, frameLast:0,
+  mixer:null, procedural:[], environmentTarget:null, frameLast:0, nextFrameDue:0,
   statsSum:0, statsCount:0, sampleSince:0, lastTimestamp:0, shadowLight:null,
   observers:[], disposables:[],
 };
@@ -68,12 +68,13 @@ trackEvent(window,'pointermove',e=>{
 trackEvent(document,'visibilitychange',()=>{
   state.active=!document.hidden;
   state.frameLast=0;
+  state.nextFrameDue=0;
   state.statsCount=0;
   state.statsSum=0;
 });
 const viewportObserver=new IntersectionObserver(entries=>{
   state.visible=entries[0]?.isIntersecting ?? true;
-  if(state.visible) state.frameLast=0;
+  if(state.visible){state.frameLast=0;state.nextFrameDue=0;}
 },{rootMargin:'80px'});
 viewportObserver.observe(root);
 state.observers.push(()=>viewportObserver.disconnect());
@@ -330,10 +331,13 @@ function updateScene(time,dt){
 function frame(timeMs){
   if(state.destroyed||state.contextLost||!state.active||!state.visible)return;
   const minFrameGap=1000/state.profile.targetFPS;
+  // Hold a stable 60/30 Hz *timeline* (not every Nth 120/144 Hz refresh).
+  // This avoids unnecessary 48 FPS oscillation on high-refresh displays.
+  const deadline=state.nextFrameDue||timeMs;
+  if(state.frameLast && timeMs+.9<deadline)return;
   const elapsed=state.frameLast ? timeMs-state.frameLast : minFrameGap;
-  // Skip work on 120/144 Hz screens if the scene only needs 60 FPS.
-  if(state.frameLast && elapsed < minFrameGap*.91)return;
   state.frameLast=timeMs;
+  state.nextFrameDue=Math.max(deadline+minFrameGap,timeMs+minFrameGap*.15);
   const dt=Math.min(elapsed/1000,.06);
   updateScene(timeMs/1000,dt);
   state.renderer.render(state.scene,state.camera);
