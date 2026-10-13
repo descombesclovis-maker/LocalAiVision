@@ -1,7 +1,7 @@
 import base64, io, json, re, shutil, time, uuid, zipfile
 from pathlib import Path
 
-ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg'}
+ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.env','.example'}
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_PROJECT_FILES = 120
 
