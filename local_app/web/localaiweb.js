@@ -16,6 +16,11 @@ const questions=[
   {key:'style',label:'Quelle direction visuelle souhaites-tu ?',choices:['Minimaliste et élégant','Premium / luxe','3D cinématique spectaculaire','Moderne et coloré','Classique professionnel','Créativité libre'],hint:'Tu peux demander un rendu très simple ou une expérience 3D digne d’une publicité.'},
   {key:'pages',label:'Quelles pages et fonctionnalités faut-il prévoir ?',choices:['Accueil + contact','Plusieurs pages complètes','Boutique + panier','Réservation en ligne','Espace client / comptes','Une page immersive'],hint:'Décris les sections, menus, interactions ou services spécifiques.'},
   {key:'brand',label:'Quel nom, quelles couleurs et quels contenus utiliser ?',choices:['J’ai déjà une marque','Je veux une identité à créer','Utilise du contenu de démonstration','Je fournirai les textes ensuite'],hint:'Écris le nom, le slogan, les couleurs, les références et les liens vers tes ressources.'},
+  {key:'interactions',label:'Quelles interactions souhaites-tu proposer ?',choices:['Navigation fluide','Formulaires et contact','Panier et paiement réel','Animation au défilement','Visualisation 3D de produits','Application interactive'],hint:'Précise exactement ce que les visiteurs devront pouvoir faire.'},
+  {key:'navigation',label:'Comment veux-tu organiser la navigation ?',choices:['Menu simple','Plusieurs rubriques','Parcours en une page','Défilement narratif','Catalogue filtrable','L’IA décide selon le projet'],hint:'Donne le nombre approximatif de pages et leur organisation.'},
+  {key:'visuals',label:'Quels médias et références graphiques utiliser ?',choices:['Photos réalistes','Objets 3D GLB','Illustrations sur mesure','Vidéos et animations','Typographie uniquement','Un mélange de médias'],hint:'Ajoute ici des URLs de ressources et de sites servant de référence.'},
+  {key:'functionality',label:'Quelles fonctions devront réellement marcher ?',choices:['Formulaire de contact','Réservation en ligne','Commande et paiement','Compte client','Carte interactive','Pas de fonctions avancées'],hint:'Explique le comportement attendu de chaque fonctionnalité. Les services externes devront être connectés.'},
+  {key:'publishing',label:'As-tu déjà un domaine et un hébergement ?',choices:['Publier via Vercel','J’ai déjà un nom de domaine','Je veux choisir plus tard','Je veux d’abord tester localement'],hint:'Indique les services et comptes déjà configurés, si tu en as.'},
   {key:'priority',label:'Qu’est-ce qui compte le plus ?',choices:['Impact visuel exceptionnel','Simplicité maximale','Vitesse et SEO','Animations et 3D','Conversion et ventes','Équilibre entre tout'],hint:'Dis-moi ton niveau d’exigence, tes animations souhaitées et tes contraintes.'}
 ];
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
@@ -52,7 +57,7 @@ function detectIntent(text){
  if(/^(?:exporter(?: le site)?|telecharger(?: le site)?|telecharger le code|exporter en zip)[.! ]*$/.test(t))return 'export';
  if(/^(?:aide|comment ca marche|comment utiliser localaiweb)[.! ?]*$/.test(t))return 'help';
  if(/^(?:annuler|retour en arriere|restaurer la version precedente)[.! ]*$/.test(t))return 'restore';
- if(/^(?:lancer le questionnaire|questionnaire|guide-moi|pose-moi des questions)[.! ]*$/.test(t))return 'guide';
+ if(/^(?:lancer le questionnaire|commencer le questionnaire|questionnaire|guide-moi|pose-moi des questions)[.! ]*$/.test(t))return 'guide';
  if(/^(?:terminer le questionnaire|construis avec ces reponses|creer maintenant|genere maintenant)[.! ]*$/.test(t))return 'build';
  return '';
 }
