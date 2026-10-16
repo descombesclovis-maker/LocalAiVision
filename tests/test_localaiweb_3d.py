@@ -94,18 +94,17 @@ class Cinematic3DTemplateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.create('Not real', template='nonexistent')
 
-    def test_frontend_wiring_and_three_demo_exist(self):
+    def test_3d_starter_preserved_behind_text_only_builder(self):
         html = (ROOT / 'local_app/web/localaiweb.html').read_text(encoding='utf-8')
         js = (ROOT / 'local_app/web/localaiweb.js').read_text(encoding='utf-8')
-        self.assertIn('id="lawNew3d"', html)
-        self.assertIn('id="lawArtDirection"', html)
-        self.assertIn('id="lawSiteKind"', html)
-        self.assertIn('create3dProject', js)
-        self.assertIn('template:\'cinematic3d\'', js)
-        self.assertIn('saveCreativeBrief', js)
-        self.assertIn("'data-model-src'", js)
-        self.assertIn("'data-environment-src'", js)
+        self.assertIn('id="lawPreview"', html)
+        self.assertIn('id="lawPrompt"', html)
+        self.assertIn('3D cinématique', js)
+        self.assertIn('/api/web/generate', js)
+        self.assertIn('projectBrief()', js)
+        self.assertNotIn('id="lawNew3d"', html)
         self.assertTrue((ROOT / 'local_app/web/templates/cinematic3d/app.js').is_file())
+        self.assertTrue((ROOT / 'local_app/web/templates/cinematic3d/quality.mjs').is_file())
 
 
 if __name__ == '__main__':

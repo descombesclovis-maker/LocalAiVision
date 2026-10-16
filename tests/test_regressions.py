@@ -108,20 +108,23 @@ class SettingsUi(unittest.TestCase):
         self.assertIn('id="automationsWorkspace"', html)
         self.assertIn('id="composerImageBtn"', html)
 
-    def test_localaiweb_studio_has_core_builder_controls(self):
+    def test_localaiweb_studio_has_only_chat_and_three_view_modes(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
         logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
         self.assertIn('id="localAiWebEntry"', html)
         self.assertIn("window.location.href='/localaiweb'", (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8'))
-        for control in ('lawPreview','lawFileTree','lawAssets','lawVersions','lawCode','lawPrompt',
-                        'lawUndo','lawRedo','lawExport','lawGithub','lawPublish','lawSelectMode'):
+        for control in ('lawPreview','lawPreviewStage','lawChat','lawPrompt','lawGenerate','lawComposer'):
             self.assertIn(f'id="{control}"', studio)
-        for service in ('database','auth','payments','api','storage','realtime','ai','integrations','analytics','domains'):
-            self.assertIn(f'data-service="{service}"', studio)
-        self.assertIn('/api/web/generate', logic)
-        self.assertIn('/api/web/version/restore', logic)
-        self.assertIn('/api/web/file/save', logic)
+        for mode in ('desktop','tablet','mobile'):
+            self.assertIn(f'data-view="{mode}"', studio)
+        self.assertEqual(studio.count('data-view='), 3)
+        for removed in ('lawFileTree','lawAssets','lawCode','lawSettings','lawSelectMode','lawPublish',
+                        'lawNew3d','lawMic','lawQuality','lawUndo','lawGithub'):
+            self.assertNotIn(f'id="{removed}"', studio)
+        for action in ('/api/web/generate','/api/web/preflight','/api/web/vercel/publish',
+                       '/api/web/project/create','/api/web/version/restore','/api/web/export'):
+            self.assertIn(action, logic)
 
     def test_localaiweb_does_not_reuse_localvision_saved_state(self):
         logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
@@ -129,27 +132,17 @@ class SettingsUi(unittest.TestCase):
         for key in ('lva_conversations_v2','lva_library','lva_settings_v1','lva_selected_loras'):
             self.assertNotIn(key, logic)
 
-    def test_localaiweb_production_controls_exist(self):
+    def test_localaiweb_guides_users_and_all_changes_are_textual(self):
         studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
         logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
-        for control in ('lawQuality','lawSettings','lawPublishGithub','lawInitSupabase','lawDeployVercel','lawUseCodex'):
-            self.assertIn(f'id="{control}"', studio)
-        for endpoint in ('/api/web/preflight','/api/web/github/publish','/api/web/vercel/publish',
-                         '/api/web/supabase/init','/api/web/codex/apply'):
-            self.assertIn(endpoint, logic)
-
-    def test_localaiweb_advanced_builder_controls_exist(self):
-        studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
-        logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
-        for control in ('lawNewFile','lawRenameFile','lawDeleteFile','lawGenerateAsset','lawMic',
-                        'lawLinkSupabase','lawPushSupabase','lawPullGithub','lawAddDomain',
-                        'lawElementWeight','lawElementPadding','lawElementOpacity'):
-            self.assertIn(f'id="{control}"', studio)
-        self.assertIn('/api/web/asset/generate', logic)
-        self.assertIn('/api/web/github/pull', logic)
-        self.assertIn('/api/web/supabase/link', logic)
-        self.assertIn('/api/web/vercel/domain', logic)
-        self.assertIn('SpeechRecognition', logic)
+        self.assertIn('const questions=', logic)
+        self.assertIn('function askQuestion()', logic)
+        self.assertIn('async function sendText(', logic)
+        self.assertIn('questionnaire', logic)
+        self.assertIn('publier le site', logic)
+        self.assertIn('télécharger le site', studio)
+        self.assertNotIn('id="lawInspector"',studio)
+        self.assertNotIn('type="color"',studio)
 
     def test_updater_button_is_available_in_sidebar(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
