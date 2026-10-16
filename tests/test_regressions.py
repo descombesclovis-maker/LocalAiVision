@@ -178,7 +178,7 @@ class LocalAiWebBackend(unittest.TestCase):
             snapshot = store.snapshot(pid, 'Base')
             store.write_files(pid, {'index.html': '<h1>changed</h1>'})
             restored = store.restore(pid, snapshot['id'])
-            self.assertIn('Ton prochain site', restored['files']['index.html'])
+            self.assertIn('La prévisualisation devrait apparaitre ici.', restored['files']['index.html'])
 
     def test_export_zip_contains_project_files(self):
         with tempfile.TemporaryDirectory() as folder:
