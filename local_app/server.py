@@ -5,7 +5,7 @@ from urllib.parse import urlparse, parse_qs, quote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 try:
-    from local_app import llm, workflows, web_builder, integrations_cli
+    from local_app import llm, workflows, web_builder, integrations_cli, web_briefing, web_briefing
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
@@ -1452,6 +1452,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(_web_store().create(body.get("name") or "Nouveau projet", body.get("template") or "default"))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/brief/begin":
+            try: self.send_json(_web_store().brief_begin(body.get("id"),body.get("prompt")))
+            except Exception as e: self.send_json({"error":str(e)},400)
+            return
+        if u.path == "/api/web/brief/answer":
+            try: self.send_json(_web_store().brief_answer(body.get("id"),body.get("answer")))
+            except Exception as e: self.send_json({"error":str(e)},400)
             return
         if u.path == "/api/web/generate":
             try:
