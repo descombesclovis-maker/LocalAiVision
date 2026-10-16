@@ -1,5 +1,6 @@
 import base64, io, json, re, shutil, time, uuid, zipfile
 from pathlib import Path
+from local_app import web_briefing
 
 ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.env','.example'}
 MAX_FILE_BYTES = 2 * 1024 * 1024
@@ -216,9 +217,9 @@ class LocalAiWebStore:
                                               'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
                                  'template':template})
         starter = {
-          'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><span class="eyebrow">LOCALAIWEB</span><h1>Ton prochain site commence ici.</h1><p>Décris ton projet dans le chat à droite. LocalAiWeb construira et modifiera les fichiers en direct.</p><button>Commencer</button></main><script src="app.js"></script></body></html>',
-          'styles.css': ':root{font-family:Inter,system-ui,sans-serif;color:#f5f3ff;background:#12091f}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 10%,#6d28d955,transparent 35%),#12091f}.hero{min-height:100vh;display:grid;place-content:center;gap:18px;padding:8vw;max-width:1000px}.eyebrow{letter-spacing:.22em;color:#c4b5fd;font-size:12px}h1{font-size:clamp(52px,9vw,118px);line-height:.88;letter-spacing:-.06em;margin:0}p{max-width:680px;color:#c4b5d4;font-size:19px;line-height:1.6}button{width:max-content;border:0;border-radius:999px;background:#8b5cf6;color:#fff;padding:14px 22px;font-weight:700}',
-          'app.js': 'console.log("LocalAiWeb ready");',
+          'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prévisualisation LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><p>La prévisualisation devrait apparaitre ici.</p></main></body></html>',
+          'styles.css': 'html,body{margin:0;min-height:100%;font-family:Inter,system-ui,sans-serif;background:#0e0e12;color:#bcbac7}main{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}p{font-size:clamp(16px,2vw,22px);font-weight:500}@media(max-width:600px){p{font-size:16px}}',
+          'app.js': '// L’IA remplacera le placeholder au premier rendu.',
           '.gitignore': '.env\n.env.local\n.env.production\n.env.development\n.vercel\nnode_modules\n.next\ndist\nbuild\n',
           '.env.example': '# Variables publiques du projet uniquement. Ne committez jamais de secrets.\n'
         }
@@ -357,11 +358,41 @@ class LocalAiWebStore:
           'Unless a 3D experience or framework is requested, produce dependency-free HTML/CSS/JS that runs immediately in preview. '
           'For 3D scenes, Three.js ES modules are supported via version-pinned import maps and actual GLTFLoader, with a CSS fallback when WebGL or CDN is unavailable.'
         )
+        # The user's explicitly stated requirements outrank default purple design tokens.
+        system += (
+            ' CRITICAL: Respect the exact user brief ABOVE all defaults. Never recolor a blue/green '
+            'brand to violet; obey requested business name, pages, taxonomy, content, search behavior '
+            'and layout. Deliver a fully styled, deliberately art-directed design on the FIRST generation, '
+            'not a flat wireframe. Real working interactions: search filters products, categories navigate, '
+            'buttons have destinations, forms validate. No fake payment or auth integrations. '
+            'Use photography only when legitimate supplied assets exist; otherwise design elegant CSS/SVG '
+            'visuals or original Three.js geometry, never pretend to show a real product photo. '
+            'A simple website should be expertly simple, not forced into 3D. '
+            'Include meaningful visual hierarchy, responsive grids, professional typography, '
+            'responsive navigation, polished original copy, and coherent page composition.'
+        )
         answer = self.llm_generate(system, context, prompt)
         parsed = self._extract_json(answer)
         files = parsed.get('files')
         if not isinstance(files, dict) or 'index.html' not in files:
             raise ValueError("Le modèle n'a pas produit un index.html exploitable.")
+        # Hold candidate in memory until structural and contractual checks pass.
+        contract = web_briefing.audit(files, prompt)
+        if contract:
+            fail_text = '\n'.join('- '+x['fix'] for x in contract)
+            repair_request = (
+                'FIRST ATTEMPT FAILED THE CUSTOMER CONTRACT. Repair all issues. '
+                'Return the full corrected JSON file set, not a description.\n' + fail_text
+                + '\nOriginal customer request: '+prompt
+            )
+            revised = self.llm_generate(system, json.dumps({'files':files,'assets':self.assets(project_id)},ensure_ascii=False)[:90000],repair_request)
+            candidate = self._extract_json(revised).get('files')
+            if isinstance(candidate,dict) and 'index.html' in candidate:
+                files.update(candidate)
+                contract = web_briefing.audit(files,prompt)
+        if contract:
+            reason = '; '.join(x['id'] for x in contract[:6])
+            raise ValueError('Qualité insuffisante : '+reason+'. Aucune maquette non conforme n’a été appliquée. Précise les ressources ou réessaie.')
         saved = self.write_files(project_id, files, replace=False)
         meta = self.meta(project_id)
         quality = self.preflight(project_id)
