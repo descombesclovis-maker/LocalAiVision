@@ -1,292 +1,190 @@
-const $=s=>document.querySelector(s);
-let current=null,selectedFile='index.html',selectedPreviewPage='index.html',selectMode=false,selectedElement=null;
-let undoStack=[],redoStack=[],codeSaveTimer=null,integrationState={};
-const api=async(url,opt)=>{const r=await fetch(url,opt);let d={};try{d=await r.json()}catch{}if(!r.ok||d.error)throw new Error(d.error||('Erreur HTTP '+r.status));return d};
-const post=(url,data)=>api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function toast(t){const e=$('#lawToast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2600)}
-function snapshotClient(){if(current?.files){undoStack.push(JSON.parse(JSON.stringify(current.files)));if(undoStack.length>20)undoStack.shift();redoStack=[]}}
-async function replaceFiles(files){const d=await post('/api/web/project/replace',{id:current.project.id,files});current.files=d.files;current.versions=d.versions||current.versions;renderProject();refreshPreview()}
-async function undo(){if(!undoStack.length)return toast('Rien à annuler.');redoStack.push(JSON.parse(JSON.stringify(current.files)));await replaceFiles(undoStack.pop())}
-async function redo(){if(!redoStack.length)return toast('Rien à rétablir.');undoStack.push(JSON.parse(JSON.stringify(current.files)));const f=redoStack.pop();await replaceFiles(f)}
-function refreshPreview(){if(!current)return;const frame=$('#lawPreview');const page=selectedPreviewPage||'index.html';frame.src='/web-preview/'+encodeURIComponent(current.project.id)+'/'+page.split('/').map(encodeURIComponent).join('/')+'?t='+Date.now();$('#lawPreviewTitle').textContent=current.project.name}
-async function renameProject(){
- if(!current)return;const name=prompt('Nouveau nom du projet',current.project.name||'');if(!name)return;
- current=await post('/api/web/project/rename',{id:current.project.id,name});await loadProjects(current.project.id);toast('Projet renommé.');
-}
-async function duplicateProject(){
- if(!current)return;const name=prompt('Nom de la copie',(current.project.name||'Projet')+' — copie');if(!name)return;
- const copy=await post('/api/web/project/duplicate',{id:current.project.id,name});await loadProjects(copy.project.id);toast('Projet dupliqué.');
-}
-async function deleteProject(){
- if(!current)return;if(!confirm('Supprimer définitivement ce projet LocalAiWeb ?'))return;
- await post('/api/web/project/delete',{id:current.project.id});current=null;await loadProjects();toast('Projet supprimé.');
-}
-async function loadProjects(selectId){const d=await api('/api/web/projects');const s=$('#lawProjects');s.innerHTML='';for(const p of d.projects){const o=document.createElement('option');o.value=p.id;o.textContent=p.name;s.appendChild(o)}if(!d.projects.length){const n=await post('/api/web/project/create',{name:'Mon premier site'});await loadProjects(n.project.id);return}const id=selectId||d.projects[0].id;s.value=id;await loadProject(id)}
-async function loadProject(id){current=await api('/api/web/project?id='+encodeURIComponent(id));selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0];selectedPreviewPage=current.files['index.html']?'index.html':(Object.keys(current.files).find(x=>/\.html?$/i.test(x))||'index.html');undoStack=[];redoStack=[];renderProject();renderSettings();renderCreativeBrief();renderDesign();renderDeployment();renderChatHistory();renderPages();refreshPreview();runQuality(false).catch(()=>{})}
-function renderProject(){if(!current)return;
- const ft=$('#lawFileTree');ft.innerHTML='';Object.keys(current.files).sort().forEach(path=>{const b=document.createElement('button');b.className='file-item'+(path===selectedFile?' active':'');b.textContent=path;b.onclick=()=>openCode(path);ft.appendChild(b)});
- const assets=$('#lawAssets');assets.innerHTML='';(current.assets||[]).forEach(a=>{const d=document.createElement('div');d.className='asset-card';const isImage=/\.(png|jpe?g|webp|gif|svg|avif)$/i.test(a.path);d.innerHTML=(isImage?'<img src="/web-preview/'+encodeURIComponent(current.project.id)+'/'+a.path.split('/').map(encodeURIComponent).join('/')+'" alt="">':(/\.glb$/i.test(a.path)?'<span class="asset-3d-icon">3D</span>':/\.hdr$/i.test(a.path)?'<span class="asset-3d-icon">HDR</span>':''))+'<div><b>'+esc(a.path)+'</b><span>'+Math.round(a.size/1024)+' Ko</span></div>';assets.appendChild(d)});if(!(current.assets||[]).length)assets.innerHTML='<div class="asset-card">Aucun asset. Ajoute des images ou un fichier GLB pour tes scènes 3D.</div>';
- const versions=$('#lawVersions');versions.innerHTML='';(current.versions||[]).forEach(v=>{const d=document.createElement('div');d.className='version-card';d.innerHTML='<b>'+esc(v.label||'Version')+'</b><span>'+new Date((v.created_at||0)*1000).toLocaleString()+'</span><button>Restaurer</button>';d.querySelector('button').onclick=()=>restoreVersion(v.id);versions.appendChild(d)});if(!(current.versions||[]).length)versions.innerHTML='<div class="version-card">Les versions apparaîtront après la première modification.</div>';
-}
-function renderPages(){
- const sel=$('#lawPageSelect');if(!sel||!current)return;
- const pages=Object.keys(current.files||{}).filter(x=>/\.html?$/i.test(x)).sort();
- sel.innerHTML='';
- if(!pages.length){const o=document.createElement('option');o.value='index.html';o.textContent='Aperçu build';sel.appendChild(o);selectedPreviewPage='index.html';return}
- if(!pages.includes(selectedPreviewPage))selectedPreviewPage=pages.includes('index.html')?'index.html':pages[0];
- for(const p of pages){const o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o)}
- sel.value=selectedPreviewPage;
-}
-async function buildProject(){
- if(!current)return;const btn=$('#lawBuild'),state=$('#lawBuildState');btn.disabled=true;if(state)state.textContent='…';
- try{const d=await post('/api/web/build',{id:current.project.id});current=d;renderProject();renderPages();const b=d.build||{};if(state)state.textContent=b.kind==='static'?'statique':'ok';toast(b.message||'Build terminé.');refreshPreview()}catch(e){if(state)state.textContent='erreur';toast('Build : '+e.message)}finally{btn.disabled=false}
-}
-function showPanel(name){document.querySelectorAll('.rail-tab').forEach(b=>b.classList.toggle('active',b.dataset.panel===name));for(const n of ['files','assets','versions','design','services'])$('#law'+n[0].toUpperCase()+n.slice(1)+'Panel').classList.toggle('hidden',n!==name)}
-async function createFile(){
- if(!current)return;const path=prompt('Chemin du nouveau fichier','components/section.js');if(!path)return;
- snapshotClient();
- try{const d=await post('/api/web/file/save',{id:current.project.id,path,content:''});current.files=d.files;current.versions=d.versions||[];selectedFile=path;renderProject();openCode(path);toast('Fichier créé.')}catch(e){toast(e.message)}
-}
-async function renameFile(){
- if(!current||!selectedFile)return;const next=prompt('Nouveau chemin',selectedFile);if(!next||next===selectedFile)return;
- try{current=await post('/api/web/file/rename',{id:current.project.id,old_path:selectedFile,new_path:next});selectedFile=next;renderProject();toast('Fichier renommé.')}catch(e){toast(e.message)}
-}
-async function deleteFile(){
- if(!current||!selectedFile)return;if(!confirm('Supprimer '+selectedFile+' ?'))return;
- try{current=await post('/api/web/file/delete',{id:current.project.id,path:selectedFile});selectedFile=current.files['index.html']?'index.html':Object.keys(current.files)[0]||'';renderProject();$('#lawCodePanel').classList.add('hidden');refreshPreview();toast('Fichier supprimé.')}catch(e){toast(e.message)}
-}
-function openCode(path){selectedFile=path;$('#lawCodePath').textContent=path;$('#lawCode').value=current.files[path]||'';$('#lawCodeState').textContent='Enregistré';$('#lawCodePanel').classList.remove('hidden');renderProject()}
-async function autosaveCode(){
- if(!current||$('#lawCodePanel').classList.contains('hidden')||!selectedFile)return;
- const state=$('#lawCodeState');if(state)state.textContent='Enregistrement…';
- try{const d=await post('/api/web/file/save',{id:current.project.id,path:selectedFile,content:$('#lawCode').value,snapshot:false});current.files=d.files;current.versions=d.versions||current.versions;if(state)state.textContent='Enregistré';refreshPreview()}catch(e){if(state)state.textContent='Erreur';toast('Autosave : '+e.message)}
-}
-async function saveCode(){snapshotClient();const d=await post('/api/web/file/save',{id:current.project.id,path:selectedFile,content:$('#lawCode').value});current.files=d.files;current.versions=d.versions||[];$('#lawCodePanel').classList.add('hidden');renderProject();refreshPreview();toast('Fichier enregistré.')}
-function addChat(text,role='agent'){const d=document.createElement('div');d.className='agent-message'+(role==='user'?' user':'');d.textContent=text;$('#lawChat').appendChild(d);$('#lawChat').scrollTop=$('#lawChat').scrollHeight}
-function renderChatHistory(){
- const box=$('#lawChat');box.innerHTML='';
- const rows=current?.chat||[];
- if(!rows.length){box.innerHTML='<div class="agent-message"><b>Que veux-tu construire ?</b><p>Décris un site, une app ou une modification. Je travaille directement dans les fichiers et l’aperçu se met à jour.</p></div>';return}
- rows.forEach(x=>addChat(x.text,x.role==='user'?'user':'agent'));
-}
-
-async function generate(){const p=$('#lawPrompt'),text=p.value.trim();if(!text||!current)return;p.value='';addChat(text,'user');const btn=$('#lawGenerate');btn.disabled=true;btn.textContent='Construction…';snapshotClient();try{const d=await post('/api/web/generate',{id:current.project.id,prompt:text});current.files=d.files;current.project=d.project;current.versions=d.versions||[];current.assets=d.assets||current.assets||[];current.chat=d.chat||current.chat||[];addChat((d.provider==='codex'?'Codex · ':'Local · ')+(d.summary||'Modification terminée.'));renderProject();refreshPreview();toast('Projet mis à jour.')}catch(e){addChat('Erreur : '+e.message);toast(e.message)}finally{btn.disabled=false;btn.innerHTML='Construire <span>↑</span>'}}
-async function restoreVersion(id){if(!confirm('Restaurer cette version ?'))return;snapshotClient();current=await post('/api/web/version/restore',{id:current.project.id,version_id:id});renderProject();refreshPreview();toast('Version restaurée.')}
-function setViewport(v){$('#lawPreviewStage').className='preview-stage '+v;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v))}
-function setupVisualEditing(){const frame=$('#lawPreview');frame.addEventListener('load',()=>{const dot=$('#lawRuntimeDot'),txt=$('#lawRuntimeText');if(dot)dot.classList.remove('error');if(txt)txt.textContent='runtime OK';try{frame.contentWindow.addEventListener('error',e=>{if(dot)dot.classList.add('error');if(txt)txt.textContent='erreur JS';toast('Erreur dans l’aperçu : '+(e.message||'JavaScript'))});frame.contentWindow.addEventListener('unhandledrejection',()=>{if(dot)dot.classList.add('error');if(txt)txt.textContent='promesse rejetée'})}catch{}if(selectMode)wireFrame()})}
-function wireFrame(){const doc=$('#lawPreview').contentDocument;if(!doc)return;doc.querySelectorAll('body *').forEach(el=>{el.addEventListener('click',visualPick,true)})}
-function visualPick(e){if(!selectMode)return;e.preventDefault();e.stopPropagation();if(selectedElement)selectedElement.style.outline='';selectedElement=e.currentTarget;selectedElement.style.outline='2px solid #8b5cf6';$('#lawSelectedTag').textContent=selectedElement.tagName.toLowerCase();$('#lawElementText').value=selectedElement.children.length?'':(selectedElement.textContent||'');const cs=getComputedStyle(selectedElement);$('#lawElementColor').value=rgbToHex(cs.color);$('#lawElementBg').value=rgbToHex(cs.backgroundColor);$('#lawElementSize').value=parseInt(cs.fontSize)||16;$('#lawElementWeight').value=parseInt(cs.fontWeight)||400;$('#lawElementAlign').value=['left','center','right','justify'].includes(cs.textAlign)?cs.textAlign:'';$('#lawElementPadding').value=cs.padding||'';$('#lawElementMargin').value=cs.margin||'';$('#lawElementRadius').value=parseInt(cs.borderRadius)||0;$('#lawElementOpacity').value=parseFloat(cs.opacity)||1;$('#lawInspector').classList.remove('hidden')}
-function rgbToHex(v){const m=String(v).match(/\d+/g);if(!m||m.length<3)return'#000000';return'#'+m.slice(0,3).map(x=>Number(x).toString(16).padStart(2,'0')).join('')}
-async function applyVisual(){if(!selectedElement)return;const page=selectedPreviewPage||'index.html';if(!/\.html?$/i.test(page)||!current.files[page]){toast('L’édition visuelle directe est disponible sur les pages HTML sources.');return}const t=$('#lawElementText').value;if(t&&!selectedElement.children.length)selectedElement.textContent=t;selectedElement.style.color=$('#lawElementColor').value;selectedElement.style.backgroundColor=$('#lawElementBg').value;selectedElement.style.fontSize=$('#lawElementSize').value+'px';selectedElement.style.fontWeight=$('#lawElementWeight').value||'';selectedElement.style.textAlign=$('#lawElementAlign').value||'';selectedElement.style.padding=$('#lawElementPadding').value.trim();selectedElement.style.margin=$('#lawElementMargin').value.trim();selectedElement.style.borderRadius=$('#lawElementRadius').value+'px';selectedElement.style.opacity=$('#lawElementOpacity').value||'1';selectedElement.style.outline='';snapshotClient();const doc=$('#lawPreview').contentDocument;const html='<!doctype html>\n'+doc.documentElement.outerHTML;const d=await post('/api/web/file/save',{id:current.project.id,path:page,content:html});current.files=d.files;current.versions=d.versions||[];$('#lawInspector').classList.add('hidden');selectedElement=null;renderProject();renderPages();refreshPreview();toast('Modification visuelle enregistrée.')}
-function toggleVisual(){selectMode=!selectMode;$('#lawSelectMode').classList.toggle('active',selectMode);$('#lawSelectMode').textContent=selectMode?'● Édition active':'◎ Édition visuelle';if(selectMode)wireFrame();else{$('#lawInspector').classList.add('hidden');selectedElement=null}}
-async function generateAsset(){
- if(!current)return;const prompt=$('#lawAssetPrompt').value.trim();if(!prompt)return toast('Décris l’image à générer.');
- const btn=$('#lawGenerateAsset');btn.disabled=true;btn.textContent='Génération…';
- try{const d=await post('/api/web/asset/generate',{id:current.project.id,prompt});$('#lawAssetPrompt').value='';current=await api('/api/web/project?id='+encodeURIComponent(current.project.id));renderProject();toast('Asset généré : '+d.path)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='✦ Générer'}
-}
-async function addAsset(file){
- if(!file||!current)return;
- const isGlb=/\.glb$/i.test(file.name);
- const isHdr=/\.hdr$/i.test(file.name);
- if(isGlb && file.size>40*1024*1024)return toast('Le modèle GLB doit faire moins de 40 Mo. Optimise la géométrie et les textures.');
- if(!isGlb && !isHdr && !file.type.startsWith('image/'))return toast('Formats pris en charge : images, GLB et HDR.');
- const projectId=current.project.id;
- const reader=new FileReader();
- reader.onload=async()=>{
-  try{
-   const asset=await post('/api/web/asset',{id:projectId,name:file.name,data:reader.result});
-   let project=await api('/api/web/project?id='+encodeURIComponent(projectId));
-   const attr=isGlb?'data-model-src':isHdr?'data-environment-src':'';
-   if(attr && project.files['index.html']?.includes(attr+'="')){
-    const html=project.files['index.html'].replace(new RegExp(attr+'="[^"]*"'),attr+'="'+asset.path+'"');
-    await post('/api/web/file/save',{id:projectId,path:'index.html',content:html});
-    project=await api('/api/web/project?id='+encodeURIComponent(projectId));
-   }
-   if(current?.project?.id===projectId){current=project;renderProject();refreshPreview();}
-   toast(isGlb?'Modèle GLB connecté à la scène 3D.':isHdr?'Éclairage HDRI connecté à la scène.':'Image ajoutée : '+file.name);
-  }catch(e){toast('Import : '+e.message)}
- };
- reader.readAsDataURL(file);
-}
-function integration(name){
- const prompts={
-  database:"Ajoute un backend Supabase professionnel à ce projet : schéma SQL versionné dans supabase/migrations, tables nécessaires, contraintes, index, politiques RLS sécurisées et accès côté client uniquement avec les variables publiques. Ne mets aucun secret dans le code client.",
-  auth:"Ajoute Supabase Auth avec inscription, connexion, déconnexion, récupération de mot de passe, états de chargement/erreur, routes ou écrans protégés et rôles si le projet le nécessite. Utilise des politiques RLS cohérentes.",
-  payments:"Ajoute Stripe de manière production-ready. Les clés secrètes doivent rester exclusivement côté serveur ou dans les variables d’environnement du déploiement. Ajoute checkout, états succès/annulation et webhook serveur si nécessaire, sans secret côté navigateur.",
-  api:"Ajoute les endpoints API nécessaires au projet avec validation des entrées, réponses d’erreur propres, séparation client/serveur et variables d’environnement pour les secrets.",
-  storage:"Ajoute une gestion de fichiers avec Supabase Storage : upload, validation des types et tailles, aperçu, suppression, permissions et politiques adaptées.",
-  realtime:"Ajoute Supabase Realtime uniquement là où cela améliore réellement l’application, avec abonnement/désabonnement propre et état de reconnexion.",
-  analytics:"Ajoute une couche analytics respectueuse de la vie privée, compatible avec le déploiement Vercel, sans casser les performances ni le consentement requis.",
-  ai:"Ajoute les fonctionnalités IA demandées en réutilisant l’architecture du projet et en gardant les secrets côté serveur. Prévois états loading, erreurs, quotas et fallback.",
-  integrations:"Prépare une architecture d’intégrations tierces robuste : modules séparés, variables d’environnement documentées dans .env.example, erreurs explicites et webhooks idempotents.",
-  domains:"Prépare ce site pour un domaine personnalisé : URLs canoniques, meta Open Graph, favicon, robots.txt, sitemap.xml et liens absolus configurables par variable publique."
- };
- if(prompts[name]){$('#lawPrompt').value=prompts[name];$('#lawPrompt').focus();toast('Instruction '+name+' préparée dans le chat.');return}
- toast('Service inconnu.')
-}
-async function installIntegrations(){
- try{const d=await post('/api/web/integrations/install',{});toast(d.message||'Installation lancée.');setTimeout(()=>refreshIntegrations(),5000)}catch(e){toast(e.message)}
-}
-async function connectIntegration(provider){
- try{const d=await post('/api/web/integrations/connect',{provider,id:current?.project?.id||null});toast(d.message||('Connexion '+provider+' ouverte.'));setTimeout(()=>refreshIntegrations(true),4000)}catch(e){toast(e.message)}
-}
-async function refreshIntegrations(deep=false){
- try{
-  const d=await post('/api/web/integrations/status',{deep:!!deep});integrationState=d.integrations||{};
-  const box=$('#lawIntegrationStatus');box.innerHTML='';
-  const order=['github','vercel','supabase','stripe','codex','git','node','npm'];
-  for(const name of order){const s=d.integrations?.[name];if(!s)continue;const row=document.createElement('div');row.className='integration-row '+(s.ready?'ready':'off');row.innerHTML='<span></span><b>'+name+'</b><small>'+(s.ready?'prêt':(s.installed?'installé, connexion requise':'non installé'))+'</small>';box.appendChild(row)}
-  const state=$('#lawPublishState');if(state&&!current?.project?.deployment?.production_url)state.textContent=integrationState.vercel?.ready?'Vercel':'connexion requise';
- }catch(e){toast('Intégrations : '+e.message)}
-}
-function renderDeployment(){
- if(!current)return;const d=current.project.deployment||{};
- $('#lawGithubRepo').value=d.github_repo||'';$('#lawGithubBranch').value=d.github_branch||'main';$('#lawGithubPrivate').checked=d.github_private!==false;$('#lawSupabaseRef').value=d.supabase_ref||'';$('#lawDomain').value=d.custom_domain||'';
- const live=$('#lawOpenLive'),state=$('#lawPublishState');if(live){live.classList.toggle('hidden',!d.production_url);live.dataset.url=d.production_url||''}if(state)state.textContent=d.production_url?'mettre à jour':'Vercel';
- const links=$('#lawDeployLinks');if(links){const rows=[];if(d.preview_url)rows.push('<a href="'+esc(d.preview_url)+'" target="_blank">Aperçu cloud ↗</a>');if(d.production_url)rows.push('<a href="'+esc(d.production_url)+'" target="_blank">Production ↗</a>');if(d.custom_domain)rows.push('<span>'+esc(d.custom_domain)+'</span>');links.innerHTML=rows.join('');links.classList.toggle('hidden',!rows.length)}
-}
-async function persistDeployment(){
- if(!current)return;
- const d={github_repo:$('#lawGithubRepo').value.trim(),github_branch:$('#lawGithubBranch').value.trim()||'main',github_private:$('#lawGithubPrivate').checked,supabase_ref:$('#lawSupabaseRef').value.trim(),vercel_target:'production'};
- current=await post('/api/web/deployment',{id:current.project.id,deployment:d});return d;
-}
-async function publishGithub(){
- if(!current)return;if(!integrationState.github?.ready){showPanel('services');toast('Connecte GitHub avant la synchronisation.');return}await persistDeployment();const repo=$('#lawGithubRepo').value.trim();if(!repo)return toast('Indique le dépôt GitHub au format utilisateur/dépôt.');
- const btn=$('#lawPublishGithub');btn.disabled=true;btn.textContent='Synchronisation…';
- try{const d=await post('/api/web/github/publish',{id:current.project.id,repo,branch:$('#lawGithubBranch').value.trim()||'main',private:$('#lawGithubPrivate').checked});toast('GitHub synchronisé : '+d.repo);if(d.url)window.open(d.url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Synchroniser sur GitHub'}
-}
-async function pullGithub(){
- if(!current)return;const btn=$('#lawPullGithub');btn.disabled=true;btn.textContent='Récupération…';
- try{const d=await post('/api/web/github/pull',{id:current.project.id,branch:$('#lawGithubBranch').value.trim()||'main'});current=d;renderProject();renderDeployment();refreshPreview();toast('Projet synchronisé depuis GitHub.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Récupérer depuis GitHub'}
-}
-async function addVercelEnv(){
- if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant d’ajouter une variable.');return}
- const name=$('#lawEnvName').value.trim();if(!name)return toast('Indique le nom de la variable.');
- try{const d=await post('/api/web/vercel/env',{id:current.project.id,name,environment:$('#lawEnvTarget').value});toast(d.message||'Fenêtre Vercel ouverte.')}catch(e){toast(e.message)}
-}
-async function addDomain(){
- if(!current)return;const domain=$('#lawDomain').value.trim();if(!domain)return toast('Indique un nom de domaine.');
- const btn=$('#lawAddDomain');btn.disabled=true;btn.textContent='Ajout du domaine…';
- try{const d=await post('/api/web/vercel/domain',{id:current.project.id,domain});current=d;renderDeployment();toast('Domaine transmis à Vercel : '+domain)}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Ajouter le domaine via Vercel'}
-}
-async function initSupabase(){
- if(!current)return;const btn=$('#lawInitSupabase');btn.disabled=true;btn.textContent='Initialisation…';
- try{await post('/api/web/supabase/init',{id:current.project.id});toast('Supabase initialisé dans le projet.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Initialiser Supabase'}
-}
-async function linkSupabase(){
- if(!current)return;if(!integrationState.supabase?.ready){showPanel('services');toast('Connecte Supabase avant de lier le projet.');return}await persistDeployment();const ref=$('#lawSupabaseRef').value.trim();if(!ref)return toast('Indique la Project Ref Supabase.');
- const btn=$('#lawLinkSupabase');btn.disabled=true;btn.textContent='Liaison…';
- try{await post('/api/web/supabase/link',{id:current.project.id,project_ref:ref});toast('Projet Supabase lié.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Lier le projet Supabase'}
-}
-async function pushSupabase(){
- if(!current)return;const btn=$('#lawPushSupabase');btn.disabled=true;btn.textContent='Migration…';
- try{await post('/api/web/supabase/push',{id:current.project.id});toast('Migrations Supabase appliquées.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Pousser les migrations DB'}
-}
-async function deployPreview(){
- if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant de créer un aperçu.');return}await persistDeployment();
- const btn=$('#lawDeployPreview');btn.disabled=true;btn.textContent='Création de l’aperçu…';
- try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:false});current=d;renderDeployment();const url=d.deployment_result?.url||d.project?.deployment?.preview_url||'';toast(url?'Aperçu Vercel prêt : '+url:'Aperçu Vercel créé.');if(url)window.open(url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Créer un aperçu Vercel'}
-}
-async function deployVercel(){
- if(!current)return;if(!integrationState.vercel?.ready){showPanel('services');toast('Connecte Vercel avant de publier.');return}await persistDeployment();const quality=await runQuality(false);if(quality&&!quality.ok&&!confirm('Le Quality Gate n’est pas encore au vert. Déployer quand même ?'))return;
- const btn=$('#lawDeployVercel'),top=$('#lawPublish');btn.disabled=true;top.disabled=true;btn.textContent='Déploiement…';
- try{const d=await post('/api/web/vercel/publish',{id:current.project.id,production:true});current=d;renderProject();renderDeployment();const url=d.deployment_result?.url||d.project?.deployment?.production_url||'';toast(url?'Déployé : '+url:'Déploiement Vercel terminé.');if(url)window.open(url,'_blank')}catch(e){toast(e.message)}finally{btn.disabled=false;top.disabled=false;btn.textContent='Déployer sur Vercel'}
-}
-async function applyCodex(){
- if(!current)return;if(!integrationState.codex?.ready){showPanel('services');toast('Connecte ChatGPT / Codex avant d’utiliser ce moteur.');return}const text=$('#lawPrompt').value.trim();if(!text)return toast('Écris d’abord la modification à confier à Codex.');
- const btn=$('#lawUseCodex');btn.disabled=true;btn.textContent='Codex travaille…';snapshotClient();
- try{const d=await post('/api/web/codex/apply',{id:current.project.id,prompt:text});current=d;$('#lawPrompt').value='';renderProject();refreshPreview();addChat(d.codex?.summary||'Modification Codex terminée.');toast('Projet mis à jour avec Codex.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Appliquer la prochaine demande avec Codex'}
-}
-function renderDesign(){
- if(!current)return;const d=current.project.design||{};
- $('#lawDesignBrand').value=d.brand||'#7c3aed';$('#lawDesignAccent').value=d.accent||'#a78bfa';$('#lawDesignBg').value=d.background||'#0f0718';$('#lawDesignText').value=d.text||'#f7f2ff';$('#lawDesignFont').value=d.font||'Inter,system-ui,sans-serif';$('#lawDesignRadius').value=Number(d.radius??14);$('#lawDesignRadiusValue').textContent=$('#lawDesignRadius').value+'px';
-}
-async function applyDesign(){
- if(!current)return;const btn=$('#lawApplyDesign');btn.disabled=true;btn.textContent='Application…';
- const design={brand:$('#lawDesignBrand').value,accent:$('#lawDesignAccent').value,background:$('#lawDesignBg').value,text:$('#lawDesignText').value,font:$('#lawDesignFont').value,radius:Number($('#lawDesignRadius').value)};
- try{current=await post('/api/web/design',{id:current.project.id,design});renderProject();renderDesign();refreshPreview();toast('Design system appliqué au projet.')}catch(e){toast(e.message)}finally{btn.disabled=false;btn.textContent='Appliquer le design system'}
-}
-const artDescriptions={
-  auto:'Le style est choisi selon ton produit, ton public et ta demande.',
-  minimal:'Sobre, accessible et rapide, sans effets superflus.',
-  professional:'Identité premium, hiérarchie visuelle et composants soignés.',
-  editorial:'Typographie expressive, images fortes et narration graphique.',
-  cinematic:'Séquences immersives et animations synchronisées au défilement.',
-  spatial3d:'Objets 3D interactifs, modèles GLB et scènes avec éclairage dynamique.',
-  experimental:'Expérience originale et créative, en préservant une navigation claire.'
+/* LocalAiWeb — one conversation, full-site preview, three device modes.
+ * All mutations are initiated by natural language. No hidden side-panel state.
+ */
+const $ = s => document.querySelector(s);
+const api = async(url,body) => {
+  const options=body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
+  const response=await fetch(url,options);
+  let result={};try{result=await response.json()}catch{}
+  if(!response.ok||result.error)throw Error(result.error||'Erreur HTTP '+response.status);
+  return result;
 };
-function renderCreativeBrief(){
- if(!current)return;
- const s=current.project.settings||{};
- $('#lawSiteKind').value=s.site_kind||'auto';
- $('#lawArtDirection').value=s.art_direction||'auto';
- $('#lawCreativeDescription').textContent=artDescriptions[$('#lawArtDirection').value]||artDescriptions.auto;
- $('#lawPresetState').textContent='Réglages propres à « '+(current.project.name||'ce projet')+' »';
+let project=null,busy=false,viewport='desktop',stage='welcome',brief={},questionIndex=0;
+const questions=[
+  {key:'goal',label:'Quel est l’objectif principal de ton site ?',choices:['Présenter mon activité','Vendre des produits','Recevoir des réservations','Créer une application','Présenter mon travail','Autre projet'],hint:'Indique le type de site et le résultat attendu.'},
+  {key:'audience',label:'À qui s’adresse ce site ?',choices:['Grand public','Clients professionnels','Clients locaux','Passionnés / communauté','Membres inscrits','Tous les visiteurs'],hint:'Précise ton public, sa langue et ses besoins.'},
+  {key:'style',label:'Quelle direction visuelle souhaites-tu ?',choices:['Minimaliste et élégant','Premium / luxe','3D cinématique spectaculaire','Moderne et coloré','Classique professionnel','Créativité libre'],hint:'Tu peux demander un rendu très simple ou une expérience 3D digne d’une publicité.'},
+  {key:'pages',label:'Quelles pages et fonctionnalités faut-il prévoir ?',choices:['Accueil + contact','Plusieurs pages complètes','Boutique + panier','Réservation en ligne','Espace client / comptes','Une page immersive'],hint:'Décris les sections, menus, interactions ou services spécifiques.'},
+  {key:'brand',label:'Quel nom, quelles couleurs et quels contenus utiliser ?',choices:['J’ai déjà une marque','Je veux une identité à créer','Utilise du contenu de démonstration','Je fournirai les textes ensuite'],hint:'Écris le nom, le slogan, les couleurs, les références et les liens vers tes ressources.'},
+  {key:'priority',label:'Qu’est-ce qui compte le plus ?',choices:['Impact visuel exceptionnel','Simplicité maximale','Vitesse et SEO','Animations et 3D','Conversion et ventes','Équilibre entre tout'],hint:'Dis-moi ton niveau d’exigence, tes animations souhaitées et tes contraintes.'}
+];
+const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
+function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
+function message(text,role='assistant',choices=[]){
+ const item=document.createElement('article');item.className='message '+(role==='user'?'user':'assistant');
+ if(role!=='user'){const name=document.createElement('div');name.className='message-author';name.textContent='LocalAiWeb';item.appendChild(name);}
+ const textNode=document.createElement('p');textNode.textContent=String(text||'');item.appendChild(textNode);
+ if(choices.length){
+  const area=document.createElement('div');area.className='choices';
+  choices.forEach(value=>{const b=document.createElement('button');b.type='button';b.textContent=value;b.onclick=()=>sendText(value);area.appendChild(b);});
+  item.appendChild(area);
+ }
+ chat.appendChild(item);scrollBottom();return item;
 }
-async function saveCreativeBrief(){
- if(!current)return;
- const id=current.project.id,site_kind=$('#lawSiteKind').value,art_direction=$('#lawArtDirection').value;
- $('#lawCreativeDescription').textContent=artDescriptions[art_direction]||artDescriptions.auto;
- const message=$('#lawPresetState');message.textContent='Enregistrement…';
+function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';}
+function preview(){
+ if(!project)return;
+ $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
+ const id=encodeURIComponent(project.project.id);
+ const url='/web-preview/'+id+'/index.html?refresh='+Date.now();
+ $('#lawPreview').src=url;
+}
+function view(mode){
+ if(!['desktop','tablet','mobile'].includes(mode))return;
+ viewport=mode;$('#lawPreviewStage').className='preview-stage '+mode;
+ document.querySelectorAll('[data-view]').forEach(button=>{const active=button.dataset.view===mode;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
+}
+function detectIntent(text){
+ const t=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ if(/^(?:nouveau site|nouveau projet|creer un nouveau site|recommencer un projet|creer un autre site)[.! ]*$/.test(t))return 'new';
+ if(/^(?:mes projets|liste des projets|voir mes projets)[.! ]*$/.test(t))return 'projects';
+ if(/^(?:publier(?: le site)?|mettre en ligne(?: le site)?|deployer(?: le site)?)[.! ]*$/.test(t))return 'publish';
+ if(/^(?:exporter(?: le site)?|telecharger(?: le site)?|telecharger le code|exporter en zip)[.! ]*$/.test(t))return 'export';
+ if(/^(?:aide|comment ca marche|comment utiliser localaiweb)[.! ?]*$/.test(t))return 'help';
+ if(/^(?:annuler|retour en arriere|restaurer la version precedente)[.! ]*$/.test(t))return 'restore';
+ if(/^(?:lancer le questionnaire|questionnaire|guide-moi|pose-moi des questions)[.! ]*$/.test(t))return 'guide';
+ if(/^(?:terminer le questionnaire|construis avec ces reponses|creer maintenant|genere maintenant)[.! ]*$/.test(t))return 'build';
+ return '';
+}
+function askQuestion(){
+ if(questionIndex>=questions.length){stage='ready';message('Merci. J’ai de quoi construire une première version complète. Écris « créer maintenant » ou ajoute tes dernières précisions. Ensuite, je pourrai affiner absolument chaque section par tes messages.','assistant',['Créer maintenant','Ajouter des précisions']);return;}
+ const q=questions[questionIndex];stage='questions';
+ message('Question '+(questionIndex+1)+' / '+questions.length+' — '+q.label+'\n'+q.hint+'\nRéponds librement ou choisis une proposition. Tu peux aussi écrire « créer maintenant » à tout moment.','assistant',q.choices);
+}
+async function ensureProject(){
+ if(project)return;
+ const listing=await api('/api/web/projects');
+ if(listing.projects?.length){project=await api('/api/web/project?id='+encodeURIComponent(listing.projects[0].id));}
+ else{project=await api('/api/web/project/create',{name:'Mon site web'});}
+ preview();
+}
+async function showProjects(){
+ const d=await api('/api/web/projects');const projects=d.projects||[];
+ if(!projects.length)return message('Aucun projet enregistré. Écris « nouveau site » pour commencer.');
+ message('Tu as '+projects.length+' projet(s). Indique le nom de celui à ouvrir :\n'+projects.map((p,i)=>(i+1)+'. '+p.name).join('\n'),'assistant',projects.slice(0,8).map(x=>'Ouvrir '+x.name));
+}
+async function handleProjectOpen(text){
+ const normalized=text.toLowerCase().replace(/^ouvrir\s+/i,'').trim();
+ const d=await api('/api/web/projects');
+ const match=d.projects?.find(p=>p.name.toLowerCase()===normalized);
+ if(!match)return false;
+ project=await api('/api/web/project?id='+encodeURIComponent(match.id));preview();
+ brief={};stage='ready';message('Projet « '+project.project.name+' » ouvert. Dis-moi ce que tu veux modifier ; tu peux demander n’importe quelle page, section, animation, interaction ou fonctionnalité.');
+ return true;
+}
+function projectBrief(){
+ return questions.filter(q=>brief[q.key]).map(q=>q.label+'\n'+brief[q.key]).join('\n\n');
+}
+async function generate(text){
+ await ensureProject();
+ setBusy(true,'Je crée ton site et prépare l’aperçu…');
+ const id=project.project.id;
+ const existingBrief=projectBrief();
+ const instructions=existingBrief
+  ?'BRIEF UTILISATEUR :\n'+existingBrief+'\n\nDERNIÈRE DEMANDE :\n'+text
+  :text;
+ message('Je prends en compte ta demande et construis le site complet. Je conserverai les fonctionnalités déjà créées et je te proposerai ensuite des améliorations ciblées.');
  try{
-   const d=await post('/api/web/settings',{id,settings:{site_kind,art_direction}});
-   if(current?.project?.id===id){current.project.settings=d.project.settings;message.textContent='Choix enregistrés pour ce projet uniquement';}
- }catch(e){message.textContent='Erreur de sauvegarde';toast(e.message)}
+  const result=await api('/api/web/generate',{id,prompt:instructions});
+  project=result;preview();
+  stage='ready';
+  const report=result.quality;
+  const validated=report && report.ok;
+  message((result.summary||'La version du site a été créée.')+
+    '\n\nRegarde le résultat à droite. Tu peux maintenant demander une modification précise : couleur, texte, typographie, page, navigation, produit, animation, 3D, réservation ou autre fonctionnalité.'+
+    (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':''),
+    'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités','Publier le site']);
+ }catch(error){message('Je n’ai pas pu appliquer cette modification : '+error.message+'\nLe projet existant est conservé. Précise la demande ou vérifie que le moteur IA est disponible.');}
+ finally{setBusy(false);}
 }
-async function create3dProject(){
- const name=prompt('Nom de ton expérience 3D','Expérience 3D premium');
- if(!name)return;
- const b=$('#lawNew3d');b.disabled=true;
- try{const d=await post('/api/web/project/create',{name,template:'cinematic3d'});await loadProjects(d.project.id);toast('Scène 3D créée. Ajoute un GLB dans Assets pour afficher ton produit.');}
- catch(e){toast('Création 3D : '+e.message)}
- finally{b.disabled=false}
+async function publish(){
+ await ensureProject();
+ message('Je vérifie le site avant publication. La publication nécessite que Vercel soit installé et connecté sur cet ordinateur.');
+ setBusy(true,'Vérification et mise en ligne…');
+ try{
+  const report=await api('/api/web/preflight?id='+encodeURIComponent(project.project.id));
+  if(!report.ok){
+   message('Publication suspendue : '+(report.blockers||[]).map(c=>c.label).join(', ')+'.\nÉcris « corrige les problèmes de publication » et je modifierai le site avant de réessayer.');return;
+  }
+  const result=await api('/api/web/vercel/publish',{id:project.project.id,production:true});
+  project=result;
+  const deployed=result.deployment_result?.url||result.project?.deployment?.production_url;
+  if(deployed)message('Site publié : '+deployed+'\nTu peux ouvrir ce lien dans ton navigateur.');
+  else message('La commande de publication est terminée, mais aucune URL publique n’a été confirmée. Vérifie la connexion Vercel.');
+ }catch(error){message('Publication non effectuée : '+error.message+'\nTon site local reste disponible dans la prévisualisation.');}
+ finally{setBusy(false);}
 }
-function renderSettings(){if(!current)return;const s=current.project.settings||{};$('#lawSettingQuality').value=s.quality||'premium';$('#lawSettingLanguage').value=s.language||'fr';$('#lawSettingAiProvider').value=s.ai_provider||'auto';$('#lawSettingResponsive').checked=s.responsive!==false;$('#lawSettingAccessibility').checked=s.accessibility!==false;$('#lawSettingSeo').checked=s.seo!==false;$('#lawSettingPerformance').checked=s.performance!==false;$('#lawSettingMicro').checked=s.micro_interactions!==false;$('#lawSettingMotion').checked=s.reduced_motion!==false;$('#lawSettingSemantic').checked=s.semantic_html!==false}
-function projectSettings(){return{site_kind:$('#lawSiteKind').value,art_direction:$('#lawArtDirection').value,quality:$('#lawSettingQuality').value,language:$('#lawSettingLanguage').value.trim()||'fr',ai_provider:$('#lawSettingAiProvider').value,responsive:$('#lawSettingResponsive').checked,accessibility:$('#lawSettingAccessibility').checked,seo:$('#lawSettingSeo').checked,performance:$('#lawSettingPerformance').checked,micro_interactions:$('#lawSettingMicro').checked,reduced_motion:$('#lawSettingMotion').checked,semantic_html:$('#lawSettingSemantic').checked}}
-async function saveSettings(){if(!current)return;current=await post('/api/web/settings',{id:current.project.id,settings:projectSettings()});renderSettings();$('#lawSettingsModal').classList.add('hidden');toast('Réglages enregistrés.');runQuality(false).catch(()=>{})}
-async function runQuality(show=true){if(!current)return null;const d=await api('/api/web/preflight?id='+encodeURIComponent(current.project.id));$('#lawQualityScore').textContent=d.score+'/100';$('#lawQuality').classList.toggle('quality-ok',!!d.ok);$('#lawQuality').classList.toggle('quality-bad',!d.ok);const box=$('#lawQualityReport');box.innerHTML='<div class="quality-score"><b>'+d.score+'/100</b><span>'+(d.ok?'Prêt pour publication':'Corrections recommandées')+'</span></div>'+d.checks.map(x=>'<div class="quality-line '+(x.ok?'ok':'bad')+'"><span>'+(x.ok?'✓':'!')+'</span><b>'+esc(x.label)+'</b></div>').join('');if(show){box.classList.remove('hidden');$('#lawSettingsModal').classList.remove('hidden')}return d}
-function handleAssetPaste(e){
- const items=[...(e.clipboardData?.items||[])];const img=items.find(x=>x.kind==='file'&&x.type.startsWith('image/'));
- if(!img)return;const file=img.getAsFile();if(file){e.preventDefault();addAsset(file);toast('Image collée dans les assets.')}
+async function exportSite(){
+ await ensureProject();
+ try{
+  const url='/api/web/export?id='+encodeURIComponent(project.project.id);
+  const a=document.createElement('a');a.href=url;a.download='LocalAiWeb-'+project.project.id+'.zip';
+  document.body.appendChild(a);a.click();a.remove();
+  message('J’ai lancé le téléchargement du ZIP de ton site. Il contient les fichiers du projet, pas les secrets ni les données des services externes.');
+ }catch(error){message('Export impossible : '+error.message);}
 }
-function handleAssetDrop(e){
- e.preventDefault();const file=[...(e.dataTransfer?.files||[])].find(x=>x.type.startsWith('image/'));
- if(file)addAsset(file);
+async function restoreLast(){
+ await ensureProject();
+ const versions=project.versions||[];
+ if(!versions.length){message('Il n’existe pas encore de version précédente à restaurer.');return;}
+ const d=await api('/api/web/version/restore',{id:project.project.id,version_id:versions[0].id});
+ project=d;preview();message('J’ai restauré une version précédente. Regarde le site à droite.');
 }
-function startVoice(){
- const Ctor=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!Ctor)return toast('La reconnaissance vocale n’est pas disponible dans ce moteur WebView.');
- const rec=new Ctor();rec.lang='fr-FR';rec.interimResults=false;rec.maxAlternatives=1;
- const btn=$('#lawMic');btn.disabled=true;btn.textContent='Écoute…';
- rec.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||'';if(text)$('#lawPrompt').value=($('#lawPrompt').value.trim()+' '+text).trim()};
- rec.onerror=()=>toast('La dictée vocale a échoué.');
- rec.onend=()=>{btn.disabled=false;btn.textContent='◉ Voix'};
- rec.start();
+async function sendText(value){
+ const text=String(value||prompt.value||'').trim();if(!text||busy)return;
+ prompt.value='';message(text,'user');setBusy(true,'Je comprends ta demande…');
+ try{
+  const intent=detectIntent(text);
+  if(intent==='new'){
+   project=await api('/api/web/project/create',{name:'Mon nouveau site'});
+   brief={};questionIndex=0;stage='questions';preview();
+   message('Nouveau projet créé, sans toucher à tes autres sites. Je vais te poser des questions pour définir exactement ce que tu veux.');
+   askQuestion();return;
+  }
+  if(intent==='projects'){await showProjects();return;}
+  if(/^ouvrir\s+/i.test(text)&&await handleProjectOpen(text))return;
+  if(intent==='help'){
+   message('Tout passe par ce chat. Décris ce que tu veux construire, réponds à mes questions et observe le site complet à droite. Tu peux modifier chaque élément par une phrase. Pour gérer tes sites, écris : « nouveau site », « mes projets », « publier le site » ou « télécharger le site ».');return;
+  }
+  if(intent==='guide'){brief={};questionIndex=0;askQuestion();return;}
+  if(intent==='publish'){await publish();return;}
+  if(intent==='export'){await exportSite();return;}
+  if(intent==='restore'){await restoreLast();return;}
+  if(intent==='build'){await generate('Crée maintenant un site complet et cohérent suivant mes réponses. Produis toutes les pages et interactions réelles nécessaires, un design soigné, une navigation fluide, un responsive impeccable et un contenu utile.');return;}
+  if(stage==='questions' && questionIndex<questions.length && !/^(?:modifie|remplace|corrige|ajoute|change)\b/i.test(text)){
+   brief[questions[questionIndex].key]=text;questionIndex++;askQuestion();return;
+  }
+  await generate(text);
+ }catch(error){message('Erreur : '+error.message);}
+ finally{setBusy(false);}
 }
-function setup(){
- $('#lawBack').onclick=()=>location.href='/';$('#lawSettings').onclick=()=>{$('#lawSettingsModal').classList.remove('hidden');renderSettings()};$('#lawInstallIntegrations').onclick=installIntegrations;$('#lawRefreshIntegrations').onclick=()=>refreshIntegrations(true);document.querySelectorAll('[data-connect]').forEach(b=>b.onclick=()=>connectIntegration(b.dataset.connect));$('#lawPublishGithub').onclick=publishGithub;$('#lawPullGithub').onclick=pullGithub;$('#lawInitSupabase').onclick=initSupabase;$('#lawLinkSupabase').onclick=linkSupabase;$('#lawPushSupabase').onclick=pushSupabase;$('#lawDeployPreview').onclick=deployPreview;$('#lawDeployVercel').onclick=deployVercel;$('#lawAddDomain').onclick=addDomain;$('#lawAddEnv').onclick=addVercelEnv;$('#lawUseCodex').onclick=applyCodex;$('#lawCloseSettings').onclick=()=>$('#lawSettingsModal').classList.add('hidden');$('#lawSaveSettings').onclick=saveSettings;$('#lawRunQuality').onclick=()=>runQuality(true);$('#lawQuality').onclick=()=>runQuality(true);
- $('#lawNew3d').onclick=create3dProject;$('#lawNew3dCompact').onclick=create3dProject;$('#lawSiteKind').onchange=saveCreativeBrief;$('#lawArtDirection').onchange=saveCreativeBrief;
- $('#lawNewProject').onclick=async()=>{const name=prompt('Nom du projet','Nouveau site');if(!name)return;const d=await post('/api/web/project/create',{name});await loadProjects(d.project.id)};$('#lawRenameProject').onclick=renameProject;$('#lawDuplicateProject').onclick=duplicateProject;$('#lawDeleteProject').onclick=deleteProject;
- $('#lawProjects').onchange=e=>loadProject(e.target.value);$('#lawNewFile').onclick=createFile;$('#lawRenameFile').onclick=renameFile;$('#lawDeleteFile').onclick=deleteFile;$('#lawApplyDesign').onclick=applyDesign;$('#lawDesignRadius').oninput=()=>$('#lawDesignRadiusValue').textContent=$('#lawDesignRadius').value+'px';
- document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setViewport(b.dataset.view));$('#lawBuild').onclick=buildProject;$('#lawPageSelect').onchange=e=>{selectedPreviewPage=e.target.value;refreshPreview()};
- document.querySelectorAll('.rail-tab').forEach(b=>b.onclick=()=>showPanel(b.dataset.panel));
- document.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>integration(b.dataset.service));
- document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{$('#lawPrompt').value=b.dataset.prompt;generate()});
- $('#lawGenerate').onclick=generate;$('#lawMic').onclick=startVoice;
- $('#lawPrompt').onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();generate()}};$('#lawPrompt').addEventListener('paste',handleAssetPaste);const composer=$('.agent-composer');composer.addEventListener('dragover',e=>{e.preventDefault();composer.classList.add('drop-ready')});composer.addEventListener('dragleave',()=>composer.classList.remove('drop-ready'));composer.addEventListener('drop',e=>{composer.classList.remove('drop-ready');handleAssetDrop(e)});
- $('#lawRefresh').onclick=refreshPreview;
- $('#lawOpenPreview').onclick=()=>window.open('/web-preview/'+current.project.id+'/'+(selectedPreviewPage||'index.html').split('/').map(encodeURIComponent).join('/'),'_blank');
- $('#lawSelectMode').onclick=toggleVisual;
- $('#lawApplyVisual').onclick=applyVisual;
- $('#lawSaveCode').onclick=saveCode;$('#lawCode').addEventListener('input',()=>{const s=$('#lawCodeState');if(s)s.textContent='Modifié';clearTimeout(codeSaveTimer);codeSaveTimer=setTimeout(autosaveCode,1200)});
- $('#lawCloseCode').onclick=()=>$('#lawCodePanel').classList.add('hidden');
- $('#lawUndo').onclick=undo;$('#lawRedo').onclick=redo;
- $('#lawExport').onclick=()=>{if(current)location.href='/api/web/export?id='+encodeURIComponent(current.project.id)};
- $('#lawGithub').onclick=()=>{showPanel('services');$('#lawGithubRepo')?.focus()};$('#lawPublish').onclick=deployVercel;$('#lawOpenLive').onclick=()=>{const u=$('#lawOpenLive').dataset.url;if(u)window.open(u,'_blank')};
- $('#lawAssetAdd').onclick=()=>$('#lawAssetInput').click();$('#lawAttach').onclick=()=>$('#lawAssetInput').click();$('#lawGenerateAsset').onclick=generateAsset;
- $('#lawAssetInput').onchange=e=>{const f=e.target.files?.[0];if(f)addAsset(f);e.target.value=''};
- document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(!$('#lawCodePanel').classList.contains('hidden'))saveCode()}if(e.key==='Escape'){$('#lawSettingsModal').classList.add('hidden');$('#lawInspector').classList.add('hidden')}});
- setupVisualEditing();refreshIntegrations();loadProjects().catch(e=>toast(e.message));
+$('#lawComposer').addEventListener('submit',event=>{event.preventDefault();sendText(prompt.value);});
+prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText(prompt.value);}});
+document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
+async function initialize(){
+ try{
+  await ensureProject();
+  const rows=project.chat||[];
+  if(rows.length){
+   chat.innerHTML='';
+   rows.slice(-24).forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
+   message('Je suis prêt à continuer ce projet. Décris la prochaine modification ou écris « questionnaire » pour clarifier tes attentes.','assistant',['Améliore le rendu','Questionnaire','Publier le site']);
+   stage='ready';
+  }else{
+   chat.innerHTML='';
+   message('Bonjour ! Décris-moi le site que tu imagines. Je peux créer aussi bien un site simple qu’une expérience 3D premium avec un véritable site complet à droite.\n\nJe peux te guider avec un questionnaire précis. Veux-tu commencer par quelques questions, ou préfères-tu décrire directement ton idée ?','assistant',['Commencer le questionnaire','Créer un site vitrine simple','Créer un site 3D cinématique']);
+   stage='welcome';
+  }
+ }catch(error){message('Impossible de charger tes projets : '+error.message);}
 }
-setup();
+initialize();
