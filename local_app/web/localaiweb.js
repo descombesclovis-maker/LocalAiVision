@@ -187,9 +187,8 @@ async function sendText(value){
   const intent=detectIntent(text);
   if(intent==='new'){
    project=await api('/api/web/project/create',{name:'Mon nouveau site'});
-   brief={};questionIndex=0;stage='questions';preview();
-   message('Nouveau projet créé, sans toucher à tes autres sites. Je vais te poser des questions pour définir exactement ce que tu veux.');
-   askQuestion();return;
+   brief={};questionIndex=0;stage='welcome';preview();
+   message('Nouveau projet créé. Décris ton site, même avec un seul paragraphe. Je détecterai les seules précisions manquantes avant de créer la première version.');return;
   }
   if(intent==='projects'){await showProjects();return;}
   if(/^ouvrir\s+/i.test(text)&&await handleProjectOpen(text))return;
