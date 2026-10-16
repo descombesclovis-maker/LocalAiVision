@@ -152,6 +152,34 @@ async function restoreLast(){
  const d=await api('/api/web/version/restore',{id:project.project.id,version_id:versions[0].id});
  project=d;preview();message('J’ai restauré une version précédente. Regarde le site à droite.');
 }
+function renderBriefQuestion(result){
+ if(!result?.question)return;
+ stage='specification';
+ const q=result.question;
+ const step=(result.plan?.index||0)+1,total=(result.plan?.questions||[]).length;
+ message('Pour que ton site corresponde exactement à ta demande, il me manque une précision.\n'
+   +'Question '+step+' / '+total+' : '+q.question
+   +'\nRéponds librement ou choisis une proposition. Je ne génère pas le site avant d’avoir tes réponses.',
+   'assistant',q.choices||[]);
+}
+async function beginSpecification(text){
+ await ensureProject();
+ const result=await api('/api/web/brief/begin',{id:project.project.id,prompt:text});
+ if(result.ready){
+   stage='ready';
+   return generate(text);
+ }
+ renderBriefQuestion(result);
+}
+async function answerSpecification(text){
+ const result=await api('/api/web/brief/answer',{id:project.project.id,answer:text});
+ if(result.ready){
+   stage='ready';
+   message('Merci, toutes les précisions nécessaires sont réunies. Je passe à la réalisation du site. Les couleurs, les catégories et les fonctions demandées sont prioritaires.');
+   return generate(result.prompt);
+ }
+ renderBriefQuestion(result);
+}
 async function sendText(value){
  const text=String(value||prompt.value||'').trim();if(!text||busy)return;
  prompt.value='';message(text,'user');setBusy(true,'Je comprends ta demande…');
@@ -172,6 +200,12 @@ async function sendText(value){
   if(intent==='publish'){await publish();return;}
   if(intent==='export'){await exportSite();return;}
   if(intent==='restore'){await restoreLast();return;}
+  if(stage==='specification'){
+   await answerSpecification(text);return;
+  }
+  if(stage==='welcome'){
+   await beginSpecification(text);return;
+  }
   if(intent==='build'){await generate('Crée maintenant un site complet et cohérent suivant mes réponses. Produis toutes les pages et interactions réelles nécessaires, un design soigné, une navigation fluide, un responsive impeccable et un contenu utile.');return;}
   if(stage==='questions' && questionIndex<questions.length && !/^(?:modifie|remplace|corrige|ajoute|change)\b/i.test(text)){
    brief[questions[questionIndex].key]=text;questionIndex++;askQuestion();return;
@@ -196,6 +230,10 @@ async function initialize(){
    chat.innerHTML='';
    message('Bonjour ! Décris-moi le site que tu imagines. Je peux créer aussi bien un site simple qu’une expérience 3D premium avec un véritable site complet à droite.\n\nJe peux te guider avec un questionnaire précis. Veux-tu commencer par quelques questions, ou préfères-tu décrire directement ton idée ?','assistant',['Commencer le questionnaire','Créer un site vitrine simple','Créer un site 3D cinématique']);
    stage='welcome';
+  }
+  const unfinished=project.project?.generation_plan;
+  if(unfinished && !unfinished.ready && unfinished.questions?.length){
+   renderBriefQuestion({plan:unfinished,question:unfinished.questions[unfinished.index]});
   }
  }catch(error){message('Impossible de charger tes projets : '+error.message);}
 }
