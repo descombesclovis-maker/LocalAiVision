@@ -178,7 +178,7 @@ class LocalAiWebBackend(unittest.TestCase):
             snapshot = store.snapshot(pid, 'Base')
             store.write_files(pid, {'index.html': '<h1>changed</h1>'})
             restored = store.restore(pid, snapshot['id'])
-            self.assertIn('Ton prochain site', restored['files']['index.html'])
+            self.assertIn('La prévisualisation devrait apparaitre ici.', restored['files']['index.html'])
 
     def test_export_zip_contains_project_files(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -233,8 +233,9 @@ class LocalAiWebQuality(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             store = web_builder.LocalAiWebStore(folder, lambda *_: answer)
             project = store.create('Generator')
-            result = store.generate(project['project']['id'], 'make it better')
-            self.assertIn('<h1>ok</h1>', result['files']['index.html'])
+            with self.assertRaisesRegex(ValueError, 'Qualité insuffisante'):
+                store.generate(project['project']['id'], 'make it better')
+            self.assertIn('La prévisualisation devrait apparaitre ici.', store.text_files(project['project']['id'])['index.html'])
 
     def test_professional_settings_and_preflight(self):
         with tempfile.TemporaryDirectory() as folder:

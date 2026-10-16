@@ -26,7 +26,7 @@ class Cinematic3DTemplateTests(unittest.TestCase):
             store = web_builder.LocalAiWebStore(temp, lambda *_: '{}')
             plain = store.create('Site classique')
             immersive = store.create('Site 3D', template='cinematic3d')
-            self.assertIn('Ton prochain site', plain['files']['index.html'])
+            self.assertIn('La prévisualisation devrait apparaitre ici.', plain['files']['index.html'])
             self.assertNotIn('three@', plain['files']['index.html'])
             self.assertEqual(plain['project']['settings']['art_direction'], 'auto')
             self.assertIn('three@0.186.1', immersive['files']['index.html'])
