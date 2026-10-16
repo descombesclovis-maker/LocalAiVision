@@ -92,6 +92,12 @@ function projectBrief(){
 }
 async function generate(text){
  await ensureProject();
+ const needs3D=/\b(?:3d|webgl|three\.js|cin[eé]matique)\b/i.test(text+' '+(brief.style||'')+' '+(brief.visuals||''));
+ if(needs3D && project.project.template!=='cinematic3d' &&
+    (project.files?.['index.html']||'').includes('Ton prochain site commence ici.')){
+   project=await api('/api/web/project/create',{name:'Mon expérience 3D',template:'cinematic3d'});
+   preview();
+ }
  setBusy(true,'Je crée ton site et prépare l’aperçu…');
  const id=project.project.id;
  const existingBrief=projectBrief();
@@ -117,6 +123,7 @@ async function publish(){
  message('Je vérifie le site avant publication. La publication nécessite que Vercel soit installé et connecté sur cet ordinateur.');
  setBusy(true,'Vérification et mise en ligne…');
  try{
+  await api('/api/web/build',{id:project.project.id});
   const report=await api('/api/web/preflight?id='+encodeURIComponent(project.project.id));
   if(!report.ok){
    message('Publication suspendue : '+(report.blockers||[]).map(c=>c.label).join(', ')+'.\nÉcris « corrige les problèmes de publication » et je modifierai le site avant de réessayer.');return;
