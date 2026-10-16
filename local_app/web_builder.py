@@ -316,6 +316,40 @@ class LocalAiWebStore:
             raise ValueError("Le modèle n'a pas renvoyé le projet au format JSON attendu.")
         return json.loads(raw[a:b+1])
 
+    def brief_status(self, project_id):
+        meta = self.meta(project_id)
+        plan = meta.get('generation_plan') or {}
+        return {'plan': plan, 'question': web_briefing.pending_question(plan) if plan else None,
+                'ready': bool(plan.get('ready'))}
+
+    def brief_begin(self, project_id, prompt):
+        request = str(prompt or '').strip()
+        if not request: raise ValueError('Décris le site souhaité.')
+        plan = web_briefing.new_plan(request)
+        meta = self.meta(project_id)
+        meta['generation_plan'] = plan
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id, meta)
+        self.append_chat(project_id, 'user', request)
+        if plan['questions']:
+            q = web_briefing.pending_question(plan)
+            self.append_chat(project_id, 'assistant', q['question'])
+        return {'plan':plan, 'question':web_briefing.pending_question(plan), 'ready':plan['ready']}
+
+    def brief_answer(self, project_id, response):
+        meta = self.meta(project_id)
+        plan = meta.get('generation_plan') or {}
+        if not plan: raise ValueError('Aucun questionnaire en cours.')
+        web_briefing.answer_plan(plan, response)
+        meta['generation_plan'] = plan
+        meta['updated_at'] = time.time()
+        self.write_meta(project_id, meta)
+        self.append_chat(project_id, 'user', response)
+        question = web_briefing.pending_question(plan)
+        if question: self.append_chat(project_id, 'assistant', question['question'])
+        return {'plan':plan, 'question':question, 'ready':plan['ready'],
+                'prompt':web_briefing.full_prompt(plan) if plan['ready'] else None}
+
     def generate(self, project_id, prompt):
         prompt = str(prompt or '').strip()
         if not prompt: raise ValueError('Décris la modification ou le site à créer.')
