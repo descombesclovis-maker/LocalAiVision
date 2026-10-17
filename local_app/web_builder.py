@@ -325,6 +325,12 @@ class LocalAiWebStore:
             return {"ready":False,"status":"not_pro"}
         initial = meta.get("initial_generation") or {}
         state = initial.get("status")
+        if state == "claimed" and time.time()-float(initial.get("claimed_at") or 0)>1200:
+            state = "failed"
+            initial["status"] = "failed"
+            initial["error"] = "La génération précédente a été interrompue."
+            meta["initial_generation"] = initial
+            self.write_meta(project_id, meta)
         if state == "pending" or (retry and state == "failed"):
             initial["status"] = "claimed"
             initial["attempts"] = int(initial.get("attempts") or 0) + 1
@@ -344,6 +350,17 @@ class LocalAiWebStore:
         initial["finished_at"] = time.time()
         meta["initial_generation"] = initial
         self.write_meta(project_id, meta)
+
+    def authorize_pro_publication(self, project_id, confirmed=False):
+        if confirmed is not True:
+            raise ValueError("Confirmation explicite requise.")
+        meta = self.meta(project_id)
+        if meta.get("project_kind") != "pro":
+            raise ValueError("Ce projet n'est pas un projet Pro.")
+        meta["business_authorized"] = True
+        meta["business_authorized_at"] = time.time()
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
 
     def list_projects(self):
         out = []
