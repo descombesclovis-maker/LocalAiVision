@@ -32,7 +32,7 @@ class CodexExecCommandTests(unittest.TestCase):
             self.assertIn('--skip-git-repo-check',argv)
             self.assertNotIn('--full-auto',argv)
             self.assertIn('Créer mon site PawMood',argv[-1])
-            self.assertEqual(runner.call_args.kwargs['cwd'],Path(tmp))
+            self.assertEqual(runner.call_args.kwargs['cwd'].resolve(),Path(tmp).resolve())
 
     def test_other_agent_arguments_are_untouched(self):
         code=(ROOT/'local_app'/'integrations_cli.py').read_text(encoding='utf-8')
