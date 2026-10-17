@@ -356,6 +356,22 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         repair_count += 1
         report = code_quality_report(store, project_id, full_brief, integrations)
 
+    # An otherwise complete site should not be discarded because one or two
+    # visible English labels survived the general-purpose repair pass. Run one
+    # extra localization-only edit with the actual offending phrases.
+    remaining = report.get('findings', [])
+    if remaining and all(item.get('id') == 'english_ui' for item in remaining) and report.get('syntax', {}).get('ok'):
+        update("localization", "Traduction des derniers libellés visibles encore en anglais…")
+        agent(site,
+              "CORRECTION CIBLÉE : le site fonctionne, mais des textes visibles restent en anglais. "
+              "Modifie UNIQUEMENT les libellés de l'interface et leurs traductions. "
+              "Conserve l'identité, le style, toutes les fonctionnalités, le code technique et les couleurs. "
+              "Ne crée pas de site différent. Contrôle navigation, boutons, formulaires, galeries et titres.\n" +
+              "\n".join("- "+item.get('fix','') for item in remaining) +
+              "\n" + contract_text)
+        repair_count += 1
+        report = code_quality_report(store, project_id, full_brief, integrations)
+
     visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
               'screenshots': []}
     if report['ok']:
