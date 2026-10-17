@@ -79,6 +79,33 @@ jobs:
             --add-data "Isolated HY-OmniWeaving I2V.json;." ^
             local_app\launcher.py
 
+      - name: Smoke test native EXE and extracted Python DLL
+        shell: powershell
+        run: |
+          $env:LOCALVISIONAI_SKIP_SETUP = "1"
+          $env:LOCALVISIONAI_UPDATE_SMOKE = "1"
+          $target = (Resolve-Path "dist\LocalVisionAI.exe").Path
+          $proc = Start-Process -FilePath $target -PassThru
+          try {
+            $healthy = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              Start-Sleep -Seconds 1
+              $proc.Refresh()
+              if ($proc.HasExited) { throw "Frozen EXE exited with code $($proc.ExitCode) (possible python311.dll extraction failure)." }
+              try {
+                $ping = Invoke-RestMethod "http://127.0.0.1:3000/api/ping" -TimeoutSec 2
+                if ($ping.app -eq "LocalVisionAI" -and $ping.build_tag -eq "build-$env:GITHUB_RUN_NUMBER") {
+                  $healthy = $true
+                  break
+                }
+              } catch { }
+            }
+            if (-not $healthy) { throw "Frozen EXE failed the HTTP/bootstrap health check." }
+            Write-Host "Frozen EXE and extracted Python runtime are healthy."
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Package
         shell: powershell
         run: |
