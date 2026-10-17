@@ -66,7 +66,7 @@ class SafeWritebackTests(unittest.TestCase):
     def test_failed_readonly_fallback_is_not_reported_as_success(self):
         with tempfile.TemporaryDirectory() as directory:
             site=Path(directory);(site/'index.html').write_text(PLACEHOLDER_HTML)
-            def mocked(args,cwd=None,timeout=900):
+            def mocked(args,cwd=None,timeout=900,input_text=None):
                 if '--output-last-message' in args:
                     Path(args[args.index('--output-last-message')+1]).write_text('No code generated')
                 return type('Result',(),{'returncode':0,'stdout':'done','stderr':''})()
