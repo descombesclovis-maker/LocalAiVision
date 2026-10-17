@@ -1151,6 +1151,14 @@ def _web_generate_image_asset(project_id, prompt):
     if not prompt:
         raise ValueError("Décris l'image à générer.")
     preferred = os.getenv("LOCALAIWEB_IMAGE_WORKFLOW", "").strip()
+    # An imported FLUX.2 Klein T2I workflow is discovered automatically, but
+    # an explicitly chosen workflow takes priority. SDXL always remains fallback.
+    if not preferred:
+        for file in sorted(IMPORTED.glob("*.json")):
+            label = file.stem.lower().replace("_", "").replace("-", "")
+            if "flux" in label and "klein" in label and any(x in label for x in ("text", "t2i", "image")):
+                preferred = "imported/" + file.name
+                break
     workflows_to_try = [preferred, 'text to image sdxl.json'] if preferred else ['text to image sdxl.json']
     result = None
     first_error = None
