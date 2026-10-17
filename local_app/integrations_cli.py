@@ -142,7 +142,12 @@ def build_project(site_dir):
     installed = _run(install_args, cwd=site, timeout=900)
     if installed.returncode != 0:
         raise RuntimeError((installed.stderr or installed.stdout or "npm install impossible").strip()[-5000:])
-    built = _run([npm, "run", "build"], cwd=site, timeout=900)
+    build_args = [npm, "run", "build"]
+    # Preview is hosted at /web-preview/<project>/; absolute /assets would
+    # incorrectly point at the editor's own bundled files.
+    if "vite build" in str(scripts.get("build", "")) and "--base" not in str(scripts.get("build", "")):
+        build_args += ["--", "--base=./"]
+    built = _run(build_args, cwd=site, timeout=900)
     if built.returncode != 0:
         raise RuntimeError((built.stderr or built.stdout or "npm run build impossible").strip()[-5000:])
     candidates = [site / "dist", site / "build", site / "out", site / ".next" / "static"]
@@ -164,6 +169,8 @@ def validate_site(site_dir):
         for path in sorted(site.rglob("*")):
             if checked >= 80:
                 break
+            if any(part in ("node_modules", ".git", ".next", ".cache") for part in path.relative_to(site).parts):
+                continue
             if path.is_file() and path.suffix.lower() in (".js", ".mjs", ".cjs"):
                 checked += 1
                 result = _run([node, "--check", str(path)], cwd=site, timeout=30)
