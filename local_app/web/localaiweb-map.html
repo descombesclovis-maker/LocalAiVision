@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#100f19"><title>LocalAiWeb Pro — Choisir une entreprise</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="/assets/localaiweb-map.css">
+</head>
+<body>
+<header class="map-topbar">
+  <a class="map-return" href="/localaiweb" aria-label="Retour à la bibliothèque">← Mes projets</a>
+  <div class="map-brand"><span class="brand-star">✦</span><div><strong>LocalAiWeb <em>Pro</em></strong><small>Création depuis une entreprise</small></div></div>
+  <div class="map-info">Carte OpenStreetMap</div>
+</header>
+<main class="map-layout">
+  <aside class="map-panel">
+    <div class="eyebrow">01 / TROUVER L'ÉTABLISSEMENT</div>
+    <h1>Choisis l'entreprise.<br><span>L'IA crée le site.</span></h1>
+    <p>Recherche un établissement ou une ville, ou déplace la carte pour explorer les entreprises à proximité.</p>
+    <form id="mapSearchForm" class="search-box">
+      <label class="sr-only" for="mapQuery">Nom de l'entreprise ou ville</label>
+      <input id="mapQuery" type="search" minlength="3" maxlength="100" placeholder="Ex. : salon de toilettage Dijon" required autocomplete="off">
+      <button id="mapSearchBtn" type="submit" aria-label="Rechercher sur la carte">⌕</button>
+    </form>
+    <button id="mapNearby" class="nearby" type="button"><span aria-hidden="true">⌖</span> Afficher les établissements dans cette zone</button>
+    <div class="results-head"><strong>Résultats</strong><span id="mapResultsCount"></span></div>
+    <div id="mapFeedback" role="status" aria-live="polite">Saisis une recherche ou explore la carte.</div>
+    <div id="mapResults" class="results"></div>
+    <section id="mapSelection" class="selection" hidden aria-labelledby="selectionTitle">
+      <span class="selected-label">ÉTABLISSEMENT SÉLECTIONNÉ</span>
+      <h2 id="selectionTitle"></h2>
+      <p id="selectionAddress"></p>
+      <p id="selectionCategory"></p>
+      <button id="mapCreate" type="button" class="create-site">✦ Créer la première maquette <span>↗</span></button>
+      <p class="disclaimer">Création d'une maquette privée et non officielle. Les informations de la carte devront être vérifiées avant une éventuelle publication.</p>
+      <div id="mapCreateError" role="alert"></div>
+    </section>
+  </aside>
+  <section class="map-viewport" aria-label="Carte interactive des entreprises">
+    <div id="businessMap" role="application" aria-label="Carte OpenStreetMap : déplacer et zoomer pour choisir une zone"></div>
+    <div class="map-hint" aria-hidden="true">Déplace la carte, puis affiche les établissements de la zone.</div>
+    <div class="map-provider" id="mapProviderInfo">Données cartographiques © contributeurs OpenStreetMap</div>
+    <div id="mapUnavailable" class="map-unavailable" hidden>La carte ne peut pas être chargée. Vérifie ta connexion Internet, puis rouvre cette page.</div>
+  </section>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/assets/localaiweb-map.js"></script>
+</body></html>
