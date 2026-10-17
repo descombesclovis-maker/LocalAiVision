@@ -11,6 +11,10 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 import threading
+import os
+import shutil
+import subprocess
+import tempfile
 
 
 class QuietHandler(SimpleHTTPRequestHandler):
@@ -57,9 +61,7 @@ def review(site_dir, *, build=None):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        return {"status": "unavailable", "issues": [],
-                "detail": "Playwright Python n'est pas installé. Analyse visuelle non exécutée.",
-                "screenshots": [], "reviewed": False}
+        return _browser_binary_review(root, site)
     folder = site / ".localaiweb-qa"
     folder.mkdir(parents=True, exist_ok=True)
     results, issues = [], []
@@ -103,6 +105,67 @@ def review(site_dir, *, build=None):
                 "screenshots": [], "reviewed": False}
     return {"status": "passed" if not issues else "failed", "issues": issues,
             "screenshots": results, "reviewed": True}
+
+
+def _find_chromium():
+    for name in ("msedge.exe", "chrome.exe", "chromium.exe", "msedge", "google-chrome", "chromium"):
+        value = shutil.which(name)
+        if value:
+            return value
+    if os.name == "nt":
+        bases = [os.getenv("PROGRAMFILES", ""), os.getenv("PROGRAMFILES(X86)", ""),
+                 os.getenv("LOCALAPPDATA", "")]
+        for base in bases:
+            if not base:
+                continue
+            for rel in ("Microsoft/Edge/Application/msedge.exe",
+                        "Google/Chrome/Application/chrome.exe"):
+                path = Path(base) / rel
+                if path.is_file():
+                    return str(path)
+    return None
+
+
+def _browser_binary_review(root, site):
+    """Windows Edge/Chrome screenshots without installing Python Playwright.
+
+    This is screenshot-only, not a successful functional browser test.
+    """
+    binary = _find_chromium()
+    if not binary:
+        return {"status": "unavailable", "issues": [],
+                "detail": "Ni Playwright ni Edge/Chrome headless n'est disponible.",
+                "screenshots": [], "reviewed": False}
+    folder = site / ".localaiweb-qa"
+    folder.mkdir(parents=True, exist_ok=True)
+    images = []
+    try:
+        with serve(root) as url, tempfile.TemporaryDirectory(prefix="localaiweb-browser-") as profile:
+            for name, width, height in (("ordinateur", 1440, 900),
+                                         ("tablette", 820, 1050),
+                                         ("telephone", 390, 844)):
+                dest = folder / (name + ".png")
+                if dest.exists():
+                    dest.unlink()
+                args = [binary, "--headless=new", "--disable-extensions",
+                        "--no-first-run", "--no-default-browser-check",
+                        "--hide-scrollbars", "--virtual-time-budget=2200",
+                        "--user-data-dir=" + profile,
+                        "--window-size=%d,%d" % (width, height),
+                        "--screenshot=" + str(dest), url]
+                result = subprocess.run(args, capture_output=True, timeout=45,
+                                        check=False, text=True, errors="replace")
+                if result.returncode or not dest.is_file() or dest.stat().st_size < 512:
+                    raise RuntimeError((result.stderr or result.stdout or "Capture introuvable")[-300:])
+                images.append({"mode": name, "path": ".localaiweb-qa/" + dest.name,
+                               "text_length": None, "page_errors": []})
+        return {"status": "captured", "issues": [],
+                "detail": "Captures Edge/Chrome disponibles ; analyse visuelle déléguée à l'agent.",
+                "screenshots": images, "reviewed": True}
+    except Exception as exc:
+        return {"status": "unavailable", "issues": [],
+                "detail": "Capture navigateur impossible : " + str(exc)[:230],
+                "screenshots": [], "reviewed": False}
 
 
 def creative_review_prompt(request, browser):
