@@ -1660,6 +1660,13 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error": str(exc)}, 400)
             return
+        if u.path == "/api/web/project/pro/authorize":
+            try:
+                self.send_json(_web_store().authorize_pro_publication(
+                    body.get("id"), confirmed=body.get("confirmed") is True))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/web/project/auto-claim":
             try:
                 result = _web_store().claim_initial_generation(
@@ -1778,6 +1785,9 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/github/publish":
             try:
                 store = _web_store()
+                if (store.meta(body.get("id")).get("project_kind") == "pro" and
+                        not store.meta(body.get("id")).get("business_authorized")):
+                    raise ValueError("Publication Pro interdite sans autorisation de l'entreprise confirmée.")
                 site = store.project_dir(body.get("id")) / "site"
                 result = integrations_cli.github_publish(site, body.get("repo"), body.get("branch") or "main", body.get("private", True))
                 self.send_json(result)
@@ -1817,6 +1827,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 store = _web_store()
                 project_id = body.get("id")
+                if (store.meta(project_id).get("project_kind") == "pro" and
+                        not store.meta(project_id).get("business_authorized")):
+                    raise ValueError("Publication Pro interdite sans autorisation de l'entreprise confirmée.")
                 qa = (store.meta(project_id).get("last_agent_quality") or {})
                 if qa and (qa.get("ok") is False or qa.get("visual") == "failed"):
                     raise ValueError(
