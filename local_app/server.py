@@ -172,47 +172,126 @@ def _write_update_helper(staged):
   [int]$ParentPid,
   [string]$CurrentExe,
   [string]$NewExe,
-  [string]$LogPath
+  [string]$LogPath,
+  [string]$ExpectedBuild
 )
 $ErrorActionPreference = "Stop"
+$backup = "$CurrentExe.previous"
+$incoming = "$CurrentExe.incoming"
+$failed = "$CurrentExe.failed"
+$newProcess = $null
+$replaced = $false
+
 function Write-UpdateLog([string]$Text) {
-  $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-  Add-Content -LiteralPath $LogPath -Value "[$stamp] $Text" -Encoding UTF8
+  try {
+    $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logFolder = Split-Path -Parent $LogPath
+    New-Item -ItemType Directory -Path $logFolder -Force | Out-Null
+    Add-Content -LiteralPath $LogPath -Value "[$stamp] $Text" -Encoding UTF8
+  } catch { }
 }
+
 try {
-  Write-UpdateLog "Waiting for LocalVisionAI process $ParentPid"
-  Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
-  Start-Sleep -Milliseconds 700
-  $backup = "$CurrentExe.previous"
+  Write-UpdateLog "Updater started. Target build: $ExpectedBuild"
+  if (-not (Test-Path -LiteralPath $NewExe -PathType Leaf)) {
+    throw "Fichier EXE telecharge introuvable."
+  }
+  $expectedLength = (Get-Item -LiteralPath $NewExe).Length
+  if ($expectedLength -lt 5MB) { throw "Fichier EXE telecharge trop petit." }
+  $expectedHash = (Get-FileHash -LiteralPath $NewExe -Algorithm SHA256).Hash
+  # Always copy to the installation volume before swapping executable paths.
+  # An interrupted Copy-Item cannot leave the installation half-written.
+  Remove-Item -LiteralPath $incoming -Force -ErrorAction SilentlyContinue
+  Copy-Item -LiteralPath $NewExe -Destination $incoming -Force
+  if ((Get-Item -LiteralPath $incoming).Length -ne $expectedLength) {
+    throw "Copie locale incomplete avant remplacement."
+  }
+  if ((Get-FileHash -LiteralPath $incoming -Algorithm SHA256).Hash -ne $expectedHash) {
+    throw "SHA256 different apres copie locale."
+  }
+  Write-UpdateLog "Staged EXE verified: $expectedLength bytes, SHA256 $expectedHash"
+
+  # Wait for the old frozen bootloader process to release LocalVisionAI.exe.
+  if ($ParentPid -gt 0) {
+    Wait-Process -Id $ParentPid -Timeout 120 -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Milliseconds 900
+  if (-not (Test-Path -LiteralPath $CurrentExe -PathType Leaf)) {
+    throw "Ancien executable absent ; abandon pour proteger les donnees."
+  }
+  # Only clear an older .previous after the new staged binary has been verified.
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
-  $replaced = $false
-  for ($i = 0; $i -lt 30 -and -not $replaced; $i++) {
+  $swapped = $false
+  for ($i = 0; $i -lt 35 -and -not $swapped; $i++) {
     try {
-      if (Test-Path -LiteralPath $CurrentExe) {
-        Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
+      Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
+      try {
+        Move-Item -LiteralPath $incoming -Destination $CurrentExe -Force
+        $swapped = $true
+        $replaced = $true
+      } catch {
+        Move-Item -LiteralPath $backup -Destination $CurrentExe -Force
+        throw
       }
-      Copy-Item -LiteralPath $NewExe -Destination $CurrentExe -Force
-      $replaced = $true
     } catch {
-      if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $CurrentExe)) {
-        Move-Item -LiteralPath $backup -Destination $CurrentExe -Force -ErrorAction SilentlyContinue
-      }
-      Start-Sleep -Milliseconds 500
+      Start-Sleep -Milliseconds 400
     }
   }
-  if (-not $replaced) { throw "Impossible de remplacer LocalVisionAI.exe après plusieurs tentatives." }
-  if ((Get-Item -LiteralPath $CurrentExe).Length -lt 5MB) { throw "Le nouvel EXE est anormalement petit." }
-  Write-UpdateLog "Update installed; restarting $CurrentExe"
-  Start-Process -FilePath $CurrentExe
-  Start-Sleep -Seconds 3
+  if (-not $swapped) { throw "Remplacement impossible : executable encore ouvert." }
+  if ((Get-FileHash -LiteralPath $CurrentExe -Algorithm SHA256).Hash -ne $expectedHash) {
+    throw "SHA256 different apres installation."
+  }
+  Write-UpdateLog "EXE replaced; launching and waiting for expected build health check."
+
+  $newProcess = Start-Process -FilePath $CurrentExe -WorkingDirectory (Split-Path -Parent $CurrentExe) -PassThru
+  $healthy = $false
+  for ($i = 0; $i -lt 90; $i++) {
+    Start-Sleep -Seconds 1
+    $newProcess.Refresh()
+    if ($newProcess.HasExited) {
+      throw "Nouvel executable quitte immediatement (code $($newProcess.ExitCode)). DLL PyInstaller ou dependance peut-etre indisponible."
+    }
+    try {
+      $ping = Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/ping" -TimeoutSec 2
+      if ($ping.app -eq "LocalVisionAI" -and $ping.build_tag -eq $ExpectedBuild) {
+        $healthy = $true
+        break
+      }
+    } catch { }
+  }
+  if (-not $healthy) {
+    throw "Nouvelle version non operationnelle : verification HTTP/build echouee apres 90 secondes."
+  }
+  Write-UpdateLog "Update confirmed healthy: $ExpectedBuild. Keeping project and model data unchanged."
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
 } catch {
   Write-UpdateLog ("Update failed: " + $_.Exception.Message)
   try {
-    if ((Test-Path -LiteralPath "$CurrentExe.previous") -and -not (Test-Path -LiteralPath $CurrentExe)) {
-      Move-Item -LiteralPath "$CurrentExe.previous" -Destination $CurrentExe -Force
+    if ($newProcess) {
+      $newProcess.Refresh()
+      if (-not $newProcess.HasExited) {
+        Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 800
+      }
     }
-  } catch {}
+  } catch { }
+  if ($replaced -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
+    try {
+      # Retain the failed build separately for diagnostics, then revert.
+      Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
+      if (Test-Path -LiteralPath $CurrentExe) {
+        Move-Item -LiteralPath $CurrentExe -Destination $failed -Force
+      }
+      Move-Item -LiteralPath $backup -Destination $CurrentExe -Force
+      Write-UpdateLog "Rollback successful. Restarting prior installed version."
+      Start-Process -FilePath $CurrentExe -WorkingDirectory (Split-Path -Parent $CurrentExe)
+    } catch {
+      Write-UpdateLog ("Automatic rollback failed: " + $_.Exception.Message)
+    }
+  }
+} finally {
+  Remove-Item -LiteralPath $incoming -Force -ErrorAction SilentlyContinue
 }
 ''', encoding='utf-8')
     return script, current, log
@@ -246,6 +325,7 @@ def install_latest_update():
                 '-CurrentExe', str(current_exe),
                 '-NewExe', str(staged),
                 '-LogPath', str(log),
+                '-ExpectedBuild', latest_tag,
             ],
             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
         )
@@ -1301,7 +1381,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         if u.path == "/api/ping":
-            self.send_json({"app": "LocalVisionAI", "version": VERSION})
+            self.send_json({"app": "LocalVisionAI", "version": VERSION,
+                            "build_tag": build_info().get("build_tag")})
             return
         if u.path == "/api/health":
             online, detail = comfy_online()
