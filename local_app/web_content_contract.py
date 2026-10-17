@@ -66,6 +66,33 @@ def specification(request, project_name=""):
         "needs_photos":bool(re.search(r"\b(?:vrai\w* photo\w*|photograph\w*|photo\w* d.animaux|photo\w*)\b",text)),
     }
 
+def project_request(store, project_id, latest):
+    """Preserve the original activity during later prompts like 'make it prettier'.
+
+    The first substantial user brief or the saved pre-generation brief is treated
+    as the ongoing contract, unless the user explicitly asks to start over.
+    """
+    request=str(latest or '').strip()
+    if re.search(r"\\b(?:change compl[eè]tement de secteur|change d'activit[eé]|nouveau cahier des charges)\\b",
+                 request,re.I):
+        return request
+    meta=store.meta(project_id)
+    plan=meta.get('generation_plan') or {}
+    original=str(plan.get('original') or '').strip()
+    if not original:
+        for entry in store.chat_history(project_id):
+            if entry.get('role')!='user':continue
+            candidate=str(entry.get('text') or '').strip()
+            if len(candidate)>=65 and (
+                re.search(r"\\b(?:site|boutique|application|salon|toilett\\w*|commerce)\\b",
+                          normalize(candidate))):
+                original=candidate
+                break
+    if not original or original==request:return request
+    return ('CAHIER DES CHARGES INITIAL À PRÉSERVER :\\n'+original+
+            '\\n\\nDEMANDE ACTUELLE POUR MODIFIER LE SITE :\\n'+request)
+
+
 def agent_instructions(spec):
     colors=", ".join(spec["colors"]) if spec["colors"] else "selon le brief"
     parts=[
