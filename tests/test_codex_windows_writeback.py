@@ -20,7 +20,9 @@ class SafeWritebackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             site=Path(directory)
             (site/'index.html').write_text(PLACEHOLDER_HTML,encoding='utf-8')
-            def direct(args,cwd=None,timeout=900):
+            def direct(args,cwd=None,timeout=900,input_text=None):
+                self.assertEqual(args[-1],'-')
+                self.assertIn('PawMood',input_text)
                 (site/'index.html').write_text(REAL_HTML,encoding='utf-8')
                 return type('Result',(),{'returncode':0,'stdout':'done','stderr':''})()
             with patch.object(integrations_cli,'_codex_cmd',return_value=['codex.cmd']), \
@@ -37,8 +39,8 @@ class SafeWritebackTests(unittest.TestCase):
             (site/'assets').mkdir()
             (site/'assets'/'product.png').write_bytes(b'original')
             commands=[]
-            def mocked(args,cwd=None,timeout=900):
-                commands.append(list(args))
+            def mocked(args,cwd=None,timeout=900,input_text=None):
+                commands.append((list(args),input_text))
                 if '--output-last-message' in args:
                     target=Path(args[args.index('--output-last-message')+1])
                     target.write_text(json.dumps({'files':{
@@ -51,8 +53,12 @@ class SafeWritebackTests(unittest.TestCase):
                  patch.object(integrations_cli,'_run',side_effect=mocked):
                 result=integrations_cli.codex_apply(site,'Crée PawMood')
             self.assertEqual(len(commands),2)
-            self.assertIn('workspace-write',commands[0])
-            self.assertIn('read-only',commands[1])
+            self.assertIn('workspace-write',commands[0][0])
+            self.assertEqual(commands[0][0][-1],'-')
+            self.assertIn('PawMood',commands[0][1])
+            self.assertIn('read-only',commands[1][0])
+            self.assertEqual(commands[1][0][-1],'-')
+            self.assertIn('USER REQUEST:',commands[1][1])
             self.assertEqual(result['method'],'validated-writeback')
             self.assertIn('PawMood',(site/'index.html').read_text())
             self.assertEqual((site/'assets'/'product.png').read_bytes(),b'original')
@@ -60,7 +66,7 @@ class SafeWritebackTests(unittest.TestCase):
     def test_failed_readonly_fallback_is_not_reported_as_success(self):
         with tempfile.TemporaryDirectory() as directory:
             site=Path(directory);(site/'index.html').write_text(PLACEHOLDER_HTML)
-            def mocked(args,cwd=None,timeout=900):
+            def mocked(args,cwd=None,timeout=900,input_text=None):
                 if '--output-last-message' in args:
                     Path(args[args.index('--output-last-message')+1]).write_text('No code generated')
                 return type('Result',(),{'returncode':0,'stdout':'done','stderr':''})()
