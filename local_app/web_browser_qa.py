@@ -100,8 +100,11 @@ def review(site_dir, *, build=None):
             finally:
                 browser.close()
     except Exception as exc:
+        fallback = _browser_binary_review(root, site)
+        if fallback["reviewed"]:
+            return fallback
         return {"status": "unavailable", "issues": [],
-                "detail": "Navigateur Playwright indisponible : " + str(exc)[:230],
+                "detail": "Navigateur Playwright indisponible : " + str(exc)[:200],
                 "screenshots": [], "reviewed": False}
     return {"status": "passed" if not issues else "failed", "issues": issues,
             "screenshots": results, "reviewed": True}
