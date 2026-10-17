@@ -60,6 +60,7 @@ jobs:
             --hidden-import local_app.web_builder ^
             --hidden-import local_app.web_briefing ^
             --hidden-import local_app.web_hybrid ^
+            --hidden-import local_app.web_content_contract ^
             --hidden-import local_app.web_codex_writeback ^
             --hidden-import local_app.web_browser_qa ^
             --hidden-import local_app.integrations_cli ^

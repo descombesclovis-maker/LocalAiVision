@@ -359,6 +359,9 @@ class LocalAiWebStore:
         context = json.dumps({'files': current, 'assets': self.assets(project_id)}, ensure_ascii=False)
         if len(context) > 90000: context = context[:90000]
         project_meta = self.meta(project_id)
+        from local_app import web_content_contract
+        full_brief = web_content_contract.project_request(self, project_id, prompt)
+        exact_spec = web_content_contract.specification(full_brief, project_meta.get('name',''))
         project_settings = project_meta.get('settings') or {}
         project_design = project_meta.get('design') or {}
         requirements = (
@@ -405,6 +408,7 @@ class LocalAiWebStore:
             'Include meaningful visual hierarchy, responsive grids, professional typography, '
             'responsive navigation, polished original copy, and coherent page composition.'
         )
+        system += '\n' + web_content_contract.agent_instructions(exact_spec)
         if agent_context:
             system += '\nADDITIONAL AUTOMATED CREATIVE ASSET MANIFEST:\n' + str(agent_context)[:12000]
         answer = self.llm_generate(system, context, prompt)
@@ -413,7 +417,8 @@ class LocalAiWebStore:
         if not isinstance(files, dict) or 'index.html' not in files:
             raise ValueError("Le modèle n'a pas produit un index.html exploitable.")
         # Hold candidate in memory until structural and contractual checks pass.
-        contract = web_briefing.audit(files, prompt)
+        contract = web_briefing.audit(files, full_brief)
+        contract.extend(web_content_contract.check(files,exact_spec))
         if contract:
             fail_text = '\n'.join('- '+x['fix'] for x in contract)
             repair_request = (
@@ -425,7 +430,8 @@ class LocalAiWebStore:
             candidate = self._extract_json(revised).get('files')
             if isinstance(candidate,dict) and 'index.html' in candidate:
                 files.update(candidate)
-                contract = web_briefing.audit(files,prompt)
+                contract = web_briefing.audit(files,full_brief)
+                contract.extend(web_content_contract.check(files,exact_spec))
         if contract:
             reason = '; '.join(x['id'] for x in contract[:6])
             raise ValueError('Qualité insuffisante : '+reason+'. Aucune maquette non conforme n’a été appliquée. Précise les ressources ou réessaie.')

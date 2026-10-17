@@ -71,12 +71,11 @@ class HybridVisualTests(unittest.TestCase):
             class Checks:
                 @staticmethod
                 def validate_site(site):return {'ok':True,'issues':[]}
-            output=web_hybrid.build_with_agent(
-                store,pid,self.REQUEST,agent,Checks,{'generated':[],'notes':[]})
+            with self.assertRaisesRegex(RuntimeError,'Site refusé'):
+                web_hybrid.build_with_agent(
+                    store,pid,self.REQUEST,agent,Checks,{'generated':[],'notes':[]})
             self.assertEqual(len(created),2)
-            self.assertFalse(output['hybrid_validation']['ok'])
-            self.assertTrue(output['hybrid_validation']['findings'])
-            self.assertEqual(output['provider'] if 'provider' in output else 'unknown','unknown')
+            self.assertIn(web_briefing.WAITING_MESSAGE,store.text_files(pid)['index.html'])
 
 
 if __name__ == '__main__':

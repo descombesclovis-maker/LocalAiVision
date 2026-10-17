@@ -19,7 +19,11 @@ def has(pattern, value):
 
 def infer(request):
     text = plain(request)
-    shop = has(r'\b(boutique|commerce|e-?commerce|produits?|catalogue|panier|achete|vente|store|shop)\b', text)
+    # A grooming salon can have a boutique front desk without being an
+    # e-commerce shop. Do not demand invented product catalogues in that case.
+    service_salon=has(r'\b(toilett\w*|toiletage|grooming|salon de coiffure)\b', text)
+    strong_shop=has(r'\b(commerce|e-?commerce|produits?|catalogue|panier|achete|vente|store|shop)\b', text)
+    shop = strong_shop or (not service_salon and has(r'\bboutique\b',text))
     spectacular = has(r'\b(exceptionnel|epoustoufl|spectacul|premium|lux|artistique|cinemati|immersi|wow|impressionn|revolutionn)\w*', text)
     visual3d = has(r'\b(3d|three\.?js|webgl|modele 3d|objet 3d)\b', text)
     chosen_images = has(r'\b(photo|photograph|illustration|image|video|glb|hdr|visuel)\w*', text) or visual3d

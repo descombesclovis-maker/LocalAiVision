@@ -48,6 +48,10 @@ CLOUD_MODEL = "gpt-image-1"
 def semantic_subject(request):
     text = str(request or "").lower()
     domains = (
+        (r'toilett|toiletage|grooming|salon\s+canin', (
+            'realistic editorial photo of a freshly groomed happy dog in a clean animal grooming salon',
+            'realistic close-up portrait of a freshly groomed dog with healthy brushed fur',
+            'realistic freshly groomed cat with shiny coat in a calm salon setting')),
         (r'p[eê]ch|poisson|app[aâ]t|canne|leurre', ('premium fishing accessories', 'precision fishing reel', 'handcrafted fishing lure')),
         (r'parfum|fragrance', ('luxury perfume campaign', 'minimalist perfume bottle', 'glass perfume atomizer')),
         (r'montre|horlog', ('luxury watch campaign', 'precision stainless steel watch', 'premium watch dial')),
@@ -76,14 +80,20 @@ def visual_plan(request, *, existing=()):
         return []
     subjects = semantic_subject(request)
     shop = info["shop"]
+    from local_app import web_content_contract
+    groom=web_content_contract.specification(request)["grooming"]
     importance = "premium" if info["spectacular"] else "professional"
-    roles = ("hero", "product-one", "product-two") if shop else ("hero",)
+    # A dog groomer needs salon and pet images, never generic skincare or office mockups.
+    roles = ("hero","groomed-dog","groomed-cat") if groom else (
+        ("hero", "product-one", "product-two") if shop else ("hero",))
     brief = str(request)[:1100]
     plans = []
     for index, role in enumerate(roles[:MAX_AUTOMATIC_IMAGES]):
         subject = subjects[min(index, len(subjects) - 1)]
         composition = ("wide horizontal hero art direction, room for overlaid headline, artistic environmental scene"
                        if role == "hero" else
+                       "authentic-looking natural animal salon photography, animal-friendly environment, real fur textures"
+                       if groom else
                        "clean premium e-commerce product photography, centered main object, seamless studio background")
         plans.append({
             "role": role,
@@ -184,8 +194,12 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
             "notes": notes, "ready": bool(generated)}
 
 
-def developer_brief(request, visuals):
+def developer_brief(request, visuals, project_name=''):
+    from local_app import web_content_contract
+    spec=web_content_contract.specification(request, project_name)
     lines = [
+        web_content_contract.agent_instructions(spec),
+        "",
         "You are building a real product, not an HTML mockup. User request takes priority:",
         request,
         "",
@@ -207,6 +221,11 @@ def developer_brief(request, visuals):
         "Do not force 3D into simple sites. Never claim photo-to-3D without a geometry pipeline.",
         "PRODUCTION: If using React, prefer Vite SPA build with dist/index.html; the local preview must be fully functional. Build/run/check the site, respect reduced motion and accessibility, never fake payment/auth.",
         "Do not copy proprietary templates; create an original high-quality visual identity.",
+        "IMPORTANT: User-facing text must be strictly French; HTML lang=fr. "
+        "Never replace a client grooming salon with an unrelated SaaS template.",
+        "If the user requests genuine client before/after photos, use only client-provided "
+        "licensed photos as actual client work. AI-generated illustrations are NOT actual "
+        "customer transformations and must be labeled as illustration.",
     ])
     return "\n".join(lines)
 
@@ -222,7 +241,10 @@ def asset_manifest(visuals):
 
 def contract_repair_prompt(original_request, findings):
     return (
-        "FIX THE CURRENT WEBSITE IN PLACE. Do not discard any approved features. "
+        "FIX THE CURRENT WEBSITE IN PLACE. The site must be 100% in French (fr-FR), "
+        "must retain the business activity, brand identity and requested sections. "
+        "Do not substitute a generic English startup or productivity product. "
+        "Do not discard any approved features. "
         "The project was checked against the user specification and failed these tests:\n"
         + "\n".join("- " + f["fix"] for f in findings[:12])
         + "\nKeep the requested palette, brand name, pages, search and categories. "
@@ -233,9 +255,11 @@ def contract_repair_prompt(original_request, findings):
 
 def code_quality_report(store, project_id, request, integrations):
     """Check real build output; never rate visual beauty without inspecting a screenshot."""
-    from local_app import web_briefing
+    from local_app import web_briefing, web_content_contract
     site = store.project_dir(project_id) / 'site'
     files = store.text_files(project_id)
+    spec = web_content_contract.specification(request, store.meta(project_id).get('name', ''))
+    contract_issues = web_content_contract.check(files, spec)
     syntax = integrations.validate_site(site)
     if (site / 'package.json').is_file():
         try:
@@ -271,6 +295,7 @@ def code_quality_report(store, project_id, request, integrations):
         build = {'ok': True, 'kind': 'static'}
         findings = web_briefing.audit(files, request)
         structural = store.preflight(project_id)
+    findings.extend(contract_issues)
     return {'ok': not findings and syntax['ok'] and structural['ok'],
             'findings': findings, 'syntax': syntax,
             'preflight': structural, 'build': build}
@@ -284,7 +309,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     The source of truth remains the project's real files.
     """
     import time
-    from local_app import web_browser_qa
+    from local_app import web_browser_qa, web_content_contract
     def update(phase, message):
         if progress:
             progress(phase, message)
@@ -297,7 +322,12 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         with ignore.open('a', encoding='utf-8') as stream:
             stream.write('\n.localaiweb-qa/\n')
 
-    instruction = developer_brief(user_prompt, visuals)
+    original_files=store.text_files(project_id)
+    spec_name=store.meta(project_id).get('name', '')
+    full_brief=web_content_contract.project_request(store,project_id,user_prompt)
+    contract_text=web_content_contract.agent_instructions(
+        web_content_contract.specification(full_brief,spec_name))
+    instruction = developer_brief(full_brief, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
     instruction += (
         '\nAGENT PROCESS: Plan the visual structure and design system first. '
@@ -313,7 +343,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     update("building", "L'agent construit le site et ses fonctionnalités…")
     result = agent(site, instruction)
     update("verification", "Compilation et contrôles du site produit…")
-    report = code_quality_report(store, project_id, user_prompt, integrations)
+    report = code_quality_report(store, project_id, full_brief, integrations)
     repair_count = 0
 
     if not report['ok']:
@@ -322,9 +352,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
         update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
-        agent(site, contract_repair_prompt(user_prompt, findings))
+        agent(site, contract_repair_prompt(full_brief, findings) + '\n' + contract_text)
         repair_count += 1
-        report = code_quality_report(store, project_id, user_prompt, integrations)
+        report = code_quality_report(store, project_id, full_brief, integrations)
 
     visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
               'screenshots': []}
@@ -335,9 +365,10 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
             # Run the agent in a vision-capable review role, looking at actual
             # desktop, tablet and mobile screenshots, not guessed CSS properties.
             update("design", "L'agent examine les captures et améliore la direction artistique…")
-            agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual))
+            agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
+                  '\n' + contract_text)
             repair_count += 1
-            report = code_quality_report(store, project_id, user_prompt, integrations)
+            report = code_quality_report(store, project_id, full_brief, integrations)
             if report['ok']:
                 visual = web_browser_qa.review(site, build=report.get('build'))
             else:
@@ -345,6 +376,26 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
                           'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
                           'screenshots': []}
 
+    # Never accept a fluent-looking but completely different business website.
+    # On a serious client-contract failure, restore the prior source and remove
+    # the rejected compiled preview so the unrelated page is not displayed.
+    blocking={"brand_identity","wrong_business","foreign_template",
+              "french_document","english_ui","booking_content","booking_form",
+              "services","customer_gallery"}
+    rejected=[x for x in report.get('findings',[]) if x.get('id') in blocking]
+    if rejected:
+        import shutil
+        store.write_files(project_id, original_files, replace=True)
+        for folder in ('dist','build'):
+            compiled=site/folder
+            if compiled.is_dir():
+                shutil.rmtree(compiled, ignore_errors=True)
+        if (site/'package.json').is_file():
+            try:integrations.build_project(site)
+            except Exception:pass
+        problems='; '.join(str(x['id']) for x in rejected[:7])
+        raise RuntimeError("Site refusé : le rendu ne respecte pas le cahier des charges (" +
+                           problems + "). Ancienne version restaurée. Relance la génération.")
     update("finishing", "Enregistrement de la version et du rapport de qualité…")
     meta = store.meta(project_id)
     meta['updated_at'] = time.time()
