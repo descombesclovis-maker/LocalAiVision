@@ -1423,7 +1423,11 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
-        if u.path == "/localaiweb":
+        if u.path in ("/localaiweb", "/localaiweb/"):
+            p = WEB / "localaiweb-projects.html"
+            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+            return
+        if u.path == "/localaiweb/editor":
             p = WEB / "localaiweb.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
             return
