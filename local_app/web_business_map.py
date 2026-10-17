@@ -22,6 +22,22 @@ CONTACT = "LocalAiWeb/3.0 (local desktop business map; https://github.com/descom
 PHOTON = "https://photon.komoot.io/api/"
 OVERPASS = "https://overpass-api.de/api/interpreter"
 CATEGORY = {"shop","amenity","craft","office","tourism","leisure","healthcare"}
+CATEGORY_NAMES = {
+    "pet_grooming":"salon de toilettage pour animaux",
+    "hairdresser":"salon de coiffure", "beauty":"institut de beauté",
+    "bakery":"boulangerie", "cafe":"café", "restaurant":"restaurant",
+    "florist":"fleuriste", "clothes":"boutique de vêtements",
+    "convenience":"commerce de proximité", "supermarket":"supermarché",
+    "car_repair":"garage automobile", "pharmacy":"pharmacie",
+    "doctors":"cabinet médical", "dentist":"cabinet dentaire",
+    "hotel":"hôtel", "guest_house":"maison d'hôtes",
+    "jewelry":"bijouterie", "jewellery":"bijouterie",
+    "furniture":"magasin de mobilier", "sports":"magasin de sport",
+    "books":"librairie", "optician":"opticien", "accountant":"expert-comptable",
+    "lawyer":"cabinet juridique", "estate_agent":"agence immobilière",
+    "fitness_centre":"salle de sport", "barber":"barbier",
+}
+
 PUBLIC_DEMO_NOTICE = (
     "Maquette non officielle réalisée à titre de démonstration. "
     "Les coordonnées, horaires, prestations et photos doivent être confirmés "
@@ -82,10 +98,12 @@ def _result(record):
     if not label:return None
     identifier=_plain(record.get("osm_id"),70)
     kind=_plain(record.get("kind") or "business",20)
+    raw_category=_plain(record.get("category"),75)
     business = {
       "id":identifier,"name":label,"lat":lat,"lon":lon,
       "address":_plain(record.get("address"),190),
-      "category":_plain(record.get("category"),75),
+      "category":CATEGORY_NAMES.get(raw_category, raw_category.replace("_"," ")),
+      "osm_category":raw_category,
       "website":_plain(record.get("website"),170),
       "phone":_plain(record.get("phone"),65),
       "opening_hours":_plain(record.get("opening_hours"),125),
@@ -185,7 +203,7 @@ def first_draft_prompt(business):
     hours=_plain(business.get("opening_hours"),125)
     website=_plain(business.get("website"),170)
     return (
-      f"Le site s'appelle {brand}. Conçois une PREMIÈRE MAQUETTE DE SITE WEB "
+      f"Le site s'appelle « {brand} ». Conçois une PREMIÈRE MAQUETTE DE SITE WEB "
       f"pour l'établissement « {brand} », dont l'activité indiquée par la carte "
       f"est « {category} ». "
       "Il s'agit d'une proposition graphique privée, NON du site officiel de cet établissement. "
