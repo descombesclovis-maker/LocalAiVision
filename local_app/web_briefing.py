@@ -39,33 +39,26 @@ def infer(request):
     }
 
 def questions_for(request):
+    """Ask at most two aesthetic questions. Default sensible functionality internally.
+
+    The user is not responsible for sourcing illustrations, inventing product SKU
+    data, choosing a payment vendor or configuring developer tools.
+    """
     info = infer(request)
     questions = []
     def ask(key, question, choices):
-        questions.append({'key':key,'question':question,'choices':choices})
-    if not info['has_goal']:
-        ask('goal','Quel type de site veux-tu et à quoi doit-il servir ?',
-            ['Site vitrine', 'Boutique en ligne', 'Portfolio', 'Application web', 'Landing page'])
-    if not info['has_brand']:
-        ask('brand','Quel est le nom exact de la marque ou du site ?',
-            ['Choisis un nom pour moi', 'Je donnerai le nom et le slogan'])
+        questions.append({'key': key, 'question': question, 'choices': choices})
     if not info['has_style']:
-        ask('identity','Quelle ambiance et quelles couleurs veux-tu ?',
-            ['Sobre et élégant', 'Professionnel contemporain', 'Luxe', 'Audacieux et créatif', 'Couleurs à préciser'])
-    if info['spectacular'] and not info['chosen_images']:
-        ask('visual','Pour obtenir un rendu exceptionnel, quel type de visuels préfères-tu ?',
-            ['Photos réalistes (fichiers à fournir)', '3D interactive (GLB ou sculpture originale)', 'Illustrations SVG originales', 'Typographie spectaculaire sans images'])
-    if info['shop']:
-        if not info['has_products']:
-            ask('inventory','Quels produits, catégories et prix dois-je afficher ?',
-                ['Utilise des exemples clairement indiqués', 'Je vais donner mes produits et prix', 'Je fournirai un catalogue plus tard'])
-        if not info['has_payment']:
-            ask('checkout','Pour les commandes, quel fonctionnement faut-il prévoir ?',
-                ['Catalogue uniquement, sans paiement', 'Panier fonctionnel, paiement à connecter', 'Vente réelle avec paiement (Stripe à connecter)'])
-    if info['visual3d'] and not has(r'\b(glb|procedural|sculpture|modele fourni|import)\b',request):
-        ask('model3d','As-tu un modèle 3D GLB du produit ou veux-tu une sculpture 3D originale pour commencer ?',
-            ['Sculpture 3D de démonstration', 'Je fournirai un fichier GLB', 'Présente surtout le produit en 2D pour commencer'])
-    return questions[:6]
+        ask('identity', 'Quelle ambiance graphique souhaites-tu ?',
+            ['Épurée et professionnelle', 'Très haut de gamme / luxe',
+             'Audacieuse et artistique', 'Naturelle et chaleureuse',
+             'Créativité libre, choisis pour moi'])
+    if not info['colors'] and not info['has_style']:
+        ask('palette', 'Pour les couleurs, préfères-tu une direction particulière ?',
+            ['Laisse l’IA choisir une palette professionnelle',
+             'Clair et lumineux', 'Sombre et élégant',
+             'Très coloré', 'Je vais préciser mes couleurs'])
+    return questions[:2]
 
 def new_plan(request):
     request=str(request or '').strip()
