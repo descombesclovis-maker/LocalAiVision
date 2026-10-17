@@ -1492,6 +1492,24 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 404)
             return
+        if u.path == "/api/web/map/search":
+            try:
+                from local_app import web_business_map
+                q = parse_qs(u.query).get("q", [""])[0]
+                self.send_json(web_business_map.location_or_business_search(q))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
+        if u.path == "/api/web/map/nearby":
+            try:
+                from local_app import web_business_map
+                args = parse_qs(u.query)
+                self.send_json(web_business_map.nearby_businesses(
+                    args.get("lat", [""])[0], args.get("lon", [""])[0],
+                    args.get("radius", ["1500"])[0]))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
             return
@@ -1571,6 +1589,10 @@ class Handler(BaseHTTPRequestHandler):
             p = WEB / "localaiweb-projects.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
             return
+        if u.path == "/localaiweb/map":
+            p = WEB / "localaiweb-map.html"
+            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+            return
         if u.path == "/localaiweb/editor":
             p = WEB / "localaiweb.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
@@ -1630,6 +1652,22 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/project/create-from-map":
+            try:
+                from local_app import web_business_map
+                company = web_business_map.selected_business(body.get("selection_token"))
+                self.send_json(_web_store().create_business_project(company))
+            except Exception as exc:
+                self.send_json({"error": str(exc)}, 400)
+            return
+        if u.path == "/api/web/project/auto-claim":
+            try:
+                result = _web_store().claim_initial_generation(
+                    body.get("id"), retry=body.get("retry") is True)
+                self.send_json(result)
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/web/project/create":
             try:
                 self.send_json(_web_store().create(body.get("name") or "Nouveau projet", body.get("template") or "default"))
@@ -1687,10 +1725,17 @@ class Handler(BaseHTTPRequestHandler):
                         agent_context=web_hybrid.developer_brief(request, visuals))
                     payload["provider"] = "local"
                     payload["visuals"] = visuals
+                if meta.get("project_kind") == "pro":
+                    store.settle_initial_generation(project_id, True)
                 _web_progress(project_id, "done", "Création terminée ; site prêt dans l'aperçu.")
                 self.send_json(payload)
             except Exception as e:
                 _web_progress(body.get("id"), "error", str(e))
+                try:
+                    if body.get("id"):
+                        _web_store().settle_initial_generation(body.get("id"), False, str(e))
+                except Exception:
+                    pass
                 self.send_json({"error": str(e)}, 400)
             return
         if u.path == "/api/web/build":
