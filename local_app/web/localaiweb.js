@@ -177,6 +177,17 @@ async function generate(text){
 }
 async function publish(){
  await ensureProject();
+ if(project.project?.project_kind==='pro' && !project.project?.business_authorized){
+   const okay=window.confirm('Projet Pro : « '+project.project.name+
+     ' »\n\nConfirme que tu représentes cette entreprise ou disposes de son autorisation '+
+     'explicite pour publier un site en son nom. Vérifie aussi les informations de la carte '+
+     'et remplace les maquettes/illustrations non officielles.\n\nAutoriser la publication ?');
+   if(!okay){message('Publication annulée : le site reste une maquette privée.');return;}
+   try{
+     project=await api('/api/web/project/pro/authorize',{
+       id:project.project.id,confirmed:true});
+   }catch(err){message('Autorisation non enregistrée : '+err.message);return;}
+ }
  message('Je vérifie le site avant publication. La publication nécessite que Vercel soit installé et connecté sur cet ordinateur.');
  setBusy(true,'Vérification et mise en ligne…');
  try{
