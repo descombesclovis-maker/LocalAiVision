@@ -106,6 +106,20 @@ class PawMoodContractTests(unittest.TestCase):
             self.assertTrue(all('PawMood' in x and 'français' in x.lower() for x in seen))
             self.assertIn(web_briefing.WAITING_MESSAGE,store.text_files(pid)['index.html'])
 
+    def test_followup_edit_keeps_original_salon_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store=web_builder.LocalAiWebStore(temp,lambda *_:'{}')
+            pid=store.create('PawMood')['project']['id']
+            store.append_chat(pid,'user',PAWMOOD)
+            effective=web_content_contract.project_request(store,pid,
+                'Rends les boutons plus arrondis et améliore les animations.')
+            self.assertIn(PAWMOOD,effective)
+            spec=web_content_contract.specification(effective,'PawMood')
+            self.assertTrue(spec['grooming'])
+            self.assertTrue(spec['booking'])
+            self.assertTrue(spec['gallery'])
+            self.assertEqual(set(spec['colors']),{'bleu','vert','blanc'})
+
     def test_automatic_animal_image_plan(self):
         subjects=web_hybrid.visual_plan(PAWMOOD)
         self.assertEqual([a['role'] for a in subjects],['hero','groomed-dog','groomed-cat'])
