@@ -28,3 +28,5 @@ jobs:
           node --check local_app/web/app.js
       - name: Validate adaptive quality policy
         run: node --test tests/test_3d_quality.mjs
+      - name: Test sent prompt context actions
+        run: node --test tests/test_web_prompt_actions.mjs

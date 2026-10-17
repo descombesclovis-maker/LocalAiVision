@@ -12,10 +12,81 @@ const api = async(url,body) => {
 let project=null,busy=false,viewport='desktop',stage='welcome';
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
 function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
+// Action menu is attached only to messages written by the user.
+// Last means the most recently SENT user message (not the last assistant reply).
+function isLastUserMessage(item){
+ const sent=chat.querySelectorAll('.message.user');
+ return sent.length>0 && sent[sent.length-1]===item;
+}
+async function copySentMessage(text){
+ try{
+  if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+  else{
+   const temporary=document.createElement('textarea');
+   temporary.value=text;temporary.setAttribute('readonly','');
+   temporary.style.position='fixed';temporary.style.opacity='0';
+   document.body.appendChild(temporary);temporary.select();
+   const copied=document.execCommand('copy');temporary.remove();
+   if(!copied)throw Error('Clipboard unavailable');
+  }
+  $('#lawChatStatus').textContent='Prompt copié.';
+ }catch{
+  $('#lawChatStatus').textContent='Copie indisponible : sélectionne le texte du message.';
+ }
+}
+function sentMessageActions(item, text){
+ const actions=document.createElement('div');
+ actions.className='message-actions';actions.hidden=true;
+ function makeAction(label,handler){
+  const control=document.createElement('button');
+  control.type='button';control.className='message-action';
+  control.textContent=label;
+  control.addEventListener('click',event=>{event.stopPropagation();handler();});
+  actions.appendChild(control);
+ }
+ function toggle(){
+  const wasOpen=!actions.hidden;
+  chat.querySelectorAll('.message-actions').forEach(menu=>{menu.hidden=true;});
+  if(wasOpen)return;
+  actions.replaceChildren();
+  makeAction('Copier',()=>copySentMessage(text));
+  makeAction('Renvoyer',()=>{
+   if(busy)return;
+   actions.hidden=true;
+   // A resend is a new instruction; keep any unsent draft in the composer.
+   sendText(text,{preserveDraft:true});
+  });
+  if(isLastUserMessage(item)){
+   makeAction('Modifier',()=>{
+    if(busy||!isLastUserMessage(item))return;
+    actions.hidden=true;
+    prompt.value=text;prompt.focus();
+    prompt.setSelectionRange(prompt.value.length,prompt.value.length);
+    $('#lawChatStatus').textContent='Modifie ton dernier prompt, puis renvoie-le.';
+   });
+  }
+  actions.hidden=false;
+ }
+ item.tabIndex=0;
+ item.title='Cliquer pour copier ou renvoyer ce prompt';
+ item.setAttribute('aria-label','Prompt envoyé. Cliquer pour les actions');
+ item.addEventListener('click',event=>{
+  if(event.target.closest('.message-actions'))return;
+  toggle();
+ });
+ item.addEventListener('keydown',event=>{
+  if(event.target!==item)return;
+  if(event.key==='Enter'||event.key===' '){
+   event.preventDefault();toggle();
+  }
+ });
+ item.appendChild(actions);
+}
 function message(text,role='assistant',choices=[]){
  const item=document.createElement('article');item.className='message '+(role==='user'?'user':'assistant');
  if(role!=='user'){const name=document.createElement('div');name.className='message-author';name.textContent='LocalAiWeb';item.appendChild(name);}
  const textNode=document.createElement('p');textNode.textContent=String(text||'');item.appendChild(textNode);
+ if(role==='user')sentMessageActions(item,String(text||''));
  if(choices.length){
   const area=document.createElement('div');area.className='choices';
   choices.forEach(value=>{const b=document.createElement('button');b.type='button';b.textContent=value;b.onclick=()=>sendText(value);area.appendChild(b);});
@@ -166,9 +237,9 @@ async function answerSpecification(text){
  }
  renderBriefQuestion(result);
 }
-async function sendText(value){
+async function sendText(value,{preserveDraft=false}={}){
  const text=String(value||prompt.value||'').trim();if(!text||busy)return;
- prompt.value='';message(text,'user');setBusy(true,'Je comprends ta demande…');
+ if(!preserveDraft)prompt.value='';message(text,'user');setBusy(true,'Je comprends ta demande…');
  try{
   const intent=detectIntent(text);
   if(intent==='new'){
@@ -205,7 +276,7 @@ async function initialize(){
   const rows=project.chat||[];
   if(rows.length){
    chat.innerHTML='';
-   rows.slice(-24).forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
+   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
    message('Je suis prêt à continuer ce projet. Décris la prochaine modification ou écris « questionnaire » pour clarifier tes attentes.','assistant',['Améliore le rendu','Questionnaire','Publier le site']);
    stage='ready';
   }else{
