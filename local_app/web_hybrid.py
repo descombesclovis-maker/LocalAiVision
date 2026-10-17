@@ -13,6 +13,33 @@ import uuid
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+def select_coding_agent(provider, status, *, allow_local_fallback=False):
+    """Choose an authenticated real coding agent; never silently downgrade quality.
+
+    The old chat-only HTML generator is available solely by explicit request or
+    an explicit local-only configuration.
+    """
+    requested = str(provider or 'auto').strip().lower()
+    if requested not in ('auto', 'claude', 'codex', 'local'):
+        raise ValueError('Moteur de création inconnu.')
+    if requested == 'local':
+        return 'local'
+    agents = ('claude', 'codex') if requested == 'auto' else (requested,)
+    for candidate in agents:
+        if bool((status.get(candidate) or {}).get('ready')):
+            return candidate
+    if requested == 'auto' and allow_local_fallback:
+        return 'local'
+    target = 'Claude Code ou Codex' if requested == 'auto' else (
+        'Claude Code' if requested == 'claude' else 'Codex')
+    raise RuntimeError(
+        'Aucun agent professionnel connecté. Pour éviter de générer une ancienne '
+        'maquette HTML, connecte ' + target +
+        ' sur ce PC, puis réessaie. Installation : Claude Code (claude auth login) '
+        'ou Codex (codex login). Ton projet reste intact.'
+    )
+
+
 MAX_AUTOMATIC_IMAGES = 3
 PAID_OPT_IN = "LOCALAIWEB_ALLOW_PAID_IMAGES"
 CLOUD_MODEL = "gpt-image-1"
