@@ -276,7 +276,7 @@ async function initialize(){
   const rows=project.chat||[];
   if(rows.length){
    chat.innerHTML='';
-   rows.slice(-24).forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
+   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
    message('Je suis prêt à continuer ce projet. Décris la prochaine modification ou écris « questionnaire » pour clarifier tes attentes.','assistant',['Améliore le rendu','Questionnaire','Publier le site']);
    stage='ready';
   }else{
