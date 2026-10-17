@@ -139,9 +139,11 @@ def _download_update_exe(release, asset):
                 break
             out.write(chunk)
             digest.update(chunk)
-    if part.stat().st_size < 5 * 1024 * 1024:
+    size = part.stat().st_size
+    expected_size = int(asset.get('size') or 0)
+    if size < 5 * 1024 * 1024 or (expected_size and size != expected_size):
         part.unlink(missing_ok=True)
-        raise RuntimeError('Paquet de mise à jour incomplet.')
+        raise RuntimeError('Paquet de mise à jour incomplet ou de taille inattendue.')
     expected = str(asset.get('digest') or '')
     if expected.startswith('sha256:') and digest.hexdigest().lower() != expected[7:].lower():
         part.unlink(missing_ok=True)
@@ -149,6 +151,8 @@ def _download_update_exe(release, asset):
     part.replace(archive)
     staged = folder / 'LocalVisionAI.new.exe'
     with zipfile.ZipFile(archive) as zf:
+        if zf.testzip() is not None:
+            raise RuntimeError('Archive téléchargée corrompue (contrôle ZIP CRC).')
         member = next((n for n in zf.namelist() if Path(n).name.lower() == 'localvisionai.exe'), None)
         if member is None:
             raise RuntimeError('LocalVisionAI.exe est absent du paquet téléchargé.')
