@@ -73,7 +73,7 @@ def project_request(store, project_id, latest):
     as the ongoing contract, unless the user explicitly asks to start over.
     """
     request=str(latest or '').strip()
-    if re.search(r"\\b(?:change compl[eè]tement de secteur|change d'activit[eé]|nouveau cahier des charges)\\b",
+    if re.search(r"\b(?:change compl[eè]tement de secteur|change d'activit[eé]|nouveau cahier des charges)\b",
                  request,re.I):
         return request
     meta=store.meta(project_id)
@@ -84,13 +84,13 @@ def project_request(store, project_id, latest):
             if entry.get('role')!='user':continue
             candidate=str(entry.get('text') or '').strip()
             if len(candidate)>=65 and (
-                re.search(r"\\b(?:site|boutique|application|salon|toilett\\w*|commerce)\\b",
+                re.search(r"\b(?:site|boutique|application|salon|toilett\w*|commerce)\b",
                           normalize(candidate))):
                 original=candidate
                 break
     if not original or original==request:return request
-    return ('CAHIER DES CHARGES INITIAL À PRÉSERVER :\\n'+original+
-            '\\n\\nDEMANDE ACTUELLE POUR MODIFIER LE SITE :\\n'+request)
+    return ('CAHIER DES CHARGES INITIAL À PRÉSERVER :\n'+original+
+            '\n\nDEMANDE ACTUELLE POUR MODIFIER LE SITE :\n'+request)
 
 
 def agent_instructions(spec):
