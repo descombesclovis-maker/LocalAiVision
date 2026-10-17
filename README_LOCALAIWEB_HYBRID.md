@@ -23,13 +23,14 @@ Ces images sont **illustratives** : elles ne représentent pas nécessairement l
 
 Modèle recommandé : **FLUX.2 [klein] 4B distilled (FP8)**, sous licence Apache 2.0. Le fabricant indique un ordre de grandeur de **8,4 Go de VRAM** pour sa version 4B ; la consommation réelle dépend de ComfyUI, des textures, du modèle d'encodage et du déchargement mémoire.
 
-1. Mettre ComfyUI à jour, puis ouvrir son catalogue **Workflow Templates → Images → Flux.2 Klein 4B → Text to Image**.
-2. Placer les trois fichiers de la version FP8 dans leurs dossiers :
+1. Depuis la copie source de LocalAiVision, exécuter **INSTALLER_FLUX2_KLEIN_4B.cmd** et indiquer le dossier ComfyUI existant. Il demande confirmation et vérifie l'empreinte SHA-256 du modèle principal. Alternative : télécharger manuellement les trois fichiers ci-dessous.
+2. Mettre ComfyUI à jour, puis ouvrir **Workflow Templates → Images → Flux.2 Klein 4B → Text to Image**.
+3. Placer les trois fichiers de la version FP8 dans leurs dossiers :
    - `models/text_encoders/qwen_3_4b.safetensors`
    - `models/diffusion_models/flux-2-klein-4b-fp8.safetensors`
    - `models/vae/flux2-vae.safetensors`
-3. Ouvrir le workflow et vérifier **une génération locale**. Les modèles source occupent plusieurs Go et peuvent prendre du temps à télécharger.
-4. Exporter le workflow au format API, l'importer dans LocalAiVision, puis renseigner `LOCALAIWEB_IMAGE_WORKFLOW` avec le nom de ce workflow importé. Sans cette configuration, le moteur conserve SDXL.
+4. Ouvrir le workflow et vérifier **une génération locale**. Les modèles source occupent plusieurs Go et peuvent prendre du temps à télécharger.
+5. Exporter le workflow au format API et l'importer dans LocalAiVision sous un nom contenant **Flux2 Klein T2I**. LocalAiWeb le détecte automatiquement ; la variable optionnelle `LOCALAIWEB_IMAGE_WORKFLOW` permet de forcer un workflow précis. Si le modèle n'est pas prêt, le moteur conserve SDXL.
 
 Référence officielle : https://docs.comfy.org/tutorials/flux/flux-2-klein
 
@@ -47,3 +48,10 @@ Les projets React/Vite sont compilés avec un **base path relatif**, indispensab
 - Les visuels existants ne sont pas regénérés à chaque itération.
 - Les modèles payants de programmation sont utilisés seulement lorsqu'ils sont déjà installés et authentifiés.
 - Le projet et les fichiers de modèles/photos restent séparés des sauvegardes de LocalAiVision.
+
+
+## Installer/activer l'agent développeur cloud
+
+Claude Code : installer la CLI officielle puis lancer `claude auth login` dans un terminal Windows. Codex : installer la CLI officielle puis lancer `codex login`. Au lancement suivant, LocalAiWeb vérifie les authentifications existantes ; aucun compte n'est créé à votre place.
+
+Un agent peut exécuter npm install/build dans le dossier du projet. Examiner les dépendances et accès accordés avant d'exécuter un code de provenance inconnue ; ne jamais renseigner de clés dans le code côté navigateur.
