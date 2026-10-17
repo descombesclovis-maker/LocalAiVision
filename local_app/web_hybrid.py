@@ -296,7 +296,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     The source of truth remains the project's real files.
     """
     import time
-    from local_app import web_browser_qa
+    from local_app import web_browser_qa, web_content_contract
     def update(phase, message):
         if progress:
             progress(phase, message)
@@ -311,6 +311,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
 
     original_files=store.text_files(project_id)
     spec_name=store.meta(project_id).get('name', '')
+    contract_text=web_content_contract.agent_instructions(
+        web_content_contract.specification(user_prompt,spec_name))
     instruction = developer_brief(user_prompt, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
     instruction += (
@@ -336,10 +338,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
         update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
-        agent(site, contract_repair_prompt(
-            user_prompt, findings) + '\n' +
-            __import__('local_app.web_content_contract', fromlist=['agent_instructions']).agent_instructions(
-                __import__('local_app.web_content_contract', fromlist=['specification']).specification(user_prompt, spec_name)))
+        agent(site, contract_repair_prompt(user_prompt, findings) + '\n' + contract_text)
         repair_count += 1
         report = code_quality_report(store, project_id, user_prompt, integrations)
 
@@ -353,8 +352,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
             # desktop, tablet and mobile screenshots, not guessed CSS properties.
             update("design", "L'agent examine les captures et améliore la direction artistique…")
             agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual) +
-                  '\n' + __import__('local_app.web_content_contract', fromlist=['agent_instructions']).agent_instructions(
-                      __import__('local_app.web_content_contract', fromlist=['specification']).specification(user_prompt, spec_name)))
+                  '\n' + contract_text)
             repair_count += 1
             report = code_quality_report(store, project_id, user_prompt, integrations)
             if report['ok']:
