@@ -1647,6 +1647,11 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 store = _web_store()
                 project_id = body.get("id")
+                qa = (store.meta(project_id).get("last_agent_quality") or {})
+                if qa and (qa.get("ok") is False or qa.get("visual") == "failed"):
+                    raise ValueError(
+                        "Publication suspendue : la dernière génération contient encore "
+                        "des défauts. Demande au chat de corriger le site avant de le publier.")
                 site = store.project_dir(project_id) / "site"
                 production = bool(body.get("production", True))
                 result = integrations_cli.vercel_publish(site, production)
