@@ -41,6 +41,13 @@ def _codex_cmd():
     return [npx, "--yes", "@openai/codex"] if npx else None
 
 
+def _claude_cmd():
+    # Use an explicitly installed Claude Code CLI. Never npm-install it
+    # implicitly during a generation run.
+    direct = _which("claude", "claude.cmd", "claude.exe")
+    return [direct] if direct else None
+
+
 def status(deep=False):
     gh = _which("gh", "gh.exe")
     git = _which("git", "git.exe")
@@ -50,6 +57,7 @@ def status(deep=False):
     vercel_direct = _which("vercel", "vercel.cmd")
     supabase_direct = _which("supabase", "supabase.exe")
     codex_direct = _which("codex", "codex.cmd", "codex.exe")
+    claude_direct = _claude_cmd()
     stripe_direct = _which("stripe", "stripe.exe")
     out = {
         "git": {"installed": bool(git), "ready": bool(git)},
@@ -59,6 +67,7 @@ def status(deep=False):
         "vercel": {"installed": bool(vercel_direct or npx), "ready": False, "via_npx": bool(not vercel_direct and npx)},
         "supabase": {"installed": bool(supabase_direct or npx), "ready": False, "via_npx": bool(not supabase_direct and npx)},
         "codex": {"installed": bool(codex_direct or npx), "ready": False, "via_npx": bool(not codex_direct and npx)},
+        "claude": {"installed": bool(claude_direct), "ready": False},
         "stripe": {"installed": bool(stripe_direct), "ready": False},
     }
     if gh:
@@ -80,6 +89,11 @@ def status(deep=False):
     if codex_cmd:
         try:
             out["codex"]["ready"] = _run(codex_cmd + ["login", "status"], timeout=60 if deep else 20).returncode == 0
+        except Exception:
+            pass
+    if claude_direct:
+        try:
+            out["claude"]["ready"] = _run(claude_direct + ["auth", "status"], timeout=20).returncode == 0
         except Exception:
             pass
     if stripe_direct:
@@ -349,3 +363,32 @@ def codex_apply(site_dir, prompt):
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout or "Codex n'a pas terminé.").strip()[:4000])
     return {"ok": True, "summary": (result.stdout or result.stderr or "Modification Codex terminée.").strip()[-3000:]}
+
+
+def claude_apply(site_dir, prompt):
+    """Claude Code non-interactive authenticated editing, with bounded tool grants."""
+    cmd = _claude_cmd()
+    if not cmd:
+        raise RuntimeError("Claude Code n'est pas installé ou est introuvable dans PATH.")
+    text = str(prompt or "").strip()
+    if not text:
+        raise RuntimeError("La demande Claude est vide.")
+    instruction = (
+        "You are an expert full-stack developer and visual art director. "
+        "Edit ONLY this website project. Implement complete pages, polished navigation, "
+        "responsive interactions, and the user's exact brand colors. Use real generated "
+        "images from local assets/ as provided; never invent a product photograph. "
+        "For explicitly requested 3D, build an actual Three.js scene or React Three Fiber "
+        "with GLTF support and accessible scroll-linked motion. "
+        "Check generated files and production build. Never print keys or write secrets "
+        "to client code. Original request:\n" + text
+    )
+    result = _run(cmd + [
+        "-p", "--model", "sonnet", "--permission-mode", "acceptEdits",
+        "--allowedTools", "Read", "Edit", "Write", "Bash(npm *)",
+        "Bash(npx *)", "Bash(node *)",
+        instruction,
+    ], cwd=site_dir, timeout=900)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "Claude Code n'a pas terminé.").strip()[:4000])
+    return {"ok": True, "summary": (result.stdout or "Site modifié par Claude Code.")[-3000:]}
