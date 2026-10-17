@@ -324,9 +324,10 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
 
     original_files=store.text_files(project_id)
     spec_name=store.meta(project_id).get('name', '')
+    full_brief=web_content_contract.project_request(store,project_id,user_prompt)
     contract_text=web_content_contract.agent_instructions(
-        web_content_contract.specification(user_prompt,spec_name))
-    instruction = developer_brief(user_prompt, visuals, project_name=spec_name)
+        web_content_contract.specification(full_brief,spec_name))
+    instruction = developer_brief(full_brief, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
     instruction += (
         '\nAGENT PROCESS: Plan the visual structure and design system first. '
@@ -342,7 +343,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     update("building", "L'agent construit le site et ses fonctionnalités…")
     result = agent(site, instruction)
     update("verification", "Compilation et contrôles du site produit…")
-    report = code_quality_report(store, project_id, user_prompt, integrations)
+    report = code_quality_report(store, project_id, full_brief, integrations)
     repair_count = 0
 
     if not report['ok']:
@@ -351,9 +352,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
         update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
-        agent(site, contract_repair_prompt(user_prompt, findings) + '\n' + contract_text)
+        agent(site, contract_repair_prompt(full_brief, findings) + '\n' + contract_text)
         repair_count += 1
-        report = code_quality_report(store, project_id, user_prompt, integrations)
+        report = code_quality_report(store, project_id, full_brief, integrations)
 
     visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
               'screenshots': []}
@@ -364,10 +365,10 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
             # Run the agent in a vision-capable review role, looking at actual
             # desktop, tablet and mobile screenshots, not guessed CSS properties.
             update("design", "L'agent examine les captures et améliore la direction artistique…")
-            agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual) +
+            agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
                   '\n' + contract_text)
             repair_count += 1
-            report = code_quality_report(store, project_id, user_prompt, integrations)
+            report = code_quality_report(store, project_id, full_brief, integrations)
             if report['ok']:
                 visual = web_browser_qa.review(site, build=report.get('build'))
             else:
