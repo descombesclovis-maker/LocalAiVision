@@ -6,6 +6,7 @@ the generator should ask for clarification rather than make up a different brand
 """
 from __future__ import annotations
 import colorsys
+from html.parser import HTMLParser
 import re
 import unicodedata
 
@@ -106,6 +107,9 @@ def agent_instructions(spec):
       ". N'invente aucune autre marque ou produit SaaS.",
       "PALETTE EXPLICITE : "+colors+". Respecte-la dans les éléments visibles.",
       "DEMANDE ORIGINALE EXACTE (ne jamais la remplacer par un template) :\n"+spec["request"],
+      "Les fichiers de démonstration antérieurs (ex. forma. ou workspace) ne constituent PAS "
+      "des éléments approuvés du site. Supprime et remplace complètement les pages étrangères "
+      "au métier demandé, sans préserver les textes et blocs hors sujet.",
       "Ne jamais générer une marque générique telle que forma., ni un espace de "
       "productivité, une landing page de SaaS ou un tableau de bord à la place de "
       "l'activité demandée. Les prompts exemples trouvés dans le code préexistant ne "
@@ -164,6 +168,77 @@ def _color_hues(source):
         except ValueError:pass
     return values
 
+class _VisibleHtmlText(HTMLParser):
+    """Collect UI strings without inline JavaScript, CSS, or HTML comments."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts=[]
+        self.hidden=0
+
+    def handle_starttag(self,tag,attrs):
+        if tag.lower() in ("script","style","template","noscript"):
+            self.hidden+=1
+        if self.hidden:return
+        attributes=dict(attrs)
+        for key in ("title","aria-label","placeholder","alt"):
+            if attributes.get(key):self.parts.append(attributes[key])
+        if tag.lower() in ("input","button","option") and attributes.get("value"):
+            self.parts.append(attributes["value"])
+
+    def handle_endtag(self,tag):
+        if tag.lower() in ("script","style","template","noscript"):
+            self.hidden=max(0,self.hidden-1)
+
+    def handle_data(self,data):
+        if not self.hidden and data.strip():
+            self.parts.append(data)
+
+
+def visible_ui_strings(files):
+    """Examine renderable labels, not CSS class names or code identifiers.
+
+    Dynamic JS may render strings this static inspection cannot recover.
+    """
+    labels=[]
+    for name,content in files.items():
+        path=str(name).replace("\\","/").lower()
+        if any(part in ("node_modules","dist","build",".next",".localaiweb-qa")
+               for part in path.split("/")):continue
+        source=str(content)
+        if path.endswith((".html",".htm")):
+            parser=_VisibleHtmlText()
+            try:parser.feed(source)
+            except (ValueError,TypeError):pass
+            labels.extend(parser.parts)
+        elif path.endswith((".jsx",".tsx",".vue",".svelte")):
+            labels.extend(re.findall(r">\s*([^<>{}\n][^<>{}]{1,260}?)\s*<",source))
+            labels.extend(re.findall(
+                r"""(?:aria-label|placeholder|alt|title)\s*=\s*["']([^"'{}]{2,160})["']""",
+                source,flags=re.I))
+        if path.endswith((".js",".ts",".jsx",".tsx",".vue",".svelte")):
+            no_comments=re.sub(r"/\*.*?\*/","",source,flags=re.S)
+            no_comments=re.sub(r"(?m)^\s*//[^\n]*$","",no_comments)
+            literals=re.findall(r"""(["'])([^"'\\\n]{2,180})\1""",no_comments)
+            for quote,value in literals:
+                normalized=normalize(value).strip()
+                if not normalized:continue
+                if len(normalized.split())>1:
+                    labels.append(value)
+                elif normalized in ("workspace","pricing"):
+                    expression=re.escape(quote+value+quote)
+                    if re.search(r"""(?:label|title|text|heading|caption|menu|nav|items|links)\s*[:=]\s*"""
+                                 +expression,no_comments,flags=re.I):
+                        labels.append(value)
+    return labels
+
+
+def english_ui_examples(files):
+    labels=[normalize(part).strip() for part in visible_ui_strings(files)]
+    return [phrase for phrase in ENGLISH_UI
+            if any(re.search(r"(?<![a-z])"+re.escape(phrase)+r"(?![a-z])",part)
+                   for part in labels)]
+
+
 def check(files, spec):
     """Return precise, actionable violations; does not claim to assess artistic beauty."""
     source=_site_sources(files)
@@ -192,9 +267,10 @@ def check(files, spec):
         fail("customer_gallery","Créer une section Réalisations ou Galerie.")
     if not re.search(r"<html\b[^>]*\blang\s*=\s*['\"]fr(?:-FR)?['\"]",index,re.I):
         fail("french_document","Définir <html lang=\"fr\"> pour la langue du document.")
-    en=[phrase for phrase in ENGLISH_UI if re.search(r"(?<![a-z])"+re.escape(phrase)+r"(?![a-z])",norm)]
+    en=english_ui_examples(files)
     if en:
-        fail("english_ui","Remplacer TOUS les textes anglais visibles par du français, dont : "+", ".join(en[:6])+".")
+        fail("english_ui","Traduire les libellés anglais affichables suivants en français : "+
+             ", ".join(en[:8])+". Ne pas toucher aux identifiants techniques JS/CSS.")
     if "bleu" in spec["colors"]:
         hues=_color_hues(source)
         if not any(188<=h<=265 and sat>.24 and .10<lum<.93 for h,lum,sat in hues) and not re.search(r"\b(?:blue|cyan|sky|bleu)\b",source,re.I):
