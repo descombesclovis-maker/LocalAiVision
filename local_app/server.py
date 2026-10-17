@@ -5,7 +5,7 @@ from urllib.parse import urlparse, parse_qs, quote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 try:
-    from local_app import llm, workflows, web_builder, integrations_cli, web_briefing, web_briefing
+    from local_app import llm, workflows, web_builder, integrations_cli, web_briefing
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
@@ -17,6 +17,18 @@ IMPORTED.mkdir(parents=True, exist_ok=True)
 LOCALAIWEB_DATA = DATA / "localaiweb"
 WEB_PROJECTS = LOCALAIWEB_DATA / "projects"
 WEB_PROJECTS.mkdir(parents=True, exist_ok=True)
+_web_progress_lock = threading.Lock()
+_web_progress_rows = {}
+
+def _web_progress(project_id, phase, detail):
+    key = str(project_id or '')
+    if not key:
+        return
+    with _web_progress_lock:
+        _web_progress_rows[key] = {
+            "phase": str(phase), "detail": str(detail)[:240], "updated": time.time()
+        }
+
 HOST = "127.0.0.1"
 PORT = 3000
 COMFY = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/")
@@ -1369,6 +1381,16 @@ class Handler(BaseHTTPRequestHandler):
                 "shared_scope": "tools_and_models_only"
             })
             return
+        if u.path == "/api/web/progress":
+            project_id = parse_qs(u.query).get("id", [""])[0]
+            try:
+                _web_store().meta(project_id)
+                with _web_progress_lock:
+                    result = dict(_web_progress_rows.get(project_id, {"phase":"idle", "detail":"Prêt"}))
+                self.send_json(result)
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 404)
+            return
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
             return
@@ -1505,6 +1527,7 @@ class Handler(BaseHTTPRequestHandler):
                 request = str(body.get("prompt") or "").strip()
                 if not request:
                     raise ValueError("Décris ton site.")
+                _web_progress(project_id, "planning", "Analyse du projet et choix de l'agent…")
                 meta = store.meta(project_id)
                 settings = meta.get("settings") or {}
                 provider = str(settings.get("ai_provider") or "auto")
@@ -1520,6 +1543,7 @@ class Handler(BaseHTTPRequestHandler):
                                    and comfy_online()[0])
                 except Exception:
                     ready_image = False
+                _web_progress(project_id, "images", "Création ou réutilisation des visuels produits…")
                 visuals = web_hybrid.make_visuals(
                     store, project_id, request, local_generate=_web_generate_image_asset,
                     local_ready=ready_image)
@@ -1527,17 +1551,21 @@ class Handler(BaseHTTPRequestHandler):
                     coder = (integrations_cli.claude_apply if agent_name == "claude"
                              else integrations_cli.codex_apply)
                     payload = web_hybrid.build_with_agent(
-                        store, project_id, request, coder, integrations_cli, visuals)
+                        store, project_id, request, coder, integrations_cli, visuals,
+                        progress=lambda phase, detail: _web_progress(project_id, phase, detail))
                     payload["provider"] = agent_name
                 else:
                     # Self-hosted fallback uses the same generated image inventory.
+                    _web_progress(project_id, "building", "Génération locale des fichiers du site…")
                     payload = store.generate(
                         project_id, request,
                         agent_context=web_hybrid.developer_brief(request, visuals))
                     payload["provider"] = "local"
                     payload["visuals"] = visuals
+                _web_progress(project_id, "done", "Création terminée ; site prêt dans l'aperçu.")
                 self.send_json(payload)
             except Exception as e:
+                _web_progress(body.get("id"), "error", str(e))
                 self.send_json({"error": str(e)}, 400)
             return
         if u.path == "/api/web/build":
