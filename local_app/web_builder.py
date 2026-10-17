@@ -215,7 +215,7 @@ class LocalAiWebStore:
                                               'reduced_motion':True,'semantic_html':True,'language':'fr',
                                               'site_kind':'landing' if template == 'cinematic3d' else 'auto',
                                               'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
-                                 'template':template})
+                                 'template':template, 'project_kind':'libre'})
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prévisualisation LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><p>La prévisualisation devrait apparaitre ici.</p></main></body></html>',
           'styles.css': 'html,body{margin:0;min-height:100%;font-family:Inter,system-ui,sans-serif;background:#0e0e12;color:#bcbac7}main{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}p{font-size:clamp(16px,2vw,22px);font-weight:500}@media(max-width:600px){p{font-size:16px}}',
@@ -297,6 +297,70 @@ class LocalAiWebStore:
         if versions.is_dir():
             shutil.rmtree(versions)
         return self.payload(new_id)
+
+    def create_business_project(self, business):
+        """Pro draft is isolated from older Libre projects and never published."""
+        from local_app import web_business_map
+        name = str(business.get("name") or "").strip()[:80]
+        if len(name) < 2:
+            raise ValueError("Entreprise sélectionnée sans nom.")
+        project = self.create(name, "default")
+        project_id = project["project"]["id"]
+        meta = self.meta(project_id)
+        meta["project_kind"] = "pro"
+        meta["business"] = dict(business)
+        meta["initial_generation"] = {
+            "status":"pending",
+            "prompt":web_business_map.first_draft_prompt(business),
+            "attempts":0,
+            "created_at":time.time()
+        }
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
+
+    def claim_initial_generation(self, project_id, retry=False):
+        """Single-use claim so reloading the editor does not start duplicate jobs."""
+        meta = self.meta(project_id)
+        if meta.get("project_kind") != "pro":
+            return {"ready":False,"status":"not_pro"}
+        initial = meta.get("initial_generation") or {}
+        state = initial.get("status")
+        if state == "claimed" and time.time()-float(initial.get("claimed_at") or 0)>1200:
+            state = "failed"
+            initial["status"] = "failed"
+            initial["error"] = "La génération précédente a été interrompue."
+            meta["initial_generation"] = initial
+            self.write_meta(project_id, meta)
+        if state == "pending" or (retry and state == "failed"):
+            initial["status"] = "claimed"
+            initial["attempts"] = int(initial.get("attempts") or 0) + 1
+            initial["claimed_at"] = time.time()
+            meta["initial_generation"] = initial
+            self.write_meta(project_id, meta)
+            return {"ready":True,"prompt":initial.get("prompt"),"status":"claimed"}
+        return {"ready":False,"status":state or "unknown"}
+
+    def settle_initial_generation(self, project_id, success, error=""):
+        meta = self.meta(project_id)
+        initial = meta.get("initial_generation") or {}
+        if meta.get("project_kind") != "pro" or initial.get("status") != "claimed":
+            return
+        initial["status"] = "completed" if success else "failed"
+        initial["error"] = str(error or "")[:380]
+        initial["finished_at"] = time.time()
+        meta["initial_generation"] = initial
+        self.write_meta(project_id, meta)
+
+    def authorize_pro_publication(self, project_id, confirmed=False):
+        if confirmed is not True:
+            raise ValueError("Confirmation explicite requise.")
+        meta = self.meta(project_id)
+        if meta.get("project_kind") != "pro":
+            raise ValueError("Ce projet n'est pas un projet Pro.")
+        meta["business_authorized"] = True
+        meta["business_authorized_at"] = time.time()
+        self.write_meta(project_id, meta)
+        return self.payload(project_id)
 
     def list_projects(self):
         out = []

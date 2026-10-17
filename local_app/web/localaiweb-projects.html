@@ -17,12 +17,20 @@
     <p>Retrouvez vos sites à l'endroit où vous les avez laissés, ou commencez un nouveau projet. Chaque création conserve son propre historique.</p>
     <button id="createProject" type="button" class="primary-action"><span aria-hidden="true">＋</span> Nouveau projet <span aria-hidden="true">↗</span></button>
   </section>
+  <section class="map-entry" aria-label="Créer le site d'une entreprise">
+    <div><span class="eyebrow">CRÉATION PROFESSIONNELLE</span><h2>Une entreprise. Un site unique.</h2><p>Recherche un commerce sur la carte, sélectionne-le et laisse l'IA préparer sa première maquette.</p></div>
+    <a id="createFromMap" href="/localaiweb/map" class="map-action"><span aria-hidden="true">⌖</span> Créer depuis une carte <span aria-hidden="true">↗</span></a>
+  </section>
   <section class="library" aria-labelledby="projects-title">
-    <div class="library-bar"><div><h2 id="projects-title">Mes projets <span id="projectsCount"></span></h2><p>Ouvrez un projet pour retrouver le chat et sa prévisualisation.</p></div>
+    <div class="library-bar"><div><h2 id="projects-title">Projets Libre <span id="projectsCount"></span></h2><p>Vos créations personnelles, sans entreprise associée.</p></div>
       <label class="search"><span aria-hidden="true">⌕</span><span class="sr-only">Rechercher un projet</span><input id="projectSearch" type="search" autocomplete="off" placeholder="Rechercher un projet…"></label>
     </div>
     <div id="libraryStatus" role="status" aria-live="polite">Chargement de vos projets…</div>
-    <div id="projectsGrid" class="grid" aria-label="Projets LocalAiWeb"></div>
+    <div id="projectsGrid" class="grid" aria-label="Projets Libre"></div>
+  </section>
+  <section class="library pro-library" aria-labelledby="proProjectsTitle">
+    <div class="library-bar"><div><h2 id="proProjectsTitle">Projets Pro <span id="proProjectsCount"></span></h2><p>Sites initiés automatiquement à partir d'une entreprise choisie sur la carte.</p></div></div>
+    <div id="proProjectsGrid" class="grid" aria-label="Projets Pro"></div>
   </section>
 </main>
 <dialog id="createDialog" aria-labelledby="dialogTitle">

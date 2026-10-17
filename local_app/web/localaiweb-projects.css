@@ -2,3 +2,13 @@
 .project-thumbnail{position:absolute;inset:0;height:100%;width:100%;object-fit:cover;object-position:top;opacity:0;transition:opacity .22s ease}.card-art.has-thumbnail .project-thumbnail{opacity:.95}.card-art.has-thumbnail .art-shape,.card-art.has-thumbnail .art-ring{display:none}.card-art.has-thumbnail:after{display:none}.card-art.has-thumbnail .art-caption{z-index:2;border-radius:6px;background:#140f1cb8;padding:7px 9px}.card-art.has-thumbnail{background:#15141d}
 
 .top-actions{display:flex;align-items:center;gap:12px}.update-action{padding:11px 14px;border:1px solid #7c5bbb;background:#2f2144;color:#eee1ff;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer}.update-action:hover{background:#493163;border-color:#b88cff}.update-action:disabled{opacity:.62;cursor:wait}.update-action:focus-visible{outline:2px solid #d0b7ff;outline-offset:3px}@media(max-width:620px){.top-actions{gap:7px}.update-action{font-size:10px;padding:10px 8px}.back-link{font-size:10px;padding:10px 8px}}
+
+.map-entry{border:1px solid #8063b1;background:radial-gradient(circle at 95% 20%,#7b50c052,transparent 45%),linear-gradient(130deg,#292037,#191520);border-radius:20px;margin:0 0 38px;padding:25px 29px;display:flex;gap:22px;align-items:center;justify-content:space-between}
+.map-entry h2{letter-spacing:-.04em;font-size:23px;margin:10px 0 8px}
+.map-entry p{color:#bfb3d0;font-size:12px;line-height:1.7;margin:0;max-width:510px}
+.map-action{white-space:nowrap;border-radius:12px;background:linear-gradient(120deg,#7c51d3,#a870f1);padding:15px 17px;color:#fff;text-decoration:none;display:flex;gap:13px;align-items:center;font-size:12px;font-weight:760}
+.map-action:hover{filter:brightness(1.13);transform:translateY(-1px)}
+.map-action:focus-visible{outline:2px solid #e5ccff;outline-offset:3px}
+.pro-library{margin-top:55px}.pro-library .card-art{background:radial-gradient(circle at 64% 19%,#4f8daf70,transparent 40%),linear-gradient(130deg,#19252e,#2c455c 58%,#161625)}
+.pro-library .art-caption{color:#bcdef2}
+@media(max-width:650px){.map-entry{padding:24px 19px;flex-direction:column;align-items:flex-start}.map-action{white-space:normal;width:100%;justify-content:center}.pro-library{margin-top:40px}}
