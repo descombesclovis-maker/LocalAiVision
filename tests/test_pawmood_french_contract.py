@@ -62,6 +62,48 @@ class PawMoodContractTests(unittest.TestCase):
             'index.html':GOOD_HTML,'styles.css':GOOD_CSS,'app.js':'// interactions'
         },spec),[])
 
+    def test_css_classes_and_js_identifiers_do_not_count_as_visible_english(self):
+        """Reproduce an english_ui-only false alarm with a genuine French site."""
+        files={
+            'index.html':GOOD_HTML.replace('<body>','<body class="workspace">'),
+            'styles.css':GOOD_CSS+'\n.workspace{max-width:100vw}.pricing-card{display:grid}',
+            'app.js':(
+                '// workspace, pricing, the workspace (comments are not labels)\n'
+                'const workspace = document.querySelector(".workspace");\n'
+                'const pricing = "prix";\n'
+                'const config = {key:"workspace", code:"pricing"};'
+            )
+        }
+        spec=web_content_contract.specification(PAWMOOD,'PawMood')
+        self.assertNotIn('english_ui', {x['id'] for x in web_content_contract.check(files,spec)})
+        self.assertEqual(web_content_contract.english_ui_examples(files),[])
+
+    def test_actual_english_html_text_and_accessible_labels_still_rejected(self):
+        spec=web_content_contract.specification(PAWMOOD,'PawMood')
+        html=GOOD_HTML.replace('Accueil','Home').replace(
+            '<button>Demander un rendez-vous</button>',
+            '<button aria-label="Book now">Book now</button>')
+        found=web_content_contract.english_ui_examples({'index.html':html})
+        self.assertIn('home',found)
+        self.assertIn('book now',found)
+        self.assertIn('english_ui',{x['id'] for x in web_content_contract.check(
+            {'index.html':html,'styles.css':GOOD_CSS},spec)})
+
+    def test_react_english_ui_labels_detected_not_source_identifiers(self):
+        spec=web_content_contract.specification(PAWMOOD,'PawMood')
+        files={'index.html':GOOD_HTML,'styles.css':GOOD_CSS,
+               'src/App.tsx':(
+                   'const workspace = useMemo(()=>true, []);\n'
+                   'const section = <div><span>Why Forma</span>'
+                   '<button title="Book an appointment">Prendre RDV</button></div>;\n'
+                   'const nav = {label:"Pricing"};'
+               )}
+        found=web_content_contract.english_ui_examples(files)
+        self.assertIn('why forma',found)
+        self.assertIn('book an appointment',found)
+        self.assertIn('pricing',found)
+        self.assertIn('english_ui',{x['id'] for x in web_content_contract.check(files,spec)})
+
     def test_react_site_needs_business_content_even_when_build_succeeds(self):
         with tempfile.TemporaryDirectory() as temp:
             store=web_builder.LocalAiWebStore(temp,lambda *_:'{}')
