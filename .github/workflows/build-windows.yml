@@ -59,6 +59,7 @@ jobs:
             --hidden-import local_app.workflows ^
             --hidden-import local_app.web_builder ^
             --hidden-import local_app.web_briefing ^
+            --hidden-import local_app.web_hybrid ^
             --hidden-import local_app.integrations_cli ^
             --hidden-import local_app.nsfw_profile ^
             --add-data "local_app\web;local_app\web" ^

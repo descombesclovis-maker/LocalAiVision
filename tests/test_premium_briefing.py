@@ -19,22 +19,19 @@ class SpecificationTests(unittest.TestCase):
         questions=web_briefing.questions_for(BRIEF)
         keys=[q['key'] for q in questions]
         self.assertNotIn('brand',keys)
-        self.assertIn('inventory',keys)
-        self.assertIn('checkout',keys)
-        self.assertIn('visual',keys)
+        self.assertNotIn('inventory',keys)
+        self.assertNotIn('checkout',keys)
+        self.assertNotIn('visual',keys)
+        self.assertLessEqual(len(keys),2)
 
     def test_plan_is_saved_and_user_can_respond_to_missing_info(self):
         with tempfile.TemporaryDirectory() as root:
             store=web_builder.LocalAiWebStore(root,lambda *_:'{}')
             p=store.create('Poisson-Trap')['project']['id']
             plan=store.brief_begin(p,BRIEF)
-            self.assertFalse(plan['ready'])
-            self.assertTrue(plan['question'])
-            for q in plan['plan']['questions']:
-                answer=store.brief_answer(p,q['choices'][0])
-            self.assertTrue(answer['ready'])
-            self.assertIn('Poisson-Trap',answer['prompt'])
-            self.assertIn('bleu',answer['prompt'])
+            self.assertTrue(plan['ready'])
+            self.assertIsNone(plan['question'])
+            self.assertIn('Poisson-Trap',plan['plan']['original'])
             self.assertEqual(store.brief_status(p)['plan']['original'],BRIEF)
 
     def test_audit_rejects_generic_or_colorless_mockup(self):

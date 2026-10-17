@@ -350,7 +350,7 @@ class LocalAiWebStore:
         return {'plan':plan, 'question':question, 'ready':plan['ready'],
                 'prompt':web_briefing.full_prompt(plan) if plan['ready'] else None}
 
-    def generate(self, project_id, prompt):
+    def generate(self, project_id, prompt, agent_context=''):
         prompt = str(prompt or '').strip()
         if not prompt: raise ValueError('Décris la modification ou le site à créer.')
         self.append_chat(project_id, 'user', prompt)
@@ -405,6 +405,8 @@ class LocalAiWebStore:
             'Include meaningful visual hierarchy, responsive grids, professional typography, '
             'responsive navigation, polished original copy, and coherent page composition.'
         )
+        if agent_context:
+            system += '\nADDITIONAL AUTOMATED CREATIVE ASSET MANIFEST:\n' + str(agent_context)[:12000]
         answer = self.llm_generate(system, context, prompt)
         parsed = self._extract_json(answer)
         files = parsed.get('files')
