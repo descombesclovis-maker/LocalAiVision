@@ -6,7 +6,7 @@ ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_PROJECT_FILES = 120
 PRIVATE_NAMES = {'.env', '.env.local', '.env.production', '.env.development'}
-IGNORED_DIRS = {'.git', '.vercel', 'node_modules', '.next', 'dist', 'build', '__pycache__'}
+IGNORED_DIRS = {'.git', '.vercel', 'node_modules', '.next', 'dist', 'build', '__pycache__', '.localaiweb-qa'}
 
 
 # Original LocalAiWeb presets inspired by common website/app categories (not third-party copies).
@@ -220,7 +220,7 @@ class LocalAiWebStore:
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prévisualisation LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><p>La prévisualisation devrait apparaitre ici.</p></main></body></html>',
           'styles.css': 'html,body{margin:0;min-height:100%;font-family:Inter,system-ui,sans-serif;background:#0e0e12;color:#bcbac7}main{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}p{font-size:clamp(16px,2vw,22px);font-weight:500}@media(max-width:600px){p{font-size:16px}}',
           'app.js': '// L’IA remplacera le placeholder au premier rendu.',
-          '.gitignore': '.env\n.env.local\n.env.production\n.env.development\n.vercel\nnode_modules\n.next\ndist\nbuild\n',
+          '.gitignore': '.env\n.env.local\n.env.production\n.env.development\n.vercel\nnode_modules\n.next\ndist\nbuild\n.localaiweb-qa\n',
           '.env.example': '# Variables publiques du projet uniquement. Ne committez jamais de secrets.\n'
         }
         if template == 'cinematic3d':

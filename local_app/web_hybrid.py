@@ -13,6 +13,33 @@ import uuid
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+def select_coding_agent(provider, status, *, allow_local_fallback=False):
+    """Choose an authenticated real coding agent; never silently downgrade quality.
+
+    The old chat-only HTML generator is available solely by explicit request or
+    an explicit local-only configuration.
+    """
+    requested = str(provider or 'auto').strip().lower()
+    if requested not in ('auto', 'claude', 'codex', 'local'):
+        raise ValueError('Moteur de création inconnu.')
+    if requested == 'local':
+        return 'local'
+    agents = ('claude', 'codex') if requested == 'auto' else (requested,)
+    for candidate in agents:
+        if bool((status.get(candidate) or {}).get('ready')):
+            return candidate
+    if requested == 'auto' and allow_local_fallback:
+        return 'local'
+    target = 'Claude Code ou Codex' if requested == 'auto' else (
+        'Claude Code' if requested == 'claude' else 'Codex')
+    raise RuntimeError(
+        'Aucun agent professionnel connecté. Pour éviter de générer une ancienne '
+        'maquette HTML, connecte ' + target +
+        ' sur ce PC, puis réessaie. Installation : Claude Code (claude auth login) '
+        'ou Codex (codex login). Ton projet reste intact.'
+    )
+
+
 MAX_AUTOMATIC_IMAGES = 3
 PAID_OPT_IN = "LOCALAIWEB_ALLOW_PAID_IMAGES"
 CLOUD_MODEL = "gpt-image-1"
@@ -249,37 +276,101 @@ def code_quality_report(store, project_id, request, integrations):
             'preflight': structural, 'build': build}
 
 
-def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals):
-    """Agent edits the real project files, then repairs failed checks once."""
+def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals, progress=None):
+    """Claude/Emergent-style agent workflow: implement, build, inspect, repair.
+
+    Inspections use actual browser screenshots when Playwright is available.
+    An unavailable visual inspector is reported honestly, never passed.
+    The source of truth remains the project's real files.
+    """
     import time
-    instruction = developer_brief(user_prompt, visuals)
-    instruction += "\n" + asset_manifest(visuals)
+    from local_app import web_browser_qa
+    def update(phase, message):
+        if progress:
+            progress(phase, message)
+
     site = store.project_dir(project_id) / 'site'
+    ignore = site / '.gitignore'
+    if not ignore.is_file():
+        ignore.write_text('.localaiweb-qa/\n', encoding='utf-8')
+    elif '.localaiweb-qa' not in ignore.read_text(encoding='utf-8'):
+        with ignore.open('a', encoding='utf-8') as stream:
+            stream.write('\n.localaiweb-qa/\n')
+
+    instruction = developer_brief(user_prompt, visuals)
+    instruction += '\n' + asset_manifest(visuals)
+    instruction += (
+        '\nAGENT PROCESS: Plan the visual structure and design system first. '
+        'Build real pages and their actual interactions. Install required dependencies, '
+        'run the production build, and fix all runtime errors. User brief is authoritative. '
+        'A premium website is not a short HTML forum or a generic template. '
+        'Use original art direction and real product assets. Prefer React/Vite for '
+        'interactive sites and React Three Fiber for demanding real 3D work. '
+        'A simple brochure site may remain semantic HTML/CSS if that is more appropriate.'
+    )
     store.append_chat(project_id, 'user', user_prompt)
     store.snapshot(project_id, 'Avant : génération hybride')
+    update("building", "L'agent construit le site et ses fonctionnalités…")
     result = agent(site, instruction)
+    update("verification", "Compilation et contrôles du site produit…")
     report = code_quality_report(store, project_id, user_prompt, integrations)
+    repair_count = 0
+
     if not report['ok']:
-        failures = list(report['findings'])
-        failures += [{'fix': x['message']} for x in report['syntax'].get('issues', [])]
-        failures += [{'fix': x['label']} for x in report['preflight'].get('blockers', [])]
-        agent(site, contract_repair_prompt(user_prompt, failures))
+        findings = list(report['findings'])
+        findings.extend({'fix': row['message']} for row in report['syntax'].get('issues', []))
+        findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
+                        for row in report['preflight'].get('blockers', []))
+        update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
+        agent(site, contract_repair_prompt(user_prompt, findings))
+        repair_count += 1
         report = code_quality_report(store, project_id, user_prompt, integrations)
+
+    visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
+              'screenshots': []}
+    if report['ok']:
+        update("visual", "Analyse du site dans un navigateur sur ordinateur, tablette et téléphone…")
+        visual = web_browser_qa.review(site, build=report.get('build'))
+        if visual.get('reviewed') and visual.get('screenshots'):
+            # Run the agent in a vision-capable review role, looking at actual
+            # desktop, tablet and mobile screenshots, not guessed CSS properties.
+            update("design", "L'agent examine les captures et améliore la direction artistique…")
+            agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual))
+            repair_count += 1
+            report = code_quality_report(store, project_id, user_prompt, integrations)
+            if report['ok']:
+                visual = web_browser_qa.review(site, build=report.get('build'))
+            else:
+                visual = {'status': 'failed', 'reviewed': False,
+                          'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
+                          'screenshots': []}
+
+    update("finishing", "Enregistrement de la version et du rapport de qualité…")
     meta = store.meta(project_id)
     meta['updated_at'] = time.time()
-    meta['last_summary'] = str(result.get('summary') or 'Site généré par agent hybride')[-400:]
+    meta['last_summary'] = str(result.get('summary') or 'Site créé par un agent de développement')[-400:]
     meta['last_quality_score'] = report['preflight'].get('score')
-    meta['last_agent_quality'] = {'ok': report['ok'],
-                                   'issues': [x['id'] for x in report['findings']]}
+    meta['last_agent_quality'] = {
+        'ok': report['ok'], 'visual': visual.get('status'),
+        'issues': [f['id'] for f in report['findings']],
+        'repairs': repair_count,
+    }
     store.write_meta(project_id, meta)
     feedback = meta['last_summary']
     if not report['ok']:
-        feedback += '\nVérifications restantes : ' + ', '.join(
-            x['id'] for x in report['findings'][:6])
+        feedback += '\nLe site reste incomplet : ' + ', '.join(
+            row['id'] for row in report['findings'][:6])
+    elif visual['status'] == 'unavailable':
+        feedback += '\nAperçu construit, mais la vérification visuelle automatique nécessite Playwright et Chromium.'
+    elif visual['status'] == 'failed':
+        feedback += '\nÀ corriger dans le rendu navigateur : ' + '; '.join(visual['issues'][:3])
+    elif visual['status'] == 'passed':
+        feedback += '\nVérification navigateur : ordinateur, tablette et téléphone contrôlés.'
     store.append_chat(project_id, 'assistant', feedback)
     payload = store.payload(project_id)
     payload['summary'] = feedback
     payload['quality'] = report['preflight']
-    payload['hybrid_validation'] = report
+    payload['hybrid_validation'] = {**report, 'visual': visual,
+                                    'repairs': repair_count}
     payload['visuals'] = visuals
     return payload

@@ -9,20 +9,7 @@ const api = async(url,body) => {
   if(!response.ok||result.error)throw Error(result.error||'Erreur HTTP '+response.status);
   return result;
 };
-let project=null,busy=false,viewport='desktop',stage='welcome',brief={},questionIndex=0;
-const questions=[
-  {key:'goal',label:'Quel est l’objectif principal de ton site ?',choices:['Présenter mon activité','Vendre des produits','Recevoir des réservations','Créer une application','Présenter mon travail','Autre projet'],hint:'Indique le type de site et le résultat attendu.'},
-  {key:'audience',label:'À qui s’adresse ce site ?',choices:['Grand public','Clients professionnels','Clients locaux','Passionnés / communauté','Membres inscrits','Tous les visiteurs'],hint:'Précise ton public, sa langue et ses besoins.'},
-  {key:'style',label:'Quelle direction visuelle souhaites-tu ?',choices:['Minimaliste et élégant','Premium / luxe','3D cinématique spectaculaire','Moderne et coloré','Classique professionnel','Créativité libre'],hint:'Tu peux demander un rendu très simple ou une expérience 3D digne d’une publicité.'},
-  {key:'pages',label:'Quelles pages et fonctionnalités faut-il prévoir ?',choices:['Accueil + contact','Plusieurs pages complètes','Boutique + panier','Réservation en ligne','Espace client / comptes','Une page immersive'],hint:'Décris les sections, menus, interactions ou services spécifiques.'},
-  {key:'brand',label:'Quel nom, quelles couleurs et quels contenus utiliser ?',choices:['J’ai déjà une marque','Je veux une identité à créer','Utilise du contenu de démonstration','Je fournirai les textes ensuite'],hint:'Écris le nom, le slogan, les couleurs, les références et les liens vers tes ressources.'},
-  {key:'interactions',label:'Quelles interactions souhaites-tu proposer ?',choices:['Navigation fluide','Formulaires et contact','Panier et paiement réel','Animation au défilement','Visualisation 3D de produits','Application interactive'],hint:'Précise exactement ce que les visiteurs devront pouvoir faire.'},
-  {key:'navigation',label:'Comment veux-tu organiser la navigation ?',choices:['Menu simple','Plusieurs rubriques','Parcours en une page','Défilement narratif','Catalogue filtrable','L’IA décide selon le projet'],hint:'Donne le nombre approximatif de pages et leur organisation.'},
-  {key:'visuals',label:'Quels médias et références graphiques utiliser ?',choices:['Photos réalistes','Objets 3D GLB','Illustrations sur mesure','Vidéos et animations','Typographie uniquement','Un mélange de médias'],hint:'Ajoute ici des URLs de ressources et de sites servant de référence.'},
-  {key:'functionality',label:'Quelles fonctions devront réellement marcher ?',choices:['Formulaire de contact','Réservation en ligne','Commande et paiement','Compte client','Carte interactive','Pas de fonctions avancées'],hint:'Explique le comportement attendu de chaque fonctionnalité. Les services externes devront être connectés.'},
-  {key:'publishing',label:'As-tu déjà un domaine et un hébergement ?',choices:['Publier via Vercel','J’ai déjà un nom de domaine','Je veux choisir plus tard','Je veux d’abord tester localement'],hint:'Indique les services et comptes déjà configurés, si tu en as.'},
-  {key:'priority',label:'Qu’est-ce qui compte le plus ?',choices:['Impact visuel exceptionnel','Simplicité maximale','Vitesse et SEO','Animations et 3D','Conversion et ventes','Équilibre entre tout'],hint:'Dis-moi ton niveau d’exigence, tes animations souhaitées et tes contraintes.'}
-];
+let project=null,busy=false,viewport='desktop',stage='welcome';
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
 function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
 function message(text,role='assistant',choices=[]){
@@ -61,43 +48,30 @@ function detectIntent(text){
  if(/^(?:terminer le questionnaire|construis avec ces reponses|creer maintenant|genere maintenant)[.! ]*$/.test(t))return 'build';
  return '';
 }
-function askQuestion(){
- if(questionIndex>=questions.length){stage='ready';message('Merci. J’ai de quoi construire une première version complète. Écris « créer maintenant » ou ajoute tes dernières précisions. Ensuite, je pourrai affiner absolument chaque section par tes messages.','assistant',['Créer maintenant','Ajouter des précisions']);return;}
- const q=questions[questionIndex];stage='questions';
- message('Question '+(questionIndex+1)+' / '+questions.length+' — '+q.label+'\n'+q.hint+'\nRéponds librement ou choisis une proposition. Tu peux aussi écrire « créer maintenant » à tout moment.','assistant',q.choices);
-}
 async function ensureProject(){
  if(project)return;
- const listing=await api('/api/web/projects');
- if(listing.projects?.length){project=await api('/api/web/project?id='+encodeURIComponent(listing.projects[0].id));}
- else{project=await api('/api/web/project/create',{name:'Mon site web'});}
+ // The project must be explicitly chosen on the hub. Never open the newest one
+ // or create a project merely because the editor was refreshed.
+ const id=new URLSearchParams(window.location.search).get('id')||'';
+ if(!/^web-[a-f0-9]{12}$/.test(id)){
+   window.location.replace('/localaiweb');
+   throw Error('Choisis d’abord un projet dans la bibliothèque.');
+ }
+ project=await api('/api/web/project?id='+encodeURIComponent(id));
  preview();
 }
 async function showProjects(){
- const d=await api('/api/web/projects');const projects=d.projects||[];
- if(!projects.length)return message('Aucun projet enregistré. Écris « nouveau site » pour commencer.');
- message('Tu as '+projects.length+' projet(s). Indique le nom de celui à ouvrir :\n'+projects.map((p,i)=>(i+1)+'. '+p.name).join('\n'),'assistant',projects.slice(0,8).map(x=>'Ouvrir '+x.name));
+ window.location.assign('/localaiweb');
 }
 async function handleProjectOpen(text){
- const normalized=text.toLowerCase().replace(/^ouvrir\s+/i,'').trim();
- const d=await api('/api/web/projects');
- const match=d.projects?.find(p=>p.name.toLowerCase()===normalized);
- if(!match)return false;
- project=await api('/api/web/project?id='+encodeURIComponent(match.id));preview();
- brief={};stage='ready';message('Projet « '+project.project.name+' » ouvert. Dis-moi ce que tu veux modifier ; tu peux demander n’importe quelle page, section, animation, interaction ou fonctionnalité.');
+ window.location.assign('/localaiweb');
  return true;
 }
-function projectBrief(){
- return questions.filter(q=>brief[q.key]).map(q=>q.label+'\n'+brief[q.key]).join('\n\n');
-}
+function projectBrief(){return '';}
 async function generate(text){
  await ensureProject();
- const needs3D=/\b(?:3d|webgl|three\.js|cin[eé]matique)\b/i.test(text+' '+(brief.style||'')+' '+(brief.visuals||''));
- if(needs3D && project.project.template!=='cinematic3d' &&
-    (project.files?.['index.html']||'').includes('La prévisualisation devrait apparaitre ici.')){
-   project=await api('/api/web/project/create',{name:'Mon expérience 3D',template:'cinematic3d'});
-   preview();
- }
+ // The agent edits THIS project's files, including real 3D if requested.
+ // Never secretly create a second project and abandon its saved name/history.
  setBusy(true,'Je crée ton site et prépare l’aperçu…');
  const id=project.project.id;
  const existingBrief=projectBrief();
@@ -105,6 +79,12 @@ async function generate(text){
   ?'BRIEF UTILISATEUR :\n'+existingBrief+'\n\nDERNIÈRE DEMANDE :\n'+text
   :text;
  message('Je prends en compte ta demande et construis le site complet. Je conserverai les fonctionnalités déjà créées et je te proposerai ensuite des améliorations ciblées.');
+ const progressTimer=setInterval(async()=>{
+   try{
+     const status=await api('/api/web/progress?id='+encodeURIComponent(id));
+     if(status.detail && busy)$('#lawChatStatus').textContent=status.detail;
+   }catch{/* The site can still be built if progress polling is unavailable. */}
+ },1700);
  try{
   const result=await api('/api/web/generate',{id,prompt:instructions});
   project=result;preview();
@@ -122,7 +102,7 @@ async function generate(text){
     (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':''),
     'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités','Publier le site']);
  }catch(error){message('Je n’ai pas pu appliquer cette modification : '+error.message+'\nLe projet existant est conservé. Précise la demande ou vérifie que le moteur IA est disponible.');}
- finally{setBusy(false);}
+ finally{clearInterval(progressTimer);setBusy(false);}
 }
 async function publish(){
  await ensureProject();
@@ -192,16 +172,16 @@ async function sendText(value){
  try{
   const intent=detectIntent(text);
   if(intent==='new'){
-   project=await api('/api/web/project/create',{name:'Mon nouveau site'});
-   brief={};questionIndex=0;stage='welcome';preview();
-   message('Nouveau projet créé. Décris ton site, même avec un seul paragraphe. Je détecterai les seules précisions manquantes avant de créer la première version.');return;
+   window.location.assign('/localaiweb');return;
   }
   if(intent==='projects'){await showProjects();return;}
   if(/^ouvrir\s+/i.test(text)&&await handleProjectOpen(text))return;
   if(intent==='help'){
-   message('Tout passe par ce chat. Décris ce que tu veux construire, réponds à mes questions et observe le site complet à droite. Tu peux modifier chaque élément par une phrase. Pour gérer tes sites, écris : « nouveau site », « mes projets », « publier le site » ou « télécharger le site ».');return;
+   message('Décris ton site ici et observe le résultat complet à droite. Pour revenir à la bibliothèque, clique sur la flèche près de LocalAiWeb ou écris « mes projets ». Pour modifier, continue simplement à discuter.');return;
   }
-  if(intent==='guide'){brief={};questionIndex=0;askQuestion();return;}
+  if(intent==='guide'){
+   stage='welcome';message('Décris ton site en quelques phrases. Je te poserai ensuite, si besoin, une ou deux questions sur son style et ses couleurs.');return;
+  }
   if(intent==='publish'){await publish();return;}
   if(intent==='export'){await exportSite();return;}
   if(intent==='restore'){await restoreLast();return;}
@@ -212,9 +192,6 @@ async function sendText(value){
    await beginSpecification(text);return;
   }
   if(intent==='build'){await generate('Crée maintenant un site complet et cohérent suivant mes réponses. Produis toutes les pages et interactions réelles nécessaires, un design soigné, une navigation fluide, un responsive impeccable et un contenu utile.');return;}
-  if(stage==='questions' && questionIndex<questions.length && !/^(?:modifie|remplace|corrige|ajoute|change)\b/i.test(text)){
-   brief[questions[questionIndex].key]=text;questionIndex++;askQuestion();return;
-  }
   await generate(text);
  }catch(error){message('Erreur : '+error.message);}
  finally{setBusy(false);}

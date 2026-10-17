@@ -123,8 +123,10 @@ class SettingsUi(unittest.TestCase):
                         'lawNew3d','lawMic','lawQuality','lawUndo','lawGithub'):
             self.assertNotIn(f'id="{removed}"', studio)
         for action in ('/api/web/generate','/api/web/preflight','/api/web/vercel/publish',
-                       '/api/web/project/create','/api/web/version/restore','/api/web/export'):
+                       '/api/web/version/restore','/api/web/export'):
             self.assertIn(action, logic)
+        hub_js = (ROOT / 'local_app' / 'web' / 'localaiweb-projects.js').read_text(encoding='utf-8')
+        self.assertIn('/api/web/project/create', hub_js)
 
     def test_localaiweb_does_not_reuse_localvision_saved_state(self):
         logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
@@ -135,11 +137,12 @@ class SettingsUi(unittest.TestCase):
     def test_localaiweb_guides_users_and_all_changes_are_textual(self):
         studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
         logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
-        self.assertIn('const questions=', logic)
-        self.assertIn('function askQuestion()', logic)
+        self.assertIn('async function beginSpecification(', logic)
+        self.assertIn('async function answerSpecification(', logic)
+        self.assertIn('/api/web/brief/begin', logic)
         self.assertIn('async function sendText(', logic)
         self.assertIn('questionnaire', logic)
-        self.assertIn('publier le site', logic)
+        self.assertIn("if(intent==='publish')", logic)
         self.assertIn('télécharger le site', studio)
         self.assertNotIn('id="lawInspector"',studio)
         self.assertNotIn('type="color"',studio)
