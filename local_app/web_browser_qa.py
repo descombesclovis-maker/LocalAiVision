@@ -9,12 +9,25 @@ import contextlib
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 import threading
 
 
 class QuietHandler(SimpleHTTPRequestHandler):
     def log_message(self, *args):
         return
+
+    def do_GET(self):
+        # Never expose .env files or private project internals to generated
+        # JavaScript during the preview inspection.
+        parts = Path(unquote(urlsplit(self.path).path)).parts
+        if any(part.startswith(".") and part not in (".", "..") for part in parts):
+            self.send_error(404)
+            return
+        if "node_modules" in parts or ".git" in parts:
+            self.send_error(404)
+            return
+        return super().do_GET()
 
 
 @contextlib.contextmanager
