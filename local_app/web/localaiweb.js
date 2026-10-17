@@ -237,11 +237,27 @@ async function answerSpecification(text){
  }
  renderBriefQuestion(result);
 }
+async function startProDraft(retry=false){
+ if(!project || project.project?.project_kind!=='pro')return false;
+ const claim=await api('/api/web/project/auto-claim',{id:project.project.id,retry});
+ if(!claim.ready || !claim.prompt)return false;
+ stage='ready';
+ message('Je construis maintenant une première maquette indépendante pour « '+
+   project.project.name+' ». Elle restera modifiable dans cette conversation. '+
+   'Les informations de la carte devront être vérifiées avant publication.');
+ await generate(claim.prompt);
+ return true;
+}
 async function sendText(value,{preserveDraft=false}={}){
  const text=String(value||prompt.value||'').trim();if(!text||busy)return;
  if(!preserveDraft)prompt.value='';message(text,'user');setBusy(true,'Je comprends ta demande…');
  try{
   const intent=detectIntent(text);
+  if(text.toLowerCase().trim()==='relancer la maquette' && project?.project?.project_kind==='pro'){
+    const launched=await startProDraft(true);
+    if(!launched)message('Cette maquette a déjà été lancée. Attends le résultat ou décris une modification dans le chat.');
+    return;
+  }
   if(intent==='new'){
    window.location.assign('/localaiweb');return;
   }
@@ -274,7 +290,23 @@ async function initialize(){
  try{
   await ensureProject();
   const rows=project.chat||[];
-  if(rows.length){
+  const initial=project.project?.initial_generation||{};
+  if(project.project?.project_kind==='pro' && initial.status==='pending'){
+   chat.innerHTML='';
+   message('Entreprise sélectionnée : '+project.project.name+
+     '. Je lance automatiquement la première proposition de site.','assistant');
+   await startProDraft(false);
+  }else if(project.project?.project_kind==='pro' &&
+           ['failed','claimed'].includes(initial.status) && !rows.length){
+   chat.innerHTML='';
+   message(initial.status==='failed'
+      ?'La création automatique a rencontré un problème : '+(initial.error||'moteur indisponible')+
+       '\nLe projet Pro est enregistré. Tu peux relancer la première maquette.'
+      :'La première génération a déjà été demandée. Si elle semble interrompue, '+
+       'rouvre le projet après quelques minutes ou demande à relancer la maquette.',
+      'assistant',['Relancer la maquette']);
+   stage='ready';
+  }else if(rows.length){
    chat.innerHTML='';
    rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
    message('Je suis prêt à continuer ce projet. Décris la prochaine modification ou écris « questionnaire » pour clarifier tes attentes.','assistant',['Améliore le rendu','Questionnaire','Publier le site']);
