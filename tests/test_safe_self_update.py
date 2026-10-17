@@ -17,7 +17,7 @@ def release_zip():
     output=io.BytesIO()
     # Test binary has a PE header and meets the update minimum-size rule.
     exe=b"MZ"+b"\0"*(5*1024*1024+50)
-    with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_STORED) as z:
         z.writestr("LocalVisionAI.exe",exe)
     return output.getvalue(),exe
 
@@ -28,16 +28,11 @@ class UpdateSafetyTests(unittest.TestCase):
         fake={"tag_name":"build-9991"}
         asset={"browser_download_url":"https://github.com/descombesclovis-maker/LocalAiVision/releases/download/build-9991/LocalVisionAI-Windows.zip",
                "digest":"sha256:"+hashlib.sha256(payload).hexdigest(),"size":len(payload)}
-        # The production updater requires ZIP >=5MB; build a not-compressible
-        # asset so the legitimate archive meets this conservative check.
-        # It is tested here by mocking the min-size threshold, using the actual hash.
         with tempfile.TemporaryDirectory() as path:
             with patch.object(server,"DATA",Path(path)),patch.object(server,"urlopen",return_value=io.BytesIO(payload)):
-                with patch.object(server,"UPDATE_ASSET","LocalVisionAI-Windows.zip"):
-                    # Confirm an otherwise valid but unusually compact archive
-                    # is refused instead of installing an unexpected tiny file.
-                    with self.assertRaisesRegex(RuntimeError,"incomplet"):
-                        server._download_update_exe(fake,asset)
+                installed=server._download_update_exe(fake,asset)
+                self.assertEqual(installed.read_bytes(),exe)
+                self.assertEqual(installed.name,"LocalVisionAI.new.exe")
 
     def test_digest_mismatch_blocks_update_before_extraction(self):
         payload,_=release_zip()
@@ -46,6 +41,16 @@ class UpdateSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as path:
             with patch.object(server,"DATA",Path(path)),patch.object(server,"urlopen",return_value=io.BytesIO(payload)):
                 with self.assertRaises(RuntimeError):
+                    server._download_update_exe({"tag_name":"build-99"},asset)
+
+    def test_download_length_mismatch_is_refused(self):
+        payload,_=release_zip()
+        asset={"browser_download_url":"https://github.com/descombesclovis-maker/LocalAiVision/releases/download/build-99/LocalVisionAI-Windows.zip",
+               "digest":"sha256:"+hashlib.sha256(payload).hexdigest(),
+               "size":len(payload)+123}
+        with tempfile.TemporaryDirectory() as path:
+            with patch.object(server,"DATA",Path(path)),patch.object(server,"urlopen",return_value=io.BytesIO(payload)):
+                with self.assertRaisesRegex(RuntimeError,"incomplet"):
                     server._download_update_exe({"tag_name":"build-99"},asset)
 
     @unittest.skipUnless(os.name=="nt","PowerShell updater is Windows-only")
