@@ -13,8 +13,14 @@ def _which(*names):
             return path
     return None
 
-def _run(args, cwd=None, timeout=120):
+def _run(args, cwd=None, timeout=120, input_text=None):
     kwargs = {"cwd": str(cwd) if cwd else None, "text": True, "capture_output": True, "timeout": timeout, "check": False}
+    if input_text is not None:
+        # Keep long Codex prompts out of the Windows command line (CreateProcess
+        # has a ~32K-character limit). A stdin pipe also preserves Unicode.
+        kwargs["input"] = str(input_text)
+        kwargs["encoding"] = "utf-8"
+        kwargs["errors"] = "replace"
     if CREATE_NO_WINDOW:
         kwargs["creationflags"] = CREATE_NO_WINDOW
     return subprocess.run([str(x) for x in args], **kwargs)
@@ -374,7 +380,8 @@ def codex_apply(site_dir, prompt):
     before = writeback.snapshot(site)
     # Codex may exit 0 while its Windows workspace is effectively read-only.
     result = _run(cmd + ["exec", "--sandbox", "workspace-write",
-                         "--skip-git-repo-check", instruction], cwd=site, timeout=900)
+                         "--skip-git-repo-check", "-"], cwd=site, timeout=900,
+                  input_text=instruction)
     after = writeback.snapshot(site)
     if writeback.changed_app(before, after) and not writeback.placeholder(site):
         if result.returncode != 0:
@@ -390,8 +397,8 @@ def codex_apply(site_dir, prompt):
         request = writeback.structured_prompt(instruction, site)
         retry = _run(cmd + ["exec", "--sandbox", "read-only",
                             "--skip-git-repo-check",
-                            "--output-last-message", str(final), request],
-                     cwd=site, timeout=900)
+                            "--output-last-message", str(final), "-"],
+                     cwd=site, timeout=900, input_text=request)
         if retry.returncode != 0:
             raise RuntimeError(
                 "Codex n'a écrit aucun fichier et son second essai a échoué : " +
