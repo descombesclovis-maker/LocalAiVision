@@ -13,7 +13,7 @@ class CodexExecCommandTests(unittest.TestCase):
     def test_new_codex_exec_uses_workspace_sandbox_not_removed_full_auto(self):
         with tempfile.TemporaryDirectory() as tmp:
             response=SimpleNamespace(returncode=0,stdout='Fichiers créés.',stderr='')
-            def codex_run(args,cwd=None,timeout=900):
+            def codex_run(args,cwd=None,timeout=900,input_text=None):
                 # A code-0 exit is only a successful run when actual sources exist.
                 (Path(tmp)/'index.html').write_text(
                     '<!doctype html><html><head><title>PawMood</title></head>'
@@ -31,7 +31,8 @@ class CodexExecCommandTests(unittest.TestCase):
             self.assertEqual(argv[argv.index('--sandbox')+1],'workspace-write')
             self.assertIn('--skip-git-repo-check',argv)
             self.assertNotIn('--full-auto',argv)
-            self.assertIn('Créer mon site PawMood',argv[-1])
+            self.assertEqual(argv[-1],'-')
+            self.assertIn('Créer mon site PawMood',runner.call_args.kwargs['input_text'])
             self.assertEqual(runner.call_args.kwargs['cwd'].resolve(),Path(tmp).resolve())
 
     def test_other_agent_arguments_are_untouched(self):
