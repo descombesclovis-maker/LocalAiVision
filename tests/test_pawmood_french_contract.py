@@ -162,6 +162,34 @@ class PawMoodContractTests(unittest.TestCase):
             self.assertTrue(spec['gallery'])
             self.assertEqual(set(spec['colors']),{'bleu','vert','blanc'})
 
+    def test_english_only_failure_gets_one_targeted_localization_retry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store=web_builder.LocalAiWebStore(temp,lambda *_:'{}')
+            pid=store.create('PawMood')['project']['id']
+            messages=[]
+            def agent(folder, prompt):
+                messages.append(prompt)
+                return {'summary':'Site PawMood créé'}
+            english={'ok':False,'findings':[{'id':'english_ui',
+                'fix':'Traduire le texte visible Book now'}],
+                'syntax':{'ok':True,'issues':[]},
+                'preflight':{'ok':True,'score':92,'blockers':[]},
+                'build':{'ok':True,'kind':'static'}}
+            good={**english,'ok':True,'findings':[]}
+            with patch('local_app.web_hybrid.code_quality_report',
+                       side_effect=[english,english,good]), \
+                 patch('local_app.web_browser_qa.review',return_value={
+                    'status':'unavailable','reviewed':False,'issues':[],
+                    'screenshots':[],'detail':'Playwright absent'
+                 }):
+                result=web_hybrid.build_with_agent(store,pid,PAWMOOD,agent,
+                                                     object(),{'generated':[],'notes':[]})
+            self.assertEqual(len(messages),3)
+            self.assertIn('CORRECTION CIBLÉE',messages[-1])
+            self.assertIn('Book now',messages[-1])
+            self.assertTrue(result['hybrid_validation']['ok'])
+            self.assertEqual(result['hybrid_validation']['repairs'],2)
+
     def test_automatic_animal_image_plan(self):
         subjects=web_hybrid.visual_plan(PAWMOOD)
         self.assertEqual([a['role'] for a in subjects],['hero','groomed-dog','groomed-cat'])
