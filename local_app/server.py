@@ -1463,30 +1463,46 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/web/generate":
             try:
+                from local_app import web_hybrid
                 store = _web_store()
                 project_id = body.get("id")
+                request = str(body.get("prompt") or "").strip()
+                if not request:
+                    raise ValueError("Décris ton site.")
                 meta = store.meta(project_id)
-                provider = str((meta.get("settings") or {}).get("ai_provider") or "auto")
-                use_codex = provider == "codex"
-                if provider == "auto":
-                    try:
-                        use_codex = bool(integrations_cli.status().get("codex", {}).get("ready"))
-                    except Exception:
-                        use_codex = False
-                if use_codex:
-                    site = store.project_dir(project_id) / "site"
-                    store.append_chat(project_id, "user", body.get("prompt"))
-                    store.snapshot(project_id, "Avant modification Codex")
-                    result = integrations_cli.codex_apply(site, web_builder.generation_direction(store.meta(project_id).get("settings")) + "\n\nUser request: " + str(body.get("prompt") or ""))
-                    meta = store.meta(project_id); meta["updated_at"] = time.time(); meta["last_summary"] = result.get("summary","Codex")
-                    store.write_meta(project_id, meta)
-                    store.append_chat(project_id, "assistant", meta["last_summary"])
-                    payload = store.payload(project_id); payload["summary"] = meta["last_summary"]; payload["provider"] = "codex"
-                    self.send_json(payload)
+                settings = meta.get("settings") or {}
+                provider = str(settings.get("ai_provider") or "auto")
+                available = integrations_cli.status()
+                if provider == "claude":
+                    agent_name = "claude" if available.get("claude", {}).get("ready") else "local"
+                elif provider == "codex":
+                    agent_name = "codex" if available.get("codex", {}).get("ready") else "local"
                 else:
-                    payload = store.generate(project_id, body.get("prompt"))
+                    agent_name = ("claude" if available.get("claude", {}).get("ready")
+                                  else "codex" if available.get("codex", {}).get("ready")
+                                  else "local")
+                try:
+                    from local_app import bootstrap_windows
+                    ready_image = (bool(bootstrap_windows.media_status("image").get("ready"))
+                                   and comfy_online()[0])
+                except Exception:
+                    ready_image = False
+                visuals = web_hybrid.make_visuals(
+                    store, project_id, request, local_generate=_web_generate_image_asset,
+                    local_ready=ready_image)
+                if agent_name in ("claude", "codex"):
+                    coder = (integrations_cli.claude_apply if agent_name == "claude"
+                             else integrations_cli.codex_apply)
+                    payload = web_hybrid.build_with_agent(
+                        store, project_id, request, coder, integrations_cli, visuals)
+                    payload["provider"] = agent_name
+                else:
+                    # Self-hosted fallback uses the same generated image inventory.
+                    payload = store.generate(
+                        project_id, web_hybrid.developer_brief(request, visuals))
                     payload["provider"] = "local"
-                    self.send_json(payload)
+                    payload["visuals"] = visuals
+                self.send_json(payload)
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
