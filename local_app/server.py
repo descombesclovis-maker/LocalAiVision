@@ -1372,6 +1372,18 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
             return
+        if u.path == "/api/web/project/thumbnail":
+            try:
+                project_id = parse_qs(u.query).get("id", [""])[0]
+                store = _web_store()
+                store.meta(project_id)
+                image = store.project_dir(project_id) / "site" / ".localaiweb-qa" / "ordinateur.png"
+                if not image.is_file():
+                    self.send_response(404); self.end_headers(); return
+                self.send_bytes(image.read_bytes(), "image/png")
+            except Exception as e:
+                self.send_json({"error": str(e)}, 404)
+            return
         if u.path == "/api/web/project":
             try:
                 project_id = parse_qs(u.query).get("id", [""])[0]
