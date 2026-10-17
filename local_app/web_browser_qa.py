@@ -82,7 +82,14 @@ def review(site_dir, *, build=None):
                             text: (document.body?.innerText||'').trim().length,
                             width: document.documentElement.scrollWidth,
                             viewport: window.innerWidth,
-                            headings: document.querySelectorAll('h1').length
+                            headings: document.querySelectorAll('h1').length,
+                            links: [...document.querySelectorAll('a[href]')]
+                                .map(a => a.getAttribute('href') || '')
+                                .filter(h => h && !h.startsWith('#') && !/^(mailto:|tel:|javascript:)/i.test(h))
+                                .slice(0,28),
+                            emptyButtons: [...document.querySelectorAll('button')]
+                                .filter(b => !b.innerText.trim() && !b.getAttribute('aria-label')
+                                             && !b.getAttribute('title')).length
                         })""")
                         screenshot = folder / (label + ".png")
                         page.screenshot(path=str(screenshot), full_page=True, animations="disabled", timeout=20000)
@@ -95,6 +102,33 @@ def review(site_dir, *, build=None):
                             issues.append(label + ": défilement horizontal, mise en page débordante.")
                         if errors:
                             issues.append(label + ": erreurs JavaScript : " + "; ".join(errors[:2]))
+                        if dimensions.get("emptyButtons"):
+                            issues.append(label + ": boutons sans texte ni libellé accessible : " +
+                                          str(dimensions["emptyButtons"]) + ".")
+                        if label == "ordinateur":
+                            # Real HTTP verification of up to 14 local navigational
+                            # destinations catches links to pages that do not exist.
+                            # External destinations and hash routes are not requested.
+                            from urllib.parse import urljoin, urlparse
+                            seen = set()
+                            for href in dimensions.get("links", [])[:14]:
+                                dest = urljoin(url, href)
+                                parsed = urlparse(dest)
+                                if parsed.netloc != urlparse(url).netloc:
+                                    continue
+                                if parsed.path == "/" and href.startswith("?"):
+                                    continue
+                                target = parsed._replace(fragment="").geturl()
+                                if target in seen:
+                                    continue
+                                seen.add(target)
+                                try:
+                                    reply = page.request.get(target, timeout=10000)
+                                    if reply.status >= 400:
+                                        issues.append("Navigation cassée : " + href +
+                                                      " renvoie HTTP " + str(reply.status) + ".")
+                                except Exception:
+                                    issues.append("Navigation inaccessible : " + href + ".")
                     finally:
                         page.close()
             finally:

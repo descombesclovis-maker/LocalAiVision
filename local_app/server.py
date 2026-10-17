@@ -988,6 +988,22 @@ def _web_preview_root(project_id):
     return site
 
 
+def _web_site_ready(project_id):
+    """Only expose external preview/export/inspector after real source is built."""
+    store = _web_store()
+    store.meta(project_id)
+    site = store.project_dir(project_id) / "site"
+    base = _web_preview_root(project_id)
+    if (site / "package.json").is_file() and base.resolve() == site.resolve():
+        return False
+    index = base / "index.html"
+    if not index.is_file():
+        return False
+    data = index.read_text(encoding="utf-8", errors="replace")
+    return (len(data) >= 100 and
+            "La prévisualisation devrait apparaitre ici." not in data)
+
+
 def run_chat_stream(body):
     with _engine_lock:
         _ensure_chat_components()
@@ -1491,6 +1507,15 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 404)
             return
+        if u.path == "/api/web/preview/status":
+            try:
+                project_id = parse_qs(u.query).get("id", [""])[0]
+                ready = _web_site_ready(project_id)
+                self.send_json({"ready": ready, "url": (
+                    "/web-preview/" + web_builder.safe_id(project_id) + "/index.html" if ready else None)})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/project":
             try:
                 project_id = parse_qs(u.query).get("id", [""])[0]
@@ -1572,6 +1597,21 @@ class Handler(BaseHTTPRequestHandler):
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == "/api/web/open-browser":
+            try:
+                import webbrowser
+                pid = body.get("id")
+                if not _web_site_ready(pid):
+                    raise ValueError("Le site doit être généré avant son ouverture.")
+                url = "http://" + HOST + ":" + str(PORT) + (
+                    "/web-preview/" + web_builder.safe_id(pid) + "/index.html")
+                opened = webbrowser.open_new_tab(url)
+                if not opened:
+                    raise RuntimeError("Impossible d'ouvrir automatiquement le navigateur.")
+                self.send_json({"ok": True, "url": url})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 400)
+            return
         if u.path == "/api/web/project/rename":
             try:
                 self.send_json(_web_store().rename_project(body.get("id"), body.get("name")))

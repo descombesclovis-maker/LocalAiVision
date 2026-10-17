@@ -12,3 +12,23 @@
 .message-action:focus-visible{outline:2px solid #d0b7ff;outline-offset:2px}
 
 .chat-header .chat-brand{min-width:0;flex:1}.chat-header .update-action{margin-left:auto;flex:none;padding:10px 12px;border:1px solid #624585;background:#302043;color:#e8d8ff;border-radius:10px;font-size:11px;font-weight:750;cursor:pointer}.chat-header .update-action:hover{background:#46315d}.chat-header .update-action:disabled{opacity:.65;cursor:wait}.chat-header .update-action:focus-visible{outline:2px solid #d0b7ff;outline-offset:3px}@media(max-width:620px){.chat-header .update-action{font-size:10px;padding:7px 8px}.chat-header .chat-brand p{display:none}}
+
+/* Preview tools: nothing is shown before there is a real generated site. */
+.preview-controls{display:flex;align-items:center;gap:9px;margin-left:auto;min-width:0}
+.site-tools[hidden],.inspector-popover[hidden]{display:none!important}
+.site-tools{display:flex;align-items:center;gap:5px;flex:none}
+.site-tools button{height:35px;width:35px;display:grid;place-items:center;border-radius:9px;border:1px solid #514366;background:#201b2e;color:#d5c7f2;cursor:pointer}
+.site-tools button:hover,.site-tools button.active{background:#543676;border-color:#9873cf;color:white}
+.site-tools button:focus-visible{outline:2px solid #d0b7ff;outline-offset:2px}
+.site-tools svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.site-tools #lawInspectBtn svg{fill:currentColor;stroke-width:1}
+.preview-stage{position:relative}
+.inspector-popover{position:absolute;z-index:200;display:flex;flex-direction:column;width:min(310px,calc(100% - 20px));padding:12px;background:#1b1726;border:1px solid #a67cde;border-radius:14px;box-shadow:0 10px 46px #000b;color:#f7edff}
+.inspector-popover label{font-size:12px;font-weight:750;margin-bottom:9px}
+.inspector-popover textarea{resize:vertical;min-height:75px;max-height:180px;border-radius:9px;border:1px solid #6f568b;background:#100e17;color:white;padding:10px;font-size:12px;line-height:1.5;outline:none}
+.inspector-popover textarea:focus{border-color:#bb9af7}
+.inspector-popover-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:9px}
+.inspector-popover-actions button{background:#332640;border:1px solid #655075;color:white;border-radius:8px;padding:9px;font-size:11px;cursor:pointer}
+.inspector-popover-actions #lawInspectorSubmit{background:#7951d3;border-color:#7951d3}
+@media(max-width:960px){.preview-header{padding:0 10px;gap:7px}.preview-controls{gap:4px}.site-tools{gap:3px}.site-tools button{height:30px;width:30px}.site-tools svg{width:15px;height:15px}.view-modes button{padding:8px}}
+@media(max-width:620px){.site-tools button{height:26px;width:26px}.view-modes{gap:1px;padding:2px}.view-modes button{font-size:9px;padding:5px 4px}.preview-heading{max-width:28%}}

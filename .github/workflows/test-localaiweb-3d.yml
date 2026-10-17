@@ -22,6 +22,7 @@ jobs:
       - name: Validate LocalAiWeb JavaScript syntax
         run: |
           node --check local_app/web/localaiweb.js
+          node --check local_app/web/localaiweb-inspector.js
           node --check local_app/web/localaiweb-projects.js
           node --check local_app/web/templates/cinematic3d/app.js
           node --check local_app/web/templates/cinematic3d/quality.mjs
