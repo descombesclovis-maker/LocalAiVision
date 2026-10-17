@@ -177,8 +177,7 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
             # Do not repeatedly time out if the image engine is failing.
             break
     if generated:
-        update("finishing", "Enregistrement de la version et du rapport de qualité…")
-    meta = store.meta(project_id)
+        meta = store.meta(project_id)
         meta["auto_visuals"] = generated
         store.write_meta(project_id, meta)
     return {"assets": store.assets(project_id), "generated": generated,
@@ -346,6 +345,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
                           'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
                           'screenshots': []}
 
+    update("finishing", "Enregistrement de la version et du rapport de qualité…")
     meta = store.meta(project_id)
     meta['updated_at'] = time.time()
     meta['last_summary'] = str(result.get('summary') or 'Site créé par un agent de développement')[-400:]
