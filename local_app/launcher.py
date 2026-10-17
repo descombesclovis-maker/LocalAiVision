@@ -69,6 +69,12 @@ def main():
             threading.Thread(target=httpd.serve_forever, daemon=True).start()
             if os.environ.get('LOCALVISIONAI_SKIP_SETUP') != '1':
                 server.start_setup()
+        # CI health probe exercises the packaged PyInstaller binary (including
+        # extraction/loading of python311.dll) without opening a GUI window.
+        if os.environ.get('LOCALVISIONAI_UPDATE_SMOKE') == '1':
+            print('Smoke test server ready:', URL, flush=True)
+            while True:
+                time.sleep(0.25)
         try:
             import webview
             webview.create_window('LocalVisionAI', URL, width=1440, height=920,
