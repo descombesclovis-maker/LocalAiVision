@@ -48,6 +48,10 @@ CLOUD_MODEL = "gpt-image-1"
 def semantic_subject(request):
     text = str(request or "").lower()
     domains = (
+        (r'toilett|toiletage|grooming|salon\s+canin', (
+            'realistic editorial photo of a freshly groomed happy dog in a clean animal grooming salon',
+            'realistic close-up portrait of a freshly groomed dog with healthy brushed fur',
+            'realistic freshly groomed cat with shiny coat in a calm salon setting')),
         (r'p[eê]ch|poisson|app[aâ]t|canne|leurre', ('premium fishing accessories', 'precision fishing reel', 'handcrafted fishing lure')),
         (r'parfum|fragrance', ('luxury perfume campaign', 'minimalist perfume bottle', 'glass perfume atomizer')),
         (r'montre|horlog', ('luxury watch campaign', 'precision stainless steel watch', 'premium watch dial')),
@@ -76,14 +80,20 @@ def visual_plan(request, *, existing=()):
         return []
     subjects = semantic_subject(request)
     shop = info["shop"]
+    from local_app import web_content_contract
+    groom=web_content_contract.specification(request)["grooming"]
     importance = "premium" if info["spectacular"] else "professional"
-    roles = ("hero", "product-one", "product-two") if shop else ("hero",)
+    # A dog groomer needs salon and pet images, never generic skincare or office mockups.
+    roles = ("hero","groomed-dog","groomed-cat") if groom else (
+        ("hero", "product-one", "product-two") if shop else ("hero",))
     brief = str(request)[:1100]
     plans = []
     for index, role in enumerate(roles[:MAX_AUTOMATIC_IMAGES]):
         subject = subjects[min(index, len(subjects) - 1)]
         composition = ("wide horizontal hero art direction, room for overlaid headline, artistic environmental scene"
                        if role == "hero" else
+                       "authentic-looking natural animal salon photography, animal-friendly environment, real fur textures"
+                       if groom else
                        "clean premium e-commerce product photography, centered main object, seamless studio background")
         plans.append({
             "role": role,
@@ -213,6 +223,9 @@ def developer_brief(request, visuals, project_name=''):
         "Do not copy proprietary templates; create an original high-quality visual identity.",
         "IMPORTANT: User-facing text must be strictly French; HTML lang=fr. "
         "Never replace a client grooming salon with an unrelated SaaS template.",
+        "If the user requests genuine client before/after photos, use only client-provided "
+        "licensed photos as actual client work. AI-generated illustrations are NOT actual "
+        "customer transformations and must be labeled as illustration.",
     ])
     return "\n".join(lines)
 
