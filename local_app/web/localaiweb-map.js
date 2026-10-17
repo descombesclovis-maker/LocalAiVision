@@ -15,7 +15,7 @@
  }
  function button(isBusy){
    busy=isBusy;$('mapSearchBtn').disabled=isBusy;$('mapNearby').disabled=isBusy;
-   feedback.textContent=isBusy?'Recherche des établissements…':'';
+   if(isBusy)feedback.textContent='Recherche des établissements…';
  }
  function createElement(tag,cls,label){
    const el=document.createElement(tag);if(cls)el.className=cls;
