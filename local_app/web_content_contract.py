@@ -37,7 +37,9 @@ def _brand_from_request(request):
     # Handles « PawMood est un site ... » and « Le site s'appelle Poisson-Trap ».
     match=re.match(r"^\s*([A-Za-zÀ-ÿ0-9][\wÀ-ÿ-]{2,65})\s+est\s+(?:un|une|le|la)\s+",raw,re.I)
     if match:return match.group(1)
-    match=re.search(r"(?:site\s+)?s['’]appelle\s+[«\"']?([\wÀ-ÿ-]{3,65})",raw,re.I)
+    quoted=re.search(r"(?:site\s+)?s['’]appelle\s+[«\"']([^»\"']{3,70})[»\"']",raw,re.I)
+    if quoted:return quoted.group(1).strip()
+    match=re.search(r"(?:site\s+)?s['’]appelle\s+([\wÀ-ÿ-]{3,65})",raw,re.I)
     return match.group(1) if match else ""
 
 def specification(request, project_name=""):
