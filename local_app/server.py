@@ -1497,14 +1497,11 @@ class Handler(BaseHTTPRequestHandler):
                 settings = meta.get("settings") or {}
                 provider = str(settings.get("ai_provider") or "auto")
                 available = integrations_cli.status()
-                if provider == "claude":
-                    agent_name = "claude" if available.get("claude", {}).get("ready") else "local"
-                elif provider == "codex":
-                    agent_name = "codex" if available.get("codex", {}).get("ready") else "local"
-                else:
-                    agent_name = ("claude" if available.get("claude", {}).get("ready")
-                                  else "codex" if available.get("codex", {}).get("ready")
-                                  else "local")
+                agent_name = web_hybrid.select_coding_agent(
+                    provider, available,
+                    allow_local_fallback=(os.getenv("LOCALAIWEB_ALLOW_LOCAL_FALLBACK","")
+                                          .strip().lower() in ("1","true","yes"))
+                )
                 try:
                     from local_app import bootstrap_windows
                     ready_image = (bool(bootstrap_windows.media_status("image").get("ready"))
