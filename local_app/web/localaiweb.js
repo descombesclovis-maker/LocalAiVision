@@ -94,7 +94,7 @@ async function generate(text){
  await ensureProject();
  const needs3D=/\b(?:3d|webgl|three\.js|cin[eé]matique)\b/i.test(text+' '+(brief.style||'')+' '+(brief.visuals||''));
  if(needs3D && project.project.template!=='cinematic3d' &&
-    (project.files?.['index.html']||'').includes('Ton prochain site commence ici.')){
+    (project.files?.['index.html']||'').includes('La prévisualisation devrait apparaitre ici.')){
    project=await api('/api/web/project/create',{name:'Mon expérience 3D',template:'cinematic3d'});
    preview();
  }
