@@ -366,7 +366,11 @@ def codex_apply(site_dir, prompt):
         "Keep the result polished, responsive, accessible, semantic and production-ready. Run safe validation checks before finishing. "
         "Never write secrets into browser code or committed files. Request: " + text
     )
-    result = _run(cmd + ["exec", "--full-auto", instruction], cwd=site_dir, timeout=900)
+    # Codex CLI >= 0.147 no longer accepts the deprecated --full-auto flag.
+    # Explicitly grant writes in the selected project only, including projects
+    # that have not yet been initialized as Git repositories.
+    result = _run(cmd + ["exec", "--sandbox", "workspace-write",
+                         "--skip-git-repo-check", instruction], cwd=site_dir, timeout=900)
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout or "Codex n'a pas terminé.").strip()[:4000])
     return {"ok": True, "summary": (result.stdout or result.stderr or "Modification Codex terminée.").strip()[-3000:]}
