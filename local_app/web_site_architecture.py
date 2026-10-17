@@ -89,26 +89,30 @@ def check(files,request):
     source="\n".join(str(x) for key,x in files.items()
                      if str(key).endswith((".html",".jsx",".tsx",".js",".ts",".vue",".svelte")))
     normalized=plain(source)
-    # A route must be navigable; a mere <section id="services"> is insufficient.
-    linked=re.findall(
-        r'(?:href|to|path|navigate|location\.hash|router\.push|window\.location)'
-        r'\s*[=:(]\s*["\u0027\x60]([^"\u0027\x60]{1,100})',
-        normalized,re.I)
-    # Also support common React route definitions and string dictionaries.
-    linked+=re.findall(r'["\u0027](/|#/)[a-z0-9-]{3,45}["\u0027]',normalized)
-    linked=[plain(x) for x in linked]
+    # Page sections alone are not routes; verify actual navigation targets.
+    linked = re.findall(
+        r"""(?:href|to|path|navigate|location\.hash|router\.push|window\.location)\s*
+             (?:=|\(|:)\s*["']([^"']{1,110})["']""",
+        normalized, re.I | re.X,
+    )
+    # Literal href values and route constants also cover generated JSX menus.
+    linked += re.findall(r"""["']((?:#?/)?[a-z0-9-]+(?:/[a-z0-9-]+)*\.html|#?/[a-z0-9/-]+)["']""",
+                         normalized)
+    linked = [plain(x) for x in linked]
+    is_spa = any(str(key).endswith((".jsx",".tsx",".vue",".svelte")) for key in files) or (
+        any(str(key).endswith(("package.json",)) for key in files))
     missing=[]
     for role,title,route in layout["pages"][1:]:
         aliases=_ROUTE_ALIASES.get(role,(role,))
-        in_path=any(
-            any(re.search(r'(^|/|-)'+re.escape(alias)+r'([/.-]|$)',p) for alias in aliases)
-            and (p.endswith(".html") or "/pages/" in p)
-            for p in paths)
-        in_link=any(
-            any(re.search(r'(^|/|#|-)'+re.escape(alias)+r'([/?#.-]|$)',link) for alias in aliases)
-            for link in linked)
-        # Vanilla site needs a real file AND link. A routed SPA can use the link.
-        if not in_link:
+        def valid_name(value):
+            return any(re.search(r"(^|/|#|-)" + re.escape(alias) + r"([/?#.-]|$)",value)
+                       for alias in aliases)
+        in_path = any(valid_name(p) and p.endswith(".html") for p in paths)
+        in_link = any(valid_name(link) and not re.match(r"^#(?!/)",link)
+                      for link in linked)
+        # HTML multi-page sites must link to a corresponding real document.
+        # SPAs must have routes in the source. Anchors like #services are not pages.
+        if not in_link or (not is_spa and not in_path):
             missing.append(title)
     if not missing:
         return []
