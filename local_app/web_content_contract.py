@@ -24,6 +24,8 @@ ENGLISH_UI=(
     "new project","how it works","a little clarity","your next chapter",
     "no signup needed","a calmer kind of","good things start with space",
     "welcome to your space","pricing","workspace", "your projects, plans",
+    "home", "about us", "our team", "pet grooming", "opening hours",
+    "get in touch", "view services", "book appointment", "contact form",
 )
 
 def normalize(text):
@@ -233,7 +235,7 @@ def visible_ui_strings(files):
 
 
 def english_ui_examples(files):
-    labels=[normalize(part).strip() for part in visible_ui_strings(files)]
+    labels=[re.sub(r"\s+"," ",normalize(part)).strip() for part in visible_ui_strings(files)]
     return [phrase for phrase in ENGLISH_UI
             if any(re.search(r"(?<![a-z])"+re.escape(phrase)+r"(?![a-z])",part)
                    for part in labels)]
