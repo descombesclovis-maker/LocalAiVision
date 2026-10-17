@@ -111,7 +111,13 @@ async function generate(text){
   stage='ready';
   const report=result.quality;
   const validated=report && report.ok;
-  message((result.summary||'La version du site a été créée.')+
+  const visuals=result.visuals||{};
+  const mediaNote=visuals.generated?.length
+    ?'\nVisuels créés automatiquement : '+visuals.generated.length+' photo(s) de présentation.'
+    :visuals.notes?.length
+      ?'\nPhotos : '+visuals.notes[0]
+      :'';
+  message((result.summary||'La version du site a été créée.')+mediaNote+
     '\n\nRegarde le résultat à droite. Tu peux maintenant demander une modification précise : couleur, texte, typographie, page, navigation, produit, animation, 3D, réservation ou autre fonctionnalité.'+
     (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':''),
     'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités','Publier le site']);
