@@ -195,11 +195,12 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
 
 
 def developer_brief(request, visuals, project_name=''):
-    from local_app import web_content_contract, web_site_architecture
+    from local_app import web_content_contract, web_site_architecture, web_creative_direction
     spec=web_content_contract.specification(request, project_name)
     lines = [
         web_content_contract.agent_instructions(spec),
         web_site_architecture.instructions(request),
+        web_creative_direction.instructions(request, project_name),
         "",
         "You are building a real product, not an HTML mockup. User request takes priority:",
         request,
@@ -311,7 +312,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     The source of truth remains the project's real files.
     """
     import time
-    from local_app import web_browser_qa, web_content_contract, web_site_architecture
+    from local_app import web_browser_qa, web_content_contract, web_site_architecture, web_creative_direction
     def update(phase, message):
         if progress:
             progress(phase, message)
@@ -332,6 +333,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     instruction = developer_brief(full_brief, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
     instruction += '\n' + web_site_architecture.instructions(full_brief)
+    instruction += '\n' + web_creative_direction.instructions(full_brief, spec_name)
     instruction += (
         '\nAGENT PROCESS: Plan the visual structure and design system first. '
         'Build real pages and their actual interactions. Install required dependencies, '
@@ -355,7 +357,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
         update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
-        agent(site, contract_repair_prompt(full_brief, findings) + '\n' + contract_text)
+        agent(site, contract_repair_prompt(full_brief, findings) + '\n' + contract_text +
+              '\n' + web_creative_direction.instructions(full_brief, spec_name))
         repair_count += 1
         report = code_quality_report(store, project_id, full_brief, integrations)
 
@@ -385,7 +388,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
             # desktop, tablet and mobile screenshots, not guessed CSS properties.
             update("design", "L'agent examine les captures et améliore la direction artistique…")
             agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
-                  '\n' + contract_text)
+                  '\n' + contract_text +
+                  '\n' + web_creative_direction.instructions(full_brief, spec_name))
             repair_count += 1
             report = code_quality_report(store, project_id, full_brief, integrations)
             if report['ok']:
