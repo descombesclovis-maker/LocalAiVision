@@ -79,6 +79,12 @@ async function generate(text){
   ?'BRIEF UTILISATEUR :\n'+existingBrief+'\n\nDERNIÈRE DEMANDE :\n'+text
   :text;
  message('Je prends en compte ta demande et construis le site complet. Je conserverai les fonctionnalités déjà créées et je te proposerai ensuite des améliorations ciblées.');
+ const progressTimer=setInterval(async()=>{
+   try{
+     const status=await api('/api/web/progress?id='+encodeURIComponent(id));
+     if(status.detail && busy)$('#lawChatStatus').textContent=status.detail;
+   }catch{/* The site can still be built if progress polling is unavailable. */}
+ },1700);
  try{
   const result=await api('/api/web/generate',{id,prompt:instructions});
   project=result;preview();
@@ -96,7 +102,7 @@ async function generate(text){
     (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':''),
     'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités','Publier le site']);
  }catch(error){message('Je n’ai pas pu appliquer cette modification : '+error.message+'\nLe projet existant est conservé. Précise la demande ou vérifie que le moteur IA est disponible.');}
- finally{setBusy(false);}
+ finally{clearInterval(progressTimer);setBusy(false);}
 }
 async function publish(){
  await ensureProject();
