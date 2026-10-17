@@ -184,8 +184,12 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
             "notes": notes, "ready": bool(generated)}
 
 
-def developer_brief(request, visuals):
+def developer_brief(request, visuals, project_name=''):
+    from local_app import web_content_contract
+    spec=web_content_contract.specification(request, project_name)
     lines = [
+        web_content_contract.agent_instructions(spec),
+        "",
         "You are building a real product, not an HTML mockup. User request takes priority:",
         request,
         "",
@@ -207,6 +211,8 @@ def developer_brief(request, visuals):
         "Do not force 3D into simple sites. Never claim photo-to-3D without a geometry pipeline.",
         "PRODUCTION: If using React, prefer Vite SPA build with dist/index.html; the local preview must be fully functional. Build/run/check the site, respect reduced motion and accessibility, never fake payment/auth.",
         "Do not copy proprietary templates; create an original high-quality visual identity.",
+        "IMPORTANT: User-facing text must be strictly French; HTML lang=fr. "
+        "Never replace a client grooming salon with an unrelated SaaS template.",
     ])
     return "\n".join(lines)
 
@@ -222,7 +228,10 @@ def asset_manifest(visuals):
 
 def contract_repair_prompt(original_request, findings):
     return (
-        "FIX THE CURRENT WEBSITE IN PLACE. Do not discard any approved features. "
+        "FIX THE CURRENT WEBSITE IN PLACE. The site must be 100% in French (fr-FR), "
+        "must retain the business activity, brand identity and requested sections. "
+        "Do not substitute a generic English startup or productivity product. "
+        "Do not discard any approved features. "
         "The project was checked against the user specification and failed these tests:\n"
         + "\n".join("- " + f["fix"] for f in findings[:12])
         + "\nKeep the requested palette, brand name, pages, search and categories. "
@@ -233,9 +242,11 @@ def contract_repair_prompt(original_request, findings):
 
 def code_quality_report(store, project_id, request, integrations):
     """Check real build output; never rate visual beauty without inspecting a screenshot."""
-    from local_app import web_briefing
+    from local_app import web_briefing, web_content_contract
     site = store.project_dir(project_id) / 'site'
     files = store.text_files(project_id)
+    spec = web_content_contract.specification(request, store.meta(project_id).get('name', ''))
+    contract_issues = web_content_contract.check(files, spec)
     syntax = integrations.validate_site(site)
     if (site / 'package.json').is_file():
         try:
@@ -271,6 +282,7 @@ def code_quality_report(store, project_id, request, integrations):
         build = {'ok': True, 'kind': 'static'}
         findings = web_briefing.audit(files, request)
         structural = store.preflight(project_id)
+    findings.extend(contract_issues)
     return {'ok': not findings and syntax['ok'] and structural['ok'],
             'findings': findings, 'syntax': syntax,
             'preflight': structural, 'build': build}
@@ -297,7 +309,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         with ignore.open('a', encoding='utf-8') as stream:
             stream.write('\n.localaiweb-qa/\n')
 
-    instruction = developer_brief(user_prompt, visuals)
+    original_files=store.text_files(project_id)
+    spec_name=store.meta(project_id).get('name', '')
+    instruction = developer_brief(user_prompt, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
     instruction += (
         '\nAGENT PROCESS: Plan the visual structure and design system first. '
@@ -322,7 +336,10 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
         update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
-        agent(site, contract_repair_prompt(user_prompt, findings))
+        agent(site, contract_repair_prompt(
+            user_prompt, findings) + '\n' +
+            __import__('local_app.web_content_contract', fromlist=['agent_instructions']).agent_instructions(
+                __import__('local_app.web_content_contract', fromlist=['specification']).specification(user_prompt, spec_name)))
         repair_count += 1
         report = code_quality_report(store, project_id, user_prompt, integrations)
 
@@ -335,7 +352,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
             # Run the agent in a vision-capable review role, looking at actual
             # desktop, tablet and mobile screenshots, not guessed CSS properties.
             update("design", "L'agent examine les captures et améliore la direction artistique…")
-            agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual))
+            agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual) +
+                  '\n' + __import__('local_app.web_content_contract', fromlist=['agent_instructions']).agent_instructions(
+                      __import__('local_app.web_content_contract', fromlist=['specification']).specification(user_prompt, spec_name)))
             repair_count += 1
             report = code_quality_report(store, project_id, user_prompt, integrations)
             if report['ok']:
@@ -345,6 +364,26 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
                           'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
                           'screenshots': []}
 
+    # Never accept a fluent-looking but completely different business website.
+    # On a serious client-contract failure, restore the prior source and remove
+    # the rejected compiled preview so the unrelated page is not displayed.
+    blocking={"brand_identity","wrong_business","foreign_template",
+              "french_document","english_ui","booking_content","booking_form",
+              "services","customer_gallery"}
+    rejected=[x for x in report.get('findings',[]) if x.get('id') in blocking]
+    if rejected:
+        import shutil
+        store.write_files(project_id, original_files, replace=True)
+        for folder in ('dist','build'):
+            compiled=site/folder
+            if compiled.is_dir():
+                shutil.rmtree(compiled, ignore_errors=True)
+        if (site/'package.json').is_file():
+            try:integrations.build_project(site)
+            except Exception:pass
+        problems='; '.join(str(x['id']) for x in rejected[:7])
+        raise RuntimeError("Site refusé : le rendu ne respecte pas le cahier des charges (" +
+                           problems + "). Ancienne version restaurée. Relance la génération.")
     update("finishing", "Enregistrement de la version et du rapport de qualité…")
     meta = store.meta(project_id)
     meta['updated_at'] = time.time()
