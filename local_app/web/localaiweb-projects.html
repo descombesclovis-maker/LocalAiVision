@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#100f19"><title>LocalAiWeb — Mes projets</title>
+<link rel="stylesheet" href="/assets/localaiweb-projects.css">
+</head>
+<body>
+<main class="workspace">
+  <header class="topbar">
+    <div class="branding"><span class="logo" aria-hidden="true">✦</span><div><strong>LocalAiWeb</strong><small>Votre espace de création</small></div></div>
+    <a class="back-link" href="/" aria-label="Revenir à LocalAiVision">← LocalAiVision</a>
+  </header>
+  <section class="intro" aria-labelledby="workspace-title">
+    <span class="eyebrow"><span aria-hidden="true">✧</span> ESPACE PROJETS</span>
+    <h1 id="workspace-title">Qu'allons-nous <em>créer</em> aujourd'hui&nbsp;?</h1>
+    <p>Retrouvez vos sites à l'endroit où vous les avez laissés, ou commencez un nouveau projet. Chaque création conserve son propre historique.</p>
+    <button id="createProject" type="button" class="primary-action"><span aria-hidden="true">＋</span> Nouveau projet <span aria-hidden="true">↗</span></button>
+  </section>
+  <section class="library" aria-labelledby="projects-title">
+    <div class="library-bar"><div><h2 id="projects-title">Mes projets <span id="projectsCount"></span></h2><p>Ouvrez un projet pour retrouver le chat et sa prévisualisation.</p></div>
+      <label class="search"><span aria-hidden="true">⌕</span><span class="sr-only">Rechercher un projet</span><input id="projectSearch" type="search" autocomplete="off" placeholder="Rechercher un projet…"></label>
+    </div>
+    <div id="libraryStatus" role="status" aria-live="polite">Chargement de vos projets…</div>
+    <div id="projectsGrid" class="grid" aria-label="Projets LocalAiWeb"></div>
+  </section>
+</main>
+<dialog id="createDialog" aria-labelledby="dialogTitle">
+  <form id="createForm" method="dialog">
+    <h2 id="dialogTitle">Créer un nouveau projet</h2>
+    <p>Commencez par un nom. L'IA vous aidera ensuite à construire le site dans le chat.</p>
+    <label for="projectName">Nom du projet</label>
+    <input id="projectName" name="name" maxlength="80" required autocomplete="off" placeholder="Ex. : Poisson-Trap">
+    <div id="createError" role="alert"></div>
+    <div class="dialog-actions"><button id="cancelProject" type="button" class="secondary-action">Annuler</button><button id="confirmProject" type="submit" class="primary-action">Créer mon projet ↗</button></div>
+  </form>
+</dialog>
+<script src="/assets/localaiweb-projects.js"></script>
+</body>
+</html>
