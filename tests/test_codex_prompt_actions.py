@@ -13,10 +13,19 @@ class CodexExecCommandTests(unittest.TestCase):
     def test_new_codex_exec_uses_workspace_sandbox_not_removed_full_auto(self):
         with tempfile.TemporaryDirectory() as tmp:
             response=SimpleNamespace(returncode=0,stdout='Fichiers créés.',stderr='')
+            def codex_run(args,cwd=None,timeout=900):
+                # A code-0 exit is only a successful run when actual sources exist.
+                (Path(tmp)/'index.html').write_text(
+                    '<!doctype html><html><head><title>PawMood</title></head>'
+                    '<body><main><h1>PawMood</h1><p>Toilettage professionnel.</p>'
+                    '</main></body></html>',encoding='utf-8')
+                return response
             with patch.object(integrations_cli,'_codex_cmd',return_value=['codex.cmd']), \
-                 patch.object(integrations_cli,'_run',return_value=response) as runner:
+                 patch.object(integrations_cli,'_run',side_effect=codex_run) as runner:
                 result=integrations_cli.codex_apply(Path(tmp),'Créer mon site PawMood')
             self.assertTrue(result['ok'])
+            self.assertEqual(result['method'],'workspace-write')
+            self.assertEqual(runner.call_count,1)
             argv=runner.call_args.args[0]
             self.assertEqual(argv[:2],['codex.cmd','exec'])
             self.assertEqual(argv[argv.index('--sandbox')+1],'workspace-write')
