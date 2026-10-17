@@ -203,4 +203,8 @@ def check(files, spec):
         hues=_color_hues(source)
         if not any(75<=h<=175 and sat>.2 and .1<lum<.93 for h,lum,sat in hues) and not re.search(r"\b(?:green|emerald|teal|vert|lime)\b",source,re.I):
             fail("green_palette","Inclure le vert souhaité dans la palette réelle du site.")
+    if "blanc" in spec["colors"]:
+        hues=_color_hues(source)
+        if not any(lum>=.89 and sat<=.22 for _,lum,sat in hues) and not re.search(r"\b(?:white|blanc|bg-white)\b",source,re.I):
+            fail("white_palette","Utiliser également le blanc demandé pour les espaces clairs et les surfaces du site.")
     return findings
