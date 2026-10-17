@@ -177,7 +177,8 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
             # Do not repeatedly time out if the image engine is failing.
             break
     if generated:
-        meta = store.meta(project_id)
+        update("finishing", "Enregistrement de la version et du rapport de qualité…")
+    meta = store.meta(project_id)
         meta["auto_visuals"] = generated
         store.write_meta(project_id, meta)
     return {"assets": store.assets(project_id), "generated": generated,
@@ -276,7 +277,7 @@ def code_quality_report(store, project_id, request, integrations):
             'preflight': structural, 'build': build}
 
 
-def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals):
+def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals, progress=None):
     """Claude/Emergent-style agent workflow: implement, build, inspect, repair.
 
     Inspections use actual browser screenshots when Playwright is available.
@@ -285,6 +286,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     """
     import time
     from local_app import web_browser_qa
+    def update(phase, message):
+        if progress:
+            progress(phase, message)
 
     site = store.project_dir(project_id) / 'site'
     ignore = site / '.gitignore'
@@ -307,7 +311,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     )
     store.append_chat(project_id, 'user', user_prompt)
     store.snapshot(project_id, 'Avant : génération hybride')
+    update("building", "L'agent construit le site et ses fonctionnalités…")
     result = agent(site, instruction)
+    update("verification", "Compilation et contrôles du site produit…")
     report = code_quality_report(store, project_id, user_prompt, integrations)
     repair_count = 0
 
@@ -316,6 +322,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row['message']} for row in report['syntax'].get('issues', []))
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
+        update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
         agent(site, contract_repair_prompt(user_prompt, findings))
         repair_count += 1
         report = code_quality_report(store, project_id, user_prompt, integrations)
@@ -323,10 +330,12 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
               'screenshots': []}
     if report['ok']:
+        update("visual", "Analyse du site dans un navigateur sur ordinateur, tablette et téléphone…")
         visual = web_browser_qa.review(site, build=report.get('build'))
         if visual.get('reviewed') and visual.get('screenshots'):
             # Run the agent in a vision-capable review role, looking at actual
             # desktop, tablet and mobile screenshots, not guessed CSS properties.
+            update("design", "L'agent examine les captures et améliore la direction artistique…")
             agent(site, web_browser_qa.creative_review_prompt(user_prompt, visual))
             repair_count += 1
             report = code_quality_report(store, project_id, user_prompt, integrations)
