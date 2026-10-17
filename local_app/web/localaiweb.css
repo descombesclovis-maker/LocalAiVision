@@ -10,3 +10,5 @@
 .message-action{appearance:none;border:1px solid #9471bd;border-radius:9px;background:#493465;color:#fff;cursor:pointer;padding:7px 11px;font-size:11px;font-weight:700;line-height:1.4}
 .message-action:hover{background:#604481;border-color:#bc94ed}
 .message-action:focus-visible{outline:2px solid #d0b7ff;outline-offset:2px}
+
+.chat-header .chat-brand{min-width:0;flex:1}.chat-header .update-action{margin-left:auto;flex:none;padding:10px 12px;border:1px solid #624585;background:#302043;color:#e8d8ff;border-radius:10px;font-size:11px;font-weight:750;cursor:pointer}.chat-header .update-action:hover{background:#46315d}.chat-header .update-action:disabled{opacity:.65;cursor:wait}.chat-header .update-action:focus-visible{outline:2px solid #d0b7ff;outline-offset:3px}@media(max-width:620px){.chat-header .update-action{font-size:10px;padding:7px 8px}.chat-header .chat-brand p{display:none}}

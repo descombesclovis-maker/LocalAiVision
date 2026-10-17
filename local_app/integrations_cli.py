@@ -354,27 +354,55 @@ def supabase_db_push(site_dir):
     return {"ok": True, "output": (result.stdout or "")[-2000:]}
 
 def codex_apply(site_dir, prompt):
+    """Apply verified Codex edits; recover safely if native Windows sandbox is read-only."""
+    import tempfile
+    from local_app import web_codex_writeback as writeback
+
     cmd = _codex_cmd()
     if not cmd:
         raise RuntimeError("Codex CLI n'est pas installé.")
     text = str(prompt or "").strip()
     if not text:
         raise RuntimeError("Prompt Codex vide.")
+    site = Path(site_dir).resolve()
     instruction = (
-        "Work only inside this website project. Implement the request directly in the files. "
-        "Preserve existing user assets and working features. Inspect relevant image assets when the request references a screenshot, logo or visual reference. "
-        "Keep the result polished, responsive, accessible, semantic and production-ready. Run safe validation checks before finishing. "
-        "Never write secrets into browser code or committed files. Request: " + text
+        "Work ONLY inside this website project. Actually create or change website files, "
+        "not just describe your ideas. Preserve user assets and existing working features. "
+        "Honor brand, design and requested functionality. Build polished production-ready "
+        "responsive web pages. Avoid exposing secrets. Request:\n" + text
     )
-    # Codex CLI >= 0.147 no longer accepts the deprecated --full-auto flag.
-    # Explicitly grant writes in the selected project only, including projects
-    # that have not yet been initialized as Git repositories.
+    before = writeback.snapshot(site)
+    # Codex may exit 0 while its Windows workspace is effectively read-only.
     result = _run(cmd + ["exec", "--sandbox", "workspace-write",
-                         "--skip-git-repo-check", instruction], cwd=site_dir, timeout=900)
-    if result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout or "Codex n'a pas terminé.").strip()[:4000])
-    return {"ok": True, "summary": (result.stdout or result.stderr or "Modification Codex terminée.").strip()[-3000:]}
+                         "--skip-git-repo-check", instruction], cwd=site, timeout=900)
+    after = writeback.snapshot(site)
+    if writeback.changed_app(before, after) and not writeback.placeholder(site):
+        if result.returncode != 0:
+            raise RuntimeError("Codex a modifié des fichiers mais a signalé une erreur : " +
+                               (result.stderr or result.stdout or "")[-1500:])
+        return {"ok": True, "summary": "Codex a enregistré les fichiers du site.",
+                "files_written": writeback.changed(before, after), "method": "workspace-write"}
 
+    # No actual website was created. Ask for bounded JSON source only, and
+    # write it ourselves after validating every destination. Never lift sandbox.
+    with tempfile.TemporaryDirectory(prefix="localaiweb-codex-") as folder:
+        final = Path(folder) / "files.json"
+        request = writeback.structured_prompt(instruction, site)
+        retry = _run(cmd + ["exec", "--sandbox", "read-only",
+                            "--skip-git-repo-check",
+                            "--output-last-message", str(final), request],
+                     cwd=site, timeout=900)
+        if retry.returncode != 0:
+            raise RuntimeError(
+                "Codex n'a écrit aucun fichier et son second essai a échoué : " +
+                (retry.stderr or retry.stdout or "")[-1800:])
+        if not final.is_file():
+            raise RuntimeError("Codex n'a écrit aucun fichier et n'a pas transmis de projet de secours.")
+        written = writeback.apply_bundle(site, final.read_text(encoding="utf-8"))
+    if not writeback.changed_app(before, writeback.snapshot(site)) or writeback.placeholder(site):
+        raise RuntimeError("Codex a terminé, mais la prévisualisation reste vide. Aucun site complet n'a été créé.")
+    return {"ok": True, "summary": "Codex a créé les fichiers du site via l'écriture sécurisée.",
+            "files_written": written, "method": "validated-writeback"}
 
 def claude_apply(site_dir, prompt):
     """Claude Code non-interactive authenticated editing, with bounded tool grants."""
