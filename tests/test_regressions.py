@@ -142,7 +142,7 @@ class SettingsUi(unittest.TestCase):
         self.assertIn('/api/web/brief/begin', logic)
         self.assertIn('async function sendText(', logic)
         self.assertIn('questionnaire', logic)
-        self.assertIn('publier le site', logic)
+        self.assertIn("if(intent==='publish')", logic)
         self.assertIn('télécharger le site', studio)
         self.assertNotIn('id="lawInspector"',studio)
         self.assertNotIn('type="color"',studio)
