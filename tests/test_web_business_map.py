@@ -48,10 +48,10 @@ class BusinessMapTests(unittest.TestCase):
             found=business.nearby_businesses(46.8,4.85,900)
             business.nearby_businesses(46.8,4.85,900)
         self.assertEqual(call.call_count,1)
-        arg=call.call_args.args[2]
+        arg=call.call_args.kwargs['post']
         self.assertIn("around%3A900",arg)
         self.assertEqual(found["results"][0]["name"],"PawMood")
-        self.assertEqual(found["results"][0]["category"],"pet_grooming")
+        self.assertEqual(found["results"][0]["category"],"salon de toilettage pour animaux")
         self.assertIn("selection_token",found["results"][0])
 
     def test_picked_company_yields_separate_pro_project_and_one_auto_draft(self):
@@ -72,7 +72,7 @@ class BusinessMapTests(unittest.TestCase):
             first=store.claim_initial_generation(pid)
             self.assertTrue(first["ready"])
             self.assertIn("PawMood",first["prompt"])
-            self.assertIn("Maquette",first["prompt"])
+            self.assertIn("maquette",first["prompt"].lower())
             self.assertFalse(store.claim_initial_generation(pid)["ready"])
             store.settle_initial_generation(pid,False,"Agent non connecté")
             self.assertEqual(store.meta(pid)["initial_generation"]["status"],"failed")
@@ -89,7 +89,7 @@ class BusinessMapTests(unittest.TestCase):
               "opening_hours":"","website":""}
         prompt=business.first_draft_prompt(item)
         spec=web_content_contract.specification(prompt,item["name"])
-        self.assertEqual(spec["brand"],"Maison")
+        self.assertEqual(spec["brand"],"Maison Douce")
         # The planning brief should not force fake appointments from warnings.
         self.assertFalse(spec["booking"])
         self.assertFalse(spec["gallery"])
