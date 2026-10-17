@@ -178,7 +178,7 @@ def developer_brief(request, visuals):
         "Do not invent actual inventory records or prices as verified; clearly mark sample catalog if used.",
         "3D: If explicitly requested, implement real Three.js/GLB/PBR and scroll choreography. "
         "Do not force 3D into simple sites. Never claim photo-to-3D without a geometry pipeline.",
-        "PRODUCTION: Build/run/check the site, respect reduced motion and accessibility, never fake payment/auth.",
+        "PRODUCTION: If using React, prefer Vite SPA build with dist/index.html; the local preview must be fully functional. Build/run/check the site, respect reduced motion and accessibility, never fake payment/auth.",
         "Do not copy proprietary templates; create an original high-quality visual identity.",
     ])
     return "\n".join(lines)
@@ -205,14 +205,48 @@ def contract_repair_prompt(original_request, findings):
 
 
 def code_quality_report(store, project_id, request, integrations):
-    """Contract, syntax and structure checks. Does not pretend to score visual beauty."""
+    """Check real build output; never rate visual beauty without inspecting a screenshot."""
     from local_app import web_briefing
+    site = store.project_dir(project_id) / 'site'
     files = store.text_files(project_id)
-    findings = web_briefing.audit(files, request)
-    syntax = integrations.validate_site(store.project_dir(project_id) / 'site')
-    structural = store.preflight(project_id)
+    syntax = integrations.validate_site(site)
+    if (site / 'package.json').is_file():
+        try:
+            build = integrations.build_project(site)
+        except Exception as exc:
+            build = {'ok': False, 'message': str(exc)[:1500]}
+        source = '\n'.join(files.values())
+        norm = web_briefing.plain(source)
+        info = web_briefing.infer(request)
+        findings = []
+        def add(id, fix): findings.append({'id': id, 'fix': fix})
+        if not build.get('ok'):
+            add('framework_build', 'Install dependencies and fix the production build: ' + build['message'])
+        if build.get('ok') and not build.get('output_dir'):
+            add('preview_missing', 'Provide a static build output (Vite dist/) so the full website can be previewed.')
+        if len(source) < 3500:
+            add('framework_depth', 'Implement the complete site, not a skeletal React shell.')
+        brand = __import__('re').search(r"(?:s['’]appelle|nomm[eé]|appelle)\s+([\w-]{3,})", request, __import__('re').I)
+        if brand and web_briefing.plain(brand.group(1)) not in norm:
+            add('brand', 'Display the requested brand name in rendered app components.')
+        if info['shop'] and not any(x in norm for x in ('catalogue', 'produit', 'product', 'shop')):
+            add('products', 'Provide complete store products and categories.')
+        if info['shop'] and web_briefing.has(r'\brecherche|search\b', request) and not any(x in norm for x in ('recherch', 'search', 'filter')):
+            add('search', 'Implement functional product search and category filtering.')
+        if 'bleu' in info['colors'] and not any(x in norm for x in ('blue', 'cyan', 'bleu', '#0ea5', '#38bd', '#0284', '#2563')):
+            add('blue_palette', 'Use the explicitly requested blue palette.')
+        if 'vert' in info['colors'] and not any(x in norm for x in ('green', 'lime', 'vert', '#4ade', '#22c5', '#a3e6')):
+            add('green_palette', 'Use the explicitly requested green palette.')
+        structural = {'ok': not findings and bool(build.get('ok')),
+                      'score': None, 'blockers': findings, 'checks': [],
+                      'note': 'Framework compiled and source contract checked, visual QA not scored.'}
+    else:
+        build = {'ok': True, 'kind': 'static'}
+        findings = web_briefing.audit(files, request)
+        structural = store.preflight(project_id)
     return {'ok': not findings and syntax['ok'] and structural['ok'],
-            'findings': findings, 'syntax': syntax, 'preflight': structural}
+            'findings': findings, 'syntax': syntax,
+            'preflight': structural, 'build': build}
 
 
 def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals):
