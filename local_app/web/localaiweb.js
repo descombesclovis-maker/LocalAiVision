@@ -308,8 +308,9 @@ async function initialize(){
      '. Je lance automatiquement la première proposition de site.','assistant');
    await startProDraft(false);
   }else if(project.project?.project_kind==='pro' &&
-           ['failed','claimed'].includes(initial.status) && !rows.length){
+           ['failed','claimed'].includes(initial.status)){
    chat.innerHTML='';
+   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
    message(initial.status==='failed'
       ?'La création automatique a rencontré un problème : '+(initial.error||'moteur indisponible')+
        '\nLe projet Pro est enregistré. Tu peux relancer la première maquette.'
