@@ -1150,9 +1150,15 @@ def _web_generate_image_asset(project_id, prompt):
     prompt = str(prompt or '').strip()
     if not prompt:
         raise ValueError("Décris l'image à générer.")
-    result = run_generation({
-        'workflow': 'text to image sdxl.json',
-        'prompt': prompt,
+    preferred = os.getenv("LOCALAIWEB_IMAGE_WORKFLOW", "").strip()
+    workflows_to_try = [preferred, 'text to image sdxl.json'] if preferred else ['text to image sdxl.json']
+    result = None
+    first_error = None
+    for workflow_name in workflows_to_try:
+        try:
+            result = run_generation({
+                'workflow': workflow_name,
+                'prompt': prompt,
         'settings': {
             'count': 1,
             'quality': 'quality',
@@ -1160,7 +1166,13 @@ def _web_generate_image_asset(project_id, prompt):
             'exact_prompt': False,
             'prompt_translation': False,
         }
-    })
+            })
+            break
+        except Exception as exc:
+            if first_error is None:
+                first_error = str(exc)
+    if result is None:
+        raise RuntimeError("Aucun workflow photo disponible : " + str(first_error or "inconnu"))
     prompt_id = result.get('prompt_id')
     deadline = time.time() + 600
     info = None
