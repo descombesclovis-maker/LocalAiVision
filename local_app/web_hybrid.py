@@ -118,7 +118,8 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
         return {"assets": existing, "generated": [], "notes": [], "ready": bool(existing)}
     generated, notes = [], []
     site = store.project_dir(project_id) / "site"
-    if not local_ready and not (os.getenv(PAID_OPT_IN) and os.getenv("OPENAI_API_KEY")):
+    paid_ready = os.getenv(PAID_OPT_IN, '').strip().lower() in ('1','true','yes') and bool(os.getenv('OPENAI_API_KEY'))
+    if not local_ready and not paid_ready:
         notes.append("Moteur d'images non prêt : aucune photo artificielle n'a été inventée. "
                      "Installe le modèle d'images LocalAiVision/ComfyUI, ou active volontairement "
                      "une API d'images pour générer les visuels automatiquement.")
@@ -181,3 +182,70 @@ def developer_brief(request, visuals):
         "Do not copy proprietary templates; create an original high-quality visual identity.",
     ])
     return "\n".join(lines)
+
+
+def asset_manifest(visuals):
+    """Structured asset manifest, so agents use real image paths."""
+    return json.dumps({
+        'generated_images': visuals.get('generated', []),
+        'notes': visuals.get('notes', []),
+        'example_products_are_not_verified_inventory': True,
+    }, ensure_ascii=False)
+
+
+def contract_repair_prompt(original_request, findings):
+    return (
+        "FIX THE CURRENT WEBSITE IN PLACE. Do not discard any approved features. "
+        "The project was checked against the user specification and failed these tests:\n"
+        + "\n".join("- " + f["fix"] for f in findings[:12])
+        + "\nKeep the requested palette, brand name, pages, search and categories. "
+        "Use available local images; never claim example products represent real inventory. "
+        "Preserve features already working.\nUSER REQUEST:\n" + original_request
+    )
+
+
+def code_quality_report(store, project_id, request, integrations):
+    """Contract, syntax and structure checks. Does not pretend to score visual beauty."""
+    from local_app import web_briefing
+    files = store.text_files(project_id)
+    findings = web_briefing.audit(files, request)
+    syntax = integrations.validate_site(store.project_dir(project_id) / 'site')
+    structural = store.preflight(project_id)
+    return {'ok': not findings and syntax['ok'] and structural['ok'],
+            'findings': findings, 'syntax': syntax, 'preflight': structural}
+
+
+def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals):
+    """Agent edits the real project files, then repairs failed checks once."""
+    import time
+    instruction = developer_brief(user_prompt, visuals)
+    instruction += "\n" + asset_manifest(visuals)
+    site = store.project_dir(project_id) / 'site'
+    store.append_chat(project_id, 'user', user_prompt)
+    store.snapshot(project_id, 'Avant : génération hybride')
+    result = agent(site, instruction)
+    report = code_quality_report(store, project_id, user_prompt, integrations)
+    if not report['ok']:
+        failures = list(report['findings'])
+        failures += [{'fix': x['message']} for x in report['syntax'].get('issues', [])]
+        failures += [{'fix': x['label']} for x in report['preflight'].get('blockers', [])]
+        agent(site, contract_repair_prompt(user_prompt, failures))
+        report = code_quality_report(store, project_id, user_prompt, integrations)
+    meta = store.meta(project_id)
+    meta['updated_at'] = time.time()
+    meta['last_summary'] = str(result.get('summary') or 'Site généré par agent hybride')[-400:]
+    meta['last_quality_score'] = report['preflight'].get('score')
+    meta['last_agent_quality'] = {'ok': report['ok'],
+                                   'issues': [x['id'] for x in report['findings']]}
+    store.write_meta(project_id, meta)
+    feedback = meta['last_summary']
+    if not report['ok']:
+        feedback += '\nVérifications restantes : ' + ', '.join(
+            x['id'] for x in report['findings'][:6])
+    store.append_chat(project_id, 'assistant', feedback)
+    payload = store.payload(project_id)
+    payload['summary'] = feedback
+    payload['quality'] = report['preflight']
+    payload['hybrid_validation'] = report
+    payload['visuals'] = visuals
+    return payload
