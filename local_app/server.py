@@ -1499,7 +1499,8 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     # Self-hosted fallback uses the same generated image inventory.
                     payload = store.generate(
-                        project_id, web_hybrid.developer_brief(request, visuals))
+                        project_id, request,
+                        agent_context=web_hybrid.developer_brief(request, visuals))
                     payload["provider"] = "local"
                     payload["visuals"] = visuals
                 self.send_json(payload)
