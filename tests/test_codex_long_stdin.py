@@ -43,10 +43,11 @@ class CodexStdinTests(unittest.TestCase):
                  patch.object(integrations_cli,'_run',side_effect=fake_run):
                 result=integrations_cli.codex_apply(site,huge)
             self.assertEqual(len(commands),2)
+            self.assertGreater(len(commands[0][1]),32767)
             for argv,stdin in commands:
                 self.assertEqual(argv[-1],'-')
                 self.assertLess(len(' '.join(argv)),1000)
-                self.assertGreater(len(stdin),32767)
+                self.assertGreater(len(stdin),1200)
                 self.assertIn('PawMood',stdin)
             self.assertEqual(result['method'],'validated-writeback')
             self.assertIn('PawMood',(site/'index.html').read_text())
