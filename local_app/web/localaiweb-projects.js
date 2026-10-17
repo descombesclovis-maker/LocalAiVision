@@ -12,7 +12,14 @@ function card(p,index){
  const shape=document.createElement('div');shape.className='art-shape';
  const ring=document.createElement('div');ring.className='art-ring';
  const caption=document.createElement('span');caption.className='art-caption';caption.textContent=p.template==='cinematic3d'?'EXPÉRIENCE 3D':'PROJET WEB';
- cover.append(shape,ring,caption);
+ const thumbnail=document.createElement('img');
+ thumbnail.className='project-thumbnail';
+ thumbnail.alt='';
+ thumbnail.loading='lazy';
+ thumbnail.src='/api/web/project/thumbnail?id='+encodeURIComponent(p.id);
+ thumbnail.onload=()=>cover.classList.add('has-thumbnail');
+ thumbnail.onerror=()=>thumbnail.remove();
+ cover.append(shape,ring,thumbnail,caption);
  const body=document.createElement('div');body.className='card-body';
  const name=document.createElement('span');name.className='card-name';name.textContent=p.name||'Sans nom';
  const meta=document.createElement('div');meta.className='card-meta';
