@@ -10,7 +10,10 @@
 <header class="map-topbar">
   <a class="map-return" href="/localaiweb" aria-label="Retour à la bibliothèque">← Mes projets</a>
   <div class="map-brand"><span class="brand-star">✦</span><div><strong>LocalAiWeb <em>Pro</em></strong><small>Création depuis une entreprise</small></div></div>
-  <div class="map-info">Carte OpenStreetMap</div>
+  <label class="map-provider-choice" for="mapProvider">Carte <select id="mapProvider" aria-label="Fournisseur de carte">
+    <option value="osm">OpenStreetMap · gratuit</option>
+    <option value="google" disabled>Google Maps · configuration requise</option>
+  </select></label>
 </header>
 <main class="map-layout">
   <aside class="map-panel">
@@ -38,6 +41,7 @@
   </aside>
   <section class="map-viewport" aria-label="Carte interactive des entreprises">
     <div id="businessMap" role="application" aria-label="Carte OpenStreetMap : déplacer et zoomer pour choisir une zone"></div>
+    <div id="googleBusinessMap" role="application" aria-label="Google Maps : clique sur une entreprise pour créer son site" hidden></div>
     <div class="map-hint" aria-hidden="true">Déplace la carte, puis affiche les établissements de la zone.</div>
     <div class="map-provider" id="mapProviderInfo">Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — licence ODbL</a></div>
     <div id="mapUnavailable" class="map-unavailable" hidden>La carte ne peut pas être chargée. Vérifie ta connexion Internet, puis rouvre cette page.</div>
