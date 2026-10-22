@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LocalAiVision">
+<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#32204f"/><stop offset=".52" stop-color="#7b45cd"/><stop offset="1" stop-color="#39205b"/></linearGradient><linearGradient id="b" x1="0" x2="1" y1="1" y2="0"><stop stop-color="#ddd0ff"/><stop offset="1" stop-color="#fff"/></linearGradient></defs>
+<rect width="512" height="512" rx="120" fill="url(#a)"/>
+<path d="M254 72 303 205 440 256 303 307 254 440 204 307 71 256 204 205Z" fill="url(#b)"/>
+<circle cx="254" cy="256" r="57" fill="#6545af"/><circle cx="254" cy="256" r="30" fill="#ece0ff"/>
+</svg>
