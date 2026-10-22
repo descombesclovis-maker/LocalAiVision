@@ -59,7 +59,7 @@ class WebProjectHubTests(unittest.TestCase):
 class CodingAgentWorkflowTests(unittest.TestCase):
     def test_requires_an_authenticated_agent_in_premium_mode(self):
         self.assertEqual(web_hybrid.select_coding_agent('auto',{'claude':{'ready':True},
-                                                             'codex':{'ready':True}}),'claude')
+                                                             'codex':{'ready':True}}),'codex')
         self.assertEqual(web_hybrid.select_coding_agent('auto',{'codex':{'ready':True}}),'codex')
         self.assertEqual(web_hybrid.select_coding_agent('local',{}),'local')
         self.assertEqual(web_hybrid.select_coding_agent('auto',{},allow_local_fallback=True),'local')
