@@ -1601,6 +1601,10 @@ class Handler(BaseHTTPRequestHandler):
             # Kept as a stable namespace for future local asset management.
             self.send_json({"ok":True})
             return
+        if u.path == "/service-worker.js":
+            p = WEB / "service-worker.js"
+            self.send_bytes(p.read_bytes(), "application/javascript; charset=utf-8")
+            return
         if u.path == "/" or u.path.startswith("/assets/"):
             rel = "index.html" if u.path=="/" else u.path[len("/assets/"):]
             p = (WEB / rel).resolve()
