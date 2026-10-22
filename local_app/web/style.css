@@ -206,3 +206,13 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
 .localaiweb-entry:hover{transform:translateY(-1px) scale(1.015);box-shadow:0 0 30px #8b5cf68a,0 10px 34px #0009}
 .localaiweb-spark{font-size:12px;animation:localweb-twinkle 1.7s ease-in-out infinite}.localaiweb-spark:last-child{animation-delay:.65s}
 @keyframes localweb-shimmer{0%{transform:translateX(-65%) rotate(3deg)}55%,100%{transform:translateX(65%) rotate(3deg)}}@keyframes localweb-twinkle{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+
+/* Separate studios and finger-sized controls */
+.studio-switch{display:flex;gap:5px;margin-inline:auto;align-items:center;padding:4px;border:1px solid #604a80;border-radius:14px;background:#1b1426}
+.studio-tab{color:#e9def7;border:0;border-radius:10px;background:transparent;padding:11px 17px;font-size:12px;font-weight:750;cursor:pointer;white-space:nowrap}
+.studio-tab.active{background:linear-gradient(125deg,#7449bd,#a069db);box-shadow:0 3px 18px #5433905c;color:#fff}
+.studio-tab:focus-visible{outline:2px solid #dbc1ff;outline-offset:2px}
+.studio-tab:hover:not(.active){background:#30233f}
+@media(max-width:720px){.main-topbar{gap:6px}.studio-switch{gap:2px;padding:3px}.studio-tab{font-size:11px;padding:9px 8px}.localaiweb-entry{padding:9px!important}.localaiweb-entry b{font-size:10px}.localaiweb-spark{display:none}}
+@media(max-width:410px){.studio-tab{font-size:10px;padding:8px 5px}.localaiweb-entry b{font-size:9px}}
+@supports(padding:max(0px)){.composer-wrap{padding-bottom:max(12px,env(safe-area-inset-bottom))}}
