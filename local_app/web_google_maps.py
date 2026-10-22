@@ -30,7 +30,7 @@ def _request(endpoint, *, data=None, field_mask):
     global _LAST
     with _LOCK:
         now=time.monotonic()
-        if now-_LAST<1.0: raise ValueError("Attends une seconde avant une nouvelle recherche Google.")
+        if now-_LAST<0.3: raise ValueError("Recherche Google trop rapprochée : réessaie dans un instant.")
         _LAST=now
     body=json.dumps(data,ensure_ascii=False).encode("utf-8") if data is not None else None
     headers={"X-Goog-Api-Key":secret,"X-Goog-FieldMask":field_mask,"Accept":"application/json"}
