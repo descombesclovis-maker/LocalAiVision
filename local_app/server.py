@@ -1492,6 +1492,26 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 404)
             return
+        if u.path == "/api/web/map/config":
+            from local_app import web_google_maps
+            self.send_json(web_google_maps.configuration())
+            return
+        if u.path == "/api/web/map/google/search":
+            try:
+                from local_app import web_google_maps
+                q = parse_qs(u.query).get("q", [""])[0]
+                self.send_json(web_google_maps.search(q))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
+        if u.path == "/api/web/map/google/place":
+            try:
+                from local_app import web_google_maps
+                place_id = parse_qs(u.query).get("place_id", [""])[0]
+                self.send_json(web_google_maps.place_details(place_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/web/map/search":
             try:
                 from local_app import web_business_map
