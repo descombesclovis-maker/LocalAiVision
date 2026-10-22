@@ -24,7 +24,8 @@ def select_coding_agent(provider, status, *, allow_local_fallback=False):
         raise ValueError('Moteur de création inconnu.')
     if requested == 'local':
         return 'local'
-    agents = ('claude', 'codex') if requested == 'auto' else (requested,)
+    # Reuse the existing Codex subscription first; never require API credits by default.
+    agents = ('codex', 'claude') if requested == 'auto' else (requested,)
     for candidate in agents:
         if bool((status.get(candidate) or {}).get('ready')):
             return candidate
