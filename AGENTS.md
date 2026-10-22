@@ -16,6 +16,10 @@ All coding agents (Codex, Claude Code and collaborators) working in this reposit
 5. Do not claim a build, deployment, account integration, payment or AI/media workflow succeeded unless actually run and verified.
 6. Keep changes in a reviewable branch/PR until checks pass. Make no silent force pushes.
 
+## Agent routing and budget
+- In automatic coding mode, prefer **Codex CLI** if it is already authenticated. Use Claude only if Codex is unavailable, or the user selected Claude. Do not silently switch to a paid API or create credits charges.
+- Use distinct passes for briefing, code changes, browser QA and targeted repair. Treat a passing build as necessary but insufficient; do not certify artistic quality without actual visual review.
+
 ## LocalAiWeb design and generation
 - Actual, runnable, editable site code is the product, not a decorative screenshot or generic fixed template.
 - Read `web_content_contract.py`, `web_creative_direction.py`, `web_site_architecture.py`, `web_browser_qa.py` before editing the generation pipeline.
