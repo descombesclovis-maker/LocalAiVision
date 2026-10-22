@@ -216,3 +216,12 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
 @media(max-width:720px){.main-topbar{gap:6px}.studio-switch{gap:2px;padding:3px}.studio-tab{font-size:11px;padding:9px 8px}.localaiweb-entry{padding:9px!important}.localaiweb-entry b{font-size:10px}.localaiweb-spark{display:none}}
 @media(max-width:410px){.studio-tab{font-size:10px;padding:8px 5px}.localaiweb-entry b{font-size:9px}}
 @supports(padding:max(0px)){.composer-wrap{padding-bottom:max(12px,env(safe-area-inset-bottom))}}
+
+/* Keep the mobile header usable even with an installed-app control. */
+@media(max-width:500px){
+ .main-topbar{gap:3px}
+ .main-topbar .studio-switch{margin-inline:0;flex-shrink:1;min-width:0}
+ .main-topbar .studio-tab{padding:7px 5px}
+ .main-topbar #installLocalAi{font-size:0!important;width:32px!important;min-width:32px!important;padding:9px 3px!important}
+ .main-topbar #installLocalAi::before{content:"⇩";font-size:17px}
+}
