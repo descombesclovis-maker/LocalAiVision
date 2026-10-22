@@ -4,6 +4,7 @@
  const $=id=>document.getElementById(id);
  const results=$('mapResults'),feedback=$('mapFeedback'),selectedCard=$('mapSelection');
  let map=null, selected=null, points=[], markers=[], creating=false, busy=false;
+ let provider='osm',googleMap=null,googleMarkers=[],googleConfig=null;
  function text(id,value){$(id).textContent=String(value||'')}
  async function api(url,body){
    const options=body===undefined?{cache:'no-store'}:{
@@ -35,7 +36,8 @@
    text('mapCreateError','');
    selectedCard.hidden=false;
    for(const el of results.querySelectorAll('.result'))el.classList.toggle('selected',Number(el.dataset.index)===index);
-   map.panTo([item.lat,item.lon]);
+   if(provider==='google'&&googleMap)googleMap.panTo({lat:item.lat,lng:item.lon});
+   else map.panTo([item.lat,item.lon]);
    selectedCard.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function render(items){
@@ -45,6 +47,8 @@
    selected=null;selectedCard.hidden=true;
    for(const marker of markers)marker.remove();
    markers=[];
+   for(const marker of googleMarkers)marker.setMap(null);
+   googleMarkers=[];
    if(!points.length){
      feedback.textContent='Aucun résultat dans cette recherche. Essaye un nom plus précis ou déplace la carte.';
      return;
@@ -60,29 +64,49 @@
      btn.append(name,address,pill);
      btn.addEventListener('click',()=>selection(item,index));
      results.append(btn);
-     const marker=L.circleMarker([item.lat,item.lon],{
-       radius:item.kind==='location'?7:9,color:item.kind==='location'?'#5975c3':'#8551b9',
-       weight:2,fillColor:item.kind==='location'?'#d0d8fd':'#d5acff',fillOpacity:.9
-     }).addTo(map);
-     marker.on('click',()=>selection(item,index));
-     marker.bindTooltip(item.name);
-     markers.push(marker);
+     if(provider==='google'&&googleMap){
+       const marker=new google.maps.Marker({map:googleMap,position:{lat:item.lat,lng:item.lon},title:item.name});
+       marker.addListener('click',()=>selection(item,index));
+       googleMarkers.push(marker);
+     }else{
+       const marker=L.circleMarker([item.lat,item.lon],{
+         radius:item.kind==='location'?7:9,color:item.kind==='location'?'#5975c3':'#8551b9',
+         weight:2,fillColor:item.kind==='location'?'#d0d8fd':'#d5acff',fillOpacity:.9
+       }).addTo(map);
+       marker.on('click',()=>selection(item,index));
+       marker.bindTooltip(item.name);
+       markers.push(marker);
+     }
      bounds.push([item.lat,item.lon]);
    });
-   if(bounds.length===1)map.flyTo(bounds[0],Math.max(map.getZoom(),14));
-   else if(bounds.length)map.fitBounds(bounds,{padding:[36,36],maxZoom:15});
+   if(provider==='google'&&googleMap){
+     if(bounds.length===1){googleMap.panTo({lat:bounds[0][0],lng:bounds[0][1]});googleMap.setZoom(16);}
+     else if(bounds.length){
+       const b=new google.maps.LatLngBounds();
+       bounds.forEach(x=>b.extend({lat:x[0],lng:x[1]}));
+       googleMap.fitBounds(b,60);
+     }
+   }else{
+     if(bounds.length===1)map.flyTo(bounds[0],Math.max(map.getZoom(),14));
+     else if(bounds.length)map.fitBounds(bounds,{padding:[36,36],maxZoom:15});
+   }
    feedback.textContent=points.length+' résultat(s) trouvés. Sélectionne une entreprise dans la liste ou sur la carte.';
  }
  async function search(q){
    if(busy)return;
    button(true);try{
-     const response=await api('/api/web/map/search?q='+encodeURIComponent(q));
+     const endpoint=provider==='google'?'/api/web/map/google/search':'/api/web/map/search';
+     const response=await api(endpoint+'?q='+encodeURIComponent(q));
      render(response.results||[]);
    }catch(err){feedback.textContent='Recherche indisponible : '+err.message;}
    finally{button(false);if(!points.length && !feedback.textContent)feedback.textContent='Aucun établissement trouvé.';}
  }
  async function nearby(){
    if(busy||!map)return;
+   if(provider==='google'){
+     feedback.textContent='Sur Google Maps, clique directement sur le nom ou le repère d’une entreprise pour la sélectionner. Tu peux également utiliser la recherche ci-dessus.';
+     return;
+   }
    if(map.getZoom()<12){
      feedback.textContent='Zoome sur un quartier ou une ville avant de chercher les entreprises.';
      return;
@@ -130,4 +154,64 @@
     attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">contributeurs OpenStreetMap</a>',
     maxZoom:18,maxNativeZoom:18
  }).addTo(map);
+ const picker=$('mapProvider');
+ async function setupGoogle(){
+   if(googleMap)return;
+   if(!googleConfig?.enabled)throw Error('Configure les clés officielles Google Maps et Google Places sur le PC.');
+   await new Promise((resolve,reject)=>{
+     const callback='__localAiWebGoogleReady';
+     window[callback]=()=>{
+       try{
+         const center=map.getCenter();
+         googleMap=new google.maps.Map($('googleBusinessMap'),{
+           center:{lat:center.lat,lng:center.lng},zoom:Math.max(6,map.getZoom()),
+           clickableIcons:true,fullscreenControl:false,streetViewControl:false
+         });
+         googleMap.addListener('click',async event=>{
+           if(!event.placeId)return;
+           if(typeof event.stop==='function')event.stop();
+           if(busy)return;
+           button(true);
+           try{
+             const response=await api('/api/web/map/google/place?place_id='+encodeURIComponent(event.placeId));
+             if(!response.business)throw Error("Aucune entreprise Google reconnue.");
+             render([response.business]);
+             selection(response.business,0);
+           }catch(err){feedback.textContent='Impossible de sélectionner cette fiche : '+err.message;}
+           finally{button(false);}
+         });
+         delete window[callback];resolve();
+       }catch(err){reject(err);}
+     };
+     const script=document.createElement('script');
+     script.async=true;
+     script.onerror=()=>reject(Error('Chargement Google Maps indisponible.'));
+     script.src='https://maps.googleapis.com/maps/api/js?loading=async&key='+encodeURIComponent(googleConfig.browser_key)+'&callback='+callback;
+     document.head.appendChild(script);
+   });
+ }
+ picker.addEventListener('change',async()=>{
+   if(picker.value==='google'){
+     button(true);
+     try{await setupGoogle();provider='google';
+       $('businessMap').hidden=true;$('googleBusinessMap').hidden=false;
+       $('mapProviderInfo').textContent='Google Maps / Places : API officielle, facturation Google possible';
+       feedback.textContent='Clique directement sur une entreprise de Google Maps, ou utilise la recherche.';
+       render([]);
+     }catch(err){picker.value='osm';feedback.textContent=err.message;}
+     finally{button(false);}
+   }else{
+     provider='osm';$('googleBusinessMap').hidden=true;$('businessMap').hidden=false;
+     $('mapProviderInfo').innerHTML='Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — licence ODbL</a>';
+     map.invalidateSize();render([]);
+     feedback.textContent='Carte gratuite : recherche une entreprise ou explore la zone.';
+   }
+ });
+ api('/api/web/map/config').then(config=>{
+   googleConfig=config;
+   if(config.enabled){
+     const option=picker.querySelector('option[value="google"]');
+     option.disabled=false;option.textContent='Google Maps · API officielle';
+   }
+ }).catch(()=>{});
 })();

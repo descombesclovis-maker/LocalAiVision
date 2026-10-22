@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#100f19"><title>LocalAiWeb Pro — Choisir une entreprise</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#100f19"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml"><title>LocalAiWeb Pro — Choisir une entreprise</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <link rel="stylesheet" href="/assets/localaiweb-map.css">
 </head>
@@ -10,7 +10,10 @@
 <header class="map-topbar">
   <a class="map-return" href="/localaiweb" aria-label="Retour à la bibliothèque">← Mes projets</a>
   <div class="map-brand"><span class="brand-star">✦</span><div><strong>LocalAiWeb <em>Pro</em></strong><small>Création depuis une entreprise</small></div></div>
-  <div class="map-info">Carte OpenStreetMap</div>
+  <label class="map-provider-choice" for="mapProvider">Carte <select id="mapProvider" aria-label="Fournisseur de carte">
+    <option value="osm">OpenStreetMap · gratuit</option>
+    <option value="google" disabled>Google Maps · configuration requise</option>
+  </select></label>
 </header>
 <main class="map-layout">
   <aside class="map-panel">
@@ -38,6 +41,7 @@
   </aside>
   <section class="map-viewport" aria-label="Carte interactive des entreprises">
     <div id="businessMap" role="application" aria-label="Carte OpenStreetMap : déplacer et zoomer pour choisir une zone"></div>
+    <div id="googleBusinessMap" role="application" aria-label="Google Maps : clique sur une entreprise pour créer son site" hidden></div>
     <div class="map-hint" aria-hidden="true">Déplace la carte, puis affiche les établissements de la zone.</div>
     <div class="map-provider" id="mapProviderInfo">Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — licence ODbL</a></div>
     <div id="mapUnavailable" class="map-unavailable" hidden>La carte ne peut pas être chargée. Vérifie ta connexion Internet, puis rouvre cette page.</div>
@@ -45,4 +49,5 @@
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="/assets/localaiweb-map.js"></script>
+<script src="/assets/pwa-install.js" defer></script>
 </body></html>

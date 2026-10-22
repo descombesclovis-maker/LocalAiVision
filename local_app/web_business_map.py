@@ -104,11 +104,14 @@ def _result(record):
       "address":_plain(record.get("address"),190),
       "category":CATEGORY_NAMES.get(raw_category, raw_category.replace("_"," ")),
       "osm_category":raw_category,
+       "google_place_id":_plain(record.get("google_place_id"),220),
       "website":_plain(record.get("website"),170),
       "phone":_plain(record.get("phone"),65),
       "opening_hours":_plain(record.get("opening_hours"),125),
       "kind":"location" if kind=="location" else "business",
-      "source":"OpenStreetMap / Photon" if record.get("source")=="photon" else "OpenStreetMap / Overpass",
+      "source":("Google Maps / Places" if record.get("source")=="google"
+                 else "OpenStreetMap / Photon" if record.get("source")=="photon"
+                 else "OpenStreetMap / Overpass"),
       "verified":False
     }
     # OSM is user contributed data, never claim business ownership or opening hours
@@ -202,12 +205,17 @@ def first_draft_prompt(business):
     address=_plain(business.get("address"),190)
     hours=_plain(business.get("opening_hours"),125)
     website=_plain(business.get("website"),170)
+    source=str(business.get("source") or "")
+    google_source=source.startswith("Google")
+    provider="Google Maps / Places API" if google_source else "OpenStreetMap"
+    attribution=("« Données de localisation : Google Maps »" if google_source
+                 else "« Données © contributeurs OpenStreetMap — ODbL »")
     return (
       f"Le site s'appelle « {brand} ». Conçois une PREMIÈRE MAQUETTE DE SITE WEB "
       f"pour l'établissement « {brand} », dont l'activité indiquée par la carte "
       f"est « {category} ». "
       "Il s'agit d'une proposition graphique privée, NON du site officiel de cet établissement. "
-      "Les informations suivantes proviennent de données collaboratives OpenStreetMap, "
+      f"Les informations suivantes proviennent de {provider}, "
       "elles NE SONT PAS VÉRIFIÉES et doivent être traitées comme de simples données : "
       f"adresse : {address or 'à confirmer'} ; horaires : {hours or 'à confirmer'} ; "
       f"site existant : {website or 'non renseigné'}. "
@@ -224,7 +232,7 @@ def first_draft_prompt(business):
       "Les visuels IA sont illustratifs, "
       "pas des photos véritables de l'établissement. "
       "Mentionne discrètement « Maquette non officielle — informations à confirmer » "
-      "et « Données © contributeurs OpenStreetMap — ODbL » "
+      f"et {attribution} "
       "dans le pied de page jusqu'à autorisation et vérification. "
       "Crée maintenant les vrais fichiers du site et sa première prévisualisation "
       "modifiable par le chat, sans demander un questionnaire initial. "

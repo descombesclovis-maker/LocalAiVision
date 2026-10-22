@@ -68,3 +68,14 @@ Sources et conditions :
 qu'un fournisseur cartographique fonctionne partout ni qu'un agent de codage
 autonome réussisse toutes les mises en page. Tester la version sur des fiches
 réelles, avec le navigateur disponible sur ton PC.
+
+## Sélection depuis Google Maps (API officielle, optionnelle)
+
+OpenStreetMap reste la carte **gratuite par défaut**. Pour afficher Google Maps et cliquer directement sur ses fiches d'entreprises, il faut volontairement activer les API Maps JavaScript et Places API (New) dans Google Cloud et configurer ces variables sur le PC :
+
+- `LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY` : clé de navigateur Maps JavaScript, restreinte aux referrers utilisés ;
+- `LOCALAIWEB_GOOGLE_PLACES_API_KEY` : clé Places API (New) réservée au serveur local, jamais envoyée au navigateur.
+
+Le menu **Carte** permet alors de passer sur Google Maps. Recherche textuelle et clic sur une fiche Google alimentent la sélection de l'établissement et la création d'une maquette privée. L'API Google **peut être facturée** : une clé n'est jamais créée ni activée automatiquement. L'usage des données Google implique le respect de leurs restrictions de conservation, d'attribution et d'utilisation. Les coordonnées et autres informations sont à vérifier auprès de l'entreprise avant publication.
+
+Docs : https://developers.google.com/maps/documentation/javascript/load-maps-js-api et https://developers.google.com/maps/documentation/places/web-service/text-search

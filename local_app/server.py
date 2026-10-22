@@ -41,7 +41,7 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -1492,6 +1492,26 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 404)
             return
+        if u.path == "/api/web/map/config":
+            from local_app import web_google_maps
+            self.send_json(web_google_maps.configuration())
+            return
+        if u.path == "/api/web/map/google/search":
+            try:
+                from local_app import web_google_maps
+                q = parse_qs(u.query).get("q", [""])[0]
+                self.send_json(web_google_maps.search(q))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
+        if u.path == "/api/web/map/google/place":
+            try:
+                from local_app import web_google_maps
+                place_id = parse_qs(u.query).get("place_id", [""])[0]
+                self.send_json(web_google_maps.place_details(place_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/web/map/search":
             try:
                 from local_app import web_business_map
@@ -1600,6 +1620,10 @@ class Handler(BaseHTTPRequestHandler):
         if u.path.startswith("/api/asset"):
             # Kept as a stable namespace for future local asset management.
             self.send_json({"ok":True})
+            return
+        if u.path == "/service-worker.js":
+            p = WEB / "service-worker.js"
+            self.send_bytes(p.read_bytes(), "application/javascript; charset=utf-8")
             return
         if u.path == "/" or u.path.startswith("/assets/"):
             rel = "index.html" if u.path=="/" else u.path[len("/assets/"):]

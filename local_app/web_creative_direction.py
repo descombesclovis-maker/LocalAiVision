@@ -5,6 +5,7 @@ automatically score aesthetic quality.
 """
 import re
 import unicodedata
+import hashlib
 
 
 def normalized(value):
@@ -57,8 +58,30 @@ def concept(request, brand=""):
     )
 
 
+
+# Deterministic inspiration by project identity, never a rigid template.
+COMPOSITIONS=(
+    "editorial split composition with striking negative space and deliberate typography",
+    "cinematic edge-to-edge hero with restrained, layered information",
+    "museum-like product exhibition with tactile close-ups and precise micro-details",
+    "confident typographic architecture, asymmetric framing and generous whitespace",
+    "immersive storytelling with alternating scale, crisp transitions and restrained movement",
+    "warm material-led storytelling with authentic photography and handcrafted details",
+    "high-contrast modular structure with substantial imagery and purposeful interaction",
+    "quiet luxury direction with refined grid interruptions and image craftsmanship",
+    "bold contemporary design with unmistakable product focus and purposeful motion",
+)
+
+def brand_composition(request, brand=""):
+    """Stable visual seed; explicit branding requirements always take priority."""
+    fingerprint=(normalized(brand)+"|"+normalized(request))[:1200].encode("utf-8")
+    digest=hashlib.sha256(fingerprint).digest()
+    return COMPOSITIONS[int.from_bytes(digest[:4],"big") % len(COMPOSITIONS)]
+
+
 def instructions(request, brand=""):
     theme=concept(request,brand)
+    composition=brand_composition(request,brand)
     return (
         "DIRECTION ARTISTIQUE SUR MESURE — PRIORITÉ À LA SINGULARITÉ ET À L'USAGE :\n"
         "Refuse les thèmes de dropshipping/Shopify interchangeables, les mêmes trois cartes "
@@ -70,6 +93,13 @@ def instructions(request, brand=""):
         f"OBJECTIF CLIENT : {theme['goal']}. "
         f"MATIÈRE VISUELLE PERTINENTE : {theme['visual']}. "
         f"PARCOURS PRINCIPAL : {theme['journey']}.\n"
+        f"PISTE COMPOSITIONNELLE DISTINCTIVE POUR CETTE MARQUE : {composition}. "
+        "Ce n’est pas un template : fais-la évoluer selon le métier et les éléments vérifiés. "
+        "Les couleurs et exigences explicites de l’utilisateur priment sur cette piste. "
+        "Différencie la typographie, la composition et les interactions des autres projets. "
+        "Pour les projets 3D produit : perspective crédible, éclairage PBR/HDRI, "
+        "ombres cohérentes, matériaux roughness/metalness, occlusion naturelle, "
+        "contrôles tactiles et fallback mobile/WebGL. Ne prétends jamais avoir de GLB inventé. "
         "AVANT D'ÉCRIRE LES COMPOSANTS : définis une intention visuelle UNIQUE pour CETTE "
         "entreprise. Rédige DESIGN_INTENT.md dans le projet contenant : cible et besoin, "
         "parti pris graphique distinctif expliqué, hiérarchie et répartition des pages, "

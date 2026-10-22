@@ -61,6 +61,7 @@ jobs:
             --hidden-import local_app.web_briefing ^
             --hidden-import local_app.web_hybrid ^
             --hidden-import local_app.web_business_map ^
+            --hidden-import local_app.web_google_maps ^
             --hidden-import local_app.web_site_architecture ^
             --hidden-import local_app.web_creative_direction ^
             --hidden-import local_app.web_content_contract ^
@@ -114,6 +115,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Copy-Item dist\LocalVisionAI.exe release\LocalVisionAI.exe
+          Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
+          Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
           Compress-Archive -Path release\LocalVisionAI.exe -DestinationPath LocalVisionAI-Windows.zip -Force
 
       - name: Upload EXE artifact

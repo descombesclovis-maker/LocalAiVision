@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "LocalAiVision & LocalAiWeb",
+  "short_name": "LocalAiVision",
+  "description": "Studio local de création photo, vidéo et sites web",
+  "lang": "fr-FR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0e0c15",
+  "theme_color": "#171126",
+  "icons": [
+    {
+      "src": "/assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

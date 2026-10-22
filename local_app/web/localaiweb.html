@@ -2,10 +2,11 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0c0b11">
   <meta name="description" content="LocalAiWeb : décrivez votre site dans le chat, visualisez sa création en temps réel.">
   <title>LocalAiWeb — Créez votre site avec l’IA</title>
+  <meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/localaiweb.css">
 </head>
 <body>
@@ -27,6 +28,9 @@
         <label class="sr-only" for="lawPrompt">Décrivez votre site ou la modification souhaitée</label>
         <textarea id="lawPrompt" rows="3" placeholder="Ex. : Crée un site premium pour ma marque de parfum, avec une présentation 3D et des animations au défilement…" aria-label="Message pour créer ou modifier le site"></textarea>
         <div class="composer-bottom">
+          <a id="lawMapShortcut" class="globe-tool" href="/localaiweb/map" title="Sélectionner une entreprise sur la carte" aria-label="Ouvrir la carte et sélectionner une entreprise">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-4 5-4 13 0 18M12 3c4 5 4 13 0 18"/></svg>
+          </a>
           <span id="lawChatStatus" role="status" aria-live="polite">Prêt à créer ton site</span>
           <button id="lawGenerate" type="submit" aria-label="Envoyer mon message">Envoyer <span aria-hidden="true">↑</span></button>
         </div>
@@ -70,5 +74,6 @@
   <script src="/assets/localaiweb.js"></script>
   <script src="/assets/localaiweb-inspector.js"></script>
   <script src="/assets/localaiweb-update.js"></script>
+  <script src="/assets/pwa-install.js" defer></script>
 </body>
 </html>
