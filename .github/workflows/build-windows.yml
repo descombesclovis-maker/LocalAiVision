@@ -115,6 +115,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Copy-Item dist\LocalVisionAI.exe release\LocalVisionAI.exe
+          Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
+          Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
           Compress-Archive -Path release\LocalVisionAI.exe -DestinationPath LocalVisionAI-Windows.zip -Force
 
       - name: Upload EXE artifact
