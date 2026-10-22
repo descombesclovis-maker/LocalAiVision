@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from local_app import web_business_map, web_creative_direction, web_google_maps, server
+from local_app import web_business_map, web_creative_direction, web_google_maps, web_hybrid, server
 
 ROOT=Path(__file__).resolve().parents[1]
 WEB=ROOT/"local_app"/"web"
@@ -71,6 +71,12 @@ class MobileStudiosTests(unittest.TestCase):
         self.assertEqual(item["google_place_id"],place["id"])
         self.assertTrue(web_business_map.selected_business(item["selection_token"]))
         self.assertIn("Google Maps",web_business_map.first_draft_prompt(item))
+
+    def test_codex_is_preferred_under_existing_subscription(self):
+        status={"codex":{"ready":True},"claude":{"ready":True}}
+        self.assertEqual(web_hybrid.select_coding_agent("auto",status),"codex")
+        self.assertEqual(web_hybrid.select_coding_agent("claude",status),"claude")
+        self.assertEqual(web_hybrid.select_coding_agent("auto",{"claude":{"ready":True}}),"claude")
 
     def test_project_brand_affects_design_direction(self):
         a=web_creative_direction.brand_composition("marque de parfum artisanal", "Parfumerie A")
