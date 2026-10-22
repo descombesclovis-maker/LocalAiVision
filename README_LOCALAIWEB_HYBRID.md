@@ -5,8 +5,8 @@
 L'interface reste inchangée : conversation à gauche, prévisualisation complète à droite et trois vues ordinateur/tablette/téléphone. LocalAiWeb demande au maximum deux précisions initiales concernant **l'esthétique**, et seulement si le brief est ambigu.
 
 Le moteur privilégie les agents de programmation installés et authentifiés, dans cet ordre :
-1. **Claude Code** (CLI `claude`) ;
-2. **Codex** (CLI `codex`) ;
+1. **Codex** (CLI `codex`) : priorité à l’abonnement déjà connecté ;
+2. **Claude Code** (CLI `claude`) ;
 3. modèle local existant en secours (génération HTML/CSS/JS).
 
 L'agent cloud lit/modifie les fichiers du site. Il n'est **pas** connecté automatiquement sans installation et authentification, et un abonnement/API du fournisseur peut entraîner des frais.
