@@ -10,7 +10,7 @@ Le PC Windows reste le serveur LocalAiVision et exécute ComfyUI, Qwen et les ag
 
 Le serveur écoute actuellement seulement sur `127.0.0.1:3000` **par sécurité**. Une URL `http://127.0.0.1:3000` ouverte sur l'iPhone désigne l'iPhone, **pas** le PC : elle ne peut pas fonctionner telle quelle.
 
-Pour accéder au PC depuis l'extérieur, utiliser un tunnel privé avec authentification et HTTPS (ex. Tailscale Serve), qui pointe vers le serveur local. Installer/configurer ce tunnel **sur le PC** est une étape distincte non automatisée par cette branche. Ne jamais remplacer `HOST = "127.0.0.1"` par `0.0.0.0` ni ouvrir le port 3000 vers Internet sans authentification.
+Pour accéder au PC depuis l'extérieur, utiliser un tunnel privé avec authentification et HTTPS (ex. Tailscale Serve), qui pointe vers le serveur local. Le dépôt contient maintenant **ACTIVER_ACCES_TELEPHONE.bat** (dans l’archive Windows). Le script vérifie que LocalAiVision et Tailscale sont actifs, demande ton autorisation et lance uniquement `tailscale serve --bg 3000`, accessible dans ton réseau privé en HTTPS. Il faut d'abord installer et connecter Tailscale sur le PC et le téléphone et autoriser HTTPS dans les paramètres Tailscale. Ne jamais remplacer `HOST = "127.0.0.1"` par `0.0.0.0` ni ouvrir le port 3000 vers Internet sans authentification.
 
 Sur iPhone, ouvrir l'adresse HTTPS privée dans **Safari → Partager → Sur l'écran d'accueil**. Sur Android Chrome, ouvrir l'adresse HTTPS privée et choisir **Installer l'application**. La possibilité d'installation dépend du navigateur et du contexte sécurisé.
 
