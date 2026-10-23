@@ -1,0 +1,39 @@
+/* Only LocalAiWeb: responsive layout, no change to the Windows desktop shell. */
+.law-mobile-nav{display:none}
+.law-standalone .top-actions .back-link{display:none}
+.law-standalone #lawUpdateBtn{display:none}
+@media(max-width:700px){
+ html.law-app,html.law-app body{height:100%;overscroll-behavior:none}
+ body.law-editor-mobile .studio{display:block;width:100%;height:100dvh;min-height:0;overflow:hidden}
+ body.law-editor-mobile .chat-pane,
+ body.law-editor-mobile .preview-pane{height:calc(100dvh - 68px - env(safe-area-inset-bottom));min-height:0;width:100%;border-right:0}
+ body.law-editor-mobile[data-law-mobile-view="chat"] .preview-pane{display:none}
+ body.law-editor-mobile[data-law-mobile-view="preview"] .chat-pane{display:none}
+ body.law-editor-mobile .chat-header{min-height:64px;padding:10px 14px}
+ body.law-editor-mobile .chat-history{flex:1;min-height:0;padding:14px 13px 18px;overflow-y:auto}
+ body.law-editor-mobile .chat-composer{margin:0 11px 11px;padding:10px}
+ body.law-editor-mobile #lawPrompt{font-size:16px;max-height:180px}
+ body.law-editor-mobile .composer-bottom{gap:7px}
+ body.law-editor-mobile #lawGenerate{min-height:44px}
+ body.law-editor-mobile .preview-header{min-height:60px;height:auto;padding:9px 11px;gap:8px;flex-wrap:wrap}
+ body.law-editor-mobile .preview-heading{max-width:100%;width:100%;flex:0 0 100%}
+ body.law-editor-mobile .preview-controls{width:100%;justify-content:space-between}
+ body.law-editor-mobile .view-modes button{min-height:36px;padding:7px 9px;font-size:11px}
+ body.law-editor-mobile .site-tools button{width:38px;height:38px}
+ body.law-editor-mobile .preview-stage{flex:1;min-height:0}
+ body.law-editor-mobile .inspector-popover{max-height:70%;overflow-y:auto}
+ body.law-editor-mobile .law-mobile-nav{position:fixed;display:flex;z-index:500;bottom:0;left:0;right:0;gap:6px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:#15111fee;border-top:1px solid #634d79;backdrop-filter:blur(14px)}
+ body.law-editor-mobile .law-mobile-nav button{flex:1;min-height:46px;border:1px solid #534167;background:#2b2237;color:#d7c9e7;border-radius:12px;font-weight:700;font-size:13px}
+ body.law-editor-mobile .law-mobile-nav button[aria-selected="true"]{color:white;background:#6840ae;border-color:#ac8aea}
+ body.law-editor-mobile .law-mobile-nav button:focus-visible{outline:2px solid #e4c8ff;outline-offset:2px}
+ body.law-editor-mobile .law-mobile-nav button:disabled{opacity:.5}
+ .map-topbar{gap:8px}
+ .map-layout{min-height:0}
+ .map-panel{order:1;padding:24px 16px}
+ .map-viewport{order:2;height:min(52dvh,480px);min-height:310px}
+ .map-hint{max-width:88%;font-size:10px}
+ .workspace{padding-left:16px;padding-right:16px}
+ .topbar{flex-wrap:wrap;gap:8px}
+ .top-actions{width:100%;justify-content:flex-end}
+}
+@media(prefers-reduced-motion:reduce){.law-mobile-nav{backdrop-filter:none}}

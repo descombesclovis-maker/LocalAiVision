@@ -1,0 +1,20 @@
+{
+  "id": "/localaiweb",
+  "name": "LocalAiWeb — Studio de création",
+  "short_name": "LocalAiWeb",
+  "description": "Création et édition de sites web sur iPhone",
+  "lang": "fr-FR",
+  "start_url": "/localaiweb",
+  "scope": "/localaiweb",
+  "display": "standalone",
+  "background_color": "#100f19",
+  "theme_color": "#100f19",
+  "icons": [
+    {
+      "src": "/assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
