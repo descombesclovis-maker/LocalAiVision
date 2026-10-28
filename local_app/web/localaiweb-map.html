@@ -15,50 +15,48 @@
     <option value="google" disabled>Google Maps · configuration requise</option>
   </select></label>
 </header>
-<main class="map-layout">
-  <aside class="map-panel">
-    <div class="eyebrow">01 / TROUVER L'ÉTABLISSEMENT</div>
-    <h1>Choisis l'entreprise.<br><span>L'IA crée le site.</span></h1>
-    <p>Explore le monde et filtre les établissements par métier pour préparer des sites sur mesure. La carte affiche les données disponibles dans la zone choisie, pas un annuaire mondial exhaustif.</p>
+<main class="map-layout map-fullscreen">
+  <section class="map-top-filters" aria-label="Recherche et filtres facultatifs">
     <form id="mapSearchForm" class="search-box">
-      <label class="sr-only" for="mapQuery">Nom de l'entreprise ou ville</label>
-      <input id="mapQuery" type="search" minlength="3" maxlength="100" placeholder="Ex. : salon de toilettage Dijon" required autocomplete="off">
-      <button id="mapSearchBtn" type="submit" aria-label="Rechercher sur la carte">⌕</button>
+      <label class="sr-only" for="mapQuery">Entreprise ou ville</label>
+      <input id="mapQuery" type="search" minlength="3" maxlength="100" placeholder="Rechercher une entreprise, une ville…" autocomplete="off">
+      <button id="mapSearchBtn" type="submit" aria-label="Rechercher">⌕</button>
     </form>
     <div class="industry-controls">
-      <label for="industryFilter">Filtrer par corps de métier <span id="industryTotal"></span></label>
-      <input id="industrySearch" type="search" placeholder="Rechercher un métier dans la liste…" aria-label="Rechercher dans la liste des métiers" autocomplete="off">
-      <select id="industryFilter" aria-label="Corps de métier à afficher sur la carte">
+      <label class="sr-only" for="industryFilter">Corps de métier <span id="industryTotal"></span></label>
+      <input id="industrySearch" type="search" placeholder="Trouver un métier…" aria-label="Chercher un corps de métier" autocomplete="off">
+      <select id="industryFilter" aria-label="Choisir un métier">
         <option value="all">Tous les métiers</option>
       </select>
-      <small>Choisis un métier, puis affiche les établissements dans la zone de la carte.</small>
     </div>
-    <button id="mapNearby" class="nearby" type="button"><span aria-hidden="true">⌖</span> Afficher les établissements dans cette zone</button>
-    <div class="results-head"><strong>Résultats</strong><span id="mapResultsCount"></span></div>
-    <div id="mapFeedback" role="status" aria-live="polite">Saisis une recherche ou explore la carte.</div>
+    <button id="mapNearby" class="nearby" type="button" title="Rafraîchir les entreprises visibles">↻ Actualiser la zone</button>
+    <div class="map-mode-info" id="mapFeedback" role="status" aria-live="polite">Zoome sur une ville : les établissements apparaîtront sur la carte.</div>
+  </section>
+  <section class="map-viewport" aria-label="Carte interactive mondiale des entreprises">
+    <div id="businessMap" role="application" aria-label="Carte interactive OpenStreetMap"></div>
+    <div id="googleBusinessMap" role="application" aria-label="Google Maps" hidden></div>
+    <div class="map-hint" aria-hidden="true">Zoome et déplace la carte pour découvrir les établissements disponibles.</div>
+    <div class="map-provider" id="mapProviderInfo">Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — ODbL</a></div>
+    <div id="mapUnavailable" class="map-unavailable" hidden>Carte indisponible : vérifie ta connexion Internet.</div>
+  </section>
+  <aside class="map-panel map-side-rail" aria-label="Entreprises de la zone">
+    <div class="rail-heading"><div><div class="eyebrow">PROSPECTION · ENTREPRISES</div><h1>Choisir une entreprise</h1></div><span id="mapResultsCount">0</span></div>
     <div id="mapResults" class="results"></div>
     <section id="mapSelection" class="selection" hidden aria-labelledby="selectionTitle">
-      <span class="selected-label">ÉTABLISSEMENT SÉLECTIONNÉ</span>
+      <span class="selected-label">ENTREPRISE SÉLECTIONNÉE</span>
       <h2 id="selectionTitle"></h2>
       <p id="selectionAddress"></p>
       <p id="selectionCategory"></p>
       <div class="business-details">
         <div id="selectionPublicInfo" role="note"></div>
         <div id="professionalProfile" aria-live="polite" class="registry-profile"></div>
-        <button type="button" id="mapRegistry" class="registry-check" hidden>↗ Consulter les informations professionnelles publiques</button>
+        <button type="button" id="mapRegistry" class="registry-check" hidden>↗ Informations professionnelles publiques</button>
       </div>
-      <button id="mapCreate" type="button" class="create-site">✦ Créer la première maquette <span>↗</span></button>
-      <p class="disclaimer">Création d'une maquette privée et non officielle. Les informations de la carte devront être vérifiées avant une éventuelle publication.</p>
+      <button id="mapCreate" type="button" class="create-site">✦ Créer un site pour cette entreprise <span>↗</span></button>
+      <p class="disclaimer">Maquette privée et non officielle. Le logo, les photos et les informations de l’entreprise doivent être vérifiés avant publication.</p>
       <div id="mapCreateError" role="alert"></div>
     </section>
   </aside>
-  <section class="map-viewport" aria-label="Carte interactive des entreprises">
-    <div id="businessMap" role="application" aria-label="Carte OpenStreetMap : déplacer et zoomer pour choisir une zone"></div>
-    <div id="googleBusinessMap" role="application" aria-label="Google Maps : clique sur une entreprise pour créer son site" hidden></div>
-    <div class="map-hint" aria-hidden="true">Zoome sur une région du monde, puis recherche les entreprises et métiers de cette zone.</div>
-    <div class="map-provider" id="mapProviderInfo">Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — licence ODbL</a></div>
-    <div id="mapUnavailable" class="map-unavailable" hidden>La carte ne peut pas être chargée. Vérifie ta connexion Internet, puis rouvre cette page.</div>
-  </section>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="/assets/localaiweb-map.js"></script>

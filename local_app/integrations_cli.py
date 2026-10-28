@@ -320,6 +320,40 @@ def vercel_add_domain(site_dir, domain):
         raise RuntimeError((result.stderr or result.stdout or "Ajout du domaine impossible").strip())
     return {"ok": True, "domain": domain, "output": (result.stdout or "")[-2000:]}
 
+def vercel_attach_purchased_domain(site_dir, domain, project_name):
+    """Assign an already purchased domain to an explicit linked Vercel project.
+
+    Never buy a domain, change DNS or claim SSL is ready without confirmation.
+    """
+    cmd = _vercel_cmd()
+    if not cmd:
+        raise RuntimeError("Vercel CLI indisponible. Connecte-toi à Vercel avant de rattacher le domaine.")
+    domain = str(domain or "").lower().strip().rstrip(".")
+    try:
+        domain = domain.encode("idna").decode("ascii")
+    except UnicodeError:
+        raise ValueError("Nom de domaine non valide.") from None
+    import re
+    if (len(domain)>253 or not re.fullmatch(
+        r"(?=.{4,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+        r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+",domain)):
+        raise ValueError("Utilise un vrai domaine acheté, par exemple exemple.fr.")
+    project = str(project_name or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?",project):
+        raise ValueError("Indique le nom du projet Vercel auquel rattacher le domaine.")
+    result=_run(cmd+["domains","add",domain,project],cwd=site_dir,timeout=180)
+    if result.returncode!=0:
+        raise RuntimeError((result.stderr or result.stdout or "Ajout impossible")[-1600:])
+    inspect=_run(cmd+["domains","inspect",domain],cwd=site_dir,timeout=70)
+    return {
+        "ok":True,"domain":domain,"vercel_project":project,
+        "verification_pending":True,
+        "notice":"Le domaine est ajouté à Vercel ; configure les DNS chez le fournisseur du domaine et vérifie HTTPS avant publication officielle.",
+        "dns_instructions":(inspect.stdout or inspect.stderr or "")[-2900:],
+        "dashboard":"https://vercel.com/dashboard"
+    }
+
+
 def supabase_initialize(site_dir):
     cmd = _supabase_cmd()
     if not cmd:

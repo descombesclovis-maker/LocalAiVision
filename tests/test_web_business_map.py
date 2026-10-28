@@ -130,11 +130,13 @@ class BusinessMapTests(unittest.TestCase):
         self.assertIn("id=\"createFromMap\"",dashboard)
         self.assertLess(dashboard.index('id="projectsGrid"'),dashboard.index('id="proProjectsGrid"'))
         self.assertIn("p.project_kind==='pro'",dashboard_js)
-        self.assertIn("Créer la première maquette",map_html)
+        self.assertIn("Créer un site pour cette entreprise",map_html)
         self.assertIn("openstreetmap.org/copyright",map_html)
         self.assertIn("mapSearchForm",map_js)
         self.assertIn("mapNearby",map_js)
-        self.assertNotIn("moveend",map_js)  # No automatic bulk requests while panning.
+        self.assertIn("map.on('moveend',scheduleNearby)",map_js)
+        self.assertIn("map.getZoom()<12",map_js)
+        self.assertIn("autoViewKey===viewKey",map_js)  # Bounded, debounced viewport fetches.
         self.assertIn("/api/web/project/create-from-map",map_js)
         self.assertIn("async function startProDraft",editor)
         self.assertIn("auto-claim",editor)

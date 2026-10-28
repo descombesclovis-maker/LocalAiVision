@@ -6,6 +6,7 @@
  let map=null, selected=null, points=[], markers=[], creating=false, busy=false;
  let provider='osm',googleMap=null,googleMarkers=[],googleConfig=null;
  let categories=[],categorySearch='',selectionNonce=0;
+ let autoTimer=null, autoViewKey='', suppressAutoUntil=0;
  const industry=$('industryFilter'),industrySearch=$('industrySearch');
  function resetBusinessProfile(item){
    selectionNonce++;
@@ -84,6 +85,11 @@
  }
  industrySearch.addEventListener('input',()=>listCategories(industrySearch.value));
  industry.addEventListener('change',()=>{
+   autoViewKey='';
+   if(provider==='osm'&&map?.getZoom()>=12){
+     window.setTimeout(()=>nearby({automatic:true}),250);
+     return;
+   }
    if(provider==='google'){
      feedback.textContent='Le filtre des métiers est disponible sur OpenStreetMap. La recherche Google conserve sa propre recherche.';
      return;
@@ -133,7 +139,9 @@
  }
  function selection(item,index){
    if(item.kind==='location'){
+     suppressAutoUntil=Date.now()+2100;
      map.flyTo([item.lat,item.lon],Math.max(map.getZoom(),14));
+     setTimeout(()=>nearby({automatic:true}),2300);
      selected=null;selectedCard.hidden=true;
      feedback.textContent='Carte centrée sur '+item.name+'. Clique sur « Afficher les établissements dans cette zone ».';
      return;
@@ -146,6 +154,7 @@
    text('mapCreateError','');
    selectedCard.hidden=false;
    for(const el of results.querySelectorAll('.result'))el.classList.toggle('selected',Number(el.dataset.index)===index);
+   suppressAutoUntil=Date.now()+4500;
    if(provider==='google'&&googleMap)googleMap.panTo({lat:item.lat,lng:item.lon});
    else map.panTo([item.lat,item.lon]);
    selectedCard.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -197,6 +206,7 @@
        googleMap.fitBounds(b,60);
      }
    }else{
+     suppressAutoUntil=Date.now()+4500;
      if(bounds.length===1)map.flyTo(bounds[0],Math.max(map.getZoom(),14));
      else if(bounds.length)map.fitBounds(bounds,{padding:[36,36],maxZoom:15});
    }
@@ -211,19 +221,22 @@
    }catch(err){feedback.textContent='Recherche indisponible : '+err.message;}
    finally{button(false);if(!points.length && !feedback.textContent)feedback.textContent='Aucun établissement trouvé.';}
  }
- async function nearby(){
+ async function nearby(options={}){
    if(busy||!map)return;
    if(provider==='google'){
      feedback.textContent='Sur Google Maps, clique directement sur le nom ou le repère d’une entreprise pour la sélectionner. Tu peux également utiliser la recherche ci-dessus.';
      return;
    }
    if(map.getZoom()<12){
-     feedback.textContent='Zoome sur un quartier ou une ville avant de chercher les entreprises.';
+     feedback.textContent='Zoome sur une ville : les établissements se chargeront automatiquement.';
      return;
    }
+   const center=map.getCenter();
+   const viewKey=[center.lat.toFixed(3),center.lng.toFixed(3),map.getZoom(),industry.value||'all'].join('/');
+   if(options.automatic && (Date.now()<suppressAutoUntil || autoViewKey===viewKey))return;
+   if(options.automatic)autoViewKey=viewKey;
    button(true);
    try{
-     const center=map.getCenter();
      const radius=Math.max(350,Math.min(2200,Math.round(42000/Math.pow(2,map.getZoom()-10))));
      const query=new URLSearchParams({
        lat:String(center.lat),lon:String(center.lng),radius:String(radius),
@@ -239,7 +252,14 @@
    if(q.length<3){feedback.textContent='Saisis au moins trois caractères.';return;}
    search(q);
  });
- $('mapNearby').addEventListener('click',nearby);
+ $('mapNearby').addEventListener('click',()=>nearby());
+ function scheduleNearby(){
+   if(provider!=='osm'||!map || Date.now()<suppressAutoUntil)return;
+   if(map.getZoom()<12)return;
+   clearTimeout(autoTimer);
+   autoTimer=setTimeout(()=>nearby({automatic:true}),1400);
+ }
+
  $('mapCreate').addEventListener('click',async()=>{
    if(!selected||!selected.selection_token||creating)return;
    creating=true;$('mapCreate').disabled=true;
@@ -252,7 +272,7 @@
      if(!/^web-[a-f0-9]{12}$/.test(pid||''))throw Error('Projet non enregistré.');
      window.location.assign('/localaiweb/editor?id='+encodeURIComponent(pid));
    }catch(err){text('mapCreateError',err.message);
-     $('mapCreate').textContent='✦ Créer la première maquette ↗';}
+     $('mapCreate').textContent='✦ Créer un site pour cette entreprise ↗';}
    finally{creating=false;$('mapCreate').disabled=false;}
  });
  if(typeof L==='undefined'){
@@ -261,6 +281,8 @@
    return;
  }
  map=L.map('businessMap',{zoomControl:true,worldCopyJump:true}).setView([20,4],2);
+ map.on('moveend',scheduleNearby);
+ map.on('zoomend',scheduleNearby);
  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">contributeurs OpenStreetMap</a>',
     maxZoom:18,maxNativeZoom:18

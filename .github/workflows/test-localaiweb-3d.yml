@@ -17,12 +17,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install PDF invoice test dependency
+        run: python -m pip install reportlab
       - name: Validate application regression suite
         run: python -m unittest discover -s tests -v
       - name: Validate LocalAiWeb JavaScript syntax
         run: |
           node --check local_app/web/localaiweb.js
           node --check local_app/web/localaiweb-map.js
+          node --check local_app/web/localaiweb-sales.js
           node --check local_app/web/localaiweb-inspector.js
           node --check local_app/web/localaiweb-projects.js
           node --check local_app/web/templates/cinematic3d/app.js

@@ -160,6 +160,10 @@ async function generate(text){
   const result=await api('/api/web/generate',{id,prompt:instructions});
   project=result;preview();
   stage='ready';
+  // The commercial space calculates a non-binding estimate after generation;
+  // a final invoice still requires verified seller/client information.
+  const salesLink=document.getElementById('lawSalesBtn');
+  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
   const report=result.quality;
   const validated=report && report.ok;
   const visuals=result.visuals||{};
@@ -170,7 +174,8 @@ async function generate(text){
       :'';
   message((result.summary||'La version du site a été créée.')+mediaNote+
     '\n\nRegarde le résultat à droite. Tu peux maintenant demander une modification précise : couleur, texte, typographie, page, navigation, produit, animation, 3D, réservation ou autre fonctionnalité.'+
-    (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':''),
+    (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':'' )+
+    '\nLe chiffrage FORMA (-30 % par prestation détectée) est disponible depuis l’icône document. Vérifie les prestations livrées et les coordonnées avant toute facture.',
     'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités','Publier le site']);
  }catch(error){message('Je n’ai pas pu appliquer cette modification : '+error.message+'\nLe projet existant est conservé. Précise la demande ou vérifie que le moteur IA est disponible.');}
  finally{clearInterval(progressTimer);setBusy(false);}
@@ -300,6 +305,8 @@ document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener
 async function initialize(){
  try{
   await ensureProject();
+  const salesLink=document.getElementById('lawSalesBtn');
+  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
   const rows=project.chat||[];
   const initial=project.project?.initial_generation||{};
   if(project.project?.project_kind==='pro' && initial.status==='pending'){

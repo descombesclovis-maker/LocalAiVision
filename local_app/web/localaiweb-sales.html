@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FORMA · Vente & facturation</title><link rel="stylesheet" href="/assets/localaiweb-sales.css"></head>
+<body><header class="top">
+ <a id="returnEditor" class="back" href="/localaiweb">← Retour à LocalAiWeb</a>
+ <div class="brand">F<span>O</span>RMA <small>STUDIO WEB · ESPACE COMMERCIAL</small></div>
+ <div class="badge">CHIFFRAGE & LIVRAISON</div>
+</header>
+<main class="layout">
+ <div class="intro"><p class="eyebrow">PROCESSUS COMMERCIAL · FORMA</p><h1>Un site réussi.<br><em>Un projet prêt à vendre.</em></h1><p id="projectLabel">Chargement du projet…</p>
+ <div class="note">Les prix sont des <strong>estimations indicatives</strong> basées sur des références françaises 2026, avec une réduction de 30 % par prestation. Seules les fonctionnalités réellement livrées, acceptées et facturables doivent figurer sur la facture définitive.</div></div>
+ <section class="card quote"><div class="heading"><div><p class="eyebrow">01 / VALORISATION</p><h2>Proposition commerciale</h2></div><span class="label">−30 %</span></div>
+ <p class="hint">Un devis provisoire est calculé automatiquement à partir des fichiers du site. Décoche les prestations non livrées avant d’émettre une facture.</p>
+ <div id="lineItems" role="group" aria-label="Prestations détectées"></div><div class="quote-total"><span>Total estimé HT</span><strong id="estimatedTotal">—</strong></div>
+ <p id="quoteNotice" class="hint"></p><div class="ref-links"><span>Références tarifaires indicatives :</span><a href="https://onweb24.com/fr/guide/prix-site-internet" target="_blank" rel="noopener">Comparatif 2026 ↗</a><a href="https://dgtl.fr/tarif-creation-site-internet-professionnel/" target="_blank" rel="noopener">Grille tarifs ↗</a></div></section>
+ <section class="card identity"><div class="heading"><div><p class="eyebrow">02 / FACTURATION</p><h2>Facture FORMA</h2></div><span class="label">PDF</span></div>
+ <p class="hint">Le projet génère automatiquement un chiffrage. Une facture définitive numérotée ne peut être émise qu'après validation de l'identité du client, de ton statut juridique, de la TVA et de la prestation. Une facture émise est conservée. En 2026, le PDF ne remplace pas la facturation électronique structurée lorsque celle-ci est légalement exigée ; utilise une plateforme agréée si nécessaire.</p>
+ <form id="invoiceForm">
+ <h3>Prestataire · FORMA</h3>
+ <div class="fields"><label>Nom légal<input id="sellerName" value="Lilian Descombes" required></label><label>SIRET<input id="sellerSiret" value="53784237900027" required maxlength="14"></label>
+ <label class="wide">Adresse professionnelle<input id="sellerAddress" required placeholder="Adresse complète de facturation"></label>
+ <label>Statut juridique<select id="legalForm" required><option value="">Sélectionner</option><option value="EI">Entreprise individuelle (EI)</option><option value="micro-entrepreneur EI">Micro-entreprise (EI)</option><option value="SASU">SASU</option><option value="SAS">SAS</option><option value="EURL">EURL</option><option value="SARL">SARL</option><option value="autre société">Autre société</option></select></label>
+ <label>Capital social (si société)<input id="sellerCapital" placeholder="Ex. 1 000 €"></label>
+ <label>Régime TVA<select id="vatMode" required><option value="">Choisir la situation fiscale réelle</option><option value="franchise">Franchise en base · article 293 B</option><option value="standard">TVA facturée · 20 % (à vérifier)</option></select></label>
+ <label>N° de TVA (si assujetti)<input id="sellerVat" placeholder="FR…"></label>
+ <label class="wide">Modalités de paiement<input id="paymentDetails" required placeholder="IBAN professionnel, virement ou instructions de paiement"></label>
+ <label class="wide">Pénalités de retard B2B (taux réellement convenu)<input id="latePenaltyRate" placeholder="Ex. : taux BCE + 10 points, selon CGV"></label></div>
+ <h3>Client</h3><div class="fields"><label>Raison sociale ou nom<input id="customerName" required></label>
+ <label>Type de client<select id="customerType"><option value="business">Entreprise</option><option value="consumer">Particulier</option></select></label>
+ <label class="wide">Adresse de facturation vérifiée<input id="customerAddress" required placeholder="Adresse postale complète"></label>
+ <label>SIRET du client (si applicable)<input id="customerSiret" placeholder="Facultatif selon situation"></label>
+ <label>Courriel client<input id="customerEmail" type="email" placeholder="facultatif"></label>
+ <label>Date réelle de prestation<input id="serviceDate" type="date" required></label><label>Délai de paiement (jours)<input id="dueDays" type="number" min="0" max="120" value="30" required></label></div>
+ <label class="approval"><input type="checkbox" id="invoiceApproval" required><span>Je certifie que les coordonnées, le régime de TVA, les prix et la livraison des prestations sont exacts. J’autorise l’émission d’une facture définitive numérotée.</span></label>
+ <button id="issueInvoice" class="primary" type="submit">Émettre la facture PDF FORMA ↗</button>
+ <div id="invoiceFeedback" class="feedback" role="status" aria-live="polite"></div></form>
+ </section>
+ <section class="card domain"><div class="heading"><div><p class="eyebrow">03 / MISE EN LIGNE</p><h2>Domaine acheté</h2></div><span class="label">DNS</span></div>
+ <p class="hint">Rattache un domaine <strong>déjà acheté</strong> à un projet Vercel authentifié. Les DNS et la vérification SSL peuvent demander une intervention chez le registrar. Aucune acquisition ni dépense n’est déclenchée par ce bouton.</p>
+ <form id="domainForm"><div class="fields"><label>Nom de domaine possédé<input id="domainName" required placeholder="exemple.fr"></label><label>Nom du projet Vercel<input id="vercelProject" required placeholder="nom-du-projet-vercel"></label></div>
+ <button class="primary secondary" type="submit">Associer et obtenir la configuration DNS ↗</button><div id="domainFeedback" class="feedback" role="status"></div></form></section>
+ <section class="card checklist"><div class="heading"><div><p class="eyebrow">04 / LIVRAISON</p><h2>Contrôle avant vente</h2></div><span class="label">À vérifier</span></div>
+ <div class="checkgrid"><label><input type="checkbox"> Navigation et toutes les pages vérifiées</label><label><input type="checkbox"> Test mobile / tablette / ordinateur</label>
+ <label><input type="checkbox"> Logos et photos réels autorisés</label><label><input type="checkbox"> Coordonnées, prestations et horaires confirmés</label>
+ <label><input type="checkbox"> Formulaire et services externes testés</label><label><input type="checkbox"> Mentions légales / confidentialité / cookies si nécessaires</label>
+ <label><input type="checkbox"> Accord du client pour le site et sa publication</label><label><input type="checkbox"> Domaine, HTTPS et URL de production vérifiés</label></div>
+ <p class="hint">Ce contrôle est manuel et ne certifie pas une conformité juridique. La vente d'un site réellement prêt à fonctionner peut demander plus de 30 minutes selon les intégrations et contenus.</p>
+ </section>
+</main><script src="/assets/localaiweb-sales.js"></script></body></html>
