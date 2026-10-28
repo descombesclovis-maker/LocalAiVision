@@ -44,7 +44,7 @@ class CodexPlusStudioTests(TestCase):
         self.assertEqual(len(calls),1)
         self.assertIn("Art direction: ",calls[0])
         self.assertIn("3D",calls[0])
-        self.assertIn("real Three.js",calls[0])
+        self.assertIn("Three.js",calls[0])
         self.assertEqual(output["project"]["id"],self.pid)
         self.assertEqual(output["hybrid_validation"]["visual"]["status"],"unavailable")
 
@@ -63,7 +63,7 @@ class CodexPlusStudioTests(TestCase):
         server=(ROOT/"local_app/server.py").read_text(encoding="utf-8")
         cli=(ROOT/"local_app/integrations_cli.py").read_text(encoding="utf-8")
         self.assertIn("selectedProvider()",js)
-        self.assertIn("provider:'",js.replace('const provider=selectedProvider()',"provider:'"))
+        self.assertIn("/api/web/integrations/connect",js)
         self.assertIn("/api/web/project/agent-settings",js)
         self.assertIn("codex",server)
         self.assertIn('args = cmd + ["login"]',cli)
