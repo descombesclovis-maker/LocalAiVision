@@ -35,17 +35,20 @@ class BrandMapAgentTests(unittest.TestCase):
         self.assertIn(".chat-composer{flex:0 0 auto",suite)
         self.assertIn("max-height:45dvh",suite)
 
-    def test_map_two_colors_and_independent_official_geo_api(self):
+    def test_map_single_color_and_independent_official_geo_api(self):
         source=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
         provider=(ROOT/"local_app/web_map_no_website.py").read_text(encoding="utf-8")
-        for check in ("'#36d77f'","'#ef535e'","website_recorded"):
-            self.assertIn(check,source)
+        self.assertIn("company-marker-single",source)
+        self.assertIn("company-marker-group",source)
+        self.assertNotIn("'#ef535e'",source)
+        self.assertIn("website_recorded",source)
         self.assertIn("recherche-entreprises.api.gouv.fr/near_point",provider)
         self.assertIn("inconnu_registre",provider)
         self.assertIn("CACHE_DIR",provider)
         html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
-        self.assertIn("legend-green",html)
-        self.assertIn("legend-red",html)
+        self.assertIn("single-pin",html)
+        self.assertNotIn("legend-red",html)
+        self.assertIn('id="selectionWebsite"',html)
 
     def test_claude_cli_detects_standard_user_installs_without_path(self):
         with tempfile.TemporaryDirectory() as folder:
