@@ -96,16 +96,44 @@
      });
    const photo=$('selectionPhoto'),note=$('selectionPhotoNote');
    photo.hidden=true;photo.removeAttribute('src');
-   note.textContent='Aucune photo publique librement réutilisable connue pour ce commerce.';
+   note.textContent='Photo de la boutique ou du siège : vérification des sources publiques…';
    try{
      const url=new URL(String(item.image_url||''));
      if(url.protocol==='https:'&&['commons.wikimedia.org','upload.wikimedia.org'].includes(url.hostname)){
        photo.src=url.href;
        photo.alt='Photo publique renseignée pour '+(item.name||'l’établissement');
-       photo.onload=()=>{photo.hidden=false;note.textContent=item.image_credit||'Source : Wikimedia Commons — vérifier la licence';};
+       photo.onload=()=>{if(selected?.id===clickedId){photo.hidden=false;note.textContent=item.image_credit||'Source : Wikimedia Commons — vérifier la licence';}};
        photo.onerror=()=>{photo.hidden=true;note.textContent='Photo indisponible.'};
      }
    }catch{}
+   if(!item.image_url&&clickedId){
+     api('/api/web/map/photo?id='+encodeURIComponent(clickedId)).then(data=>{
+       if(selected?.id!==clickedId)return;
+       if(!data.image_url){
+         note.textContent=data.notice||'Aucune photographie authentique et autorisée trouvée.';
+         return;
+       }
+       const url=new URL(data.image_url);
+       if(url.protocol!=='https:'||
+          !['commons.wikimedia.org','upload.wikimedia.org'].includes(url.hostname))
+         return;
+       photo.alt='Photographie documentée de '+(item.name||'la boutique');
+       photo.onload=()=>{
+         if(selected?.id===clickedId){
+           photo.hidden=false;
+           note.textContent=(data.image_credit||'Wikimedia Commons')+
+             (data.photo_type==='photographie_nom_et_ville_a_verifier'?' · identification à confirmer':'');
+         }
+       };
+       photo.onerror=()=>{
+         if(selected?.id===clickedId)note.textContent='Photographie indisponible.';
+       };
+       photo.src=url.href;
+     }).catch(()=>{
+       if(selected?.id===clickedId)
+         note.textContent='Recherche de photographie indisponible. Aucune photo inventée.';
+     });
+   }
  }
  function appendSafeLinkInto(parent,raw){
    try{
@@ -123,7 +151,7 @@
      const data=await api('/api/web/map/prospects/today');
      const out=$('dailyProspectsList');
      if(!out)return;
-     const results=data.results||[];
+     const results=(data.results||[]).filter(item=>!item.website&&!item.website_recorded);
      const signature=data.date+'|'+results.map(row=>row.id).join('|');
      if(signature===lastDailySignature)return;
      lastDailySignature=signature;
@@ -242,7 +270,8 @@
  function insert(records){
    let count=0;
    for(const item of records||[]){
-     if(!item||item.kind==='location'||!item.id||
+     if(!item||item.kind==='location'||item.website||item.website_recorded||
+        item.prospect_eligible===false||!item.id||
         !Number.isFinite(item.lat)||!Number.isFinite(item.lon))continue;
      if(businesses.has(item.id))continue;
      if(businesses.size>=MAX_STORED)break;
@@ -262,7 +291,7 @@
  }
  function countLabel(){
    const n=businesses.size;
-   return n+' entreprises réelles chargées · données publiques partielles (pas un registre national complet).';
+   return n+' petites entreprises sans site référencé · indépendance et absence de site à confirmer.';
  }
  async function overview(batch=0){
    clearTimeout(overviewTimer);
