@@ -357,7 +357,17 @@ designForm?.addEventListener('submit',async event=>{
  const error=$('#lawDesignError');
  error.textContent='';submit.disabled=true;
  try{
-  const choices=Object.fromEntries(new FormData(designForm).entries());
+  const form=new FormData(designForm);
+  const choices={};
+  for(const [key] of form.entries()){
+    if(key==='include_notes')continue;
+    if(key==='notes'){
+      choices.notes=form.has('include_notes')?String(form.get('notes')||''):'';
+    }else{
+      const enabled=form.getAll(key);
+      choices[key]=enabled.length===1?enabled[0]:enabled;
+    }
+  }
   project=await api('/api/web/project/design-profile',{
    id:project.project.id,profile:choices});
   designDialog.close();
