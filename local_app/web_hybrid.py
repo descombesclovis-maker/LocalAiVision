@@ -347,6 +347,9 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     from local_app import web_builder
     instruction += '\n' + web_builder.generation_direction(
         store.meta(project_id).get('settings'), full_brief)
+    from local_app import web_design_profile
+    instruction += '\n' + web_design_profile.prompt(
+        store.meta(project_id).get('design_profile'))
     instruction += (
         '\nAGENT PROCESS: Plan the visual structure and design system first. '
         'Build real pages and their actual interactions. Install required dependencies, '
