@@ -4,9 +4,10 @@
    attempting to download every company in the world. */
 (()=>{
  const $=id=>document.getElementById(id);
- const info=$('mapFeedback'),panel=$('mapSelection'),btn=$('mapCreate');
+ const info=$('mapFeedbackText'),reload=$('mapReload'),panel=$('mapSelection'),btn=$('mapCreate');
  let map,selected=null,profileNonce=0,creating=false,loading=false;
- let previousArea='',lastLoad=0,pending=null,known=new Map(),markers=new Map();
+ let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
+ let known=new Map(),markers=new Map();
  const setStatus=message=>info.textContent=message;
  function element(tag,cls,label){
    const item=document.createElement(tag);if(cls)item.className=cls;
@@ -120,17 +121,36 @@
      }
    }
  }
- async function overview(){
-   if(loading)return;
-   loading=true;
-   setStatus('Chargement d’un aperçu partiel des établissements sans site renseigné en France…');
+ async function overview(batch=0){
+   window.clearTimeout(overviewTimer);
+   if(loading){
+     overviewTimer=window.setTimeout(()=>overview(batch),1800);
+     return;
+   }
+   loading=true;reload.hidden=true;nextOverviewBatch=batch;
+   setStatus('Chargement des entreprises françaises · lot '+(batch+1)+' · '+known.size+' points déjà visibles…');
    try{
-     const response=await api('/api/web/map/no-website/france');
-     const added=insert(response.results);
-     setStatus(known.size+' établissements potentiels affichés en violet · aucun site renseigné dans OSM, '+
-       'absence réelle non vérifiée. Aperçu partiel : zoome sur une ville.');
+     const response=await api('/api/web/map/no-website/france?batch='+encodeURIComponent(batch));
+     insert(response.results);
+     const total=Math.max(1,Number(response.total_batches)||1);
+     nextOverviewBatch=response.next_batch;
+     if(known.size===0 && response.next_batch===null){
+       setStatus('Aucun établissement reçu. La source de données ne couvre pas cette recherche. Réessaie ou zoome.');
+       reload.hidden=false;
+     }else{
+       setStatus(known.size+' établissements violets visibles · lot '+(batch+1)+'/'+total+
+         ' · données OpenStreetMap partielles, absence de site non confirmée.');
+     }
+     if(response.next_batch!==null && response.next_batch!==undefined){
+       // The public OSM service is best-effort. Small batches avoid the
+       // previous 90-city timeout and progressively fill the France view.
+       const next=response.next_batch;
+       overviewTimer=window.setTimeout(()=>overview(next),14500);
+     }
    }catch(err){
-     setStatus('La carte reste utilisable. Données d’entreprises momentanément indisponibles : '+err.message);
+     nextOverviewBatch=batch;
+     reload.hidden=false;
+     setStatus('Impossible de charger les entreprises : '+err.message+' · Clique sur « Réessayer ».');
    }finally{
      loading=false;lastLoad=Date.now();
      if(map.getZoom()>=10)scheduleNearby();
@@ -146,7 +166,7 @@
      ?[sw.lat,sw.lng,ne.lat,ne.lng].map(n=>n.toFixed(4)).join('/') 
      :center.lat.toFixed(3)+'/'+center.lng.toFixed(3)+'/'+map.getZoom();
    if(key===previousArea)return;
-   const remaining=29000-(Date.now()-lastLoad);
+   const remaining=15000-(Date.now()-lastLoad);
    if(remaining>0){
      setStatus('Chargement progressif pour respecter OpenStreetMap · prochaine zone dans '+
        Math.ceil(remaining/1000)+' s.');
@@ -177,11 +197,17 @@
    pruneOffscreen();
    window.clearTimeout(pending);
    if(map.getZoom()<10){
-     setStatus(known.size+' établissements affichés · aperçu partiel. Zoome sur une ville pour approfondir.');
+     // An initial Leaflet moveend must not overwrite a loading error or hide
+     // the empty-state diagnosis, as it did in the screenshot.
      return;
    }
    pending=window.setTimeout(nearby,1300);
  }
+ reload.addEventListener('click',()=>{
+   if(loading)return;
+   reload.hidden=true;
+   overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0);
+ });
  $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null;profileNonce++});
  $('mapRegistry').addEventListener('click',async()=>{
    if(!selected?.selection_token)return;
@@ -220,6 +246,15 @@
  }
  map=L.map('businessMap',{zoomControl:true,worldCopyJump:true,preferCanvas:true})
       .setView([46.60,2.28],6);
+ // WebView2 can measure the map before its native window has its final size.
+ // Recalculate the viewport after layout, then center on ALL of France.
+ const franceBounds=[[41.3,-5.8],[51.4,9.8]];
+ const showFrance=()=>{
+   map.invalidateSize({pan:false});
+   map.fitBounds(franceBounds,{padding:[25,30],maxZoom:6,animate:false});
+ };
+ window.setTimeout(showFrance,300);
+ window.addEventListener('resize',()=>map.invalidateSize({pan:false}));
  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
    attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
    maxZoom:18,maxNativeZoom:18
