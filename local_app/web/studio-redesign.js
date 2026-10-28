@@ -169,7 +169,7 @@
  // Existing JS updates #welcome classes; keep the color scheme consistent
  // when a saved thread opens, including after the asynchronous initial refresh.
  const watch=new MutationObserver(()=>{
-   if(!welcome.classList.contains('hidden')) {
+   if(!welcome.classList.contains('hidden') && !welcome.classList.contains('welcome-exiting')) {
      document.body.classList.add('is-landing');
      document.body.classList.remove('is-chatting');
    }else{
