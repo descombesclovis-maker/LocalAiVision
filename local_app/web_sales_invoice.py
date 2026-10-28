@@ -70,7 +70,7 @@ def estimate(store,project_id):
         css="\n".join(value for key,value in files.items() if key.endswith(".css"))
         if "transition" in css or "animation" in css:tokens.add("motion")
         if (meta.get("deployment") or {}).get("custom_domain"):tokens.add("domain")
-    if not tokens:tokens.add("landing")
+    # An empty starter project is not a delivered website and has no billable features.
     items=[]
     for ident in CATALOG:
         if ident not in tokens:continue
@@ -95,6 +95,10 @@ def validate_parties(seller,customer):
     siret=re.sub(r"\s","",str(seller.get("siret") or SELLER_DEFAULT["siret"]))
     if not re.fullmatch(r"\d{14}",siret):
         raise ValueError("Le SIRET du prestataire doit contenir 14 chiffres.")
+    doubled=sum((n*2//10+n*2%10) if idx%2==0 else n
+                for idx,n in enumerate(map(int,siret)))
+    if doubled%10:
+        raise ValueError("Le SIRET fourni échoue au contrôle de validité.")
     if not str(seller.get("address") or "").strip():
         raise ValueError("Adresse professionnelle de FORMA obligatoire.")
     legal=str(seller.get("legal_form") or "").strip()
@@ -134,8 +138,12 @@ def issue(store,project_id,invoice_store,seller,customer,item_ids,
         raise ValueError("Sélectionne uniquement des fonctionnalités réellement chiffrées.")
     if not service_date:
         raise ValueError("Date de réalisation de la prestation obligatoire.")
-    try:date.fromisoformat(service_date)
-    except ValueError:raise ValueError("Date de prestation invalide (AAAA-MM-JJ).") from None
+    try:
+        worked=date.fromisoformat(service_date)
+    except ValueError:
+        raise ValueError("Date de prestation invalide (AAAA-MM-JJ).") from None
+    if worked>date.today():
+        raise ValueError("La date de prestation doit correspondre à une réalisation effective (pas une date future).")
     try:days=int(due_days)
     except (ValueError,TypeError):days=30
     if days<0 or days>120:raise ValueError("Échéance de paiement invalide.")
