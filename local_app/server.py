@@ -1732,6 +1732,22 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
             return
+        if u.path == "/api/web/crm/overview":
+            try:
+                from local_app import web_crm
+                self.send_json(web_crm.snapshot(LOCALAIWEB_DATA/"crm",_web_store()))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},500)
+            return
+        if u.path == "/api/web/crm/quote/file":
+            try:
+                from local_app import web_crm
+                number=parse_qs(u.query).get("number",[""])[0]
+                path=web_crm.quote_file(LOCALAIWEB_DATA/"crm",number)
+                self.send_bytes(path.read_bytes(),"application/pdf")
+            except Exception as exc:
+                self.send_json({"error":str(exc)},404)
+            return
         if u.path == "/api/web/project/thumbnail":
             try:
                 project_id = parse_qs(u.query).get("id", [""])[0]
@@ -1836,6 +1852,10 @@ class Handler(BaseHTTPRequestHandler):
             p = WEB / "localaiweb-sales.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
             return
+        if u.path == "/localaiweb/clients":
+            p = WEB / "localaiweb-clients.html"
+            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+            return
         if u.path == "/localaiweb/editor":
             p = WEB / "localaiweb.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
@@ -1903,9 +1923,44 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from local_app import web_business_map
                 company = web_business_map.selected_business(body.get("selection_token"))
-                self.send_json(_web_store().create_business_project(company))
+                store=_web_store()
+                payload=store.create_business_project(company)
+                # A project must not disappear because CRM indexing fails.
+                try:
+                    from local_app import web_crm
+                    web_crm.attach_business_project(
+                        LOCALAIWEB_DATA/"crm",store,payload["project"]["id"],company)
+                except Exception as exc:
+                    payload["crm_notice"]="Fiche commerciale non synchronisée : "+str(exc)
+                self.send_json(payload)
             except Exception as exc:
                 self.send_json({"error": str(exc)}, 400)
+            return
+        if u.path == "/api/web/asset/import-generation":
+            try:
+                from local_app import web_assets_bridge
+                self.send_json(web_assets_bridge.import_generation(
+                    _web_store(),_comfy_working_dir(),body.get("project_id"),
+                    body.get("filename"),body.get("subfolder",""),
+                    body.get("type","output")))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/crm/client/upsert":
+            try:
+                from local_app import web_crm
+                self.send_json(web_crm.upsert_client(
+                    LOCALAIWEB_DATA/"crm",_web_store(),body))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/crm/quote/create":
+            try:
+                from local_app import web_crm
+                self.send_json(web_crm.create_quote(
+                    LOCALAIWEB_DATA/"crm",_web_store(),body))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
             return
         if u.path == "/api/web/project/pro/authorize":
             try:
@@ -1933,6 +1988,13 @@ class Handler(BaseHTTPRequestHandler):
                     accepted=body.get("accepted") is True,
                     service_date=body.get("service_date") or "",
                     due_days=body.get("due_days",30))
+                try:
+                    from local_app import web_crm
+                    web_crm.register_invoice(LOCALAIWEB_DATA/"crm",_web_store(),result)
+                    result["crm_indexed"]=True
+                except Exception as crm_exc:
+                    result["crm_indexed"]=False
+                    result["crm_notice"]="Facture émise, mais registre commercial non synchronisé : "+str(crm_exc)
                 self.send_json(result)
             except Exception as exc:
                 self.send_json({"error":str(exc)},400)
