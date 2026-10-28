@@ -117,15 +117,16 @@
      link.referrerPolicy='no-referrer';parent.append(link);return true;
    }catch{return false}
  }
- let lastDailyCount=-1;
+ let lastDailySignature='';
  async function loadDailyProspects(){
    try{
      const data=await api('/api/web/map/prospects/today');
      const out=$('dailyProspectsList');
      if(!out)return;
      const results=data.results||[];
-     if(results.length===lastDailyCount)return;
-     lastDailyCount=results.length;
+     const signature=data.date+'|'+results.map(row=>row.id).join('|');
+     if(signature===lastDailySignature)return;
+     lastDailySignature=signature;
      out.replaceChildren();
      const count=Number(data.pool||0);
      $('dailyProspectsStatus').textContent=count
@@ -418,5 +419,8 @@
  map.on('zoomend',scheduleRedraw);
  overview();
  }
+ // A recommendation refresh is cheap because the underlying SQLite
+ // index is local; it can change as each real French batch arrives.
+ window.setInterval(()=>void loadDailyProspects(),60000);
  void startMap();
 })();
