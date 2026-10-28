@@ -4,6 +4,7 @@
  const byId=id=>document.getElementById(id);
  const prompt=byId('prompt'),welcome=byId('welcome'),messages=byId('messages');
  const navEntries=['navCreations','navPhoto','navVideo','navNsfw'];
+ let pendingAsset=null;
  function activeNav(id){
    for(const name of navEntries) {
      const button=byId(name);
@@ -92,11 +93,53 @@
        const open=document.createElement('a');open.href=url;open.target='_blank';open.rel='noopener noreferrer';open.textContent='Ouvrir ↗';
        const remove=document.createElement('button');remove.type='button';remove.textContent='Supprimer';remove.title='Supprimer cette création';
        remove.addEventListener('click',async()=>{await deleteLibraryItem(entry._id);gallery()});
-       actions.append(open,remove);caption.append(name,actions);card.append(caption);grid.append(card);
+       const toSite=document.createElement('button');toSite.type='button';
+       toSite.textContent='Ajouter à un site ↗';
+       toSite.title='Copier cette création dans les ressources d’un projet LocalAiWeb';
+       toSite.addEventListener('click',()=>selectAssetForProject(entry));
+       actions.append(open,toSite,remove);caption.append(name,actions);card.append(caption);grid.append(card);
      }
    }
    paint();
  }
+ async function selectAssetForProject(entry){
+   const dialog=byId('assetDialog'),selection=byId('assetProject'),feedback=byId('assetFeedback');
+   pendingAsset=entry;selection.replaceChildren();feedback.textContent='Chargement des projets…';
+   byId('assetConfirm').disabled=true;dialog.showModal();
+   try{
+     const result=await api('/api/web/projects');
+     const projects=result.projects||[];
+     if(!projects.length){
+       feedback.textContent='Aucun projet existant : crée d’abord un projet dans LocalAiWeb.';
+       return;
+     }
+     selection.add(new Option('Choisir un projet…',''));
+     for(const project of projects)selection.add(new Option(project.name,project.id));
+     feedback.textContent='La copie sera privée et conservera le fichier original.';
+     byId('assetConfirm').disabled=false;
+   }catch(error){feedback.textContent='Projets indisponibles : '+error.message}
+ }
+ byId('assetClose')?.addEventListener('click',()=>byId('assetDialog').close());
+ byId('assetConfirm')?.addEventListener('click',async()=>{
+   const btn=byId('assetConfirm'),selection=byId('assetProject'),feedback=byId('assetFeedback');
+   if(!pendingAsset||!selection.value){feedback.textContent='Choisis un projet avant de continuer.';return}
+   btn.disabled=true;feedback.textContent='Copie sécurisée de la ressource…';
+   try{
+     const response=await api('/api/web/asset/import-generation',{
+       method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({
+         project_id:selection.value,filename:pendingAsset.filename,
+         subfolder:pendingAsset.subfolder||'',type:pendingAsset.type||'output'
+       })
+     });
+     feedback.replaceChildren();
+     feedback.append(document.createTextNode('Import terminé : '+response.path+' · '));
+     const link=document.createElement('a');link.href='/localaiweb/editor?id='+encodeURIComponent(response.project_id);
+     link.textContent='Ouvrir le projet ↗';link.style.color='#e9ccff';
+     feedback.append(link);
+   }catch(error){feedback.textContent='Import impossible : '+error.message}
+   finally{btn.disabled=false}
+ });
  byId('navCreations')?.addEventListener('click',gallery);
  byId('navPhoto')?.addEventListener('click',()=>startMode('image'));
  byId('navVideo')?.addEventListener('click',()=>startMode('video'));
