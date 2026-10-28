@@ -57,7 +57,10 @@ LOCK=threading.RLock()
 CACHE={}
 LAST_REQUEST=0.0
 CACHE_SECONDS=1800
-THROTTLE_SECONDS=27
+# One small Overpass batch per interval, rather than one huge query for France.
+THROTTLE_SECONDS=12
+FRANCE_BATCH_SIZE=10
+FRANCE_BATCH_COUNT=(len(FRANCE_POINTS)+FRANCE_BATCH_SIZE-1)//FRANCE_BATCH_SIZE
 
 
 def safe_website(raw):
@@ -147,8 +150,15 @@ def _load(key, query, mode):
             raise RuntimeError(
                 "La carte se recharge progressivement. Réessaie dans quelques instants.")
         LAST_REQUEST=now
-    raw=web_business_map._json_http(
-        "overpass",web_business_map.OVERPASS,post=urlencode({"data":query}))
+    try:
+        raw=web_business_map._json_http(
+            "overpass",web_business_map.OVERPASS,post=urlencode({"data":query}))
+    except Exception:
+        # Failed network attempts should not lock the application for another
+        # 12 seconds. No fabricated points are returned on provider failure.
+        with LOCK:
+            LAST_REQUEST=0.0
+        raise
     items=[]
     seen=set()
     for row in (raw.get("elements") or [])[:650]:
@@ -171,18 +181,33 @@ def _load(key, query, mode):
     return result
 
 
-def france_overview():
-    """One bounded Overpass query; few real leads per city, not all France."""
-    key=("france-overview",)
+def france_overview(batch=0):
+    """Small, independently cached regional samples, never a 90-city query.
+
+    A single public Overpass server can timeout on the previous enormous query.
+    Batch zero covers ten well-spaced French cities. More batches load lazily
+    with visible progress and never block display of earlier points.
+    """
+    try:
+        number=int(batch)
+    except (TypeError, ValueError):
+        raise ValueError("Numéro de lot de carte invalide.")
+    if number<0 or number>=FRANCE_BATCH_COUNT:
+        raise ValueError("Numéro de lot de carte hors limites.")
+    key=("france-overview-v2",number)
+    start=number*FRANCE_BATCH_SIZE
+    centers=FRANCE_POINTS[start:start+FRANCE_BATCH_SIZE]
     pieces=[]
-    for lat,lon in FRANCE_POINTS:
-        # Explicit small radii and per-city output caps prevent a country-wide
-        # bulk export and distribute the displayed points across France.
+    for lat,lon in centers:
         pieces.append(
-            f'nwr(around:800,{lat},{lon})["name"]'
-            f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 6;')
-    statement="[out:json][timeout:25];"+"".join(pieces)
-    return _load(key,statement,"france_overview")
+            f'nwr(around:850,{lat},{lon})["name"]'
+            f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 18;')
+    statement="[out:json][timeout:24];"+"".join(pieces)
+    result=_load(key,statement,"france_overview")
+    result["batch"]=number
+    result["total_batches"]=FRANCE_BATCH_COUNT
+    result["next_batch"]=number+1 if number+1<FRANCE_BATCH_COUNT else None
+    return result
 
 
 def area_details(lat,lon,zoom):
