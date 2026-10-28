@@ -82,7 +82,7 @@ function sentMessageActions(item, text){
  });
  item.appendChild(actions);
 }
-function message(text,role='assistant',choices=[]){
+function message(text,role='assistant'){
  // The studio chat is deliberately empty until the user speaks. Agent
  // progress and errors belong to the small status line, never chat bubbles.
  if(role!=='user'){
@@ -94,11 +94,6 @@ function message(text,role='assistant',choices=[]){
  if(role!=='user'){const name=document.createElement('div');name.className='message-author';name.textContent='LocalAiWeb';item.appendChild(name);}
  const textNode=document.createElement('p');textNode.textContent=String(text||'');item.appendChild(textNode);
  if(role==='user')sentMessageActions(item,String(text||''));
- if(choices.length){
-  const area=document.createElement('div');area.className='choices';
-  choices.forEach(value=>{const b=document.createElement('button');b.type='button';b.textContent=value;b.onclick=()=>sendText(value);area.appendChild(b);});
-  item.appendChild(area);
- }
  chat.appendChild(item);scrollBottom();return item;
 }
 function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';}
