@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="LocalAiVision — Création de sites web et créations visuelles">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="LocalAiVision — Créations visuelles">
 <rect width="1200" height="760" fill="#FFFFFF"/>
 <g transform="translate(310,-34) scale(.97)"><defs><linearGradient id="star" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#533073"/><stop offset=".46" stop-color="#201038"/><stop offset="1" stop-color="#392062"/></linearGradient><radialGradient id="shine"><stop stop-color="#EEE0FF"/><stop offset=".7" stop-color="#A47BDB" stop-opacity=".48"/><stop offset="1" stop-color="#A47BDB" stop-opacity="0"/></radialGradient></defs>
 <circle cx="300" cy="300" r="153" fill="url(#shine)"/>
@@ -9,5 +9,5 @@
 <circle cx="320" cy="241" r="11"/><circle cx="224" cy="317" r="11"/><circle cx="365" cy="315" r="11"/><circle cx="275" cy="371" r="11"/>
 </g><path d="M300 224Q309 290 370 300Q309 309 300 375Q291 309 224 300Q291 290 300 224Z" fill="#FAF5FF"/></g>
 <text x="600" y="622" font-family="Segoe UI,Arial,sans-serif" font-size="111" text-anchor="middle" font-weight="400" letter-spacing="-5" fill="#210F3D">LocalAi<tspan font-weight="700">Vision</tspan></text>
-<text x="600" y="678" font-family="Segoe UI,Arial,sans-serif" font-size="30" letter-spacing="2" text-anchor="middle" fill="#65458A">CRÉATION DE SITES WEB &amp; CRÉATIONS VISUELLES</text>
+<text x="600" y="678" font-family="Segoe UI,Arial,sans-serif" font-size="30" letter-spacing="2" text-anchor="middle" fill="#65458A">CRÉATIONS VISUELLES</text>
 </svg>
