@@ -91,3 +91,22 @@ body:not(.show-diagnostics) #enginePanel{display:none!important}
  .sidebar{padding-top:12px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Hidden app capabilities remain reachable only when applicable. */
+body:not(.nsfw-active) #composerImageBtn{display:none!important}
+.welcome{transition:opacity .26s var(--ui-ease),transform .26s var(--ui-ease)}
+.welcome.welcome-exiting{opacity:0;transform:translateY(-7px) scale(.985);pointer-events:none}
+.history-dialog{width:min(670px,calc(100vw - 30px));max-height:calc(100dvh - 50px);overflow:auto;padding:25px;background:#1d142b;border:1px solid #8559ae;color:#f3eafa;border-radius:20px;box-shadow:0 35px 90px #000c}
+.history-dialog::backdrop{background:#07050bcc;backdrop-filter:blur(7px)}
+.history-head{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.history-head h2{font-size:25px;letter-spacing:-.05em;margin:0 0 18px}
+.history-head button{background:#332343;color:#f0e4fc;border:1px solid #775c8a;border-radius:11px;padding:6px 12px;font-size:20px;cursor:pointer}
+.history-dialog label{display:block;color:#c6b3d8;font-size:12px;margin-bottom:7px}
+.history-dialog input{display:block;width:100%;background:#140e1d;color:#fff;border:1px solid #6e4e85;border-radius:11px;padding:12px 14px;font-size:14px;outline:none}
+.history-dialog input:focus{border-color:#a77aea}
+.history-list{display:grid;gap:9px;margin-top:18px;max-height:53vh;overflow-y:auto}
+.history-item{display:flex;align-items:center;gap:7px;padding:5px;border:1px solid #533869;background:#281a37;border-radius:12px}
+.history-item button{border:0;background:transparent;color:#eaddf5;border-radius:8px;padding:9px 11px;cursor:pointer}
+.history-item button:first-child{text-align:left;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.history-item button:hover{background:#65418a}
+.history-item button:focus-visible{outline:2px solid #c49bfa}
