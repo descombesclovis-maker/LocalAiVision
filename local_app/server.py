@@ -185,6 +185,8 @@ $incoming = "$CurrentExe.incoming"
 $failed = "$CurrentExe.failed"
 $newProcess = $null
 $replaced = $false
+$fallbackInstall = $false
+$originalExe = $CurrentExe
 
 function Write-UpdateLog([string]$Text) {
   try {
@@ -244,7 +246,7 @@ try {
   # Only clear an older .previous after the new staged binary has been verified.
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
   $swapped = $false
-  for ($i = 0; $i -lt 35 -and -not $swapped; $i++) {
+  for ($i = 0; $i -lt 90 -and -not $swapped; $i++) {
     try {
       Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
       try {
@@ -259,7 +261,26 @@ try {
       Start-Sleep -Milliseconds 400
     }
   }
-  if (-not $swapped) { throw "Remplacement impossible : executable encore ouvert." }
+  if (-not $swapped) {
+    # Some desktop/cloud-synced/Program Files locations cannot be replaced by
+    # a non-elevated user. Install a verified per-user copy instead of asking
+    # to bypass Windows Defender or to grant administrator privileges.
+    $fallbackInstall = $true
+    $portableDir = Join-Path $env:LOCALAPPDATA "LocalVisionAI\\app"
+    New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+    $CurrentExe = Join-Path $portableDir "LocalVisionAI.exe"
+    Write-UpdateLog "Original EXE locked/protected. Safe per-user installation: $CurrentExe"
+    Copy-Item -LiteralPath $NewExe -Destination "$CurrentExe.incoming" -Force
+    if ((Get-FileHash -LiteralPath "$CurrentExe.incoming" -Algorithm SHA256).Hash -ne $expectedHash) {
+      throw "Verification de la copie utilisateur echouee."
+    }
+    if (Test-Path -LiteralPath $CurrentExe) {
+      Move-Item -LiteralPath $CurrentExe -Destination "$CurrentExe.previous" -Force
+      $backup = "$CurrentExe.previous"
+    }
+    Move-Item -LiteralPath "$CurrentExe.incoming" -Destination $CurrentExe -Force
+    $replaced = $true
+  }
   if ((Get-FileHash -LiteralPath $CurrentExe -Algorithm SHA256).Hash -ne $expectedHash) {
     throw "SHA256 different apres installation."
   }
@@ -287,6 +308,42 @@ try {
     throw "Nouvelle version non operationnelle apres verification HTTP. Build attendu : $ExpectedBuild, observe : $observedBuild."
   }
   Write-UpdateLog "Update confirmed healthy: $ExpectedBuild. Keeping project and model data unchanged."
+  if ($fallbackInstall) {
+    try {
+      $shell = New-Object -ComObject WScript.Shell
+      $desktop = [Environment]::GetFolderPath('Desktop')
+      $updated = $false
+      Get-ChildItem -LiteralPath $desktop -Filter '*.lnk' -ErrorAction SilentlyContinue | ForEach-Object {
+        $shortcut = $shell.CreateShortcut($_.FullName)
+        if ([string]::Equals([string]$shortcut.TargetPath, [string]$originalExe, [StringComparison]::OrdinalIgnoreCase)) {
+          $shortcut.TargetPath = $CurrentExe
+          $shortcut.WorkingDirectory = Split-Path -Parent $CurrentExe
+          $shortcut.IconLocation = "$CurrentExe,0"
+          $shortcut.Save()
+          $updated = $true
+        }
+      }
+      if (-not $updated) {
+        $shortcut = $shell.CreateShortcut((Join-Path $desktop "LocalAiVision.lnk"))
+        $shortcut.TargetPath = $CurrentExe
+        $shortcut.WorkingDirectory = Split-Path -Parent $CurrentExe
+        $shortcut.IconLocation = "$CurrentExe,0"
+        $shortcut.Save()
+      }
+      Write-UpdateLog "Desktop shortcut points to verified per-user build."
+    } catch {
+      Write-UpdateLog ("Shortcut could not be updated: " + $_.Exception.Message)
+    }
+  }
+  # Ask Windows Explorer to refresh its icon cache; do not tamper with security
+  # providers or Defender configuration.
+  try {
+    Add-Type -Namespace ShellRefresh -Name Native -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("shell32.dll")]
+public static extern void SHChangeNotify(uint eventId, uint flags, System.IntPtr item1, System.IntPtr item2);
+'@ -ErrorAction SilentlyContinue
+    [ShellRefresh.Native]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+  } catch { }
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
 } catch {
