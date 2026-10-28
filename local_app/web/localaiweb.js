@@ -139,46 +139,100 @@ async function handleProjectOpen(text){
  return true;
 }
 function projectBrief(){return '';}
+let activeGeneration=null;
+let lastLivePreviewVersion='';
+function updateLivePreview(status,id){
+ if(!status.preview_ready || !status.preview_version)return;
+ if(status.preview_version!==lastLivePreviewVersion){
+   lastLivePreviewVersion=status.preview_version;
+   const url='/web-preview/'+encodeURIComponent(id)+'/index.html?refresh='+encodeURIComponent(status.preview_version);
+   $('#lawPreview').src=url;
+   $('#lawPreviewTitle').textContent=(project?.project?.name||'Ton site')+' · aperçu en cours';
+ }
+}
+function generationFeedback(result){
+ const report=result.quality;
+ const visuals=result.visuals||{};
+ const mediaNote=visuals.generated?.length
+  ?'\\nVisuels créés : '+visuals.generated.length+' photo(s).'
+  :visuals.notes?.length?'\\nVisuels : '+visuals.notes[0]:'';
+ const checked=report && report.ok;
+ message((result.summary||'Le site a été enregistré.')+mediaNote+
+  '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
+  (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
+  '\\nLes devis sont disponibles depuis le dossier commercial et doivent être vérifiés avant émission.',
+  'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités']);
+}
+async function watchGeneration(id){
+ if(activeGeneration===id)return;
+ activeGeneration=id;
+ setBusy(true,'Génération en cours : le site apparaîtra dès sa première compilation…');
+ let reading=false;
+ const started=Date.now();
+ await new Promise(resolve=>{
+   const stop=()=>{clearInterval(timer);activeGeneration=null;resolve()};
+   const tick=async()=>{
+     if(reading)return;reading=true;
+     try{
+       const status=await api('/api/web/generation/status?id='+encodeURIComponent(id));
+       if(status.state==='running'){
+         updateLivePreview(status,id);
+         const elapsed=Math.floor((Date.now()-started)/1000);
+         const time=elapsed>=60?' · '+Math.floor(elapsed/60)+' min écoulée(s)':'';
+         $('#lawChatStatus').textContent=(status.detail||'Codex prépare le site…')+time;
+       }else if(status.state==='done'){
+         project=await api('/api/web/project?id='+encodeURIComponent(id));
+         preview();
+         $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
+         stage='ready';
+         const salesLink=document.getElementById('lawSalesBtn');
+         if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
+         generationFeedback(status);
+         stop();
+       }else if(status.state==='error'){
+         message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
+          '\\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
+          'assistant',['Relancer la maquette']);
+         stage='ready';stop();
+       }else{
+         message('Aucune génération active. Après un redémarrage du logiciel, relance la maquette pour terminer le travail.');
+         stage='ready';stop();
+       }
+     }catch(error){
+       // Transient localhost error does not mean Codex failed. Warn after
+       // sustained disconnection instead of silently spinning forever.
+       if(Date.now()-started>30000)
+         $('#lawChatStatus').textContent='Connexion au serveur perdue : '+error.message+
+           '. Le travail continue si LocalAiWeb reste ouvert.';
+     }finally{reading=false}
+   };
+   const timer=setInterval(tick,2400);
+   tick();
+ });
+ setBusy(false);
+}
 async function generate(text){
  await ensureProject();
- // The agent edits THIS project's files, including real 3D if requested.
- // Never secretly create a second project and abandon its saved name/history.
- setBusy(true,'Je crée ton site et prépare l’aperçu…');
+ if(activeGeneration){message('Une création est déjà en cours pour ce site. Son avancement apparaît sous le champ de saisie.');return}
+ setBusy(true,'Vérification de la connexion Codex et préparation du site…');
  const id=project.project.id;
  const existingBrief=projectBrief();
  const instructions=existingBrief
-  ?'BRIEF UTILISATEUR :\n'+existingBrief+'\n\nDERNIÈRE DEMANDE :\n'+text
+  ?'BRIEF UTILISATEUR :\\n'+existingBrief+'\\n\\nDERNIÈRE DEMANDE :\\n'+text
   :text;
- message('Je prends en compte ta demande et construis le site complet. Je conserverai les fonctionnalités déjà créées et je te proposerai ensuite des améliorations ciblées.');
- const progressTimer=setInterval(async()=>{
-   try{
-     const status=await api('/api/web/progress?id='+encodeURIComponent(id));
-     if(status.detail && busy)$('#lawChatStatus').textContent=status.detail;
-   }catch{/* The site can still be built if progress polling is unavailable. */}
- },1700);
  try{
-  const result=await api('/api/web/generate',{id,prompt:instructions});
-  project=result;preview();
-  stage='ready';
-  // The commercial space calculates a non-binding estimate after generation;
-  // a final invoice still requires verified seller/client information.
-  const salesLink=document.getElementById('lawSalesBtn');
-  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
-  const report=result.quality;
-  const validated=report && report.ok;
-  const visuals=result.visuals||{};
-  const mediaNote=visuals.generated?.length
-    ?'\nVisuels créés automatiquement : '+visuals.generated.length+' photo(s) de présentation.'
-    :visuals.notes?.length
-      ?'\nPhotos : '+visuals.notes[0]
-      :'';
-  message((result.summary||'La version du site a été créée.')+mediaNote+
-    '\n\nRegarde le résultat à droite. Tu peux maintenant demander une modification précise : couleur, texte, typographie, page, navigation, produit, animation, 3D, réservation ou autre fonctionnalité.'+
-    (report&&!validated?'\nLe contrôle de qualité signale encore des points à corriger ; demande-moi de les améliorer.':'' )+
-    '\nLe chiffrage FORMA (-30 % par prestation détectée) est disponible depuis l’icône document. Vérifie les prestations livrées et les coordonnées avant toute facture.',
-    'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités','Publier le site']);
- }catch(error){message('Je n’ai pas pu appliquer cette modification : '+error.message+'\nLe projet existant est conservé. Précise la demande ou vérifie que le moteur IA est disponible.');}
- finally{clearInterval(progressTimer);setBusy(false);}
+  const result=await api('/api/web/generate/start',{id,prompt:instructions});
+  if(!result.already_running){
+   message('Première maquette lancée. Je construis les vrais fichiers du site. '+
+    'La prévisualisation sera affichée dès la première compilation, sans attendre les finitions.');
+  }else{
+   message('La génération précédente continue. Je rétablis son suivi sans relancer Codex.');
+  }
+  await watchGeneration(id);
+ }catch(error){
+  message('Impossible de démarrer la génération : '+error.message+
+   '\\nVérifie « Codex connecté » dans l’en-tête. Les fichiers déjà créés sont conservés.');
+ }finally{setBusy(false)}
 }
 async function publish(){
  await ensureProject();
@@ -309,6 +363,16 @@ async function initialize(){
   if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
   const rows=project.chat||[];
   const initial=project.project?.initial_generation||{};
+  const generation=await api('/api/web/generation/status?id='+encodeURIComponent(project.project.id));
+  if(generation.state==='running'){
+   chat.innerHTML='';
+   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
+   message('La création est toujours en cours. Le logiciel conserve ton projet et je reprends le suivi de la génération.');
+   updateLivePreview(generation,project.project.id);
+   stage='ready';
+   await watchGeneration(project.project.id);
+   return;
+  }
   if(project.project?.project_kind==='pro' && initial.status==='pending'){
    chat.innerHTML='';
    message('Entreprise sélectionnée : '+project.project.name+
