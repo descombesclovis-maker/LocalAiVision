@@ -130,5 +130,46 @@
    }
  });
  watch.observe(welcome,{attributes:true,attributeFilter:['class']});
+ // A fresh launch always opens the brand-led welcome, while retaining
+ // previously saved chats in the visible History dialog.
+ const historyDialog=byId('historyDialog'),historySearch=byId('historySearch'),historyList=byId('historyList');
+ function historyPaint(){
+   historyList.replaceChildren();
+   const query=historySearch.value.toLocaleLowerCase('fr');
+   const rows=Object.values(conversations).filter(c=>(c.title||'').toLocaleLowerCase('fr').includes(query))
+     .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+   if(!rows.length){
+     const empty=document.createElement('p');empty.textContent='Aucune conversation à afficher.';
+     historyList.append(empty);return;
+   }
+   for(const chat of rows.slice(0,250)){
+     const row=document.createElement('div');row.className='history-item';
+     const open=document.createElement('button');open.type='button';
+     open.textContent=chat.title||'Nouvelle conversation';
+     open.title='Reprendre cette conversation';
+     open.addEventListener('click',()=>{
+       openConversation(chat.id);darkMode();welcome.classList.add('hidden');
+       historyDialog.close();activeNav('');prompt.focus();
+     });
+     const rename=document.createElement('button');rename.type='button';rename.textContent='✎';
+     rename.title='Renommer la conversation';rename.setAttribute('aria-label','Renommer '+(chat.title||'conversation'));
+     rename.addEventListener('click',()=>{renameConversation(chat.id);historyPaint()});
+     const remove=document.createElement('button');remove.type='button';remove.textContent='×';
+     remove.title='Supprimer la conversation';remove.setAttribute('aria-label','Supprimer '+(chat.title||'conversation'));
+     remove.addEventListener('click',()=>{deleteConversation(chat.id);historyPaint()});
+     row.append(open,rename,remove);historyList.append(row);
+   }
+ }
+ byId('historyBtn')?.addEventListener('click',()=>{historyPaint();historyDialog.showModal();historySearch.focus()});
+ byId('historyClose')?.addEventListener('click',()=>historyDialog.close());
+ historySearch?.addEventListener('input',historyPaint);
+ let userInteracted=false;
+ document.addEventListener('pointerdown',()=>{userInteracted=true},{once:true});
+ document.addEventListener('keydown',()=>{userInteracted=true},{once:true});
+ window.localAiVisionInitialRefresh?.then(()=>{
+   if(!userInteracted)home();
+ }).catch(()=>{
+   if(!userInteracted)home();
+ });
  if(!welcome.classList.contains('hidden'))document.body.classList.add('is-landing');
 })();
