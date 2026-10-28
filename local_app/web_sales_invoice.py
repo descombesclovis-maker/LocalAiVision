@@ -84,7 +84,7 @@ def estimate(store,project_id):
     return {"project_id":project_id,"project_name":meta.get("name",""),
             "items":items,"subtotal_eur":str(money(total)),
             "currency":"EUR","discount_pct":30,"estimate_only":True,
-            "notice":"Chiffrage indicatif à vérifier : seules les fonctionnalités réellement livrées et acceptées peuvent être facturées. Achat du domaine et hébergement exclus. Ne constitue pas une facture ni un devis accepté.",
+            "notice":"Chiffrage indicatif à vérifier : seules les fonctionnalités réellement livrées et acceptées peuvent être facturées. Achat du domaine et hébergement exclus. Ne constitue pas une facture ni un devis accepté. Ce PDF n'est pas une facture électronique structurée transmise par une plateforme agréée.",
             "sources":_REFERENCE_LINKS}
 
 
@@ -115,6 +115,8 @@ def validate_parties(seller,customer):
         raise ValueError("Précise si le client est une entreprise ou un particulier.")
     if not str(seller.get("payment_details") or "").strip():
         raise ValueError("Coordonnées ou instructions de paiement obligatoires.")
+    if customer.get("type")=="business" and not str(seller.get("late_penalty_rate") or "").strip():
+        raise ValueError("Précise le taux de pénalités de retard applicable au client professionnel.")
     return {"seller":dict(seller,name=name,siret=siret),"customer":dict(customer),
             "vat_mode":vat_mode}
 
@@ -230,9 +232,13 @@ def pdf_bytes(data):
         label(48,foot,"TVA non applicable, art. 293 B du CGI.",9)
         foot-=16
     label(48,foot,"Modalités de paiement : "+str(seller.get("payment_details",""))[:72],8)
-    foot-=17
+    foot-=16
+    label(48,foot,"Escompte pour paiement anticipé : néant.",8)
+    foot-=16
     if client.get("type")=="business":
-        label(48,foot,"Retard : pénalités applicables et indemnité légale de recouvrement de 40 EUR.",8)
+        label(48,foot,"Pénalités de retard : "+str(seller.get("late_penalty_rate",""))[:50]+".",8)
+        foot-=16
+        label(48,foot,"Indemnité forfaitaire de recouvrement (professionnels) : 40 EUR.",8)
     p.setFillColor(colors.HexColor("#9177b5"));p.rect(0,0,w,36,fill=1,stroke=0)
     p.setFillColor(colors.white);p.setFont("Helvetica",8)
     p.drawString(48,14,"FORMA  |  Création web sur mesure  |  Document à conserver")
