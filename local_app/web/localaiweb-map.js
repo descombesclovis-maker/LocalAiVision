@@ -36,7 +36,7 @@
    const verify=$('verifyWebPresence');
    verify.hidden=true;verify.removeAttribute('href');
    // User-initiated search only: no scraping or automatic publication assertions.
-   if(!recorded && item.name){
+   if(item.name){
      verify.href='https://www.google.com/search?'+new URLSearchParams({
        q:[item.name,item.city||item.address||'', 'site officiel'].filter(Boolean).join(' ')
      });
@@ -92,13 +92,13 @@
    let added=0;
    for(const business of records||[]){
      if(!business||!business.id||!Number.isFinite(business.lat)||!Number.isFinite(business.lon))continue;
-     if(business.kind==='location'||business.website_recorded||business.website)continue;
+     if(business.kind==='location')continue;
      if(markers.has(business.id))continue;
      if(markers.size>=2600)break;
      known.set(business.id,business);
-     const color='#a868f6';
+     const color=business.website_recorded?'#ef535e':'#36d77f';
      const marker=L.circleMarker([business.lat,business.lon],{
-       radius:2.3,color,weight:0,stroke:false,
+       radius:3.0,color,weight:0,stroke:false,
        fill:true,fillColor:color,fillOpacity:0.92,
      }).addTo(map);
      // OSM names are untrusted user-contributed text: never parse as HTML.
@@ -138,8 +138,9 @@
        setStatus('Aucun établissement reçu. La source de données ne couvre pas cette recherche. Réessaie ou zoome.');
        reload.hidden=false;
      }else{
-       setStatus(known.size+' établissements violets visibles · lot '+(batch+1)+'/'+total+
-         ' · données OpenStreetMap partielles, absence de site non confirmée.');
+       const red=[...known.values()].filter(x=>x.website_recorded).length;
+       setStatus(known.size+' entreprises chargées · '+(known.size-red)+' vertes / '+red+' rouges · lot '+(batch+1)+'/'+total+
+         (response.offline?' · anciennes données OSM en cache local':' · source OpenStreetMap')+'.');
      }
      if(response.next_batch!==null && response.next_batch!==undefined){
        // The public OSM service is best-effort. Small batches avoid the
@@ -186,8 +187,9 @@
      const response=await api(endpoint+'?'+query.toString());
      pruneOffscreen();
      const count=insert(response.results);
-     setStatus(count+' nouveaux prospects · '+known.size+' points violets affichés au total. '+
-       'Sans site renseigné dans OSM ≠ absence confirmée. Données partielles.');
+     const red=[...known.values()].filter(x=>x.website_recorded).length;
+     setStatus(count+' nouveaux établissements · '+(known.size-red)+' verts / '+red+' rouges. '+
+       'Données OSM partielles, absence de site non confirmée.');
    }catch(err){
      previousArea='';
      setStatus('Recherche temporairement indisponible : '+err.message);
