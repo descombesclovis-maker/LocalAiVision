@@ -120,3 +120,26 @@ body:not(.nsfw-active) #composerImageBtn{display:none!important}
 .topbar-action.working{box-shadow:0 0 0 2px #a268ff35;border-color:#b47ff2}
 .topbar-action.working:not(:disabled){animation:update-icon 1.6s ease-in-out infinite}
 @keyframes update-icon{0%,100%{background:#302041}50%{background:#57327c}}
+
+/* Permanent viewport-safe composer: never let the generation input be cut off. */
+html,body,.app,.main{height:100%;min-height:0}
+.app{height:100dvh}
+.main,.content{min-height:0;overflow:hidden}
+.content{height:100%;display:flex;flex-direction:column}
+.chat{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:20px}
+.composer-wrap{position:relative;z-index:7;flex:0 0 auto;width:min(920px,calc(100% - 26px));margin:0 auto max(15px,env(safe-area-inset-bottom,0px))}
+.composer{width:100%;padding:10px 14px;overflow:visible}
+.composer textarea{min-height:56px;max-height:min(23vh,190px);font-size:16px;padding:5px;resize:vertical}
+.composer-row{min-height:45px;gap:10px;flex-wrap:wrap}
+.left-tools{min-width:0;flex:1;flex-wrap:wrap}
+body.is-landing .chat{padding-top:12px}
+body.is-landing .welcome{height:100%;min-height:0;overflow:auto;justify-content:center;gap:clamp(8px,2vh,20px);padding:12px 20px}
+body.is-landing .welcome .vision-identity{width:min(650px,70vw);max-height:min(48vh,400px)}
+@media(max-height:650px){
+ .main-topbar{height:62px}
+ body.is-landing .welcome .vision-identity{max-height:32vh;width:min(490px,68vw)}
+ body.is-landing .welcome .localaiweb-entry{min-height:42px;padding:7px 16px}
+ .composer textarea{min-height:42px;max-height:105px}
+ .composer-wrap{margin-bottom:8px}
+}
+@media(max-width:650px){.composer-wrap{width:calc(100% - 16px)}.composer{padding:9px}body.is-landing .welcome .vision-identity{width:95%;max-height:42vh}}
