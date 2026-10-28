@@ -1571,6 +1571,26 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/sales/estimate":
+            try:
+                from local_app import web_sales_invoice
+                pid=parse_qs(u.query).get("id",[""])[0]
+                self.send_json(web_sales_invoice.estimate(_web_store(),pid))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/invoice/file":
+            try:
+                import re
+                number=parse_qs(u.query).get("number",[""])[0]
+                if not re.fullmatch(r"FORMA-\d{4}-\d{5}",number):
+                    raise ValueError("Numéro de facture invalide.")
+                path=LOCALAIWEB_DATA/"invoices"/(number+".pdf")
+                if not path.is_file():raise FileNotFoundError("Facture introuvable.")
+                self.send_bytes(path.read_bytes(),"application/pdf")
+            except Exception as exc:
+                self.send_json({"error":str(exc)},404)
+            return
         if u.path == "/api/web/project":
             try:
                 project_id = parse_qs(u.query).get("id", [""])[0]
@@ -1628,6 +1648,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/localaiweb/map":
             p = WEB / "localaiweb-map.html"
+            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+            return
+        if u.path == "/localaiweb/vente":
+            p = WEB / "localaiweb-sales.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
             return
         if u.path == "/localaiweb/editor":
@@ -1715,6 +1739,37 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(result)
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
+            return
+        if u.path == "/api/web/invoice/issue":
+            try:
+                from local_app import web_sales_invoice
+                result=web_sales_invoice.issue(
+                    _web_store(),body.get("id"),
+                    LOCALAIWEB_DATA/"invoices",
+                    body.get("seller"),body.get("customer"),
+                    body.get("items") or [],
+                    accepted=body.get("accepted") is True,
+                    service_date=body.get("service_date") or "",
+                    due_days=body.get("due_days",30))
+                self.send_json(result)
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/domain/attach":
+            try:
+                store=_web_store()
+                pid=body.get("id")
+                meta=store.meta(pid)
+                if meta.get("project_kind")=="pro" and not meta.get("business_authorized"):
+                    raise ValueError("Domaine officiel interdit avant autorisation de l'entreprise.")
+                site=store.project_dir(pid)/"site"
+                domain=integrations_cli.vercel_attach_purchased_domain(
+                    site,body.get("domain"),body.get("vercel_project"))
+                store.update_deployment(pid,{"custom_domain":domain["domain"],
+                                            "vercel_target":domain["vercel_project"]})
+                self.send_json(domain)
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
             return
         if u.path == "/api/web/project/create":
             try:
