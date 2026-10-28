@@ -17,30 +17,48 @@ OUTPUT = ROOT / "build" / "branding"
 
 
 def prepare():
-    from PIL import Image, ImageOps
-    content = MASTER.read_text(encoding="utf-8")
-    found = re.search(r"data:image/webp;base64,([A-Za-z0-9+/=]+)", content)
-    if not found:
-        raise RuntimeError("Identité générale introuvable dans les logos fournis.")
-    supplied = base64.b64decode(found.group(1), validate=True)
-    img = Image.open(io.BytesIO(supplied)).convert("RGBA")
-    if img.width < 200 or img.height < 100:
-        raise RuntimeError("Identité générale de mauvaise dimension.")
+    # Render the vector master mark directly with Pillow primitives at
+    # four times the final size. No embedded 160px WebP, no platform-specific
+    # SVG/Cairo runtime and no network download.
+    from PIL import Image, ImageDraw
+    import math
+    if "CRÉATIONS VISUELLES" not in MASTER.read_text(encoding="utf-8"):
+        raise RuntimeError("Le logo général de LocalAiVision est introuvable.")
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    # The eight-point star is the visual mark of the SECOND supplied image.
-    # Using the complete horizontal banner as a 16 px icon would be unreadable.
-    mark = img.crop((118, 25, 192, 97))
-    mark = mark.resize((218, 218), Image.Resampling.LANCZOS)
-    from PIL import ImageDraw
-    mask = Image.new("L",(218,218),0)
-    ImageDraw.Draw(mask).rounded_rectangle((0,0,217,217),radius=32,fill=255)
-    mark.putalpha(mask)
-    icon = Image.new("RGBA", (256, 256), "#261838")
-    icon.alpha_composite(mark,(19,19))
-    icon.save(OUTPUT / "LocalAiVision.png", "PNG")
-    icon.save(OUTPUT / "LocalAiVision.ico", format="ICO",
-              sizes=[(16, 16), (24, 24), (32, 32),
-                     (48, 48), (64, 64), (128, 128), (256, 256)])
+    size=1024
+    icon=Image.new("RGBA",(size,size),(38,24,56,255))
+    draw=ImageDraw.Draw(icon)
+    cx=cy=size//2
+    outer=size*0.40
+    inner=size*0.165
+    points=[]
+    for k in range(16):
+        angle=-math.pi/2+k*math.pi/8
+        radius=outer if k%2==0 else inner
+        points.append((cx+int(math.cos(angle)*radius),
+                       cy+int(math.sin(angle)*radius)))
+    draw.polygon(points,fill="#39215d")
+    draw.line(points+[points[0]],fill="#a580c7",width=12,joint="curve")
+    draw.line([(cx,175),(cx,302),(cx+40,355),(cx+40,430)],
+              fill="#ba91e2",width=12,joint="curve")
+    draw.line([(cx-290,cy),(cx-100,cy),(cx-60,cy+32)],
+              fill="#9766c3",width=10,joint="curve")
+    draw.line([(cx+290,cy),(cx+110,cy),(cx+58,cy+30)],
+              fill="#9766c3",width=10,joint="curve")
+    draw.line([(cx,cy+290),(cx,cy+105),(cx-35,cy+60)],
+              fill="#9766c3",width=10,joint="curve")
+    # Eight-point sparkle remains legible at 16x16.
+    sparkle=[]
+    for k in range(8):
+        angle=-math.pi/2+k*math.pi/4
+        radius=155 if k%2==0 else 24
+        sparkle.append((cx+int(math.cos(angle)*radius),
+                        cy+int(math.sin(angle)*radius)))
+    draw.polygon(sparkle,fill="#FAF4FF")
+    icon=icon.resize((256,256),Image.Resampling.LANCZOS)
+    icon.save(OUTPUT / "LocalAiVision.png","PNG")
+    icon.save(OUTPUT / "LocalAiVision.ico",format="ICO",
+              sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
     # Windows PE metadata identifies the software, but ONLY a legitimate
     # Authenticode certificate can identify a verified publisher to Windows.
     version = """VSVersionInfo(

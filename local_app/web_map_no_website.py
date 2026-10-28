@@ -10,6 +10,9 @@ import ipaddress
 import threading
 import time
 from urllib.parse import urlencode, urlsplit
+from pathlib import Path
+import json
+import os
 
 from local_app import web_business_map
 
@@ -62,9 +65,12 @@ THROTTLE_SECONDS=12
 # Best-effort community instances: identify application, cache, and rate limit.
 # Private.coffee expressly provides a POST Overpass endpoint; FOSSGIS is fallback.
 OVERPASS_ENDPOINTS=(
+    "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
     web_business_map.OVERPASS,
 )
+# Persist only actual OSM responses; show a clearly dated local cache offline.
+CACHE_DIR=Path(os.environ.get("LOCALVISIONAI_DATA",str(Path.home()/".localvisionai")))/"map_cache"
 FRANCE_BATCH_SIZE=10
 FRANCE_BATCH_COUNT=(len(FRANCE_POINTS)+FRANCE_BATCH_SIZE-1)//FRANCE_BATCH_SIZE
 
@@ -158,43 +164,139 @@ def _load(key, query, mode):
         LAST_REQUEST=now
     raw=None
     errors=[]
+    cache_file=CACHE_DIR/("overpass-"+__import__("hashlib").sha256(query.encode("utf-8")).hexdigest()[:32]+".json")
     for index,endpoint in enumerate(OVERPASS_ENDPOINTS):
         try:
             # Different provider throttle keys avoid double-failing the fallback.
             raw=web_business_map._json_http(
-                "overpass" if index==0 else "overpass_backup",
+                "overpass" if index==0 else "overpass_backup" if index==1 else "overpass_backup2",
                 endpoint,post=urlencode({"data":query}))
             if not isinstance(raw,dict) or "elements" not in raw:
                 raise RuntimeError("Réponse Overpass invalide.")
             break
         except Exception as exc:
             errors.append(str(exc))
+    source_offline=False
     if raw is None:
-        # Failed network attempts should not block retry or invent businesses.
-        with LOCK:
-            LAST_REQUEST=0.0
-        raise RuntimeError("Sources Overpass momentanément indisponibles : " +
-                           "; ".join(errors)[:350])
+        try:
+            cached=json.loads(cache_file.read_text(encoding="utf-8"))
+            if not isinstance(cached.get("elements"),list):raise ValueError("Cache invalide")
+            raw=cached
+            source_offline=True
+        except (OSError,ValueError,TypeError):
+            # Failed network attempts should not block retry or invent businesses.
+            with LOCK:LAST_REQUEST=0.0
+            raise RuntimeError("Sources OpenStreetMap indisponibles ; aucune donnée locale encore disponible. "+
+                               "; ".join(errors)[:250])
+    else:
+        try:
+            CACHE_DIR.mkdir(parents=True,exist_ok=True)
+            tmp=cache_file.with_suffix(".tmp")
+            tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
+            tmp.replace(cache_file)
+        except (OSError,TypeError):
+            pass
     items=[]
     seen=set()
     for row in (raw.get("elements") or [])[:650]:
         tags=row.get("tags") or {}
-        if any(str(tags.get(tag) or "").strip() for tag in WEBSITE_KEYS):
-            continue
         business=_normalize(row)
-        if not business or business["id"] in seen or business["website_recorded"]:
+        if not business or business["id"] in seen:
             continue
         seen.add(business["id"])
         items.append(business)
     result={"results":items,"mode":mode,"partial":True,
-            "website_status":"non_renseigne_osm",
+            "website_status":"mixte_osm",
             "website_verified":False,
-            "notice":"Aucun site indiqué dans OSM ≠ absence de site confirmée. Vérification complémentaire nécessaire.",
-            "source":"OpenStreetMap / Overpass","cached":False}
+            "notice":"Vert : site non renseigné OSM, absence non confirmée. Rouge : site renseigné OSM. Données partielles.",
+            "source":"OpenStreetMap / Overpass","cached":False,"offline":source_offline}
     with LOCK:
         if len(CACHE)>70:CACHE.clear()
         CACHE[key]=(time.monotonic(),result)
     return result
+
+
+def _french_registry_near(lat,lon,radius=2.5):
+    """Official French businesses API for when public OSM Overpass is offline.
+
+    This directory does NOT record website existence. Unknown is not 'no site'.
+    Query one small local radius, never request a bulk French company export.
+    """
+    from urllib.request import Request, urlopen
+    from urllib.parse import urlencode
+    la,lo=web_business_map._position(lat,lon)
+    if not (41.2<=la<=51.5 and -5.9<=lo<=9.9):
+        raise ValueError("L'annuaire officiel de secours couvre la France uniquement.")
+    radius=max(.5,min(float(radius),5))
+    key="registry-"+str(round(la,3))+"-"+str(round(lo,3))+"-"+str(round(radius,1))
+    file=CACHE_DIR/(key+".json")
+    raw=None
+    cached=False
+    args=urlencode({"lat":la,"long":lo,"radius":radius,"page":1,
+                    "per_page":25})
+    try:
+        with urlopen(Request("https://recherche-entreprises.api.gouv.fr/near_point?"+args,
+                      headers={"User-Agent":web_business_map.CONTACT,
+                               "Accept":"application/json"}),timeout=11) as response:
+            payload=response.read(600001)
+            if len(payload)>600000:raise ValueError("Réponse d'annuaire trop volumineuse.")
+            raw=json.loads(payload)
+            if not isinstance(raw.get("results"),list):raise ValueError("Réponse d'annuaire invalide.")
+        try:
+            CACHE_DIR.mkdir(parents=True,exist_ok=True)
+            tmp=file.with_suffix(".tmp")
+            tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
+            tmp.replace(file)
+        except (OSError,TypeError):pass
+    except Exception:
+        try:
+            raw=json.loads(file.read_text(encoding="utf-8"))
+            if not isinstance(raw.get("results"),list):raise ValueError("Cache invalide")
+            cached=True
+        except (OSError,ValueError,TypeError):
+            raise RuntimeError("Annuaire officiel français indisponible, et aucun cache local disponible.") from None
+    rows=[]
+    seen=set()
+    for company in (raw.get("results") or [])[:25]:
+        if not isinstance(company,dict):continue
+        if company.get("etat_administratif") not in (None,"A"):continue
+        places=(company.get("matching_etablissements") or [])
+        if isinstance(company.get("siege"),dict):places=list(places)+[company["siege"]]
+        for location in places:
+            if not isinstance(location,dict):continue
+            if location.get("etat_administratif") not in (None,"A"):continue
+            try:
+                y=float(location.get("latitude"))
+                x=float(location.get("longitude"))
+            except (ValueError,TypeError):continue
+            # Avoid remote headquarters returned for a local branch query.
+            if abs(y-la)>radius/85 or abs(x-lo)>radius/50:continue
+            siret=str(location.get("siret") or "")
+            if not (len(siret)==14 and siret.isdigit()) or siret in seen:continue
+            seen.add(siret)
+            item=web_business_map._result({
+                "name":location.get("nom_commercial") or
+                       ((location.get("liste_enseignes") or [""])[0]) or
+                       company.get("nom_complet") or company.get("nom_raison_sociale"),
+                "lat":y,"lon":x,"osm_id":"siret/"+siret,
+                "category":str(location.get("activite_principale") or "entreprise"),
+                "address":location.get("adresse") or "",
+                "city":location.get("libelle_commune") or "",
+                "postcode":location.get("code_postal") or "",
+                "source":"french_registry"})
+            if not item:continue
+            item["website_recorded"]=False
+            item["website_status"]="inconnu_registre"
+            item["website_link_available"]=False
+            item["website_verified"]=False
+            rows.append(item)
+            break
+    return {"results":rows,"partial":True,"mode":"official_french_registry",
+            "source":"API Recherche d'entreprises / data.gouv.fr",
+            "website_verified":False,"website_status":"inconnu_registre",
+            "notice":"Site non indiqué dans l'annuaire d'entreprises : existence non vérifiée. "
+                     "Seuls les établissements géolocalisés et diffusibles sont proposés.",
+            "cached":cached,"offline":cached,"fallback":True}
 
 
 def france_overview(batch=0):
@@ -217,9 +319,15 @@ def france_overview(batch=0):
     for lat,lon in centers:
         pieces.append(
             f'nwr(around:850,{lat},{lon})["name"]'
-            f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 18;')
+            f'{BUSINESS_TAG};out center 18;')
     statement="[out:json][timeout:24];"+"".join(pieces)
-    result=_load(key,statement,"france_overview")
+    # Public OSM instances are frequently overloaded. The French public
+    # registry provides immediately geocoded real establishments without
+    # inventing a website status. OSM remains available for detailed zoom.
+    try:
+        result=_french_registry_near(*centers[0],radius=2.5)
+    except RuntimeError:
+        result=_load(key,statement,"france_overview")
     result["batch"]=number
     result["total_batches"]=FRANCE_BATCH_COUNT
     result["next_batch"]=number+1 if number+1<FRANCE_BATCH_COUNT else None
@@ -236,9 +344,14 @@ def area_details(lat,lon,zoom):
     statement=(
         "[out:json][timeout:24];"
         f'nwr(around:{radius},{la},{lo})["name"]'
-        f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 220;'
+        f'{BUSINESS_TAG};out center 220;'
     )
-    return _load(key,statement,"nearby")
+    try:
+        return _load(key,statement,"nearby")
+    except RuntimeError as exc:
+        if "recharge progressivement" in str(exc):
+            raise
+        return _french_registry_near(la,lo,radius=min(4,radius/1000))
 
 
 def viewport_details(south,west,north,east,zoom):
@@ -257,6 +370,11 @@ def viewport_details(south,west,north,east,zoom):
     statement=(
         "[out:json][timeout:24];"
         f'nwr({la1},{lo1},{la2},{lo2})["name"]'
-        f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 350;'
+        f'{BUSINESS_TAG};out center 350;'
     )
-    return _load(key,statement,"viewport")
+    try:
+        return _load(key,statement,"viewport")
+    except RuntimeError as exc:
+        if "recharge progressivement" in str(exc):
+            raise
+        return _french_registry_near((la1+la2)/2,(lo1+lo2)/2,1.5)

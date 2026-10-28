@@ -74,13 +74,17 @@
     <section class="content">
       <div id="chat" class="chat">
         <div id="welcome" class="welcome" aria-label="Accueil LocalAiVision">
-          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-identity.svg" alt="LocalAiVision — Création de sites web et conversation IA"></div>
-          <div class="welcome-actions"><button id="localAiWebEntry" class="localaiweb-entry" type="button"><img src="/assets/brand-web.svg" alt=""><span>Accéder à LocalAiWeb</span><span aria-hidden="true">↗</span></button><span class="welcome-subtitle">Sites web sur mesure · Créations visuelles · Un seul studio</span></div>
+          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-identity.svg" alt="LocalAiVision — Créations visuelles"></div>
+          <div class="welcome-actions"><button id="localAiWebEntry" class="localaiweb-entry" type="button"><img src="/assets/brand-web.svg" alt=""><span>Accéder à LocalAiWeb</span><span aria-hidden="true">↗</span></button></div>
         </div>
         <div id="messages" class="messages"></div>
       </div>
 
       <div class="composer-wrap">
+        <div id="engineRecovery" class="engine-recovery" hidden role="status" aria-live="polite">
+          <span id="engineRecoveryText">Diagnostic des moteurs locaux…</span>
+          <button id="engineRecoveryButton" type="button">Démarrer / réparer ↗</button>
+        </div>
         <details id="enginePanel" class="engine-panel"><summary id="engineSummary">Vérification des moteurs locaux…</summary><p id="engineDetail"></p><div class="engine-actions"><button id="retrySetup">Installer / réessayer les moteurs</button><button id="installImage">Installer / reprendre RealVisXL</button><button id="installVideo">Installer Wan (vidéo)</button><button id="installIsolatedImage">Installer HunyuanImage 2.1</button><button id="installMotion">Installer HY-OmniWeaving T2V</button><button id="installI2V">Installer HY-OmniWeaving I2V</button><button id="showLog">Voir le journal</button></div><pre id="logOutput" class="hidden"></pre></details>
         <div class="composer">
           <textarea id="prompt" rows="3" placeholder="Écris ton message…"></textarea>

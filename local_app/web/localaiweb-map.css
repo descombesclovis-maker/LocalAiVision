@@ -17,3 +17,6 @@
 
 .map-brand .brand-mark{background:#fff;padding:2px;overflow:hidden}
 .map-brand .brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
+
+.legend-green{background:#36d77f!important;box-shadow:0 0 9px #36d77f66}
+.legend-red{background:#ef535e!important;box-shadow:0 0 9px #ef535e66}

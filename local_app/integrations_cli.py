@@ -48,10 +48,17 @@ def _codex_cmd():
 
 
 def _claude_cmd():
-    # Use an explicitly installed Claude Code CLI. Never npm-install it
-    # implicitly during a generation run.
+    """Find Claude Code on Windows even if WebView/Explorer has a stale PATH."""
     direct = _which("claude", "claude.cmd", "claude.exe")
-    return [direct] if direct else None
+    if direct:return [direct]
+    roots=[Path.home()/".local"/"bin",
+           Path(os.environ.get("APPDATA",str(Path.home()/"AppData"/"Roaming")))/"npm",
+           Path(os.environ.get("LOCALAPPDATA",str(Path.home()/"AppData"/"Local")))/"Programs"/"Claude"]
+    for root in roots:
+        for name in ("claude.exe","claude.cmd","claude"):
+            candidate=root/name
+            if candidate.is_file():return [str(candidate)]
+    return None
 
 
 def status(deep=False):
@@ -201,6 +208,11 @@ def connect(provider, cwd=None):
         if not cmd:
             raise RuntimeError("Supabase CLI n'est pas disponible.")
         args = cmd + ["login"]
+    elif provider == "claude":
+        cmd = _claude_cmd()
+        if not cmd:
+            raise RuntimeError("Claude Code introuvable. Installe Claude Code sur ce PC, puis ouvre « Connecter Claude ». Aucun abonnement ou paiement n'est déclenché automatiquement.")
+        args = cmd + ["auth", "login"]
     elif provider == "codex":
         cmd = _codex_cmd()
         if not cmd:

@@ -52,3 +52,18 @@ button:not(:disabled):hover,a:hover{border-color:#ac86dc}
  .view-modes button{padding:7px 8px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Fixed-height editor: compositor never clipped by banners or Windows scaling. */
+.studio{height:100dvh;min-height:0}
+.chat-pane{min-height:0;overflow:hidden}
+.chat-header{flex:0 0 auto;min-width:0}
+.chat-history{flex:1 1 auto;min-height:0;overflow-y:auto}
+.chat-composer{flex:0 0 auto;position:relative;min-height:0;max-height:45dvh;overflow-y:auto;margin:0 12px max(11px,env(safe-area-inset-bottom,0px));padding:12px}
+#lawPrompt{min-height:72px;max-height:20dvh;resize:vertical}
+.composer-bottom{flex-wrap:wrap;gap:7px}
+.agent-control{display:inline-flex;align-items:center;gap:8px;background:#281936;border:1px solid #6e4b92;color:#ead5ff;border-radius:11px;padding:8px 11px;font-size:11px;font-weight:700;cursor:pointer}
+.agent-control[hidden]{display:none!important}
+.agent-control:hover{background:#59317f}
+.agent-control:disabled{opacity:.55;cursor:wait}
+@media(max-width:900px){.chat-header{padding:10px;flex-wrap:wrap}.chat-header .chat-brand{min-width:175px}.chat-composer{margin-inline:8px}}
+@media(max-width:620px){.studio{grid-template-rows:minmax(0,56dvh) minmax(0,44dvh);min-height:0}.chat-composer{padding:9px;max-height:33dvh}#lawPrompt{min-height:48px;max-height:13dvh}.chat-header .update-action{display:none}}

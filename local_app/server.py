@@ -2409,7 +2409,10 @@ def _setup_worker(component):
             # an already installed image engine from working (or vice versa).
             errors = []
             for label, action in (("ComfyUI", bootstrap_windows.ensure_comfy),
-                                  ("RealVisXL image", lambda: bootstrap_windows.ensure_media('image'))):
+                                  ("RealVisXL image", lambda: bootstrap_windows.ensure_media('image')),
+                                  ("llama.cpp / Qwen chat", lambda: (
+                                      bootstrap_windows.ensure_llama(),
+                                      bootstrap_windows.ensure_model()))):
                 STARTUP['message'] = "Installation / vérification : " + label
                 try:
                     action()
@@ -2418,6 +2421,12 @@ def _setup_worker(component):
                     if label == "RealVisXL image":
                         _comfy_info_cache['time'] = 0
                         _comfy_info_cache['data'] = {}
+                    if label == "llama.cpp / Qwen chat":
+                        # The existing model is reused; no blind replacement.
+                        # Starting the model is best effort and can take a while.
+                        from local_app import llm
+                        if not llm._ensure_server(timeout=120):
+                            raise RuntimeError("Qwen n'a pas démarré. Consulte logs/llm.log.")
                 except Exception as exc:
                     errors.append(label + " : " + str(exc))
             if errors:

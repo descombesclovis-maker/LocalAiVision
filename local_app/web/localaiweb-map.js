@@ -30,13 +30,16 @@
    $('selectionAddress').textContent=item.address||'Adresse non renseignée';
    $('mapCreateError').textContent='';
    const recorded=!!item.website_recorded;
+   const registryUnknown=item.website_status==='inconnu_registre';
    $('selectionNotice').textContent=recorded
-     ?'Un site internet est renseigné dans OpenStreetMap. Le lien et son fonctionnement restent à vérifier.'
-     :'Site non renseigné dans OpenStreetMap. Ce n’est PAS une absence de site confirmée : vérifie avant toute démarche.'; 
+     ?'Un site est renseigné dans OpenStreetMap. Son fonctionnement reste à vérifier.'
+     :registryUnknown
+       ?'Donnée issue de l’annuaire officiel français. L’annuaire ne contient pas le statut du site Web : absence NON vérifiée.'
+       :'Site non renseigné dans OpenStreetMap. Absence NON confirmée. Vérifie avant toute démarche.'; 
    const verify=$('verifyWebPresence');
    verify.hidden=true;verify.removeAttribute('href');
    // User-initiated search only: no scraping or automatic publication assertions.
-   if(!recorded && item.name){
+   if(item.name){
      verify.href='https://www.google.com/search?'+new URLSearchParams({
        q:[item.name,item.city||item.address||'', 'site officiel'].filter(Boolean).join(' ')
      });
@@ -68,7 +71,8 @@
    }
    $('professionalProfile').replaceChildren();
    const registry=$('mapRegistry');
-   registry.hidden=!(item.source||'').startsWith('OpenStreetMap');
+   registry.hidden=!((item.source||'').startsWith('OpenStreetMap') ||
+                          (item.source||'').includes("data.gouv.fr"));
    registry.disabled=false;
    if(item.official_registry?.matched)showRegistry(item.official_registry);
  }
@@ -92,13 +96,13 @@
    let added=0;
    for(const business of records||[]){
      if(!business||!business.id||!Number.isFinite(business.lat)||!Number.isFinite(business.lon))continue;
-     if(business.kind==='location'||business.website_recorded||business.website)continue;
+     if(business.kind==='location')continue;
      if(markers.has(business.id))continue;
      if(markers.size>=2600)break;
      known.set(business.id,business);
-     const color='#a868f6';
+     const color=business.website_recorded?'#ef535e':'#36d77f';
      const marker=L.circleMarker([business.lat,business.lon],{
-       radius:2.3,color,weight:0,stroke:false,
+       radius:3.0,color,weight:0,stroke:false,
        fill:true,fillColor:color,fillOpacity:0.92,
      }).addTo(map);
      // OSM names are untrusted user-contributed text: never parse as HTML.
@@ -138,8 +142,10 @@
        setStatus('Aucun établissement reçu. La source de données ne couvre pas cette recherche. Réessaie ou zoome.');
        reload.hidden=false;
      }else{
-       setStatus(known.size+' établissements violets visibles · lot '+(batch+1)+'/'+total+
-         ' · données OpenStreetMap partielles, absence de site non confirmée.');
+       const red=[...known.values()].filter(x=>x.website_recorded).length;
+       const source=response.fallback?'Annuaire français officiel': 'OpenStreetMap';
+       setStatus(known.size+' entreprises chargées · '+(known.size-red)+' vertes / '+red+' rouges · lot '+(batch+1)+'/'+total+
+         (response.offline?' · données locales en cache':' · source '+source)+'. Statut du site à vérifier.');
      }
      if(response.next_batch!==null && response.next_batch!==undefined){
        // The public OSM service is best-effort. Small batches avoid the
@@ -150,7 +156,8 @@
    }catch(err){
      nextOverviewBatch=batch;
      reload.hidden=false;
-     setStatus('Impossible de charger les entreprises : '+err.message+' · Clique sur « Réessayer ».');
+     setStatus('Sources d’entreprises indisponibles (OSM et annuaire français) : '+
+        err.message+' · Réessaie lorsque ta connexion sera rétablie.');
    }finally{
      loading=false;lastLoad=Date.now();
      if(map.getZoom()>=10)scheduleNearby();
@@ -186,8 +193,10 @@
      const response=await api(endpoint+'?'+query.toString());
      pruneOffscreen();
      const count=insert(response.results);
-     setStatus(count+' nouveaux prospects · '+known.size+' points violets affichés au total. '+
-       'Sans site renseigné dans OSM ≠ absence confirmée. Données partielles.');
+     const red=[...known.values()].filter(x=>x.website_recorded).length;
+     setStatus(count+' nouveaux établissements · '+(known.size-red)+' verts / '+red+' rouges. '+
+       (response.fallback?'Annuaire officiel français':'OpenStreetMap')+
+       ' : données partielles, existence réelle du site non vérifiée.');
    }catch(err){
      previousArea='';
      setStatus('Recherche temporairement indisponible : '+err.message);
