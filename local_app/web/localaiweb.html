@@ -84,58 +84,82 @@
     <form id="lawDesignForm" class="design-form">
       <div class="design-heading"><span class="design-eyebrow">DIRECTION CRÉATIVE · PROJET D'ENTREPRISE</span>
         <h2 id="designTitle">L'identité de votre prochain site</h2>
-        <p id="designIntro">Définis l'univers visuel, les mouvements et les effets. Tous les choix sont facultatifs : tu peux laisser les valeurs proposées et préciser ton idée dans le chat.</p>
+        <p id="designIntro">Coche uniquement les effets que tu veux. Chaque case indique ce qu'elle changera sur le site. Tu peux tout laisser vide et créer librement.</p>
       </div>
       <div class="design-fields">
-        <label>Univers esthétique<select name="style">
-          <option value="auto">Liberté artistique à Codex</option><option value="minimal">Minimalisme architectural</option><option value="luxury">Luxe éditorial</option>
-          <option value="boutique">Boutique chaleureuse</option><option value="editorial">Éditorial expérimental</option>
-          <option value="futurist">Futurisme raffiné</option><option value="artisanal">Authenticité artisanale</option>
-          <option value="cinematic">Cinématique immersive</option>
-        </select></label>
-        <label>Palette<select name="colors">
-          <option value="auto">Palette décidée par Codex</option><option value="mono">Monochrome contrasté</option><option value="ink">Noir &amp; ivoire</option>
-          <option value="cream">Crème &amp; sable</option><option value="copper">Noir &amp; cuivre</option><option value="forest">Vert profond</option>
-          <option value="marine">Bleu nuit</option><option value="pastel">Pastels</option><option value="bold">Couleurs vives</option>
-        </select></label>
-        <label>Typographie<select name="typography">
-          <option value="auto">Selon l'identité</option><option value="serif">Serif expressive</option><option value="sans">Sans-serif premium</option>
-          <option value="display">Typographie graphique</option><option value="humanist">Humaniste</option>
-        </select></label>
-        <label>Composition des pages<select name="layout">
-          <option value="auto">Composition libre</option><option value="editorial">Grille éditoriale</option><option value="gallery">Galerie immersive</option>
-          <option value="asymmetric">Asymétrie soignée</option><option value="fullbleed">Grand écran cinématique</option>
-          <option value="ecommerce">Boutique détaillée</option>
-        </select></label>
-        <label>Animations<select name="motion">
-          <option value="subtle">Micro-animations légères</option><option value="none">Sans mouvements décoratifs</option>
-          <option value="smooth">Animations fluides</option><option value="expressive">Transitions expressives</option>
-        </select></label>
-        <label>Mise en scène cinématique<select name="cinema">
-          <option value="none">Pas de cinématique</option><option value="scroll">Scènes au défilement</option>
-          <option value="camera">Mouvements de caméra</option><option value="reveal">Révélations de contenus</option>
-        </select></label>
-        <label>Profondeur / 3D<select name="dimension">
-          <option value="none">2D élégante</option><option value="depth">Profondeur 2,5D</option>
-          <option value="interactive">Objets 3D interactifs</option><option value="immersive">Environnement WebGL immersif</option>
-        </select></label>
-        <label>Interactions<select name="interaction">
-          <option value="standard">Navigation classique</option><option value="parallax">Parallaxe tactile</option>
-          <option value="magnetic">Interactions magnétiques</option><option value="gesture">Gestes et micro-interactions</option>
-        </select></label>
-        <label>Visuels<select name="visuals">
-          <option value="verified">Ressources professionnelles disponibles</option><option value="illustrative">Illustrations originales</option>
-          <option value="generated">Visuels IA illustratifs</option><option value="licensed">Photos sous licence adaptée</option>
-        </select></label>
-        <label>Matières / textures<select name="surfaces">
-          <option value="plain">Surfaces sobres</option><option value="glass">Verre &amp; transparence</option>
-          <option value="paper">Papier &amp; grain organique</option><option value="material">Matières réalistes</option>
-        </select></label>
-        <label>Priorité d'affichage<select name="mobile">
-          <option value="balanced">Équilibre tous supports</option><option value="mobilefirst">Mobile d'abord</option>
-          <option value="performance">Performance avant tout</option>
-        </select></label>
-        <label class="design-wide">Précisions libres<textarea name="notes" maxlength="1200" rows="3" placeholder="Décris librement une ambiance, une animation, un parcours… (facultatif)"></textarea></label>
+        <fieldset class="design-category"><legend>Style général <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="minimal"><span><strong>Très simple et épuré</strong><small>Peu d'éléments, beaucoup d'espace</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="luxury"><span><strong>Chic et haut de gamme</strong><small>Comme une marque de luxe</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="boutique"><span><strong>Chaleureux et accueillant</strong><small>Idéal pour un commerce de quartier</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="editorial"><span><strong>Comme un magazine</strong><small>Grandes photos et titres travaillés</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="futurist"><span><strong>Moderne et futuriste</strong><small>Look technologique</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="artisanal"><span><strong>Artisan et authentique</strong><small>Textures naturelles et proximité</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="style" value="cinematic"><span><strong>Spectaculaire</strong><small>Grandes scènes façon publicité</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Couleurs <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="mono"><span><strong>Noir et blanc</strong><small>Très contrasté</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="ink"><span><strong>Noir et crème</strong><small>Sobre et élégant</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="cream"><span><strong>Beige et sable</strong><small>Doux et naturel</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="copper"><span><strong>Noir et doré/cuivré</strong><small>Aspect luxueux</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="forest"><span><strong>Vert profond</strong><small>Ambiance nature</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="marine"><span><strong>Bleu nuit</strong><small>Professionnel</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="pastel"><span><strong>Couleurs pastel</strong><small>Doux et léger</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="colors" value="bold"><span><strong>Couleurs vives</strong><small>Énergique</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Écriture <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="typography" value="serif"><span><strong>Élégante</strong><small>Lettres avec empattement</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="typography" value="sans"><span><strong>Moderne et simple</strong><small>Facile à lire</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="typography" value="display"><span><strong>Titres originaux</strong><small>Typographie qui marque</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="typography" value="humanist"><span><strong>Chaleureuse</strong><small>Aspect humain et doux</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Disposition <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="layout" value="editorial"><span><strong>Comme un magazine</strong><small>Sections variées</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="layout" value="gallery"><span><strong>Grandes photos</strong><small>Mise en valeur des réalisations</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="layout" value="asymmetric"><span><strong>Originale</strong><small>Sections décalées</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="layout" value="fullbleed"><span><strong>Plein écran</strong><small>Effet immersif</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="layout" value="ecommerce"><span><strong>Façon boutique</strong><small>Produits bien présentés</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Animations <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="motion" value="none"><span><strong>Sans animation</strong><small>Page fixe et rapide</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="motion" value="subtle"><span><strong>Légères</strong><small>Boutons et textes discrets</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="motion" value="smooth"><span><strong>Fluides</strong><small>Mouvements doux au défilement</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="motion" value="expressive"><span><strong>Impressionnantes</strong><small>Transitions très visibles</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Effets de cinéma <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="cinema" value="scroll"><span><strong>Défilement scénarisé</strong><small>Une scène se révèle en descendant</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="cinema" value="camera"><span><strong>Caméra animée</strong><small>Vue qui voyage dans le site</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="cinema" value="reveal"><span><strong>Apparition des éléments</strong><small>Textes et photos se dévoilent</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Effets 3D <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="dimension" value="none"><span><strong>Tout en 2D</strong><small>Site classique</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="dimension" value="depth"><span><strong>Un peu de relief</strong><small>Profondeur sans vraie 3D</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="dimension" value="interactive"><span><strong>Objets en 3D</strong><small>On peut tourner les objets</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="dimension" value="immersive"><span><strong>Univers 3D complet</strong><small>Naviguer dans une scène 3D</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Interactions <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="interaction" value="standard"><span><strong>Classiques</strong><small>Boutons et navigation habituels</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="interaction" value="parallax"><span><strong>Effet profondeur</strong><small>Le fond bouge en défilant</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="interaction" value="magnetic"><span><strong>Effets au survol</strong><small>Boutons qui réagissent à la souris</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="interaction" value="gesture"><span><strong>Gestes tactiles</strong><small>Interactions au doigt</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Images <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="visuals" value="verified"><span><strong>Photos de l'entreprise</strong><small>Seulement celles autorisées</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="visuals" value="illustrative"><span><strong>Illustrations sur mesure</strong><small>Graphismes créatifs</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="visuals" value="generated"><span><strong>Illustrations IA</strong><small>Visuels originaux illustratifs</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="visuals" value="licensed"><span><strong>Photos professionnelles</strong><small>Images avec licence autorisée</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Textures <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="surfaces" value="plain"><span><strong>Surfaces nettes</strong><small>Propre et lisible</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="surfaces" value="glass"><span><strong>Effet verre</strong><small>Transparence et flou</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="surfaces" value="paper"><span><strong>Effet papier</strong><small>Grain et matière douce</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="surfaces" value="material"><span><strong>Matières réalistes</strong><small>Bois, métal, pierre, tissu</small></span></label>
+        </fieldset>
+        <fieldset class="design-category"><legend>Téléphone et performance <small>— coche ce qui te plaît</small></legend>
+          <label class="design-checkbox"><input type="checkbox" name="mobile" value="balanced"><span><strong>Pour tous les écrans</strong><small>Ordinateur et téléphone</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="mobile" value="mobilefirst"><span><strong>Pensé pour mobile</strong><small>Priorité aux petits écrans</small></span></label>
+          <label class="design-checkbox"><input type="checkbox" name="mobile" value="performance"><span><strong>Chargement rapide</strong><small>Effets optimisés</small></span></label>
+        </fieldset>
+        <label class="design-wide design-free-note"><span><input type="checkbox" name="include_notes" value="1"> Ajouter mes précisions personnelles</span><textarea name="notes" maxlength="1200" rows="3" placeholder="Décris librement les détails souhaités (uniquement pris en compte si la case est cochée)."></textarea></label>
       </div>
       <div id="lawDesignError" class="design-error" role="alert" aria-live="polite"></div>
       <footer class="design-actions">

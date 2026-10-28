@@ -498,7 +498,7 @@ def supabase_db_push(site_dir):
         raise RuntimeError((result.stderr or result.stdout or "migration Supabase impossible").strip())
     return {"ok": True, "output": (result.stdout or "")[-2000:]}
 
-def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True):
+def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundle=False):
     """Apply verified Codex edits; recover safely if native Windows sandbox is read-only."""
     import tempfile
     from local_app import web_codex_writeback as writeback
@@ -540,6 +540,41 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True):
         "Keep work within the project. ORIGINAL USER REQUEST AND DESIGN CONTRACT:\n" + text
     )
     before = writeback.snapshot(site)
+
+    def safe_writeback(max_seconds):
+        """Codex writes JSON to a CLI-owned temp path, never executes shell edits.
+
+        LocalAiWeb validates each file and writes it itself, so native Windows
+        execution policy cannot leave a complete-looking but empty preview.
+        """
+        with tempfile.TemporaryDirectory(prefix="localaiweb-codex-") as folder:
+            final=Path(folder)/"files.json"
+            request=writeback.structured_prompt(instruction,site)
+            request += ("\\nSTRICT: Do not use any command, shell, external tool "
+                        "or file-writing ability. Just return the complete JSON "
+                        "files object as your final answer. No commentary.")
+            fallback=_run(cmd+["exec","--sandbox","read-only",
+                      "--skip-git-repo-check",
+                      "--output-last-message",str(final),"-"],
+                      cwd=site,timeout=max_seconds,input_text=request)
+            if fallback.returncode!=0:
+                raise RuntimeError(
+                    "Codex n'a pas pu produire le code en mode lecture seule. "
+                    "Vérifie 'codex login status' et les permissions Windows : "+
+                    (fallback.stderr or fallback.stdout or "")[-750:])
+            if not final.is_file():
+                raise RuntimeError("Codex n'a pas transmis les fichiers JSON de secours.")
+            written=writeback.apply_bundle(site,final.read_text(encoding="utf-8"))
+        if not writeback.changed_app(before,writeback.snapshot(site)) or writeback.placeholder(site):
+            raise RuntimeError("Aucun nouveau site valide après l'écriture sécurisée Codex.")
+        return {"ok":True,"summary":"Site produit et fichiers vérifiés par LocalAiWeb.",
+                "files_written":written,"method":"validated-writeback"}
+
+    # On Windows, prefer a single bounded no-shell generation. The native
+    # Codex execution policy can block even harmless 'ls'/'cat' operations.
+    # With this mode, Codex never needs filesystem execution permissions.
+    if prefer_bundle:
+        return safe_writeback(min(int(timeout),300))
     # Codex may exit 0 while its Windows workspace is effectively read-only.
     result = _run(cmd + ["exec", "--sandbox", "workspace-write",
                          "--skip-git-repo-check", "-"], cwd=site, timeout=timeout,
@@ -552,33 +587,17 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True):
         return {"ok": True, "summary": "Codex a enregistré les fichiers du site.",
                 "files_written": writeback.changed(before, after), "method": "workspace-write"}
 
-    if not allow_retry:
-        detail=(result.stderr or result.stdout or "").strip()[-650:]
+    error=(result.stderr or "")+" "+(result.stdout or "")
+    blocked=any(word in error.lower() for word in (
+        "blocked by policy","permission denied","read-only file system",
+        "sandbox","access is denied","rejected:","exec denied"))
+    if not allow_retry and not blocked:
         raise RuntimeError(
-            "Codex n'a pas créé de fichier utilisable pendant la première maquette. "
-            "Vérifie la connexion Codex et les journaux, puis relance. "
-            + detail)
-
-    # No actual website was created. Ask for bounded JSON source only, and
-    # write it ourselves after validating every destination. Never lift sandbox.
-    with tempfile.TemporaryDirectory(prefix="localaiweb-codex-") as folder:
-        final = Path(folder) / "files.json"
-        request = writeback.structured_prompt(instruction, site)
-        retry = _run(cmd + ["exec", "--sandbox", "read-only",
-                            "--skip-git-repo-check",
-                            "--output-last-message", str(final), "-"],
-                     cwd=site, timeout=900, input_text=request)
-        if retry.returncode != 0:
-            raise RuntimeError(
-                "Codex n'a écrit aucun fichier et son second essai a échoué : " +
-                (retry.stderr or retry.stdout or "")[-1800:])
-        if not final.is_file():
-            raise RuntimeError("Codex n'a écrit aucun fichier et n'a pas transmis de projet de secours.")
-        written = writeback.apply_bundle(site, final.read_text(encoding="utf-8"))
-    if not writeback.changed_app(before, writeback.snapshot(site)) or writeback.placeholder(site):
-        raise RuntimeError("Codex a terminé, mais la prévisualisation reste vide. Aucun site complet n'a été créé.")
-    return {"ok": True, "summary": "Codex a créé les fichiers du site via l'écriture sécurisée.",
-            "files_written": written, "method": "validated-writeback"}
+            "Codex n'a pas créé de fichier utilisable. Vérifie sa connexion : "
+            + error.strip()[-800:])
+    # A denied sandbox is precisely the case requiring secure writeback, even
+    # on the first mockup, where older code disabled the only working fallback.
+    return safe_writeback(min(int(timeout),240) if not allow_retry else 480)
 
 def claude_apply(site_dir, prompt):
     """Claude Code non-interactive authenticated editing, with bounded tool grants."""

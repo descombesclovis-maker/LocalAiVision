@@ -39,6 +39,12 @@ window.LocalAiWebGoogleMap={
    let infoWindow=null,loading=false,lastKey='',lastAt=0,refreshTimer;
    const businesses=new Map();
    const markers=new Map();
+   this.focus=item=>{
+     if(item&&Number.isFinite(item.lat)&&Number.isFinite(item.lon)){
+       map.setCenter({lat:item.lat,lng:item.lon});
+       map.setZoom(Math.max(map.getZoom()||6,11));
+     }
+   };
    const GREEN='#35c774';
    const svg=(count=1)=>{
      const circle=count===1
@@ -115,24 +121,25 @@ window.LocalAiWebGoogleMap={
      for(const item of items||[]){
        if(!item?.name||!item.id||!Number.isFinite(item.lat)||!Number.isFinite(item.lon))
          continue;
-       if(businesses.size>=3200)break;
+       if(businesses.size>=30000)break;
        businesses.set(item.id,item);
      }
      draw();
    }
    async function nationalOverview(){
      let count=0;
-     for(let batch=0;batch<8;batch++){
+     for(let batch=0;batch<20;batch++){
        try{
          const data=await api('/api/web/map/no-website/france?batch='+batch);
          add(data.results);
          count+=data.results?.length||0;
-         setStatus(count+' entreprises françaises chargées · zoome sur une ville pour Google Places.');
+         setStatus(count+' commerces français réels chargés · déplace-toi pour explorer les villes.');
        }catch{
          if(count===0)setStatus('Google Maps disponible. Zoome sur une ville pour découvrir les commerces.');
          break;
        }
-       await new Promise(resolve=>setTimeout(resolve,2100));
+       if(data.next_batch===null||data.next_batch===undefined)break;
+       await new Promise(resolve=>setTimeout(resolve,2600));
      }
    }
    async function localBusinesses(){
@@ -173,7 +180,12 @@ window.LocalAiWebGoogleMap={
    document.getElementById('mapReload')?.addEventListener('click',()=>{
      lastKey='';lastAt=0;void localBusinesses();
    });
-   setStatus('Fond Google Maps activé · établissements issus de l’annuaire français et d’OpenStreetMap.');
+   setStatus('Fond Google Maps activé · établissements publics français indépendants.');
+   try{
+     const existing=await api('/api/web/map/index?limit=12000');
+     add(existing.results);
+     setStatus((existing.count||0)+' entreprises déjà indexées sur ce PC.');
+   }catch{}
    void nationalOverview();
    return true;
  }

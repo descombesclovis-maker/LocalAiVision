@@ -47,9 +47,16 @@ def validate(profile):
     result={}
     for field,choices in FIELDS.items():
         value=profile.get(field,next(iter(choices)))
-        if not isinstance(value,str) or value not in choices:
+        # Optional checkboxes can select several compatible effects.
+        # Historical projects with one saved value remain supported.
+        if isinstance(value,list):
+            if len(value)>len(choices) or not all(isinstance(v,str) and v in choices for v in value):
+                raise ValueError("Choix de direction artistique invalide : "+field)
+            result[field]=list(dict.fromkeys(value)) or [next(iter(choices))]
+        elif isinstance(value,str) and value in choices:
+            result[field]=value
+        else:
             raise ValueError("Choix de direction artistique invalide : "+field)
-        result[field]=value
     notes=profile.get("notes","")
     if not isinstance(notes,str) or len(notes)>1200:
         raise ValueError("La consigne créative doit contenir 1 200 caractères maximum.")
@@ -61,7 +68,9 @@ def prompt(profile):
     chosen=validate(profile)
     rows=["DIRECTION VISUELLE CONFIRMÉE PAR L'UTILISATEUR :"]
     for key,choices in FIELDS.items():
-        rows.append("- "+key+" : "+choices[chosen[key]])
+        value=chosen[key]
+        enabled=value if isinstance(value,list) else [value]
+        rows.append("- "+key+" : "+" + ".join(choices[item] for item in enabled))
     if chosen["notes"]:rows.append("- Consigne créative libre : "+chosen["notes"])
     rows += [
       "Traduis ces options en vrai design, animation et comportement des pages.",

@@ -115,3 +115,19 @@ button:not(:disabled):hover,a:hover{border-color:#ac86dc}
  .design-actions{padding:11px 15px}
  .design-actions button{font-size:11px;padding:8px 10px}
 }
+
+/* Each aesthetic preference is an independent, understandable checkbox. */
+.design-fields{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.design-category{margin:0;padding:13px;border:1px solid #5b496d;border-radius:12px;min-width:0;display:grid;gap:8px;background:#21192b}
+.design-category legend{font-size:12px;font-weight:800;color:#eee1fa;padding:0 5px}
+.design-category legend small{font-size:9px;font-weight:500;color:#b9a6c9}
+.design-fields .design-checkbox{display:flex;align-items:center;gap:11px;font-weight:500;padding:8px 9px;border:1px solid #594967;border-radius:9px;cursor:pointer;background:#2a2034;transition:border-color .15s,background .15s}
+.design-fields .design-checkbox:has(input:checked){background:#45245d;border-color:#c19de7}
+.design-fields .design-checkbox input{appearance:auto;width:17px;height:17px;min-width:17px;accent-color:#aa73e8;cursor:pointer}
+.design-fields .design-checkbox span{display:block;min-width:0}
+.design-fields .design-checkbox strong{font-size:11px;color:#f6ebff;display:block}
+.design-fields .design-checkbox small{font-size:10px;font-weight:400;color:#c0accf;display:block;line-height:1.4;margin-top:2px}
+.design-fields .design-free-note{grid-column:1/-1;display:grid;gap:8px}
+.design-free-note>span{display:flex;gap:9px;align-items:center;font-size:12px}
+.design-free-note input{width:17px;height:17px;accent-color:#aa73e8}
+@media(max-width:650px){.design-fields{grid-template-columns:1fr}}
