@@ -2124,6 +2124,22 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/project/design-profile":
+            try:
+                from local_app import web_design_profile
+                store=_web_store()
+                project_id=body.get("id")
+                meta=store.meta(project_id)
+                if meta.get("project_kind")!="pro":
+                    raise ValueError("Cette préparation graphique concerne les projets issus de la carte.")
+                profile=web_design_profile.validate(body.get("profile"))
+                meta["design_profile"]=profile
+                meta["updated_at"]=time.time()
+                store.write_meta(project_id,meta)
+                self.send_json(store.payload(project_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/project/agent-settings":
             try:
                 store=_web_store()
