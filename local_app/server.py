@@ -308,14 +308,15 @@ try {
     $portableDir = Join-Path $env:LOCALAPPDATA "LocalVisionAI\\app"
     New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
     $CurrentExe = Join-Path $portableDir "LocalVisionAI.exe"
+    $backup = "$CurrentExe.previous"
+    $failed = "$CurrentExe.failed"
     Write-UpdateLog "Original EXE locked/protected. Safe per-user installation: $CurrentExe"
     Copy-Item -LiteralPath $NewExe -Destination "$CurrentExe.incoming" -Force
     if ((Get-FileHash -LiteralPath "$CurrentExe.incoming" -Algorithm SHA256).Hash -ne $expectedHash) {
       throw "Verification de la copie utilisateur echouee."
     }
     if (Test-Path -LiteralPath $CurrentExe) {
-      Move-Item -LiteralPath $CurrentExe -Destination "$CurrentExe.previous" -Force
-      $backup = "$CurrentExe.previous"
+      Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
     }
     Move-Item -LiteralPath "$CurrentExe.incoming" -Destination $CurrentExe -Force
     $replaced = $true
@@ -404,7 +405,19 @@ try {
       }
     }
   } catch { }
-  if ($replaced -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
+  if ($fallbackInstall -and -not (Test-Path -LiteralPath $backup -PathType Leaf)) {
+    # A first-time per-user fallback had no prior file to restore.
+    # Keep the original installation intact and restart that trusted copy.
+    try {
+      if (Test-Path -LiteralPath $CurrentExe) {
+        Move-Item -LiteralPath $CurrentExe -Destination $failed -Force
+      }
+      Start-Process -FilePath $originalExe -WorkingDirectory (Split-Path -Parent $originalExe)
+      Write-UpdateLog "Fallback failed. Original installation restarted unchanged."
+    } catch {
+      Write-UpdateLog ("Fallback recovery failed: " + $_.Exception.Message)
+    }
+  } elseif ($replaced -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
     try {
       # Retain the failed build separately for diagnostics, then revert.
       Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
