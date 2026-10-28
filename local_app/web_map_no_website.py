@@ -216,61 +216,75 @@ def _load(key, query, mode):
     return result
 
 
-def _french_registry_near(lat,lon,radius=2.5):
-    """Official French businesses API for when public OSM Overpass is offline.
+def _french_registry_near(lat,lon,radius=2.5,pages=1):
+    """Real, geocoded companies from the official French public directory.
 
-    This directory does NOT record website existence. Unknown is not 'no site'.
-    Query one small local radius, never request a bulk French company export.
+    More pages are fetched only after the user zooms into a town. A 25-company
+    page limit was the root cause of 10-16 visible businesses per city.
+    Data are cached locally for three days; no Google Places listings stored.
     """
     from urllib.request import Request, urlopen
     from urllib.parse import urlencode
     la,lo=web_business_map._position(lat,lon)
     if not (41.2<=la<=51.5 and -5.9<=lo<=9.9):
-        raise ValueError("L'annuaire officiel de secours couvre la France uniquement.")
+        raise ValueError("L'annuaire professionnel couvre la France uniquement.")
     radius=max(.5,min(float(radius),5))
-    key="registry-"+str(round(la,3))+"-"+str(round(lo,3))+"-"+str(round(radius,1))
-    file=CACHE_DIR/(key+".json")
-    raw=None
-    cached=False
-    args=urlencode({"lat":la,"long":lo,"radius":radius,"page":1,
-                    "per_page":25})
-    try:
-        # Reuse real downloaded records on subsequent launches without hitting
-        # the public directory on every map opening. Stale data are still marked
-        # as cached and never represented as live or complete.
-        if file.is_file() and time.time()-file.stat().st_mtime<3*86400:
-            loaded=json.loads(file.read_text(encoding="utf-8"))
-            if isinstance(loaded.get("results"),list):
-                raw=loaded
-                cached=True
-        if raw is None:
-            with urlopen(Request("https://recherche-entreprises.api.gouv.fr/near_point?"+args,
-                      headers={"User-Agent":web_business_map.CONTACT,
-                               "Accept":"application/json"}),timeout=8) as response:
-                payload=response.read(600001)
-                if len(payload)>600000:raise ValueError("Réponse d'annuaire trop volumineuse.")
-                raw=json.loads(payload)
-                if not isinstance(raw.get("results"),list):raise ValueError("Réponse d'annuaire invalide.")
-            try:
-                CACHE_DIR.mkdir(parents=True,exist_ok=True)
-                tmp=file.with_suffix(".tmp")
-                tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
-                tmp.replace(file)
-            except (OSError,TypeError):pass
-    except Exception:
+    pages=max(1,min(int(pages),4))
+    all_companies=[]
+    cache_hits=0
+    for number in range(1,pages+1):
+        key=("registry-"+str(round(la,3))+"-"+str(round(lo,3))+"-"+
+             str(round(radius,1))+"-page"+str(number))
+        file=CACHE_DIR/(key+".json")
+        raw=None
         try:
-            raw=json.loads(file.read_text(encoding="utf-8"))
-            if not isinstance(raw.get("results"),list):raise ValueError("Cache invalide")
-            cached=True
-        except (OSError,ValueError,TypeError):
-            raise RuntimeError("Annuaire officiel français indisponible, et aucun cache local disponible.") from None
+            if file.is_file() and time.time()-file.stat().st_mtime<3*86400:
+                cached=json.loads(file.read_text(encoding="utf-8"))
+                if isinstance(cached.get("results"),list):
+                    raw=cached
+                    cache_hits+=1
+            if raw is None:
+                args=urlencode({"lat":la,"long":lo,"radius":radius,
+                     "page":number,"per_page":25,
+                     # Prefer local retail, services, restaurants and trades.
+                     "section_activite_principale":"G,I,S,F,M,N"})
+                with urlopen(Request(
+                  "https://recherche-entreprises.api.gouv.fr/near_point?"+args,
+                  headers={"User-Agent":web_business_map.CONTACT,
+                           "Accept":"application/json"}),timeout=9) as response:
+                    payload=response.read(900001)
+                    if len(payload)>900000:raise ValueError("Annuaire trop volumineux.")
+                    raw=json.loads(payload)
+                if not isinstance(raw.get("results"),list):
+                    raise ValueError("Réponse de l'annuaire invalide.")
+                try:
+                    CACHE_DIR.mkdir(parents=True,exist_ok=True)
+                    tmp=file.with_suffix(".tmp")
+                    tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
+                    tmp.replace(file)
+                except (OSError,TypeError):pass
+        except Exception:
+            try:
+                raw=json.loads(file.read_text(encoding="utf-8"))
+                if not isinstance(raw.get("results"),list):
+                    raise ValueError("Cache invalide")
+                cache_hits+=1
+            except (OSError,ValueError,TypeError):
+                if not all_companies:
+                    raise RuntimeError("Annuaire officiel temporairement indisponible.") from None
+                break
+        all_companies.extend((raw.get("results") or [])[:25])
+        # The API declares total_pages: don't make useless page requests.
+        if number>=int(raw.get("total_pages") or 1000):
+            break
     rows=[]
     seen=set()
-    for company in (raw.get("results") or [])[:25]:
+    for company in all_companies:
         if not isinstance(company,dict):continue
         if company.get("etat_administratif") not in (None,"A"):continue
-        places=(company.get("matching_etablissements") or [])
-        if isinstance(company.get("siege"),dict):places=list(places)+[company["siege"]]
+        places=list(company.get("matching_etablissements") or [])
+        if isinstance(company.get("siege"),dict):
+            places.append(company["siege"])
         for location in places:
             if not isinstance(location,dict):continue
             if location.get("etat_administratif") not in (None,"A"):continue
@@ -278,10 +292,9 @@ def _french_registry_near(lat,lon,radius=2.5):
                 y=float(location.get("latitude"))
                 x=float(location.get("longitude"))
             except (ValueError,TypeError):continue
-            # Avoid remote headquarters returned for a local branch query.
             if abs(y-la)>radius/85 or abs(x-lo)>radius/50:continue
             siret=str(location.get("siret") or "")
-            if not (len(siret)==14 and siret.isdigit()) or siret in seen:continue
+            if len(siret)!=14 or not siret.isdigit() or siret in seen:continue
             seen.add(siret)
             item=web_business_map._result({
                 "name":location.get("nom_commercial") or
@@ -304,9 +317,9 @@ def _french_registry_near(lat,lon,radius=2.5):
     return {"results":rows,"partial":True,"mode":"official_french_registry",
             "source":"API Recherche d'entreprises / data.gouv.fr",
             "website_verified":False,"website_status":"inconnu_registre",
-            "notice":"Site non indiqué dans l'annuaire d'entreprises : existence non vérifiée. "
-                     "Seuls les établissements géolocalisés et diffusibles sont proposés.",
-            "cached":cached,"offline":cached,"fallback":True}
+            "notice":"Commerces et artisans déclarés, informations publiques "
+                     "non exhaustives. Présence de site internet inconnue.",
+            "cached":cache_hits>0,"offline":False,"fallback":True}
 
 
 def france_overview(batch=0):
@@ -366,6 +379,16 @@ def france_overview(batch=0):
     return result
 
 
+def registry_city(lat,lon,zoom):
+    """Direct official SIRENE-powered lookup, no Overpass startup timeout."""
+    la,lo=web_business_map._position(lat,lon)
+    z=int(zoom)
+    if z<8 or z>20:
+        raise ValueError("Zoome sur une ville pour voir les commerces de proximité.")
+    radius=3.5 if z<=10 else 2.5 if z<=12 else 1.5 if z<=14 else .8
+    return _french_registry_near(la,lo,radius,pages=3)
+
+
 def area_details(lat,lon,zoom):
     la,lo=web_business_map._position(lat,lon)
     z=int(zoom)
@@ -383,7 +406,7 @@ def area_details(lat,lon,zoom):
     except RuntimeError as exc:
         if "recharge progressivement" in str(exc):
             raise
-        return _french_registry_near(la,lo,radius=min(4,radius/1000))
+        return _french_registry_near(la,lo,radius=min(4,radius/1000),pages=3)
 
 
 def viewport_details(south,west,north,east,zoom):
@@ -409,4 +432,4 @@ def viewport_details(south,west,north,east,zoom):
     except RuntimeError as exc:
         if "recharge progressivement" in str(exc):
             raise
-        return _french_registry_near((la1+la2)/2,(lo1+lo2)/2,1.5)
+        return _french_registry_near((la1+la2)/2,(lo1+lo2)/2,1.5,pages=3)
