@@ -140,7 +140,7 @@ class BusinessMapTests(unittest.TestCase):
         self.assertIn("/api/web/map/no-website/nearby",map_js)
         self.assertIn("/api/web/map/no-website/viewport",map_js)
         self.assertIn("map.on('moveend',scheduleNearby)",map_js)
-        self.assertIn("radius:2.3",map_js)
+        self.assertIn("radius:3.0",map_js)
         self.assertIn("stroke:false",map_js)
         self.assertIn("/api/web/project/create-from-map",map_js)
         self.assertIn("async function startProDraft",editor)
