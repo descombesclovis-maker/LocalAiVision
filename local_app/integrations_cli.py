@@ -433,10 +433,33 @@ def codex_apply(site_dir, prompt):
         raise RuntimeError("Prompt Codex vide.")
     site = Path(site_dir).resolve()
     instruction = (
-        "Work ONLY inside this website project. Actually create or change website files, "
-        "not just describe your ideas. Preserve user assets and existing working features. "
-        "Honor brand, design and requested functionality. Build polished production-ready "
-        "responsive web pages. Avoid exposing secrets. Request:\n" + text
+        "You are Codex acting as a senior design-engineering team: creative director, "
+        "UX architect, 3D/WebGL artist, frontend lead and ruthless production QA reviewer. "
+        "Work ONLY inside this website project. Actually CREATE and MODIFY real files; "
+        "do not answer with a design pitch instead of implementing the website. "
+        "Start with an original business-specific visual concept and meaningful site "
+        "architecture; document the visual rationale in DESIGN_INTENT.md. "
+        "Avoid generic storefronts, repetitive cards, default Tailwind gradients, "
+        "unrelated stock photos, fake testimonials, and dead controls. "
+        "Honor the client's actual logo, typography, colors and legal identity. "
+        "For requested spectacular immersive experiences: create tangible 3D depth, "
+        "well-composed cinematic lighting, polished layered motion, purposeful "
+        "scroll-driven choreography and responsive transitions; choose real Three.js "
+        "or React Three Fiber and build actual procedural geometry when no authorized "
+        "GLB exists. Do NOT pass a screenshot, plain CSS transform or video off as "
+        "interactive 3D. Provide keyboard/touch navigation, prefers-reduced-motion, "
+        "low-power/WebGL fallbacks and adaptive resolution/frame budgets. "
+        "Do not clone proprietary reference sites; match the requested quality and "
+        "distinctive art direction through original implementation. "
+        "For bookings, checkout, authentication or user accounts, create truthful "
+        "working flows only with real configured services; label prototypes clearly. "
+        "Use local project assets, maintain responsive multi-page navigation where "
+        "appropriate, write natural French UI, implement meaningful loading/empty "
+        "states, and preserve all existing working site features. "
+        "Build and run tests whenever the environment allows, fix broken links, "
+        "inspect desktop/mobile results when browser tools are available, and "
+        "avoid exposing any secrets or unauthorized network operations. "
+        "Keep work within the project. ORIGINAL USER REQUEST AND DESIGN CONTRACT:\n" + text
     )
     before = writeback.snapshot(site)
     # Codex may exit 0 while its Windows workspace is effectively read-only.
