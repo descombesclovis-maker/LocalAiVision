@@ -234,10 +234,28 @@
        ?new URLSearchParams({south:String(sw.lat),west:String(sw.lng),
           north:String(ne.lat),east:String(ne.lng),zoom:String(map.getZoom())})
        :new URLSearchParams({lat:String(center.lat),lon:String(center.lng),zoom:String(map.getZoom())});
-     const result=await api((viewport
-       ?'/api/web/map/no-website/viewport':'/api/web/map/no-website/nearby')+'?'+query);
-     compactOnMove();const count=insert(result.results);
-     setStatus(count+' entreprises supplémentaires · '+countLabel());
+     // The French official directory is the primary business source. OSM
+     // complements phone/hours only when available; its public Overpass API
+     // must never cap us at a handful of tagged large companies per town.
+     const registryQuery=new URLSearchParams({lat:String(center.lat),
+       lon:String(center.lng),zoom:String(map.getZoom())});
+     const operations=[
+       api('/api/web/map/registry/city?'+registryQuery).then(result=>{
+         compactOnMove();
+         const count=insert(result.results);
+         setStatus(count+' commerces et artisans français ajoutés · '+countLabel());
+         return count;
+       }),
+       api((viewport?'/api/web/map/no-website/viewport':
+              '/api/web/map/no-website/nearby')+'?'+query).then(result=>{
+         const count=insert(result.results);
+         setStatus(count+' établissements OpenStreetMap ajoutés · '+countLabel());
+         return count;
+       })
+     ];
+     const results=await Promise.allSettled(operations);
+     if(results.every(result=>result.status==='rejected'))
+       throw Error(results.map(result=>result.reason?.message||'Erreur source').join(' / '));
    }catch(err){
      previousArea='';
      setStatus('Recherche locale indisponible : '+err.message+' · Les points déjà chargés restent accessibles.');
