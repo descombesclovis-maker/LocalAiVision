@@ -57,6 +57,13 @@ def eligible(row):
         return False
     if row.get("website") or row.get("website_recorded"):
         return False
+    # OSM 'network' and a different 'brand' normally identify a network
+    # outlet even when the brand is not in our known-chain catalogue.
+    if row.get("network") or row.get("franchise"):
+        return False
+    brand=normalize(row.get("brand"))
+    if brand and brand!=normalize(row.get("name")):
+        return False
     if normalize(row.get("company_size")).upper().replace(" ","_") in {
             "ETI","GE","GRANDE_ENTREPRISE","LARGE"}:
         return False
