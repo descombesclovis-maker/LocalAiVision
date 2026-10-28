@@ -34,14 +34,9 @@ class WebsiteProspectMapTests(unittest.TestCase):
                    "tags":{"name":"Mairie","amenity":"townhall"}}
         contact_url={"type":"node","id":4,"lat":47.2,"lon":5.2,
                      "tags":{"name":"Boutique B","shop":"florist","contact:website":"https://example.org"}}
-        site=mapdata._normalize(hotel)
-        self.assertTrue(site["website_recorded"])
-        self.assertEqual(site["website"],"https://example.fr")
-        self.assertTrue(site["website_link_available"])
+        self.assertIsNone(mapdata._normalize(hotel))  # Existing website excluded
         self.assertIsNone(mapdata._normalize(municipal))
-        external=mapdata._normalize(contact_url)
-        self.assertTrue(external["website_recorded"])
-        self.assertEqual(external["website"],"https://example.org")
+        self.assertIsNone(mapdata._normalize(contact_url))
         result=mapdata._normalize(barber)
         self.assertEqual(result["name"],"Salon Joli")
         self.assertEqual(result["website_status"],"non_renseigne_osm")
@@ -71,9 +66,9 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertEqual(query.count("out center 18;"),5)
         self.assertNotIn("41.9192,8.7386",query)  # Corsica is loaded in a later batch.
         self.assertEqual([a["name"] for a in result["results"]],
-                         ["Café Eiffel","La Librairie","Salon Web"])
+                         ["Café Eiffel","La Librairie"])
         self.assertEqual([a["website_recorded"] for a in result["results"]],
-                         [False,False,True])
+                         [False,False])
         self.assertFalse(result["website_verified"])
         self.assertTrue(result["partial"])
         self.assertEqual(result["batch"],0)
@@ -155,9 +150,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         suspicious=mapdata._normalize({"type":"node","id":101,"lat":47.25,"lon":5.05,
                         "tags":{"name":"Entreprise X","shop":"books",
                                 "website":"javascript:alert(1)"}})
-        self.assertTrue(suspicious["website_recorded"])
-        self.assertFalse(suspicious["website_link_available"])
-        self.assertEqual(suspicious["website"],"")
+        self.assertIsNone(suspicious)  # Unsafe URL still means a site is recorded.
 
     def test_zoomed_area_rejects_world_scale_and_limits_radius(self):
         with self.assertRaises(ValueError):
@@ -186,7 +179,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertIn("out center 350;",query)
         self.assertNotIn('[!"contact:url"]',query)
         self.assertEqual([item["name"] for item in result["results"]],
-                         ["Atelier sans site","Avec site"])
+                         ["Atelier sans site"])
         self.assertEqual(result["mode"],"viewport")
         with self.assertRaisesRegex(ValueError,"Zone trop vaste"):
             mapdata.viewport_details(44.0,2.0,45.0,3.0,14)
