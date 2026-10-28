@@ -7,8 +7,12 @@ CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 CREATE_NEW_CONSOLE = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
 
 def _which(*names):
+    """Find installed tool binaries even when a Windows GUI has a stale PATH."""
+    candidate_path=_subprocess_environment().get("PATH") if os.name=="nt" else None
     for name in names:
         path = shutil.which(name)
+        if not path and candidate_path:
+            path=shutil.which(name,path=candidate_path)
         if path:
             return path
     return None
