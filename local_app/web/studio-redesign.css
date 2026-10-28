@@ -151,3 +151,6 @@ body.is-landing .welcome .vision-identity{width:min(650px,70vw);max-height:min(4
 .engine-recovery button:disabled{opacity:.55;cursor:wait}
 body.is-landing .engine-recovery{background:#f8f2ff;color:#553277}
 @media(max-width:540px){.engine-recovery{align-items:stretch;flex-direction:column}.engine-recovery button{width:100%}}
+
+/* Preserve the clean branded entry screen; present repair when entering a workspace. */
+body.is-landing .engine-recovery{display:none!important}
