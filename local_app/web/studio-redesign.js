@@ -235,16 +235,18 @@
      const response=await fetch('/api/health',{cache:'no-store'});
      if(!response.ok)throw Error('Serveur local HTTP '+response.status);
      const data=await response.json();
-     const ready=!!data.online || !!data.llm?.online;
+     const ready=!!data.online && !!data.llm?.online;
      const running=data.startup?.state==='running';
      recovery.hidden=ready&&!running;
      if(running){
        recoveryText.textContent=data.startup?.message||'Préparation des moteurs en cours…';
        recoveryButton.disabled=true;recoveryButton.textContent='Installation en cours…';
      }else if(!ready){
+       const missing=[!data.online?'ComfyUI photo/vidéo':'',
+                     !data.llm?.online?'Qwen conversation':''].filter(Boolean);
        recoveryText.textContent=data.startup?.error
          ?'Moteurs non disponibles : '+String(data.startup.error).slice(0,110)
-         :'Moteurs locaux non connectés. Les générations nécessitent ComfyUI ou Qwen.';
+         :'Moteurs à démarrer : '+missing.join(' · ')+'.';
        recoveryButton.disabled=false;recoveryButton.textContent='Démarrer / réparer ↗';
      }
    }catch(error){
