@@ -15,7 +15,11 @@
       <header class="chat-header">
         <a href="/localaiweb" class="brand-symbol" title="Retour à mes projets" aria-label="Retour à mes projets">←</a>
         <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/brand-web.svg" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
-        <button id="connectClaude" class="agent-control" type="button" title="Vérifier ou ouvrir la connexion de Claude Code" aria-live="polite">◉ Agent : vérification…</button>
+        <div class="agent-workspace" role="group" aria-label="Agent de création de sites">
+          <label class="sr-only" for="lawAgentSelect">Agent de création</label>
+          <select id="lawAgentSelect" class="agent-select" aria-label="Choisir l'agent de création"><option value="codex">Codex · ChatGPT Plus</option><option value="claude">Claude Code · option</option></select>
+          <button id="connectAgent" class="agent-control" type="button" title="Vérifier et connecter l'agent sélectionné" aria-live="polite">◌ Connexion…</button>
+        </div>
         <a href="/localaiweb/clients" class="update-action" aria-label="Gestion commerciale, clients, devis et factures">Clients &amp; devis ↗</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
@@ -33,7 +37,8 @@
           <a id="lawMapShortcut" class="globe-tool" href="/localaiweb/map" title="Sélectionner une entreprise sur la carte" aria-label="Ouvrir la carte et sélectionner une entreprise">
             <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-4 5-4 13 0 18M12 3c4 5 4 13 0 18"/></svg>
           </a>
-          <span id="lawChatStatus" role="status" aria-live="polite">Prêt à créer ton site</span>
+          <button id="lawCinemaMode" class="cinema-toggle" type="button" aria-pressed="false" title="Activer une direction artistique immersive et une véritable 3D si le site le justifie">✦ Signature 3D</button>
+           <span id="lawChatStatus" role="status" aria-live="polite">Prêt à créer ton site</span>
           <button id="lawGenerate" type="submit" aria-label="Envoyer mon message">Envoyer <span aria-hidden="true">↑</span></button>
         </div>
       </form>
