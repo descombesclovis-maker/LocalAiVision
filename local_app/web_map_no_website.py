@@ -169,7 +169,7 @@ def _load(key, query, mode):
         try:
             # Different provider throttle keys avoid double-failing the fallback.
             raw=web_business_map._json_http(
-                "overpass" if index==0 else "overpass_backup",
+                "overpass" if index==0 else "overpass_backup"+str(index),
                 endpoint,post=urlencode({"data":query}))
             if not isinstance(raw,dict) or "elements" not in raw:
                 raise RuntimeError("Réponse Overpass invalide.")
@@ -347,7 +347,9 @@ def area_details(lat,lon,zoom):
     )
     try:
         return _load(key,statement,"nearby")
-    except RuntimeError:
+    except RuntimeError as exc:
+        if "recharge progressivement" in str(exc):
+            raise
         return _french_registry_near(la,lo,radius=min(4,radius/1000))
 
 
@@ -371,5 +373,7 @@ def viewport_details(south,west,north,east,zoom):
     )
     try:
         return _load(key,statement,"viewport")
-    except RuntimeError:
+    except RuntimeError as exc:
+        if "recharge progressivement" in str(exc):
+            raise
         return _french_registry_near((la1+la2)/2,(lo1+lo2)/2,1.5)
