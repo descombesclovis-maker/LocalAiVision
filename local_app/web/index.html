@@ -1,15 +1,29 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalVisionAI</title><link rel="stylesheet" href="/assets/style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalVisionAI</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"></head>
 <body>
 <div class="app">
-  <aside class="sidebar closed" id="sidebar">
+  <aside class="sidebar closed" id="sidebar" aria-label="Navigation LocalAiVision">
+    <div class="sidebar-head">
+      <div class="brand"><div class="brand-mark"><img src="/assets/brand-vision.svg" alt=""></div><div><b>LocalAiVision</b><span>Studio créatif</span></div></div>
+      <button class="close-sidebar" id="closeSidebar" type="button" aria-label="Fermer le menu">×</button>
+    </div>
+    <nav class="studio-navigation" aria-label="Espaces">
+      <button type="button" id="navCreations" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">▦</span><span>Mes créations</span></button>
+      <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">◈</span><span>Photo</span></button>
+      <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">▣</span><span>Vidéo</span></button>
+      <button type="button" id="navNsfw" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">✧</span><span>NSFW</span></button>
+    </nav>
+  </aside>
+  <!-- Compatibility controls preserved for the existing model, library,
+       conversation and installation handlers. No legacy menu is visible. -->
+  <div class="legacy-controls" hidden>
     <div class="sidebar-head">
       <div class="brand"><div class="brand-mark"><img src="/assets/brand-vision.svg" alt="" loading="eager"></div><div><b>LocalAiVision</b><span> IA locale</span></div></div>
       <button class="close-sidebar" id="closeSidebar" aria-label="Fermer">×</button>
     </div>
 
-    <button class="new-conversation" id="newConversation"><span>＋</span><b>Nouvelle conversation</b></button>
+    <span class="legacy-new-conversation" aria-hidden="true"></span>
 
     <div class="conversation-search"><span>⌕</span><input id="conversationSearch" type="search" placeholder="Rechercher une conversation…"></div>
 
@@ -41,21 +55,27 @@
       <button id="importBtn" class="ghost">＋ Importer un workflow</button>
       <input id="workflowFile" type="file" accept=".json,application/json" hidden>
       <button id="comfyBtn" class="ghost">Ouvrir ComfyUI</button>
-      <button id="updateBtn" class="ghost update-button">↻ Mettre à jour LocalAiVision</button>
+      <span class="legacy-update-button"></span>
       <div id="updateInfo" class="update-info">Version locale</div>
       <div class="status"><i></i><span id="statusText">Vérification…</span></div>
     </div>
-  </aside>
-
+  </div>
   <main class="main">
     <div class="main-topbar">
       <button class="open-sidebar" id="openSidebar" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
-      <nav class="studio-switch" aria-label="Espaces de création"><button type="button" id="studioPhotoVideo" class="studio-tab" aria-pressed="false">▧ Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab" aria-pressed="false">◈ NSFW</button></nav>
-      <button id="localAiWebEntry" class="localaiweb-entry" type="button"><span class="localaiweb-spark">✦</span><b>Accéder à LocalAiWeb</b><span class="localaiweb-spark">✦</span></button>
+      <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
+      <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
+      <div class="topbar-actions">
+        <button class="topbar-action" id="newConversation" type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation">＋ <span>Nouvelle discussion</span></button>
+        <button id="updateBtn" class="topbar-action update-button" type="button" title="Vérifier la mise à jour et afficher le résultat" aria-label="Mettre à jour l'application">↻ <span>Mise à jour</span></button>
+      </div>
     </div>
     <section class="content">
       <div id="chat" class="chat">
-        <div id="welcome" class="welcome"><img class="vision-identity" src="/assets/brand-identity.svg" alt="LocalAiVision — Création de sites web et conversation IA"><h1>Que veux tu créer ?</h1></div>
+        <div id="welcome" class="welcome" aria-label="Accueil LocalAiVision">
+          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-identity.svg" alt="LocalAiVision — Création de sites web et conversation IA"></div>
+          <div class="welcome-actions"><button id="localAiWebEntry" class="localaiweb-entry" type="button"><img src="/assets/brand-web.svg" alt=""><span>Accéder à LocalAiWeb</span><span aria-hidden="true">↗</span></button><span class="welcome-subtitle">Sites web sur mesure · Créations visuelles · Un seul studio</span></div>
+        </div>
         <div id="messages" class="messages"></div>
       </div>
 
@@ -167,7 +187,7 @@
               <button id="composerImageBtn" class="composer-tool" type="button" aria-label="Ajouter une image" title="Ajouter une image pour I2V"><span>＋</span><small>Image</small></button>
               <button id="settingsBtn" class="composer-tool settings-button" type="button" aria-label="Ouvrir les réglages" title="Réglages"><span>⌘</span><small>Réglages</small></button>
             </div>
-            <button id="send" class="send send-modern" aria-label="Envoyer" title="Envoyer"><span>↑</span></button>
+            <button id="send" class="send send-modern" aria-label="Envoyer le message ou démarrer la génération" title="Envoyer (Entrée)"><span class="send-icon" aria-hidden="true">➤</span><span class="send-label">Envoyer</span></button>
           </div>
         </div>
       </div>
@@ -202,5 +222,5 @@
 <script src="/assets/mask.js"></script>
 <script src="/assets/styles.js"></script>
 <script src="/assets/app.js"></script>
-<script src="/assets/pwa-install.js" defer></script>
+<script src="/assets/studio-redesign.js" defer></script>
 </body></html>
