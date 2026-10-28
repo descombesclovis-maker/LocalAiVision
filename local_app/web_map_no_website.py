@@ -10,6 +10,9 @@ import ipaddress
 import threading
 import time
 from urllib.parse import urlencode, urlsplit
+from pathlib import Path
+import json
+import os
 
 from local_app import web_business_map
 
@@ -62,9 +65,12 @@ THROTTLE_SECONDS=12
 # Best-effort community instances: identify application, cache, and rate limit.
 # Private.coffee expressly provides a POST Overpass endpoint; FOSSGIS is fallback.
 OVERPASS_ENDPOINTS=(
+    "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
     web_business_map.OVERPASS,
 )
+# Persist only actual OSM responses; show a clearly dated local cache offline.
+CACHE_DIR=Path(os.environ.get("LOCALVISIONAI_DATA",str(Path.home()/".localvisionai")))/"map_cache"
 FRANCE_BATCH_SIZE=10
 FRANCE_BATCH_COUNT=(len(FRANCE_POINTS)+FRANCE_BATCH_SIZE-1)//FRANCE_BATCH_SIZE
 
@@ -158,6 +164,7 @@ def _load(key, query, mode):
         LAST_REQUEST=now
     raw=None
     errors=[]
+    cache_file=CACHE_DIR/("overpass-"+__import__("hashlib").sha256(query.encode("utf-8")).hexdigest()[:32]+".json")
     for index,endpoint in enumerate(OVERPASS_ENDPOINTS):
         try:
             # Different provider throttle keys avoid double-failing the fallback.
@@ -169,28 +176,40 @@ def _load(key, query, mode):
             break
         except Exception as exc:
             errors.append(str(exc))
+    source_offline=False
     if raw is None:
-        # Failed network attempts should not block retry or invent businesses.
-        with LOCK:
-            LAST_REQUEST=0.0
-        raise RuntimeError("Sources Overpass momentanément indisponibles : " +
-                           "; ".join(errors)[:350])
+        try:
+            cached=json.loads(cache_file.read_text(encoding="utf-8"))
+            if not isinstance(cached.get("elements"),list):raise ValueError("Cache invalide")
+            raw=cached
+            source_offline=True
+        except (OSError,ValueError,TypeError):
+            # Failed network attempts should not block retry or invent businesses.
+            with LOCK:LAST_REQUEST=0.0
+            raise RuntimeError("Sources OpenStreetMap indisponibles ; aucune donnée locale encore disponible. "+
+                               "; ".join(errors)[:250])
+    else:
+        try:
+            CACHE_DIR.mkdir(parents=True,exist_ok=True)
+            tmp=cache_file.with_suffix(".tmp")
+            tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
+            tmp.replace(cache_file)
+        except (OSError,TypeError):
+            pass
     items=[]
     seen=set()
     for row in (raw.get("elements") or [])[:650]:
         tags=row.get("tags") or {}
-        if any(str(tags.get(tag) or "").strip() for tag in WEBSITE_KEYS):
-            continue
         business=_normalize(row)
-        if not business or business["id"] in seen or business["website_recorded"]:
+        if not business or business["id"] in seen:
             continue
         seen.add(business["id"])
         items.append(business)
     result={"results":items,"mode":mode,"partial":True,
-            "website_status":"non_renseigne_osm",
+            "website_status":"mixte_osm",
             "website_verified":False,
-            "notice":"Aucun site indiqué dans OSM ≠ absence de site confirmée. Vérification complémentaire nécessaire.",
-            "source":"OpenStreetMap / Overpass","cached":False}
+            "notice":"Vert : site non renseigné OSM, absence non confirmée. Rouge : site renseigné OSM. Données partielles.",
+            "source":"OpenStreetMap / Overpass","cached":False,"offline":source_offline}
     with LOCK:
         if len(CACHE)>70:CACHE.clear()
         CACHE[key]=(time.monotonic(),result)
@@ -217,7 +236,7 @@ def france_overview(batch=0):
     for lat,lon in centers:
         pieces.append(
             f'nwr(around:850,{lat},{lon})["name"]'
-            f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 18;')
+            f'{BUSINESS_TAG};out center 18;')
     statement="[out:json][timeout:24];"+"".join(pieces)
     result=_load(key,statement,"france_overview")
     result["batch"]=number
@@ -236,7 +255,7 @@ def area_details(lat,lon,zoom):
     statement=(
         "[out:json][timeout:24];"
         f'nwr(around:{radius},{la},{lo})["name"]'
-        f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 220;'
+        f'{BUSINESS_TAG};out center 220;'
     )
     return _load(key,statement,"nearby")
 
@@ -257,6 +276,6 @@ def viewport_details(south,west,north,east,zoom):
     statement=(
         "[out:json][timeout:24];"
         f'nwr({la1},{lo1},{la2},{lo2})["name"]'
-        f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 350;'
+        f'{BUSINESS_TAG};out center 350;'
     )
     return _load(key,statement,"viewport")
