@@ -13,8 +13,37 @@ def _which(*names):
             return path
     return None
 
+def _subprocess_environment():
+    """Refresh common Windows Node/npm locations for apps launched from Explorer.
+
+    An app can have been opened before Node or Codex was installed, so its
+    inherited PATH may not contain the CLI or node.exe. Only add existing
+    local directories; never execute or fetch unknown binaries.
+    """
+    env=os.environ.copy()
+    if os.name != "nt":
+        return env
+    local=Path(env.get("LOCALAPPDATA", str(Path.home()/"AppData"/"Local")))
+    program=Path(env.get("PROGRAMFILES", "C:/Program Files"))
+    roaming=Path(env.get("APPDATA", str(Path.home()/"AppData"/"Roaming")))
+    candidates=[
+        program/"nodejs", local/"Programs"/"nodejs", roaming/"npm",
+        local/"Programs"/"Codex", Path.home()/".local"/"bin",
+    ]
+    original=env.get("PATH","")
+    paths=original.split(os.pathsep)
+    known={value.casefold() for value in paths}
+    for folder in candidates:
+        if folder.is_dir() and str(folder).casefold() not in known:
+            paths.insert(0,str(folder))
+            known.add(str(folder).casefold())
+    env["PATH"]=os.pathsep.join(paths)
+    return env
+
+
 def _run(args, cwd=None, timeout=120, input_text=None):
-    kwargs = {"cwd": str(cwd) if cwd else None, "text": True, "capture_output": True, "timeout": timeout, "check": False}
+    kwargs = {"cwd": str(cwd) if cwd else None, "text": True, "capture_output": True,
+              "timeout": timeout, "check": False, "env": _subprocess_environment()}
     if input_text is not None:
         # Keep long Codex prompts out of the Windows command line (CreateProcess
         # has a ~32K-character limit). A stdin pipe also preserves Unicode.
@@ -241,6 +270,7 @@ def connect(provider, cwd=None):
     else:
         raise ValueError("Intégration inconnue.")
     subprocess.Popen([str(x) for x in args], cwd=str(cwd) if cwd else None,
+                     env=_subprocess_environment(),
                      creationflags=CREATE_NEW_CONSOLE if os.name == "nt" else 0)
     return {"ok": True, "provider": provider, "message": "Connexion ouverte dans une fenêtre séparée."}
 
