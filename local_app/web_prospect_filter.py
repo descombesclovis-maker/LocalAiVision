@@ -19,7 +19,7 @@ CHAINS=(
     "sephora","nocibe","marionnaud","yves rocher","rituals",
     "leroy merlin","castorama","brico depot","mr bricolage","weldom",
     "gamm vert","jardiland","truffaut","animalis","botanic",
-    "macdonald","mcdonalds","burger king","kfc","quick","subway",
+    "macdonald","mcdonalds","mcdonald's","burger king","kfc","quick","subway",
     "starbucks","dominos pizza","pizza hut","buffalo grill",
     "courtepaille","flunch","paul","brioche doree","la mie caline",
     "basic fit","fitness park","keep cool","orange","sfr",
