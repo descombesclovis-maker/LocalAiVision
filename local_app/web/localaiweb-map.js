@@ -123,6 +123,14 @@
            photo.hidden=false;
            note.textContent=(data.image_credit||'Wikimedia Commons')+
              (data.photo_type==='photographie_nom_et_ville_a_verifier'?' · identification à confirmer':'');
+           try{
+             const source=new URL(data.photo_source||'');
+             if(source.protocol==='https:'&&source.hostname==='commons.wikimedia.org'){
+               const link=element('a','photo-source-link','Voir la photo et sa licence');
+               link.href=source.href;link.target='_blank';link.rel='noopener noreferrer nofollow';
+               link.referrerPolicy='no-referrer';note.append(' · ',link);
+             }
+           }catch{}
          }
        };
        photo.onerror=()=>{
