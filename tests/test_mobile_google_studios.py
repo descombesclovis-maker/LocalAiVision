@@ -74,23 +74,22 @@ class MobileStudiosTests(unittest.TestCase):
         self.assertTrue(web_business_map.selected_business(item["selection_token"]))
         self.assertIn("Google Maps",web_business_map.first_draft_prompt(item))
 
-    def test_claude_is_exclusive_default_and_codex_requires_explicit_opt_in(self):
+    def test_codex_is_default_and_claude_remains_explicit_opt_in(self):
         status={"codex":{"ready":True},"claude":{"ready":True}}
-        self.assertEqual(web_hybrid.select_coding_agent("auto",status),"claude")
+        self.assertEqual(web_hybrid.select_coding_agent("auto",status),"codex")
         self.assertEqual(web_hybrid.select_coding_agent("claude",status),"claude")
         self.assertEqual(web_hybrid.select_coding_agent("codex",status),"codex")
-        self.assertEqual(web_hybrid.select_coding_agent("auto",{"claude":{"ready":True}}),"claude")
-        with self.assertRaisesRegex(RuntimeError,"Claude Code"):
+        with self.assertRaisesRegex(RuntimeError,"Codex"):
             web_hybrid.select_coding_agent(
-                "auto",{"claude":{"ready":False},"codex":{"ready":True}},
+                "auto",{"claude":{"ready":True},"codex":{"ready":False}},
                 allow_local_fallback=True)
 
-    def test_project_defaults_to_claude_not_chatgpt(self):
+    def test_new_project_defaults_to_codex_chatgpt_plus(self):
         from local_app import web_builder
         with tempfile.TemporaryDirectory() as folder:
             store=web_builder.LocalAiWebStore(folder,lambda *_:'{}')
             project=store.create("Un site premium")["project"]
-            self.assertEqual(project["settings"]["ai_provider"],"claude")
+            self.assertEqual(project["settings"]["ai_provider"],"codex")
 
     def test_project_brand_affects_design_direction(self):
         a=web_creative_direction.brand_composition("marque de parfum artisanal", "Parfumerie A")
