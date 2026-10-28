@@ -39,6 +39,26 @@ class CommercialWorkflowTests(unittest.TestCase):
             web_crm.upsert_client(self.crm,self.store,{"id":record["id"],
                 "name":"Salon Démo","stage":"inconnu"})
 
+    def test_followup_priorities_and_project_ownership(self):
+        first=web_crm.upsert_client(self.crm,self.store,{
+            "name":"Client Alpha","project_id":self.project_id,
+            "stage":"contacted","next_contact":"2020-03-04"})
+        snapshot=web_crm.snapshot(self.crm,self.store)
+        self.assertEqual(len(snapshot["followups_due"]),1)
+        self.assertEqual(snapshot["followups_due"][0]["name"],"Client Alpha")
+        with self.assertRaisesRegex(ValueError,"Date de relance"):
+            web_crm.upsert_client(self.crm,self.store,{
+                "id":first["id"],"name":"Client Alpha","next_contact":"demain"})
+        second=web_crm.upsert_client(self.crm,self.store,{
+            "name":"Client Beta","stage":"prospect","next_contact":"2099-01-01"})
+        with self.assertRaisesRegex(ValueError,"déjà rattaché"):
+            web_crm.upsert_client(self.crm,self.store,{
+                "id":second["id"],"name":"Client Beta","project_id":self.project_id})
+        snapshot=web_crm.snapshot(self.crm,self.store)
+        self.assertEqual(len(snapshot["followups_upcoming"]),1)
+        self.assertEqual(len(snapshot["clients"]),2)
+        self.assertEqual(snapshot["stage_labels"]["proposal"],"Devis préparé")
+
     def test_issue_actual_quote_and_register_invoice_once(self):
         lines=web_sales_invoice.estimate(self.store,self.project_id)["items"]
         request={"project_id":self.project_id,"seller":SELLER,"customer":BUYER,
@@ -88,6 +108,12 @@ class CommercialWorkflowTests(unittest.TestCase):
         self.assertIn("historyDialog.showModal()",script)
         self.assertIn("selectAssetForProject(entry)",script)
         self.assertIn('id="assetDialog"',html)
+        client_html=(ROOT/"local_app/web/localaiweb-clients.html").read_text(encoding="utf-8")
+        client_js=(ROOT/"local_app/web/localaiweb-clients.js").read_text(encoding="utf-8")
+        self.assertIn('id="crmNextContact"',client_html)
+        self.assertIn('id="auditDialog"',client_html)
+        self.assertIn("showAudit(p.id,p.name)",client_js)
+        self.assertIn("/api/web/preflight?id=",client_js)
         self.assertIn("/api/web/asset/import-generation",(ROOT/"local_app/server.py").read_text(encoding="utf-8"))
         server=(ROOT/"local_app/server.py").read_text(encoding="utf-8")
         for route in ("/localaiweb/clients","/api/web/crm/overview",
