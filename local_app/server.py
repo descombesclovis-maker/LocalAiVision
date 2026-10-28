@@ -121,6 +121,31 @@ def update_status():
     }
 
 
+def update_diagnostics():
+    """Read a bounded local updater log; the .failed file is a binary, not a log."""
+    path=DATA / "logs" / "update.log"
+    if not path.is_file():
+        return {"ok":True, "state":"never", "message":"Aucune mise à jour effectuée.", "log_path":str(path)}
+    with path.open("rb") as stream:
+        stream.seek(max(0,path.stat().st_size-32000))
+        lines=stream.read().decode("utf-8-sig",errors="replace").splitlines()
+    starts=[i for i,line in enumerate(lines) if "Updater started." in line]
+    tail=lines[starts[-1]:] if starts else lines[-50:]
+    failed=next((line for line in reversed(tail) if "Update failed:" in line),"")
+    healthy=any("Update confirmed healthy:" in line for line in tail)
+    if healthy:
+        state="success"
+        message="La dernière mise à jour a démarré correctement."
+    elif failed:
+        state="failed"
+        message=failed.split("Update failed:",1)[-1].strip()
+    else:
+        state="in_progress"
+        message="Dernier journal : "+(tail[-1][-300:] if tail else "en cours")
+    return {"ok":True,"state":state,"message":message[:500],
+            "log_path":str(path),"recent_lines":tail[-22:]}
+
+
 def _download_update_exe(release, asset):
     safe_tag = re.sub(r'[^A-Za-z0-9._-]+', '_', str(release.get('tag_name') or 'latest'))
     folder = DATA / 'updates' / safe_tag
@@ -1516,6 +1541,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(update_status())
             except Exception as e:
                 self.send_json({"error": str(e)}, 502)
+            return
+        if u.path == "/api/update/diagnostics":
+            try:
+                self.send_json(update_diagnostics())
+            except Exception as e:
+                self.send_json({"error":str(e)},500)
             return
         if u.path == "/api/logs":
             parts = []
