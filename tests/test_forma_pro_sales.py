@@ -25,19 +25,18 @@ class ProSaleTests(unittest.TestCase):
         landing=arch.plan("Page unique de présentation simple.")
         self.assertEqual(landing["mode"],"single")
 
-    def test_map_has_top_optional_filters_and_right_company_rail(self):
+    def test_map_is_full_screen_france_first_without_search_or_filters(self):
         page=(ROOT/"local_app/web/localaiweb-map.html").read_text(encoding="utf-8")
         js=(ROOT/"local_app/web/localaiweb-map.js").read_text(encoding="utf-8")
         css=(ROOT/"local_app/web/localaiweb-map.css").read_text(encoding="utf-8")
-        self.assertIn("map-top-filters",page)
-        self.assertIn("map-side-rail",page)
-        self.assertIn('id="industryFilter"',page)
+        for element in ('id="mapQuery"','id="industryFilter"','id="mapSearchForm"'):
+            self.assertNotIn(element,page)
+        self.assertIn('id="businessMap"',page)
         self.assertIn('id="mapCreate"',page)
-        self.assertIn("Créer un site pour cette entreprise",page)
-        self.assertIn("scheduleNearby",js)
-        self.assertIn("autoViewKey",js)
-        self.assertIn("Date.now()<suppressAutoUntil",js)
-        self.assertIn(".map-fullscreen .map-top-filters",css)
+        self.assertIn('id="companyWebsite"',page)
+        self.assertIn("setView([46.60,2.28],6)",js)
+        self.assertIn("function scheduleNearby()",js)
+        self.assertIn(".map-selection",css)
 
     def test_single_project_estimate_30_percent_and_not_invoice(self):
         with tempfile.TemporaryDirectory() as tmp:
