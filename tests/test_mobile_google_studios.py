@@ -32,7 +32,7 @@ class MobileStudiosTests(unittest.TestCase):
         self.assertNotIn('id="mapQuery"',page)
         self.assertIn("setView([46.60,2.28],6)",js)
         self.assertIn("/api/web/map/no-website/france",js)
-        self.assertIn('id="companyWebsite"',page)
+        self.assertIn('id="selectionWebsite"',page)
 
     def test_private_pwa_cache_excludes_api_and_projects(self):
         sw=(WEB/"service-worker.js").read_text(encoding="utf-8")
