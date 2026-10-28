@@ -29,10 +29,14 @@ def prepare():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     # The eight-point star is the visual mark of the SECOND supplied image.
     # Using the complete horizontal banner as a 16 px icon would be unreadable.
-    mark = img.crop((116, 20, 197, 105))
-    mark.thumbnail((218, 218), Image.Resampling.LANCZOS)
+    mark = img.crop((118, 25, 192, 97))
+    mark = mark.resize((218, 218), Image.Resampling.LANCZOS)
+    from PIL import ImageDraw
+    mask = Image.new("L",(218,218),0)
+    ImageDraw.Draw(mask).rounded_rectangle((0,0,217,217),radius=32,fill=255)
+    mark.putalpha(mask)
     icon = Image.new("RGBA", (256, 256), "#261838")
-    icon.alpha_composite(mark.resize((218, 218), Image.Resampling.LANCZOS), (19, 19))
+    icon.alpha_composite(mark,(19,19))
     icon.save(OUTPUT / "LocalAiVision.png", "PNG")
     icon.save(OUTPUT / "LocalAiVision.ico", format="ICO",
               sizes=[(16, 16), (24, 24), (32, 32),
