@@ -57,18 +57,47 @@ class WebsiteProspectMapTests(unittest.TestCase):
             cached=mapdata.france_overview()
         self.assertEqual(call.call_count,1)
         query=parse_qs(call.call_args.kwargs["post"])["data"][0]
-        self.assertIn('nwr(around:800,48.8566,2.3522)',query)
-        self.assertIn('nwr(around:800,45.764,4.8357)',query)
+        self.assertIn('nwr(around:850,48.8566,2.3522)',query)
+        self.assertIn('nwr(around:850,45.764,4.8357)',query)
         for tag in mapdata.WEBSITE_KEYS:
             self.assertIn(f'[!"{tag}"]',query)
-        self.assertGreaterEqual(query.count("out center 6;"),80)
+        self.assertEqual(query.count("out center 18;"),10)
+        self.assertNotIn("41.9192,8.7386",query)  # Corsica is loaded in a later batch.
         self.assertEqual([a["name"] for a in result["results"]],
                          ["Café Eiffel","La Librairie"])
         self.assertTrue(all(not item["website_recorded"] for item in result["results"]))
         self.assertFalse(result["website_verified"])
         self.assertTrue(result["partial"])
+        self.assertEqual(result["batch"],0)
+        self.assertGreater(result["total_batches"],1)
+        self.assertEqual(result["next_batch"],1)
         self.assertIn("≠",result["notice"])
         self.assertTrue(cached["cached"])
+
+    def test_france_batches_are_bounded_and_cache_per_region(self):
+        with patch.object(shared,"_json_http",return_value={"elements":[]}) as request:
+            first=mapdata.france_overview(0)
+            again=mapdata.france_overview(0)
+            mapdata.LAST_REQUEST=0.0
+            later=mapdata.france_overview(2)
+        self.assertEqual(request.call_count,2)
+        self.assertTrue(again["cached"])
+        self.assertEqual(later["batch"],2)
+        self.assertNotEqual(first["batch"],later["batch"])
+        with self.assertRaises(ValueError):
+            mapdata.france_overview(-1)
+        with self.assertRaises(ValueError):
+            mapdata.france_overview(99)
+
+    def test_overpass_fallback_preserves_real_osm_records(self):
+        real={"elements":[{"type":"node","id":11,"lat":48.85,"lon":2.34,
+                             "tags":{"name":"Boulangerie réelle","shop":"bakery"}}]}
+        with patch.object(shared,"_json_http",side_effect=[
+                RuntimeError("Instance temporairement occupée"),real]) as call:
+            result=mapdata.france_overview()
+        self.assertEqual(call.call_count,2)
+        self.assertEqual(call.call_args.args[0],"overpass_backup")
+        self.assertEqual(result["results"][0]["name"],"Boulangerie réelle")
 
     def test_safe_website_links_reject_executable_or_internal_targets(self):
         self.assertEqual(mapdata.safe_website("www.coiffeur.fr"),"https://www.coiffeur.fr")
@@ -143,6 +172,11 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertIn("stroke:false",script)
         self.assertIn("map.on('moveend',scheduleNearby)",script)
         self.assertIn("overview();",script)
+        self.assertIn("fitBounds(franceBounds",script)
+        self.assertIn("map.invalidateSize",script)
+        self.assertIn("overview(next)",script)
+        self.assertIn("mapFeedbackText",script)
+        self.assertIn('id="mapReload"',html)
         self.assertIn("aucun site renseigné",html)
         self.assertIn("Violet",html)
         self.assertNotIn("Rouge : site internet",html)
