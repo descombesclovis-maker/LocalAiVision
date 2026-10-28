@@ -2021,6 +2021,36 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/project/agent-settings":
+            try:
+                store=_web_store()
+                project_id=body.get("id")
+                requested=body.get("ai_provider")
+                direction=body.get("art_direction")
+                if requested is None and direction is None:
+                    raise ValueError("Aucun réglage choisi.")
+                patch={}
+                if requested is not None:
+                    if requested not in ("codex","claude"):
+                        raise ValueError("Sélectionne Codex (ChatGPT) ou Claude Code.")
+                    patch["ai_provider"]=requested
+                if direction is not None:
+                    if direction not in ("auto","professional","cinematic","spatial3d"):
+                        raise ValueError("Direction artistique inconnue.")
+                    patch["art_direction"]=direction
+                response=store.update_settings(project_id,patch)
+                if requested is not None:
+                    # Existing projects defaulted silently to Claude before
+                    # Codex was chosen. Only an explicit manual switch retains
+                    # the alternative on later updates.
+                    meta=store.meta(project_id)
+                    meta["agent_selected_by_user"]=True
+                    store.write_meta(project_id,meta)
+                    response=store.payload(project_id)
+                self.send_json(response)
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/brief/begin":
             try: self.send_json(_web_store().brief_begin(body.get("id"),body.get("prompt")))
             except Exception as e: self.send_json({"error":str(e)},400)
@@ -2040,10 +2070,17 @@ class Handler(BaseHTTPRequestHandler):
                 _web_progress(project_id, "planning", "Analyse du projet et choix de l'agent…")
                 meta = store.meta(project_id)
                 settings = meta.get("settings") or {}
-                # Claude Code is the intended LocalAiWeb creative engine.
-                # Existing projects without a provider also use Claude; an
-                # explicitly selected alternative remains an opt-in decision.
-                provider = str(settings.get("ai_provider") or "claude")
+                # Codex is the default because the user has ChatGPT Plus.
+                # Old projects with an automatically assigned Claude provider
+                # migrate on first generation, unless Claude was explicitly
+                # chosen afterwards. All project files remain untouched.
+                provider = str(settings.get("ai_provider") or "codex")
+                if provider == "claude" and not meta.get("agent_selected_by_user", False):
+                    provider = "codex"
+                    settings = dict(settings)
+                    settings["ai_provider"] = provider
+                    meta["settings"] = settings
+                    store.write_meta(project_id,meta)
                 available = integrations_cli.status()
                 agent_name = web_hybrid.select_coding_agent(
                     provider, available,
