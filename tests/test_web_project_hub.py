@@ -57,16 +57,17 @@ class WebProjectHubTests(unittest.TestCase):
 
 
 class CodingAgentWorkflowTests(unittest.TestCase):
-    def test_requires_an_authenticated_agent_in_premium_mode(self):
+    def test_codex_plus_default_requires_auth_and_no_silent_paid_fallback(self):
         self.assertEqual(web_hybrid.select_coding_agent('auto',{'claude':{'ready':True},
-                                                             'codex':{'ready':True}}),'claude')
+                                                             'codex':{'ready':True}}),'codex')
+        self.assertEqual(web_hybrid.select_coding_agent('auto',{'codex':{'ready':True}}),'codex')
         self.assertEqual(web_hybrid.select_coding_agent('codex',{'codex':{'ready':True}}),'codex')
         self.assertEqual(web_hybrid.select_coding_agent('local',{}),'local')
-        with self.assertRaisesRegex(RuntimeError,'Claude Code'):
-            web_hybrid.select_coding_agent('auto',{'codex':{'ready':True}})
-        with self.assertRaisesRegex(RuntimeError,'Claude Code'):
+        with self.assertRaisesRegex(RuntimeError,'Codex'):
+            web_hybrid.select_coding_agent('auto',{'claude':{'ready':True}},allow_local_fallback=True)
+        with self.assertRaisesRegex(RuntimeError,'Codex'):
             web_hybrid.select_coding_agent('auto',{},allow_local_fallback=True)
-        with self.assertRaisesRegex(RuntimeError,'Aucun agent professionnel'):
+        with self.assertRaisesRegex(RuntimeError,'Codex'):
             web_hybrid.select_coding_agent('auto',{})
         with self.assertRaisesRegex(RuntimeError,'Claude Code'):
             web_hybrid.select_coding_agent('claude',{'codex':{'ready':True}})

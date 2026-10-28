@@ -7,14 +7,47 @@ CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 CREATE_NEW_CONSOLE = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
 
 def _which(*names):
+    """Find installed tool binaries even when a Windows GUI has a stale PATH."""
+    candidate_path=_subprocess_environment().get("PATH") if os.name=="nt" else None
     for name in names:
         path = shutil.which(name)
+        if not path and candidate_path:
+            path=shutil.which(name,path=candidate_path)
         if path:
             return path
     return None
 
+def _subprocess_environment():
+    """Refresh common Windows Node/npm locations for apps launched from Explorer.
+
+    An app can have been opened before Node or Codex was installed, so its
+    inherited PATH may not contain the CLI or node.exe. Only add existing
+    local directories; never execute or fetch unknown binaries.
+    """
+    env=os.environ.copy()
+    if os.name != "nt":
+        return env
+    local=Path(env.get("LOCALAPPDATA", str(Path.home()/"AppData"/"Local")))
+    program=Path(env.get("PROGRAMFILES", "C:/Program Files"))
+    roaming=Path(env.get("APPDATA", str(Path.home()/"AppData"/"Roaming")))
+    candidates=[
+        program/"nodejs", local/"Programs"/"nodejs", roaming/"npm",
+        local/"Programs"/"Codex", Path.home()/".local"/"bin",
+    ]
+    original=env.get("PATH","")
+    paths=original.split(os.pathsep)
+    known={value.casefold() for value in paths}
+    for folder in candidates:
+        if folder.is_dir() and str(folder).casefold() not in known:
+            paths.insert(0,str(folder))
+            known.add(str(folder).casefold())
+    env["PATH"]=os.pathsep.join(paths)
+    return env
+
+
 def _run(args, cwd=None, timeout=120, input_text=None):
-    kwargs = {"cwd": str(cwd) if cwd else None, "text": True, "capture_output": True, "timeout": timeout, "check": False}
+    kwargs = {"cwd": str(cwd) if cwd else None, "text": True, "capture_output": True,
+              "timeout": timeout, "check": False, "env": _subprocess_environment()}
     if input_text is not None:
         # Keep long Codex prompts out of the Windows command line (CreateProcess
         # has a ~32K-character limit). A stdin pipe also preserves Unicode.
@@ -40,11 +73,25 @@ def _supabase_cmd():
     return [npx, "--yes", "supabase"] if npx else None
 
 def _codex_cmd():
+    """Use an installed Codex CLI, never quietly npm-install it via npx.
+
+    Windows desktop apps may inherit an old PATH from Explorer. Resolve
+    the normal user-scoped npm binary and native installer locations too.
+    """
     direct = _which("codex", "codex.cmd", "codex.exe")
     if direct:
         return [direct]
-    npx = _which("npx", "npx.cmd")
-    return [npx, "--yes", "@openai/codex"] if npx else None
+    roots = (
+        Path(os.environ.get("APPDATA", str(Path.home()/"AppData"/"Roaming")))/"npm",
+        Path(os.environ.get("LOCALAPPDATA", str(Path.home()/"AppData"/"Local")))/"Programs"/"Codex",
+        Path.home()/".local"/"bin",
+    )
+    for root in roots:
+        for filename in ("codex.exe", "codex.cmd", "codex"):
+            candidate = root/filename
+            if candidate.is_file():
+                return [str(candidate)]
+    return None
 
 
 def _claude_cmd():
@@ -69,7 +116,7 @@ def status(deep=False):
     npx = _which("npx", "npx.cmd")
     vercel_direct = _which("vercel", "vercel.cmd")
     supabase_direct = _which("supabase", "supabase.exe")
-    codex_direct = _which("codex", "codex.cmd", "codex.exe")
+    codex_cmd = _codex_cmd()
     claude_direct = _claude_cmd()
     stripe_direct = _which("stripe", "stripe.exe")
     out = {
@@ -79,7 +126,7 @@ def status(deep=False):
         "npm": {"installed": bool(npm), "ready": bool(npm)},
         "vercel": {"installed": bool(vercel_direct or npx), "ready": False, "via_npx": bool(not vercel_direct and npx)},
         "supabase": {"installed": bool(supabase_direct or npx), "ready": False, "via_npx": bool(not supabase_direct and npx)},
-        "codex": {"installed": bool(codex_direct or npx), "ready": False, "via_npx": bool(not codex_direct and npx)},
+        "codex": {"installed": bool(codex_cmd), "ready": False, "via_npx": False},
         "claude": {"installed": bool(claude_direct), "ready": False},
         "stripe": {"installed": bool(stripe_direct), "ready": False},
     }
@@ -88,7 +135,8 @@ def status(deep=False):
 
     vercel_cmd = [vercel_direct] if vercel_direct else (_vercel_cmd() if deep else None)
     supabase_cmd = [supabase_direct] if supabase_direct else (_supabase_cmd() if deep else None)
-    codex_cmd = [codex_direct] if codex_direct else (_codex_cmd() if deep else None)
+    # Already-installed Codex can check login without downloading npm packages.
+    codex_cmd = _codex_cmd()
     if vercel_cmd:
         try:
             out["vercel"]["ready"] = _run(vercel_cmd + ["whoami"], timeout=60 if deep else 20).returncode == 0
@@ -216,8 +264,8 @@ def connect(provider, cwd=None):
     elif provider == "codex":
         cmd = _codex_cmd()
         if not cmd:
-            raise RuntimeError("Codex CLI n'est pas disponible.")
-        args = cmd
+            raise RuntimeError("Installe d’abord Codex CLI (npm install -g @openai/codex), puis réessaie. Un abonnement ChatGPT Plus suffit sous réserve des quotas.")
+        args = cmd + ["login"]
     elif provider == "stripe":
         stripe = _which("stripe", "stripe.exe")
         if not stripe:
@@ -226,6 +274,7 @@ def connect(provider, cwd=None):
     else:
         raise ValueError("Intégration inconnue.")
     subprocess.Popen([str(x) for x in args], cwd=str(cwd) if cwd else None,
+                     env=_subprocess_environment(),
                      creationflags=CREATE_NEW_CONSOLE if os.name == "nt" else 0)
     return {"ok": True, "provider": provider, "message": "Connexion ouverte dans une fenêtre séparée."}
 
@@ -418,10 +467,33 @@ def codex_apply(site_dir, prompt):
         raise RuntimeError("Prompt Codex vide.")
     site = Path(site_dir).resolve()
     instruction = (
-        "Work ONLY inside this website project. Actually create or change website files, "
-        "not just describe your ideas. Preserve user assets and existing working features. "
-        "Honor brand, design and requested functionality. Build polished production-ready "
-        "responsive web pages. Avoid exposing secrets. Request:\n" + text
+        "You are Codex acting as a senior design-engineering team: creative director, "
+        "UX architect, 3D/WebGL artist, frontend lead and ruthless production QA reviewer. "
+        "Work ONLY inside this website project. Actually CREATE and MODIFY real files; "
+        "do not answer with a design pitch instead of implementing the website. "
+        "Start with an original business-specific visual concept and meaningful site "
+        "architecture; document the visual rationale in DESIGN_INTENT.md. "
+        "Avoid generic storefronts, repetitive cards, default Tailwind gradients, "
+        "unrelated stock photos, fake testimonials, and dead controls. "
+        "Honor the client's actual logo, typography, colors and legal identity. "
+        "For requested spectacular immersive experiences: create tangible 3D depth, "
+        "well-composed cinematic lighting, polished layered motion, purposeful "
+        "scroll-driven choreography and responsive transitions; choose real Three.js "
+        "or React Three Fiber and build actual procedural geometry when no authorized "
+        "GLB exists. Do NOT pass a screenshot, plain CSS transform or video off as "
+        "interactive 3D. Provide keyboard/touch navigation, prefers-reduced-motion, "
+        "low-power/WebGL fallbacks and adaptive resolution/frame budgets. "
+        "Do not clone proprietary reference sites; match the requested quality and "
+        "distinctive art direction through original implementation. "
+        "For bookings, checkout, authentication or user accounts, create truthful "
+        "working flows only with real configured services; label prototypes clearly. "
+        "Use local project assets, maintain responsive multi-page navigation where "
+        "appropriate, write natural French UI, implement meaningful loading/empty "
+        "states, and preserve all existing working site features. "
+        "Build and run tests whenever the environment allows, fix broken links, "
+        "inspect desktop/mobile results when browser tools are available, and "
+        "avoid exposing any secrets or unauthorized network operations. "
+        "Keep work within the project. ORIGINAL USER REQUEST AND DESIGN CONTRACT:\n" + text
     )
     before = writeback.snapshot(site)
     # Codex may exit 0 while its Windows workspace is effectively read-only.
