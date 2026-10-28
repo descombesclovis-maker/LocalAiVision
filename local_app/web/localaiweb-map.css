@@ -24,3 +24,43 @@
 .registry-profile p{margin:8px 0}.registry-profile a{color:#d2abff;display:inline-block;margin-top:8px}
 .result[hidden]{display:none!important}
 @media(max-width:650px){.industry-controls{padding:11px;margin:9px 0}}
+
+/* PRO: map-first workspace; optional controls at the top and a narrow company rail. */
+.map-layout.map-fullscreen{display:grid;grid-template-columns:minmax(0,1fr) 315px;grid-template-rows:84px minmax(0,1fr);min-height:580px;height:calc(100vh - 78px)}
+.map-fullscreen .map-top-filters{grid-column:1 / -1;grid-row:1;display:flex;align-items:center;gap:12px;z-index:6;position:relative;padding:13px 23px;background:#1a1424;border-bottom:1px solid #ffffff26}
+.map-fullscreen .search-box{flex:1.2;min-width:230px;max-width:450px}
+.map-fullscreen .search-box input{padding:12px;font-size:12px}
+.map-fullscreen .industry-controls{margin:0;padding:0;display:flex;flex:1;min-width:270px;max-width:450px;flex-direction:row;align-items:center;background:transparent;border:0;gap:8px}
+.map-fullscreen .industry-controls input{width:46%;height:43px}
+.map-fullscreen .industry-controls select{width:54%;height:43px}
+.map-fullscreen .nearby{width:auto;white-space:nowrap;margin:0;padding:13px 15px}
+.map-fullscreen .map-mode-info{flex:1;min-width:110px;font-size:11px;line-height:1.45;color:#c1b5d6;max-height:48px;overflow:hidden}
+.map-fullscreen .map-viewport{grid-column:1;grid-row:2;min-height:0}
+.map-fullscreen .map-side-rail{grid-column:2;grid-row:2;z-index:3;overflow:auto;padding:20px 15px;background:#191321;border-left:1px solid #513c65;border-right:0}
+.map-fullscreen .rail-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid #ffffff25;margin-bottom:12px;padding-bottom:12px}
+.map-fullscreen .rail-heading h1{font-size:17px;line-height:1.25;letter-spacing:-.035em;margin:7px 0 0}
+.map-fullscreen .rail-heading>span{border:1px solid #674d8e;color:#cfaaff;border-radius:9px;padding:5px 8px;font-size:11px}
+.map-fullscreen .results{max-height:36vh;min-height:120px;overflow-y:auto;gap:6px}
+.map-fullscreen .result{padding:10px}
+.map-fullscreen .selection{margin-top:12px;padding:14px}
+.map-fullscreen .selection h2{font-size:17px}
+.map-fullscreen .business-details{max-height:26vh;overflow-y:auto}
+.map-fullscreen .map-hint{top:12px}
+@media(max-width:1160px){
+ .map-layout.map-fullscreen{grid-template-columns:minmax(0,1fr) 270px;grid-template-rows:120px minmax(0,1fr)}
+ .map-fullscreen .map-top-filters{flex-wrap:wrap}
+ .map-fullscreen .map-mode-info{max-width:none}
+ .map-fullscreen .industry-controls{min-width:250px}
+}
+@media(max-width:750px){
+ .map-layout.map-fullscreen{display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 68px)}
+ .map-fullscreen .map-top-filters{order:0;display:flex;padding:9px;gap:7px}
+ .map-fullscreen .search-box{flex:1 1 100%;max-width:none}
+ .map-fullscreen .industry-controls{flex:1 1 100%;min-width:0;max-width:none}
+ .map-fullscreen .industry-controls input,.map-fullscreen .industry-controls select{width:50%}
+ .map-fullscreen .nearby{flex:0 0 auto;font-size:10px;padding:11px}
+ .map-fullscreen .map-mode-info{flex:1;min-width:90px}
+ .map-fullscreen .map-viewport{order:1;min-height:430px;height:52vh;flex:none}
+ .map-fullscreen .map-side-rail{order:2;overflow:visible;border-left:0;border-top:1px solid #664d85;min-height:240px}
+ .map-fullscreen .results{max-height:300px}
+}
