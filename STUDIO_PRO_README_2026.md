@@ -73,3 +73,24 @@ NSFW, consulter Mes créations et importer un élément vers un projet existant.
 Ouvrir ensuite LocalAiWeb > Clients & devis, enregistrer une fiche, associer un
 site, préparer un devis, vérifier le PDF et ne créer une facture qu'après
 livraison et vérification. Tester la mise à jour avec une version future.
+
+## Fiabilisation du suivi et audit de livraison
+- L'accueil revient toujours en mode neutre : aucune conversation ou
+  génération NSFW n'est réutilisée par inadvertance dans le chat principal.
+  Le menu Historique montre les conversations standards ; celles de l'espace
+  NSFW restent consultables uniquement depuis cet espace.
+- Chaque dossier client peut définir une **date de relance**. Le tableau de
+  bord signale les relances en retard, celles à effectuer aujourd'hui et
+  les prochaines échéances. Aucun email ou SMS n'est envoyé automatiquement.
+- Les projets web sont associés à une seule fiche client à la fois, afin de
+  prévenir les erreurs d'attribution de livrables et de documents commerciaux.
+- Depuis une fiche client associée à un site : **Audit du site** déclenche
+  le véritable contrôle technique LocalAiWeb (structure HTML, responsive,
+  accessibilité de base, référencement élémentaire, assets locaux et syntaxe
+  JavaScript), affiche le score et liste ce qui doit être corrigé. Ce n'est
+  pas une certification visuelle, légale ou fonctionnelle des intégrations.
+- **Exporter CSV** produit un fichier client local sur action explicite, sans
+  envoi à un service externe, avec neutralisation des formules dangereuses
+  pouvant se trouver dans des champs importés.
+- Un devis généré localement est nommé **Devis préparé**, jamais
+  « devis envoyé » : l'émission du PDF ne constitue pas un envoi au client.
