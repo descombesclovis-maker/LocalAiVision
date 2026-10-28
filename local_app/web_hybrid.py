@@ -143,7 +143,7 @@ def _cloud_image(prompt):
     return raw
 
 
-def make_visuals(store, project_id, request, local_generate=None, *, local_ready=False):
+def make_visuals(store, project_id, request, local_generate=None, *, local_ready=False, defer_new_images=False):
     """Generate genuine photos when available; return transparent diagnostics otherwise.
 
     local_generate(project_id, prompt) is the already installed ComfyUI path.
@@ -151,6 +151,13 @@ def make_visuals(store, project_id, request, local_generate=None, *, local_ready
     """
     existing = [a for a in store.assets(project_id) if a["path"].lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".avif"))]
     plan = visual_plan(request, existing=existing)
+    if defer_new_images and plan:
+        # Creating 2-3 local AI photos can take longer than building the site
+        # on a 12-GB GPU. Deliver a real editable site first, then add assets.
+        return {"assets": existing, "generated": [], "ready": bool(existing),
+                "notes": ["Première maquette : nouveaux visuels IA différés pour afficher "
+                          "le site sans attendre ComfyUI. Ajoute-les ensuite depuis "
+                          "Mes créations ou demande une génération ciblée."]}
     if not plan:
         return {"assets": existing, "generated": [], "notes": [], "ready": bool(existing)}
     generated, notes = [], []
@@ -304,7 +311,7 @@ def code_quality_report(store, project_id, request, integrations):
             'preflight': structural, 'build': build}
 
 
-def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals, progress=None):
+def build_with_agent(store, project_id, user_prompt, agent, integrations, visuals, progress=None, first_preview=False):
     """Claude/Emergent-style agent workflow: implement, build, inspect, repair.
 
     Inspections use actual browser screenshots when Playwright is available.
@@ -394,9 +401,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     if report['ok']:
         update("visual", "Analyse du site dans un navigateur sur ordinateur, tablette et téléphone…")
         visual = web_browser_qa.review(site, build=report.get('build'))
-        if visual.get('reviewed') and visual.get('screenshots'):
-            # Run the agent in a vision-capable review role, looking at actual
-            # desktop, tablet and mobile screenshots, not guessed CSS properties.
+        # First mockup becomes visible immediately after the first verified
+        # build. Do not force a second full agent + rebuild merely because a
+        # screenshot exists. Serious errors are still repaired in the
+        # structured quality gate above. Later edits retain full visual review.
+        if not first_preview and visual.get('reviewed') and visual.get('screenshots'):
             update("design", "L'agent examine les captures et améliore la direction artistique…")
             agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
                   '\n' + contract_text +
