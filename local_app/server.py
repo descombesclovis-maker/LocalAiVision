@@ -363,10 +363,8 @@ try {
   # Ask Windows Explorer to refresh its icon cache; do not tamper with security
   # providers or Defender configuration.
   try {
-    Add-Type -Namespace ShellRefresh -Name Native -MemberDefinition @'
-[System.Runtime.InteropServices.DllImport("shell32.dll")]
-public static extern void SHChangeNotify(uint eventId, uint flags, System.IntPtr item1, System.IntPtr item2);
-'@ -ErrorAction SilentlyContinue
+    $member='[System.Runtime.InteropServices.DllImport("shell32.dll")] public static extern void SHChangeNotify(uint eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'
+    Add-Type -Namespace ShellRefresh -Name Native -MemberDefinition $member -ErrorAction SilentlyContinue
     [ShellRefresh.Native]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
   } catch { }
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
