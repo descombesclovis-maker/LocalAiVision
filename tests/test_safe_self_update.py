@@ -65,6 +65,17 @@ class UpdateSafetyTests(unittest.TestCase):
             self.assertIn(expected,text)
         self.assertLess(text.index("if (-not $healthy)"),text.index('Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue',text.index('Write-UpdateLog "Update confirmed healthy')))
         self.assertIn("Wait-Process -Id $ParentPid",text)
+        self.assertIn("Get-NetTCPConnection -State Listen -LocalPort 3000",text)
+        self.assertIn("Port 3000 toujours utilise",text)
+        self.assertIn("STARTUP: ",text)
+        self.assertIn("$observedBuild",text)
+        self.assertIn("Rollback successful",text)
+
+    def test_updater_does_not_wait_for_unbounded_engine_cleanup(self):
+        import inspect
+        source=inspect.getsource(server._exit_for_update)
+        self.assertIn("threading.Thread(target=stop_engines",source)
+        self.assertIn("os._exit(0)",source)
 
     def test_update_endpoint_returns_build_tag_for_health_check(self):
         source=Path(server.__file__).read_text(encoding="utf-8")
