@@ -233,7 +233,7 @@ def _french_registry_near(lat,lon,radius=2.5):
     raw=None
     cached=False
     args=urlencode({"lat":la,"long":lo,"radius":radius,"page":1,
-                    "per_page":25,"etat_administratif":"A"})
+                    "per_page":25})
     try:
         with urlopen(Request("https://recherche-entreprises.api.gouv.fr/near_point?"+args,
                       headers={"User-Agent":web_business_map.CONTACT,
@@ -259,6 +259,7 @@ def _french_registry_near(lat,lon,radius=2.5):
     seen=set()
     for company in (raw.get("results") or [])[:25]:
         if not isinstance(company,dict):continue
+        if company.get("etat_administratif") not in (None,"A"):continue
         places=(company.get("matching_etablissements") or [])
         if isinstance(company.get("siege"),dict):places=list(places)+[company["siege"]]
         for location in places:
