@@ -49,3 +49,9 @@
 .law-world-tools svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:960px){.site-tools a{width:30px;height:30px}}
 @media(max-width:620px){.site-tools a{width:26px;height:26px}}
+
+/* The supplied LocalAiWeb star-and-globe symbol identifies this editor. */
+.web-logo-heading{display:flex;align-items:center;gap:11px;min-width:0}
+.web-logo-heading>img{width:41px;height:41px;flex:none;object-fit:contain;background:#fff;border-radius:12px;padding:2px}
+.web-logo-heading>div{min-width:0}
+@media(max-width:620px){.web-logo-heading>img{width:31px;height:31px}}
