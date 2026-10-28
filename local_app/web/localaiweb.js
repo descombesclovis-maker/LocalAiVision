@@ -338,23 +338,23 @@ async function initialize(){
   const first=project.project?.initial_generation||{};
   if(project.project?.project_kind==='pro' && !generation.preview_ready &&
      (first.status==='pending'||first.status==='failed')){
-    const dialog=document.getElementById('lawDesignDialog');
+    const dialog=$('#lawDesignDialog');
     if(dialog&&!dialog.open)dialog.showModal();
   }
  }catch(error){
   $('#lawChatStatus').textContent='Chargement impossible : '+error.message;
  }
 }
-const designDialog=document.getElementById('lawDesignDialog');
-const designForm=document.getElementById('lawDesignForm');
-document.getElementById('lawDesignCancel')?.addEventListener('click',()=>{
+const designDialog=$('#lawDesignDialog');
+const designForm=$('#lawDesignForm');
+$('#lawDesignCancel')?.addEventListener('click',()=>{
  designDialog.close();prompt.focus();
 });
 designForm?.addEventListener('submit',async event=>{
  event.preventDefault();
  if(busy||!project)return;
- const submit=document.getElementById('lawDesignCreate');
- const error=document.getElementById('lawDesignError');
+ const submit=$('#lawDesignCreate');
+ const error=$('#lawDesignError');
  error.textContent='';submit.disabled=true;
  try{
   const choices=Object.fromEntries(new FormData(designForm).entries());
