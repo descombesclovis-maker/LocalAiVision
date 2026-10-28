@@ -5,6 +5,7 @@ Places data. A place's website missing from these sources is unknown, never
 proof that the company has no online presence.
 """
 import datetime
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -57,7 +58,7 @@ def save(rows):
         payload.append((str(row["id"])[:90],lat,lon,str(row["name"])[:100],
                         json.dumps(record,ensure_ascii=False),now))
     if not payload:return 0
-    with _LOCK, _db() as con:
+    with _LOCK, closing(_db()) as con:
         con.executemany("insert into companies (id,lat,lon,name,payload,updated) "
                         "values (?,?,?,?,?,?) on conflict(id) do update set "
                         "lat=excluded.lat,lon=excluded.lon,name=excluded.name,"
@@ -66,6 +67,7 @@ def save(rows):
         if count>_LIMIT:
             con.execute("delete from companies where id in (select id from companies "
                         "order by updated asc limit ?)",(count-_LIMIT,))
+        con.commit()
     return len(payload)
 
 def browse(limit=12000, south=40.8,west=-6.2,north=52,east=10.3):
@@ -73,7 +75,7 @@ def browse(limit=12000, south=40.8,west=-6.2,north=52,east=10.3):
     south,west,north,east=map(float,(south,west,north,east))
     if south>=north or west>=east or north-south>15 or east-west>19:
         raise ValueError("Limites géographiques invalides.")
-    with _LOCK,_db() as con:
+    with _LOCK,closing(_db()) as con:
         records=con.execute("select payload from companies "
            "where lat between ? and ? and lon between ? and ? "
            "order by updated desc limit ?",(south,north,west,east,limit)).fetchall()
@@ -89,7 +91,7 @@ def find(identifier):
     """Mint a fresh 30-minute token only for the selected indexed company."""
     if not isinstance(identifier,str) or not (4<=len(identifier)<=90):
         raise ValueError("Entreprise sélectionnée invalide.")
-    with _LOCK,_db() as con:
+    with _LOCK,closing(_db()) as con:
         value=con.execute("select payload from companies where id=?",
                           (identifier,)).fetchone()
     if not value:
@@ -130,7 +132,7 @@ def _score(row,day):
 def daily(today=None,limit=5):
     day=today or datetime.date.today()
     limit=max(1,min(int(limit),5))
-    with _LOCK,_db() as con:
+    with _LOCK,closing(_db()) as con:
         # Public index only, no web scraping or personal demographic scoring.
         values=con.execute("select payload from companies order by updated desc limit 35000").fetchall()
     candidates=[]
