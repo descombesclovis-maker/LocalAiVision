@@ -171,6 +171,29 @@ async function load(){
   render();status('Registre privé à jour · aucun envoi automatique.');
  }catch(e){status('Impossible de charger les données commerciales : '+e.message)}
 }
+function exportClients(){
+ const rows=state.clients||[];
+ if(!rows.length){status('Aucune fiche client à exporter.');return}
+ const columns=[["name","Entreprise"],["contact_name","Contact"],["stage","Étape"],
+  ["next_contact","Prochaine relance"],["email","Courriel"],["phone","Téléphone"],
+  ["address","Adresse"],["siret","SIRET"],["notes","Notes internes"]];
+ const safe=value=>{
+   let str=String(value??'').replace(/\r\n?/g,'\n');
+   // Prevent spreadsheet formula injection in external spreadsheet software.
+   if(/^[\s]*[=+@-]/.test(str)||str.startsWith('\t'))str="'"+str;
+   return '"'+str.replace(/"/g,'""')+'"';
+ };
+ const lines=[columns.map(([,label])=>safe(label)).join(';')];
+ for(const client of rows)lines.push(columns.map(([key])=>safe(client[key])).join(';'));
+ const csv='\ufeff'+lines.join('\r\n')+'\r\n';
+ const href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const anchor=document.createElement('a');anchor.href=href;
+ anchor.download='LocalAiWeb-clients-'+new Date().toISOString().slice(0,10)+'.csv';
+ document.body.append(anchor);anchor.click();anchor.remove();
+ setTimeout(()=>URL.revokeObjectURL(href),2000);
+ status(rows.length+' fiche(s) exportée(s) en CSV sur ton ordinateur. Aucun envoi réseau.');
+}
+$('exportClients').addEventListener('click',exportClients);
 $('newClient').onclick=()=>open();
 $('clientSearch').addEventListener('input',renderClients);
 $('closeClientDialog').onclick=()=>dialog.close();
