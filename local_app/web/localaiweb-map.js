@@ -100,7 +100,8 @@
        radius:2.3,color,weight:0,stroke:false,
        fill:true,fillColor:color,fillOpacity:0.92,
      }).addTo(map);
-     marker.bindTooltip(business.name,{direction:'top',opacity:0.96});
+     // OSM names are untrusted user-contributed text: never parse as HTML.
+     marker.bindTooltip(element('span','',business.name),{direction:'top',opacity:0.96});
      marker.on('click',()=>details(business));
      markers.set(business.id,marker);
      added++;
