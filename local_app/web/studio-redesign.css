@@ -110,3 +110,9 @@ body:not(.nsfw-active) #composerImageBtn{display:none!important}
 .history-item button:first-child{text-align:left;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
 .history-item button:hover{background:#65418a}
 .history-item button:focus-visible{outline:2px solid #c49bfa}
+
+.asset-dialog p{font-size:13px;color:#c4b2d7;line-height:1.6}
+.asset-dialog select{display:block;margin:7px 0 12px;width:100%;background:#130e1b;color:#f8ecff;border:1px solid #8559ad;border-radius:12px;min-height:47px;padding:8px 12px}
+.asset-dialog .asset-confirm{border:1px solid #bd91ff;border-radius:12px;background:linear-gradient(120deg,#6b3cb2,#9a59e7);color:#fff;min-height:44px;padding:10px 18px;font-size:13px;font-weight:700}
+.asset-dialog .asset-confirm:hover:not(:disabled){transform:translateY(-2px)}
+.asset-dialog .asset-confirm:disabled{opacity:.55;cursor:wait}
