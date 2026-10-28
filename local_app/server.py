@@ -1778,6 +1778,14 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)},400)
             return
+        if u.path == "/api/web/map/selection/refresh":
+            try:
+                from local_app import web_prospects
+                company_id=parse_qs(u.query).get("id",[""])[0]
+                self.send_json({"business":web_prospects.find(company_id)})
+            except Exception as exc:
+                self.send_json({"error":str(exc)},404)
+            return
         if u.path == "/api/web/map/prospects/today":
             try:
                 from local_app import web_prospects
