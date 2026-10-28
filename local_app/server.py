@@ -1778,6 +1778,17 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)},400)
             return
+        if u.path == "/api/web/map/photo":
+            try:
+                from local_app import web_prospects, web_business_photos
+                company_id=parse_qs(u.query).get("id",[""])[0]
+                item=web_prospects.find(company_id)
+                self.send_json(web_business_photos.resolve(item))
+            except ValueError as exc:
+                self.send_json({"error":str(exc)},404)
+            except Exception:
+                self.send_json({"error":"Service photographique temporairement indisponible."},503)
+            return
         if u.path == "/api/web/map/selection/refresh":
             try:
                 from local_app import web_prospects
