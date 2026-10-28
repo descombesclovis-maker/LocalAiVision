@@ -73,7 +73,8 @@
     name:$('sellerName').value.trim(),siret:$('sellerSiret').value.trim(),
     address:$('sellerAddress').value.trim(),legal_form:$('legalForm').value,
     capital:$('sellerCapital').value.trim(),vat_mode:$('vatMode').value,
-    vat_number:$('sellerVat').value.trim(),payment_details:$('paymentDetails').value.trim()
+    vat_number:$('sellerVat').value.trim(),payment_details:$('paymentDetails').value.trim(),
+    late_penalty_rate:$('latePenaltyRate').value.trim()
    };
    const customer={
     name:$('customerName').value.trim(),address:$('customerAddress').value.trim(),
