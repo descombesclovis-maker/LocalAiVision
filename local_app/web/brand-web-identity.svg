@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="LocalAiWeb — Créations de sites webs">
+<rect width="1200" height="760" fill="#FFFFFF"/>
+<g transform="translate(300,-34) scale(.97)">
+<defs><linearGradient id="star" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#533073"/><stop offset=".46" stop-color="#201038"/><stop offset="1" stop-color="#392062"/></linearGradient><radialGradient id="shine"><stop stop-color="#EEE0FF"/><stop offset=".7" stop-color="#A47BDB" stop-opacity=".48"/><stop offset="1" stop-color="#A47BDB" stop-opacity="0"/></radialGradient></defs>
+<circle cx="300" cy="300" r="153" fill="url(#shine)"/>
+<polygon points="300,30 341,200 491,109 400,259 570,300 400,341 491,491 341,400 300,570 259,400 109,491 200,341 30,300 200,259 109,109 259,200" fill="url(#star)"/><polygon points="300,62 335,216 468,132 384,265 538,300 384,335 468,468 335,384 300,538 265,384 132,468 216,335 62,300 216,265 132,132 265,216" fill="none" stroke="#9B71BD" stroke-opacity=".3" stroke-width="3"/>
+<g fill="none" stroke="#9562C0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".85">
+<path d="M295 95V158l25 36v47"/><path d="M269 151v41l-31 41"/><path d="M118 295h70l35 22h50"/><path d="M163 256l45 22h46"/>
+<path d="M471 294h-76l-31 21h-40"/><path d="M431 259l-39 30h-39"/><path d="M298 512v-63l-24-28v-50"/><path d="M332 441v-31l36-29"/>
+<circle cx="320" cy="241" r="11"/><circle cx="224" cy="317" r="11"/><circle cx="365" cy="315" r="11"/><circle cx="275" cy="371" r="11"/>
+</g>
+<circle cx="300" cy="300" r="76" fill="#F4EDFF" stroke="#3B2064" stroke-width="9"/>
+<g fill="none" stroke="#3B2064" stroke-width="7" stroke-linecap="round"><ellipse cx="300" cy="300" rx="37" ry="75"/><path d="M230 300h140M244 267h112M244 333h112"/></g>
+<rect x="213" y="281" width="174" height="43" rx="15" fill="#3E205F" stroke="#F7ECFF" stroke-width="7"/>
+<text x="300" y="312" font-family="Segoe UI,Arial,sans-serif" font-weight="800" font-size="36" text-anchor="middle" fill="#FFFFFF">WWW</text>
+
+</g>
+<text x="600" y="622" font-family="Segoe UI,Arial,sans-serif" font-size="119" text-anchor="middle" font-weight="400" letter-spacing="-5" fill="#210F3D">LocalAi<tspan font-weight="700">Web</tspan></text>
+<text x="600" y="682" font-family="Segoe UI,Arial,sans-serif" font-size="33" letter-spacing="4" text-anchor="middle" fill="#65458A">CRÉATIONS DE SITES WEBS</text>
+</svg>
