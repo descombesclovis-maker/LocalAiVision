@@ -70,6 +70,7 @@ jobs:
             --hidden-import local_app.web_map_no_website ^
             --hidden-import local_app.web_business_intelligence ^
             --hidden-import local_app.web_design_profile ^
+            --hidden-import local_app.web_prospects ^
             --hidden-import local_app.web_sales_invoice ^
             --hidden-import local_app.web_crm ^
             --hidden-import local_app.web_assets_bridge ^
