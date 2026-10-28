@@ -1936,6 +1936,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error": str(exc)}, 400)
             return
+        if u.path == "/api/web/asset/import-generation":
+            try:
+                from local_app import web_assets_bridge
+                self.send_json(web_assets_bridge.import_generation(
+                    _web_store(),_comfy_working_dir(),body.get("project_id"),
+                    body.get("filename"),body.get("subfolder",""),
+                    body.get("type","output")))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/crm/client/upsert":
             try:
                 from local_app import web_crm
