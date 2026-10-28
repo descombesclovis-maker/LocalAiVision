@@ -8,7 +8,7 @@
  const info=$('mapFeedbackText'),reload=$('mapReload'),panel=$('mapSelection'),btn=$('mapCreate');
  let map,selected=null,creating=false,loading=false;
  let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
- const businesses=new Map(),pins=new Map(),MAX_STORED=12500;
+ const businesses=new Map(),pins=new Map(),MAX_STORED=30000;
  const setStatus=message=>{info.textContent=message};
  const element=(tag,cls,value)=>{
    const item=document.createElement(tag);
@@ -79,8 +79,33 @@
      'Données publiques : '+(item.source||'source non précisée')+
      '. Horaires, coordonnées et site internet peuvent être incomplets ou périmés.';
    $('mapCreateError').textContent='';
-   btn.disabled=!item.selection_token;
+   // A map containing thousands of businesses cannot retain thousands of
+   // expiring selection tokens. Refresh securely only for the clicked card.
+   btn.disabled=true;
    btn.textContent='Créer un site pour cette entreprise ↗';
+   const clickedId=selected?.id;
+   api('/api/web/map/selection/refresh?id='+encodeURIComponent(clickedId))
+     .then(data=>{
+       if(selected?.id!==clickedId)return;
+       selected={...selected,...data.business};
+       btn.disabled=!selected.selection_token;
+     }).catch(error=>{
+       if(selected?.id!==clickedId)return;
+       if(item.selection_token)btn.disabled=false;
+       else $('mapCreateError').textContent='Fiche non disponible : '+error.message;
+     });
+   const photo=$('selectionPhoto'),note=$('selectionPhotoNote');
+   photo.hidden=true;photo.removeAttribute('src');
+   note.textContent='Aucune photo publique librement réutilisable connue pour ce commerce.';
+   try{
+     const url=new URL(String(item.image_url||''));
+     if(url.protocol==='https:'&&['commons.wikimedia.org','upload.wikimedia.org'].includes(url.hostname)){
+       photo.src=url.href;
+       photo.alt='Photo publique renseignée pour '+(item.name||'l’établissement');
+       photo.onload=()=>{photo.hidden=false;note.textContent=item.image_credit||'Source : Wikimedia Commons — vérifier la licence';};
+       photo.onerror=()=>{photo.hidden=true;note.textContent='Photo indisponible.'};
+     }
+   }catch{}
  }
  function appendSafeLinkInto(parent,raw){
    try{
@@ -91,6 +116,52 @@
      link.href=url.href;link.target='_blank';link.rel='noopener noreferrer nofollow';
      link.referrerPolicy='no-referrer';parent.append(link);return true;
    }catch{return false}
+ }
+ let lastDailyCount=-1;
+ async function loadDailyProspects(){
+   try{
+     const data=await api('/api/web/map/prospects/today');
+     const out=$('dailyProspectsList');
+     if(!out)return;
+     const results=data.results||[];
+     if(results.length===lastDailyCount)return;
+     lastDailyCount=results.length;
+     out.replaceChildren();
+     const count=Number(data.pool||0);
+     $('dailyProspectsStatus').textContent=count
+       ?'Suggestions sur '+count.toLocaleString('fr-FR')+' établissements publics · site à vérifier'
+       :'La liste s’enrichit à mesure que les entreprises réelles se chargent.';
+     if(!results.length){out.append(element('small','','Les premières suggestions apparaîtront après le chargement des entreprises.'));return}
+     for(const item of results){
+       const card=element('button','daily-prospect');
+       card.type='button';
+       card.title=item.reason||'Candidature de prospection à vérifier';
+       card.append(element('strong','',item.name||'Commerce'));
+       card.append(element('small','',(item.city||item.postcode||'France')+
+         ' · '+(item.category||'activité locale')));
+       card.addEventListener('click',()=>{
+         details(item);
+         if(map){map.setView([item.lat,item.lon],Math.max(map.getZoom(),11),{animate:true})}
+         else if(window.LocalAiWebGoogleMap?.focus)
+           window.LocalAiWebGoogleMap.focus(item);
+       });
+       out.append(card);
+     }
+   }catch(error){
+     const status=$('dailyProspectsStatus');
+     if(status)status.textContent='Suggestions temporairement indisponibles : '+error.message;
+   }
+ }
+ async function loadIndexed(){
+   try{
+     const data=await api('/api/web/map/index?limit=12000');
+     insert(data.results);
+     if(data.results?.length){
+       setStatus(data.count.toLocaleString('fr-FR')+
+         ' établissements publics conservés sur ce PC · chargement de nouvelles zones en cours.');
+     }
+   }catch{}
+   void loadDailyProspects();
  }
  function removePins(){
    for(const pin of pins.values())map.removeLayer(pin);
@@ -201,6 +272,7 @@
      const response=await api('/api/web/map/no-website/france?batch='+encodeURIComponent(batch));
      insert(response.results);
      nextOverviewBatch=response.next_batch;
+     if(batch%3===0)void loadDailyProspects();
      setStatus(countLabel()+' · Zone '+(batch+1)+'/'+Math.max(1,response.total_batches||1));
      if(response.next_batch!==null&&response.next_batch!==undefined){
        // Respect the official directory's fair-use limits; datasets are cached.
@@ -276,6 +348,8 @@
    $('mapCreateError').textContent='';
    btn.textContent='Recherche des informations et création du dossier…';
    try{
+     // Create only after the actual selected establishment token is checked.
+     if(!selected?.selection_token)throw Error('La fiche entreprise n’est pas encore chargée.');
      // The server enriches ONLY publicly available professional facts on
      // user-initiated creation, never hidden/private demographic profiles.
      const response=await api('/api/web/project/create-from-map',{
@@ -293,7 +367,7 @@
      const config=await api('/api/web/map/config');
      if(config.enabled && window.LocalAiWebGoogleMap){
        const started=await window.LocalAiWebGoogleMap.start(config,details,setStatus,api);
-       if(started)return;
+       if(started){void loadDailyProspects();return;}
      }
      if(!config.enabled){
        // Never claim official Google Maps when the user has not configured
@@ -304,6 +378,7 @@
      setStatus('Google Maps indisponible : '+error.message+'. Carte publique de secours chargée.');
    }
    startPublicMap();
+   void loadIndexed();
  }
  function startPublicMap(){
  if(typeof L==='undefined'){
