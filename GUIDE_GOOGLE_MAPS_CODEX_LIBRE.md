@@ -1,41 +1,72 @@
-# LocalAiWeb : Google Maps officiel, petits commerces, conception libre
+# LocalAiWeb — Fond Google Maps officiel, petits commerces et création libre
 
-## Carte officielle Google Maps : configuration indispensable
+## Carte Google Maps : ce qu'elle fait réellement
 
-L'interface de la carte, sa fiche entreprise et son bouton « Créer un site pour cette entreprise » ne changent pas. Lorsque Google Maps est **configuré officiellement**, l'application utilise les vraies tuiles Google Maps et Google Places (New) pour charger de **petits commerces, salons, boulangeries, artisans et services** au lieu de se limiter aux grosses entreprises. Sans compte Google Maps Platform, une carte publique de secours reste disponible : **ce n'est pas Google Maps**.
+Lorsque tu fournis une clé officielle Google Maps JavaScript, la **carte de fond**
+devient la vraie carte Google Maps, avec ses routes, villages, zooms et attributions.
+Les **points verts commerciaux** superposés proviennent d'une source indépendante,
+réutilisable pour la prospection : l'annuaire professionnel officiel français
+(Sirene / API Recherche d'entreprises) et, si nécessaire, OpenStreetMap.
 
-Google Maps Platform est **distinct de ChatGPT Plus** : Google requiert un projet Google Cloud avec une facturation activée et ses propres clés API. Le logiciel ne crée pas le compte, ne renseigne pas une carte bancaire, ne souscrit pas d'abonnement et n'active aucune API à ta place.
+Ce choix protège les projets commerciaux : Google Maps Platform interdit
+d'extraire et de stocker ses fiches professionnelles pour bâtir un annuaire de
+prospects ou produire du contenu dérivé. Le **catalogue d'entreprises n'est
+pas une copie de Google Places**.
 
-1. Ouvrir Google Cloud Console, créer un projet de cartographie professionnel, et activer la facturation et les budgets/alertes.
-2. Activer **Maps JavaScript API** et **Places API (New)** sur le projet.
-3. Créer une clé **navigateur**, limitée à *Maps JavaScript API*, et aux référents HTTP du serveur LocalAiWeb (par défaut `http://127.0.0.1:3000/*` et `http://localhost:3000/*`). Pour une application native, vérifier les restrictions et risques de la clé avant déploiement distant.
-4. Créer une autre clé **serveur**, limitée à *Places API (New)*. La clé serveur reste **sur le PC**, jamais dans le frontend, jamais commitée sur GitHub.
-5. Sur ton compte Windows (PowerShell), définir les variables d'environnement pour les prochains lancements de l'application :
+La carte géographique française charge progressivement des zones réelles ;
+en se rapprochant d'une ville, elle charge jusqu'à **trois pages de 25
+résultats** de l'annuaire pour les commerces, artisans, restaurants et services
+locaux. Le nombre effectivement affiché peut être inférieur en fonction des
+données disponibles, du géocodage et de la source. Aucun point inventé.
 
+## Activation du fond Google Maps officiel
+
+Google Maps Platform est **distinct de ChatGPT Plus**. L'intégration reste
+désactivée tant que tu n'as pas choisi volontairement d'activer la facturation
+Google Cloud. Le programme n'active aucune facturation à ta place.
+
+1. Créer un projet Google Cloud, activer facturation et budgets/alertes.
+2. Activer **Maps JavaScript API** (Places API n'est PAS nécessaire pour la
+   carte des prospects professionnels, qui utilise les données publiques).
+3. Créer une clé **navigateur**, restreinte à Maps JavaScript API et à tes
+   référents autorisés (par défaut `http://127.0.0.1:3000/*` et
+   `http://localhost:3000/*`).
+4. Dans PowerShell, définir ta propre clé :
    ```powershell
-   [Environment]::SetEnvironmentVariable('LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY', 'COLLER_CLE_NAVIGATEUR', 'User')
-   [Environment]::SetEnvironmentVariable('LOCALAIWEB_GOOGLE_PLACES_API_KEY', 'COLLER_CLE_SERVEUR', 'User')
+   [Environment]::SetEnvironmentVariable('LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY','TA_CLE_NAVIGATEUR','User')
    ```
-   Ces commandes affichées sont des **exemples** à exécuter toi-même en remplaçant les valeurs. Ne transmets jamais les vraies clés dans le chat.
-6. Fermer complètement LocalAiVision, puis relancer la dernière build Windows et ouvrir LocalAiWeb → Carte. Le fond Google remplace alors automatiquement la cartographie publique. Les petites entreprises autour de la ville ciblée sont découvertes avec l'API Google Places officielle.
+   Ne place jamais ta vraie clé dans un commit GitHub ou dans un chat.
+5. Fermer totalement LocalAiVision, rouvrir la nouvelle build et lancer
+   LocalAiWeb → Carte. Si la clé Google n'est pas valide, le logiciel revient
+   automatiquement au fond de carte public existant.
 
-### Limites et coûts réels
+**Important :** Google Maps peut être facturé en fonction des chargements,
+même si les **données d'entreprises** proviennent de l'annuaire public.
+Consulte la tarification officielle et les conditions applicables à un compte EEE.
 
-- Une recherche Google Places Nearby New renvoie **au maximum 20 entreprises**. Notre carte lance au maximum trois segments spécifiques (coiffure/beauté, petits commerces, artisans/services) lorsqu'on se rapproche d'une ville, et elle ne prétend PAS récupérer l'ensemble des entreprises Google Maps.
-- Ces appels sont **payants à l'utilisation** selon Google et les champs demandés. Le logiciel ne lance pas un balayage payant de toutes les villes de France. Il laisse l'utilisateur se déplacer dans la carte et plafonne les recherches à quelques segments par zone.
-- Aucun filtrage ne peut garantir qu'une entreprise n'a pas de site web : la fiche distingue « site renseigné » et « non renseigné ». La source doit être vérifiée.
-- Les données Google Places peuvent être soumises à des règles de mise en cache, de stockage et d'utilisation. Ne pas constituer de copie permanente du répertoire Google ni distribuer des données sans respecter les conditions de licence. Un Place ID peut servir à retrouver une fiche officielle.
-- Si aucune clé Google n'est configurée, la carte publique de secours continue de fonctionner sans facturation Google, avec une **couverture partielle** de l'annuaire officiel et d'OSM.
-- Même avec les vraies cartes Google, une couverture nationale *exhaustive* en repères Google n'est pas disponible instantanément via Nearby Search. Elle nécessiterait une source légalement réutilisable distincte, une indexation géographique et une infrastructure autorisée.
+Documentation :
+- https://developers.google.com/maps/documentation/javascript/load-maps-js-api
+- https://cloud.google.com/terms/maps-platform/eea
+- https://recherche-entreprises.api.gouv.fr/docs/
 
-Documentation officielle : https://developers.google.com/maps/documentation/javascript/load-maps-js-api et https://developers.google.com/maps/documentation/places/web-service/nearby-search et https://developers.google.com/maps/billing-and-pricing
+## Création d'une maquette Pro
 
-## Création du premier site professionnel
+La fiche carte reste simple : nom, activité, adresse, SIRET, téléphone, e-mail,
+horaires et état de présence du site web quand ces informations existent.
+**« Site non renseigné » ne signifie jamais « aucun site ».**
 
-1. Sélectionne un petit commerce sur la carte et clique **Créer un site pour cette entreprise**.
-2. Un projet Pro privé s'ouvre dans l'éditeur. Une unique fenêtre de **direction artistique** s'affiche au-dessus de l'éditeur : univers, palette, typographie, composition, effets et cinématiques, profondeur/3D, interactions, textures, visuels, priorité mobile et instructions libres.
-3. Les réglages sont facultatifs. **Créer la première maquette** conserve réellement ces choix dans ce projet et les transmet à Codex. **Choisir plus tard** ferme la fenêtre sans lancer une génération.
-4. En dehors de cette fenêtre facultative, **le chat est vide**. Écris ce que tu veux : aucune question obligatoire, aucun QCM, aucune réponse préfabriquée, aucune suggestion « Améliorer le rendu », aucun bouton « Signature 3D » dans le chat.
-5. Les tests, contraintes de sécurité, protections des données client et obligations légales restent actifs ; ne pas confondre liberté créative et absence de contrôle du code produit.
+Le bouton en bas « Créer un site pour cette entreprise » ouvre l'éditeur et
+une **fenêtre facultative de direction créative**. Elle permet de choisir
+esthétique, couleurs, typographie, composition, animations, mouvements
+cinématiques, profondeur 3D, interactions, textures, visuels, contraintes
+mobiles et instructions libres. Ces choix sont sauvegardés et transmis à Codex.
 
-L'agent Codex ne dispose pas automatiquement des données sensibles des clients ou d'une licence de réutilisation des photographies : le site généré doit vérifier ses sources, clairement identifier une maquette non officielle et ne pas simuler de vrais services commerciaux non connectés.
+Dans tous les autres cas, **le chat commence totalement vide**. Il n'y a
+pas de questionnaire initial obligatoire, pas de boutons de prompts
+suggérés, pas de « Signature 3D » ni de bulles de l'agent. Tu communiques
+avec Codex par tes propres messages. Les informations de statut et les
+erreurs restent visibles hors du chat.
+
+Les anciens projets et médias ne sont pas écrasés. Les coordonnées
+professionnelles, droits d'auteur, autorisations de publication et données
+commerciales doivent toujours être vérifiés.
