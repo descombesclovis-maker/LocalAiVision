@@ -19,6 +19,92 @@ WEB_PROJECTS = LOCALAIWEB_DATA / "projects"
 WEB_PROJECTS.mkdir(parents=True, exist_ok=True)
 _web_progress_lock = threading.Lock()
 _web_progress_rows = {}
+_web_generation_lock = threading.Lock()
+_web_generation_jobs = {}
+
+def _web_async_generate(project_id, prompt, ticket):
+    """Run the existing, tested synchronous generation route in a worker.
+
+    The UI keeps receiving progress and previews. A second submission to the
+    same project never spawns a concurrent writer that corrupts its files.
+    """
+    try:
+        result = http_json("http://127.0.0.1:%d/api/web/generate" % PORT,
+                           method="POST", payload={"id": project_id, "prompt": prompt},
+                           timeout=1600)
+        outcome = {
+            "state": "done", "summary": str(result.get("summary") or "")[:2500],
+            "quality": result.get("quality", {}),
+            "visuals": result.get("visuals", {}),
+            "provider": result.get("provider", ""),
+        }
+    except HTTPError as exc:
+        try:
+            details = json.loads(exc.read(7000).decode("utf-8"))
+            message = str(details.get("error") or exc.reason)
+        except (ValueError, UnicodeError, AttributeError):
+            message = str(exc)
+        outcome = {"state": "error", "error": message[:900]}
+    except Exception as exc:
+        outcome = {"state": "error", "error": str(exc)[:900]}
+    with _web_generation_lock:
+        if _web_generation_jobs.get(project_id, {}).get("ticket") == ticket:
+            _web_generation_jobs[project_id].update(outcome)
+            _web_generation_jobs[project_id]["finished_at"] = time.time()
+    if outcome["state"] == "error":
+        _web_progress(project_id, "error", outcome["error"])
+
+def _web_generation_status(project_id):
+    _web_store().meta(project_id)
+    with _web_generation_lock:
+        job = dict(_web_generation_jobs.get(project_id) or {})
+    with _web_progress_lock:
+        progress = dict(_web_progress_rows.get(project_id) or {})
+    result = {**progress, **job}
+    if not job:
+        result["state"] = "idle"
+    # Never report a site as ready based on the placeholder index.html.
+    try:
+        if _web_site_ready(project_id):
+            index = _web_preview_root(project_id) / "index.html"
+            result["preview_ready"] = True
+            result["preview_version"] = str(index.stat().st_mtime_ns)
+        else:
+            result["preview_ready"] = False
+    except (OSError, ValueError):
+        result["preview_ready"] = False
+    return result
+
+def _web_start_generation(project_id, prompt):
+    store = _web_store()
+    meta = store.meta(project_id)
+    request = str(prompt or "").strip()
+    if not request or len(request) > 25000:
+        raise ValueError("Décris ton site en 25 000 caractères maximum.")
+    with _web_generation_lock:
+        previous = _web_generation_jobs.get(project_id)
+        if previous and previous.get("state") == "running":
+            return {"ok": True, "already_running": True, "ticket": previous["ticket"]}
+        # Validate the active coding agent BEFORE accepting a long job.
+        settings = meta.get("settings") or {}
+        provider = str(settings.get("ai_provider") or "codex")
+        if provider == "claude" and not meta.get("agent_selected_by_user", False):
+            provider = "codex"
+        if provider in ("codex", "claude"):
+            from local_app import web_hybrid
+            web_hybrid.select_coding_agent(provider, integrations_cli.coding_agent_status(provider))
+        ticket = uuid.uuid4().hex
+        _web_generation_jobs[project_id] = {
+            "state": "running", "ticket": ticket,
+            "started_at": time.time(), "phase": "planning",
+        }
+    _web_progress(project_id, "planning", "L'agent prépare la première proposition…")
+    worker = threading.Thread(
+        target=_web_async_generate, args=(project_id, request, ticket),
+        name="LocalAiWeb-"+project_id, daemon=True)
+    worker.start()
+    return {"ok": True, "ticket": ticket, "state": "running"}
+
 
 def _web_progress(project_id, phase, detail):
     key = str(project_id or '')
@@ -1628,6 +1714,13 @@ class Handler(BaseHTTPRequestHandler):
                 "shared_scope": "tools_and_models_only"
             })
             return
+        if u.path == "/api/web/generation/status":
+            try:
+                project_id=parse_qs(u.query).get("id",[""])[0]
+                self.send_json(_web_generation_status(project_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},404)
+            return
         if u.path == "/api/web/progress":
             project_id = parse_qs(u.query).get("id", [""])[0]
             try:
@@ -2059,6 +2152,12 @@ class Handler(BaseHTTPRequestHandler):
             try: self.send_json(_web_store().brief_answer(body.get("id"),body.get("answer")))
             except Exception as e: self.send_json({"error":str(e)},400)
             return
+        if u.path == "/api/web/generate/start":
+            try:
+                self.send_json(_web_start_generation(body.get("id"),body.get("prompt")))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/generate":
             try:
                 from local_app import web_hybrid
@@ -2081,28 +2180,48 @@ class Handler(BaseHTTPRequestHandler):
                     settings["ai_provider"] = provider
                     meta["settings"] = settings
                     store.write_meta(project_id,meta)
-                available = integrations_cli.status()
+                # Starting a site must not synchronously probe unrelated
+                # Vercel, Stripe, Supabase or GitHub credentials (minutes).
+                available = integrations_cli.coding_agent_status(provider)
                 agent_name = web_hybrid.select_coding_agent(
                     provider, available,
                     allow_local_fallback=(os.getenv("LOCALAIWEB_ALLOW_LOCAL_FALLBACK","")
                                           .strip().lower() in ("1","true","yes"))
                 )
-                try:
-                    from local_app import bootstrap_windows
-                    ready_image = (bool(bootstrap_windows.media_status("image").get("ready"))
-                                   and comfy_online()[0])
-                except Exception:
-                    ready_image = False
-                _web_progress(project_id, "images", "Création ou réutilisation des visuels produits…")
-                visuals = web_hybrid.make_visuals(
-                    store, project_id, request, local_generate=_web_generate_image_asset,
-                    local_ready=ready_image)
+                # First mockup: do not wait for a 12-GB GPU to produce up to
+                # three full-resolution photos before Codex even starts writing
+                # the website. Real images can be added in the next iteration.
+                from local_app import web_briefing
+                first_draft = not _web_site_ready(project_id)
+                if first_draft:
+                    _web_progress(project_id, "images", "Première maquette rapide : réutilisation des ressources existantes…")
+                    visuals = web_hybrid.make_visuals(
+                        store, project_id, request, local_generate=None,
+                        local_ready=False, defer_new_images=True)
+                else:
+                    try:
+                        from local_app import bootstrap_windows
+                        ready_image = (bool(bootstrap_windows.media_status("image").get("ready"))
+                                       and comfy_online()[0])
+                    except Exception:
+                        ready_image = False
+                    _web_progress(project_id, "images", "Création ou réutilisation des visuels produits…")
+                    visuals = web_hybrid.make_visuals(
+                        store, project_id, request, local_generate=_web_generate_image_asset,
+                        local_ready=ready_image)
                 if agent_name in ("claude", "codex"):
-                    coder = (integrations_cli.claude_apply if agent_name == "claude"
-                             else integrations_cli.codex_apply)
+                    if agent_name == "codex" and first_draft:
+                        # Single bounded Codex pass. No 15-minute read-only retry
+                        # for the very first screen; tell the user if blocked.
+                        coder = lambda site, instruction: integrations_cli.codex_apply(
+                            site, instruction, timeout=420, allow_retry=False)
+                    else:
+                        coder = (integrations_cli.claude_apply if agent_name == "claude"
+                                 else integrations_cli.codex_apply)
                     payload = web_hybrid.build_with_agent(
                         store, project_id, request, coder, integrations_cli, visuals,
-                        progress=lambda phase, detail: _web_progress(project_id, phase, detail))
+                        progress=lambda phase, detail: _web_progress(project_id, phase, detail),
+                        first_preview=first_draft)
                     payload["provider"] = agent_name
                 else:
                     # Self-hosted fallback uses the same generated image inventory.
