@@ -1743,6 +1743,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
+        if u.path == "/api/web/map/google/local-shops":
+            try:
+                from local_app import web_google_maps
+                args=parse_qs(u.query)
+                self.send_json(web_google_maps.nearby_small_businesses(
+                    args.get("lat",[""])[0],args.get("lon",[""])[0],
+                    args.get("zoom",[""])[0],args.get("segment",["0"])[0]))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/map/google/place":
             try:
                 from local_app import web_google_maps
