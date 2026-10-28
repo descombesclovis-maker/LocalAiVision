@@ -1515,9 +1515,12 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/map/no-website/france":
             try:
                 from local_app import web_map_no_website
-                self.send_json(web_map_no_website.france_overview())
+                batch=parse_qs(u.query).get("batch",["0"])[0]
+                self.send_json(web_map_no_website.france_overview(batch))
+            except ValueError as exc:
+                self.send_json({"error":str(exc)}, 400)
             except Exception as exc:
-                self.send_json({"error":str(exc)}, 503)
+                self.send_json({"error":"Service OpenStreetMap indisponible : "+str(exc)}, 503)
             return
         if u.path == "/api/web/map/no-website/nearby":
             try:
