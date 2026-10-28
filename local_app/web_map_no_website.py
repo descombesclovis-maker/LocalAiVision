@@ -59,6 +59,12 @@ LAST_REQUEST=0.0
 CACHE_SECONDS=1800
 # One small Overpass batch per interval, rather than one huge query for France.
 THROTTLE_SECONDS=12
+# Best-effort community instances: identify application, cache, and rate limit.
+# Private.coffee expressly provides a POST Overpass endpoint; FOSSGIS is fallback.
+OVERPASS_ENDPOINTS=(
+    "https://overpass.private.coffee/api/interpreter",
+    web_business_map.OVERPASS,
+)
 FRANCE_BATCH_SIZE=10
 FRANCE_BATCH_COUNT=(len(FRANCE_POINTS)+FRANCE_BATCH_SIZE-1)//FRANCE_BATCH_SIZE
 
@@ -150,15 +156,25 @@ def _load(key, query, mode):
             raise RuntimeError(
                 "La carte se recharge progressivement. Réessaie dans quelques instants.")
         LAST_REQUEST=now
-    try:
-        raw=web_business_map._json_http(
-            "overpass",web_business_map.OVERPASS,post=urlencode({"data":query}))
-    except Exception:
-        # Failed network attempts should not lock the application for another
-        # 12 seconds. No fabricated points are returned on provider failure.
+    raw=None
+    errors=[]
+    for index,endpoint in enumerate(OVERPASS_ENDPOINTS):
+        try:
+            # Different provider throttle keys avoid double-failing the fallback.
+            raw=web_business_map._json_http(
+                "overpass" if index==0 else "overpass_backup",
+                endpoint,post=urlencode({"data":query}))
+            if not isinstance(raw,dict) or "elements" not in raw:
+                raise RuntimeError("Réponse Overpass invalide.")
+            break
+        except Exception as exc:
+            errors.append(str(exc))
+    if raw is None:
+        # Failed network attempts should not block retry or invent businesses.
         with LOCK:
             LAST_REQUEST=0.0
-        raise
+        raise RuntimeError("Sources Overpass momentanément indisponibles : " +
+                           "; ".join(errors)[:350])
     items=[]
     seen=set()
     for row in (raw.get("elements") or [])[:650]:
