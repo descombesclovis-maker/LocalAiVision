@@ -287,6 +287,7 @@ def _french_registry_near(lat,lon,radius=2.5):
                 "name":location.get("nom_commercial") or
                        ((location.get("liste_enseignes") or [""])[0]) or
                        company.get("nom_complet") or company.get("nom_raison_sociale"),
+                "siret":siret,
                 "lat":y,"lon":x,"osm_id":"siret/"+siret,
                 "category":str(location.get("activite_principale") or "entreprise"),
                 "address":location.get("adresse") or "",
