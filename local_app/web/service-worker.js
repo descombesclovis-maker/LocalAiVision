@@ -1,9 +1,10 @@
 /* Application shell only. Never cache APIs, generated files, uploaded media or project content. */
-const CACHE='localai-shell-20261022-v1';
+const CACHE='localai-shell-20261028-brand-v2';
 const STATIC=new Set(['/assets/style.css','/assets/app.js','/assets/intent.js','/assets/styles.js',
  '/assets/localaiweb.css','/assets/localaiweb.js','/assets/localaiweb-map.css',
  '/assets/localaiweb-map.js','/assets/localaiweb-projects.css','/assets/localaiweb-projects.js',
- '/assets/app-icon.svg','/assets/manifest.webmanifest','/assets/pwa-install.js']);
+ '/assets/app-icon.svg','/assets/brand-vision.svg','/assets/brand-web.svg',
+ '/assets/brand-identity.svg','/assets/manifest.webmanifest','/assets/pwa-install.js']);
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll([...STATIC])).then(()=>self.skipWaiting()));
 });
