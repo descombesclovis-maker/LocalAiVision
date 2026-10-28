@@ -24,7 +24,7 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller pywebview reportlab
+          pip install pyinstaller pywebview reportlab pillow
 
       - name: Write build metadata
         id: meta
@@ -47,10 +47,15 @@ jobs:
       - name: Run regression tests
         run: python -m unittest discover -s tests -v
 
+      - name: Prepare branded Windows icon and PE metadata
+        run: python scripts/prepare_windows_brand.py
+
       - name: Build native executable
         shell: cmd
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --noupx --name LocalVisionAI ^
+            --icon "build\branding\LocalAiVision.ico" ^
+            --version-file "build\branding\version_info.txt" ^
             --collect-all webview ^
             --collect-all reportlab ^
             --hidden-import local_app ^
@@ -115,6 +120,34 @@ jobs:
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Optionally sign the EXE with an authentic Windows publisher certificate
+        shell: powershell
+        env:
+          WINDOWS_SIGN_CERT_B64: ${{ secrets.WINDOWS_SIGN_CERT_B64 }}
+          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_SIGN_CERT_B64 -or -not $env:WINDOWS_SIGN_CERT_PASSWORD) {
+            Write-Warning "No trusted Authenticode certificate configured: the EXE is unsigned. Windows may display SmartScreen warnings."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP "localai-signing.pfx"
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGN_CERT_B64))
+            $sign = Get-Command signtool.exe -ErrorAction SilentlyContinue
+            if (-not $sign) {
+              $sign = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+                Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+            }
+            if (-not $sign) { throw "Windows signtool.exe is not installed." }
+            & $sign.FullName sign /fd SHA256 /tr https://timestamp.digicert.com /td SHA256 /f $pfx /p $env:WINDOWS_SIGN_CERT_PASSWORD dist\LocalVisionAI.exe
+            if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed." }
+            $signature = Get-AuthenticodeSignature dist\LocalVisionAI.exe
+            if ($signature.Status -ne "Valid") { throw "Authenticode signature verification failed: $($signature.Status)" }
+            Write-Host "EXE signed and verified as $($signature.SignerCertificate.Subject)"
+          } finally {
+            Remove-Item -LiteralPath $pfx -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Package
         shell: powershell
         run: |
@@ -123,6 +156,8 @@ jobs:
           Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
           Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
           Compress-Archive -Path release\LocalVisionAI.exe -DestinationPath LocalVisionAI-Windows.zip -Force
+          $hash=(Get-FileHash -Algorithm SHA256 LocalVisionAI-Windows.zip).Hash.ToLowerInvariant()
+          "$hash  LocalVisionAI-Windows.zip" | Set-Content -Encoding ascii LocalVisionAI-Windows.sha256
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
@@ -139,7 +174,10 @@ jobs:
           body: |
             Build Windows automatique de LocalVisionAI.
             Utilisé par le bouton « Mettre à jour LocalAiVision ».
-          files: LocalVisionAI-Windows.zip
+            SHA-256 publié pour contrôle d'intégrité. La réputation SmartScreen requiert une signature Authenticode authentique et du temps : une compilation non signée peut encore susciter un avertissement.
+          files: |
+            LocalVisionAI-Windows.zip
+            LocalVisionAI-Windows.sha256
           make_latest: true
           draft: false
           prerelease: false
