@@ -1512,6 +1512,22 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
+        if u.path == "/api/web/map/categories":
+            from local_app import web_business_categories
+            self.send_json(web_business_categories.catalog())
+            return
+        if u.path == "/api/web/map/profile":
+            try:
+                from local_app import web_business_map, web_business_registry
+                token=parse_qs(u.query).get("selection_token",[""])[0]
+                business=web_business_map.selected_business(token)
+                result=web_business_registry.professional_profile(business)
+                if result.get("matched"):
+                    web_business_map.attach_professional_profile(token,result)
+                self.send_json({"profile":result})
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/map/search":
             try:
                 from local_app import web_business_map
@@ -1526,7 +1542,8 @@ class Handler(BaseHTTPRequestHandler):
                 args = parse_qs(u.query)
                 self.send_json(web_business_map.nearby_businesses(
                     args.get("lat", [""])[0], args.get("lon", [""])[0],
-                    args.get("radius", ["1500"])[0]))
+                    args.get("radius", ["1500"])[0],
+                    industry=args.get("industry",["all"])[0]))
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return

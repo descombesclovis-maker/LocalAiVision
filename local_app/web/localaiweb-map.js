@@ -5,6 +5,115 @@
  const results=$('mapResults'),feedback=$('mapFeedback'),selectedCard=$('mapSelection');
  let map=null, selected=null, points=[], markers=[], creating=false, busy=false;
  let provider='osm',googleMap=null,googleMarkers=[],googleConfig=null;
+ let categories=[],categorySearch='',selectionNonce=0;
+ const industry=$('industryFilter'),industrySearch=$('industrySearch');
+ function resetBusinessProfile(item){
+   selectionNonce++;
+   const details=[
+      ['Activité',item.category],['Site web',item.website],
+      ['Téléphone professionnel',item.phone],['Courriel professionnel',item.email],
+      ['Horaires déclarés',item.opening_hours],['Description',item.description],
+      ['Exploitant indiqué',item.operator]
+   ].filter(pair=>pair[1]);
+   const info=$('selectionPublicInfo');info.replaceChildren();
+   for(const [name,value] of details){
+     const row=createElement('p','business-fact');
+     const label=createElement('strong','',name+' : ');
+     row.append(label,document.createTextNode(String(value).slice(0,210)));
+     info.append(row);
+   }
+   const profile=$('professionalProfile');profile.replaceChildren();
+   const registryBtn=$('mapRegistry');
+   registryBtn.hidden=!(item.source||'').startsWith('OpenStreetMap');
+   registryBtn.disabled=false;
+   if(item.official_registry?.matched)showRegistry(item.official_registry);
+ }
+ function showRegistry(registry){
+   const area=$('professionalProfile');area.replaceChildren();
+   const paragraph=createElement('p','',registry.matched
+     ?'Registre public : '+registry.legal_name+' · SIREN '+registry.siren+
+       (registry.naf?' · NAF '+registry.naf:'')
+     : (registry.message||'Aucun renseignement légal confirmé.'));
+   area.append(paragraph);
+   if(registry.matched){
+     for(const officer of registry.officers||[]){
+       const title=createElement('p','',officer.name+' — '+officer.role);
+       area.append(title);
+     }
+     const disclaimer=createElement('small','',
+       'Dirigeants déclarés : pas nécessairement propriétaires. Données professionnelles à vérifier.');
+     area.append(disclaimer);
+     if(registry.source){
+       const a=createElement('a','', 'Consulter la source officielle ↗');
+       a.href=registry.source;a.target='_blank';a.rel='noopener noreferrer';area.append(a);
+     }
+   }
+ }
+ function filteredBusinesses(list, key){
+   if(!key||key==='all'||provider==='google')return list;
+   const category=categories.find(x=>x.id===key);
+   if(!category)return list;
+   return list.filter(item=>item.osm_category===category.value ||
+     (item.category||'').toLowerCase()===category.name.toLowerCase());
+ }
+ function listCategories(query=''){
+   const needle=query.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+   const selection=industry.value||'all';
+   industry.replaceChildren();
+   const matching=categories.filter(x=>!needle || x.id==='all' ||
+     x.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(needle) ||
+     x.group.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(needle));
+   for(const item of matching){
+     const opt=createElement('option','',item.name);
+     opt.value=item.id;
+     if(item.id===selection)opt.selected=true;
+     industry.append(opt);
+   }
+   if(!matching.some(x=>x.id===selection))industry.value='all';
+   if(matching.length)industry.disabled=false;
+ }
+ async function loadCategories(){
+   try{
+     const data=await api('/api/web/map/categories');
+     categories=(data.groups||[]).flatMap(group=>(group.items||[]).map(x=>({...x,group:group.label})));
+     $('industryTotal').textContent='('+data.count+' métiers)';
+     listCategories();
+   }catch(e){
+     $('industryTotal').textContent='(catégories indisponibles)';
+   }
+ }
+ industrySearch.addEventListener('input',()=>listCategories(industrySearch.value));
+ industry.addEventListener('change',()=>{
+   if(provider==='google'){
+     feedback.textContent='Le filtre des métiers est disponible sur OpenStreetMap. La recherche Google conserve sa propre recherche.';
+     return;
+   }
+   // Filter current results immediately without another network request.
+   // A new zone fetch also applies the selected category on the server.
+   if(points.length){
+     const matches=filteredBusinesses(points,industry.value);
+     for(const row of results.querySelectorAll('.result')){
+       const entry=points[Number(row.dataset.index)];
+       row.hidden=!matches.includes(entry);
+     }
+     feedback.textContent=matches.length+' établissement(s) correspondant au métier choisi dans les résultats actuels.';
+   }
+ });
+ $('mapRegistry').addEventListener('click',async()=>{
+   if(!selected?.selection_token)return;
+   const token=selected.selection_token, nonce=selectionNonce;
+   const btn=$('mapRegistry');btn.disabled=true;
+   $('professionalProfile').textContent='Recherche des données professionnelles publiques…';
+   try{
+     const response=await api('/api/web/map/profile?selection_token='+encodeURIComponent(token));
+     if(nonce!==selectionNonce)return;
+     showRegistry(response.profile);
+     if(response.profile?.matched)selected.official_registry=response.profile;
+   }catch(err){
+     if(nonce===selectionNonce)$('professionalProfile').textContent='Registre indisponible : '+err.message;
+   }finally{btn.disabled=false;}
+ });
+
  function text(id,value){$(id).textContent=String(value||'')}
  async function api(url,body){
    const options=body===undefined?{cache:'no-store'}:{
@@ -30,6 +139,7 @@
      return;
    }
    selected=item;
+   resetBusinessProfile(item);
    text('selectionTitle',item.name);
    text('selectionAddress',item.address||'Adresse à vérifier avec l’établissement');
    text('selectionCategory',(item.category||'Activité non précisée')+' · '+item.source);
@@ -41,7 +151,7 @@
    selectedCard.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function render(items){
-   points=items.filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon)&&x.name);
+   points=filteredBusinesses(items.filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon)&&x.name),industry.value);
    text('mapResultsCount',points.length ? points.length+' établissement(s) / lieu(x)' : '0');
    results.replaceChildren();
    selected=null;selectedCard.hidden=true;
@@ -116,7 +226,8 @@
      const center=map.getCenter();
      const radius=Math.max(350,Math.min(2200,Math.round(42000/Math.pow(2,map.getZoom()-10))));
      const query=new URLSearchParams({
-       lat:String(center.lat),lon:String(center.lng),radius:String(radius)});
+       lat:String(center.lat),lon:String(center.lng),radius:String(radius),
+       industry:industry.value||'all'});
      const response=await api('/api/web/map/nearby?'+query.toString());
      render(response.results||[]);
    }catch(err){feedback.textContent='Recherche de proximité indisponible : '+err.message;}
@@ -149,7 +260,7 @@
    feedback.textContent="La carte est indisponible sans connexion. Vérifie l'accès Internet.";
    return;
  }
- map=L.map('businessMap',{zoomControl:true}).setView([46.6,2.3],6);
+ map=L.map('businessMap',{zoomControl:true,worldCopyJump:true}).setView([20,4],2);
  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">contributeurs OpenStreetMap</a>',
     maxZoom:18,maxNativeZoom:18
@@ -207,6 +318,7 @@
      feedback.textContent='Carte gratuite : recherche une entreprise ou explore la zone.';
    }
  });
+ loadCategories();
  api('/api/web/map/config').then(config=>{
    googleConfig=config;
    if(config.enabled){
