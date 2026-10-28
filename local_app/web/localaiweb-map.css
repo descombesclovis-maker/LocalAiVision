@@ -55,3 +55,19 @@
 .place-card-footer .create-site{margin:0;min-height:49px;font-size:13px}
 #mapCreateError{margin-top:11px}
 @media(max-width:650px){.map-counter{top:10px;left:50%;font-size:10px;white-space:normal;max-width:calc(100% - 90px);padding:8px}.map-selection{max-height:76%;bottom:8px;top:auto;width:auto}.place-card-header{padding:16px}.place-card-scroll{padding:0 16px}.place-card-footer{padding:11px 15px max(11px,env(safe-area-inset-bottom,0px))}}
+
+/* Five real public-data opportunities, not fabricated businesses or sales odds. */
+.daily-prospects{position:absolute;top:61px;left:50%;transform:translateX(-50%);width:min(1060px,calc(100% - 34px));z-index:625;background:#191325f4;border:1px solid #765991;border-radius:15px;box-shadow:0 10px 36px #0007;padding:11px 14px;color:#f7edff}
+.daily-prospects-intro{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:12px;margin-bottom:7px}
+.daily-prospects-intro strong{font-size:13px}
+.daily-prospects-intro span{font-size:10px;color:#bfaace}
+.daily-prospects-list{display:flex;gap:8px;overflow-x:auto;padding:3px 0 4px;scrollbar-width:thin}
+.daily-prospect{flex:1 0 150px;min-width:0;max-width:250px;padding:9px 10px;border:1px solid #755a86;border-radius:9px;background:#30203c;color:#f4e9ff;text-align:left;cursor:pointer}
+.daily-prospect:hover,.daily-prospect:focus-visible{background:#46305d;border-color:#c1a1e9;outline-offset:2px}
+.daily-prospect strong{display:block;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.daily-prospect small{display:block;font-size:10px;margin-top:4px;color:#ccb3e1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.shop-photo-box{margin:14px 0 2px;padding:0;border:1px solid #645578;border-radius:12px;background:linear-gradient(135deg,#342c40,#272133);overflow:hidden;min-height:96px;display:grid;place-items:center}
+.shop-photo-box img{width:100%;height:180px;max-height:240px;object-fit:cover;display:block}
+.shop-photo-box img[hidden]{display:none}
+.shop-photo-box figcaption{font-size:10px;line-height:1.55;color:#c8bcd7;padding:10px 14px;text-align:center}
+@media(max-width:700px){.daily-prospects{top:51px;padding:9px 10px;width:calc(100% - 12px)}.daily-prospects-intro{gap:3px}.daily-prospects-intro strong{font-size:11px}.daily-prospects-intro span{font-size:9px}.daily-prospect{flex:0 0 155px}.shop-photo-box img{height:145px}}
