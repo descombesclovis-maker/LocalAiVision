@@ -1829,7 +1829,10 @@ class Handler(BaseHTTPRequestHandler):
                 _web_progress(project_id, "planning", "Analyse du projet et choix de l'agent…")
                 meta = store.meta(project_id)
                 settings = meta.get("settings") or {}
-                provider = str(settings.get("ai_provider") or "auto")
+                # Claude Code is the intended LocalAiWeb creative engine.
+                # Existing projects without a provider also use Claude; an
+                # explicitly selected alternative remains an opt-in decision.
+                provider = str(settings.get("ai_provider") or "claude")
                 available = integrations_cli.status()
                 agent_name = web_hybrid.select_coding_agent(
                     provider, available,
