@@ -154,3 +154,9 @@ body.is-landing .engine-recovery{background:#f8f2ff;color:#553277}
 
 /* Preserve the clean branded entry screen; present repair when entering a workspace. */
 body.is-landing .engine-recovery{display:none!important}
+
+/* Actual fix for the topbar + 100%-height content overflow on Windows. */
+.main{display:flex;flex-direction:column;height:100%;min-height:0}
+.main-topbar{flex:0 0 76px}
+.content{height:auto;flex:1 1 auto;min-height:0;overflow:hidden}
+@media(max-height:650px){.main-topbar{flex-basis:62px}}
