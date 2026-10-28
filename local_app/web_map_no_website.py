@@ -169,7 +169,7 @@ def _load(key, query, mode):
         try:
             # Different provider throttle keys avoid double-failing the fallback.
             raw=web_business_map._json_http(
-                "overpass" if index==0 else "overpass_backup"+str(index),
+                "overpass" if index==0 else "overpass_backup" if index==1 else "overpass_backup2",
                 endpoint,post=urlencode({"data":query}))
             if not isinstance(raw,dict) or "elements" not in raw:
                 raise RuntimeError("Réponse Overpass invalide.")
