@@ -38,13 +38,13 @@ def normalize(value):
 
 _CHAIN_NORMALIZED=tuple(sorted({normalize(n) for n in CHAINS},key=len,reverse=True))
 _EXCLUDED_ACTIVITY={
-    "supermarket","department_store","mall","wholesale","warehouse",
-    "trade","industrial","factory","storage_rental","distribution_centre",
+    "supermarket","department store","mall","wholesale","warehouse",
+    "trade","industrial","factory","storage rental","distribution centre",
 }
 # Official French employee bracket codes: 11 = 10–19; 12 = 20–49.
 _SMALL_BRACKETS={"00","01","02","03","11","NN",""}
 _BIG_SIZES={"ETI","GE","GRANDE ENTREPRISE","GRANDE_ENTREPRISE","LARGE"}
-_EXCLUDED_NAF_PREFIX=("46.","47.11","47.19","47.30","64.","65.","66.")
+_EXCLUDED_NAF_PREFIX=("46.","47.30","64.","65.","66.")
 
 
 def eligible(row):
