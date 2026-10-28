@@ -26,6 +26,23 @@ def plan(request):
     shop=bool(re.search(r"\b(?:boutique en ligne|e-?commerce|catalogue|fiche\w* produit|panier)\b",text))
     contact=bool(re.search(r"\b(?:contact|adresse|horaires?|localisation|acces)\b",text))
     about=bool(re.search(r"\b(?:a propos|notre equipe|qui sommes-nous|notre histoire)\b",text))
+    # Industry-aware defaults. A stylist needs a short booking path;
+    # a handmade-soap retailer needs proper catalog and product details.
+    salon=bool(re.search(r"\b(?:coiffeur\w*|coiffure|barbier\w*|hairdress\w*|barber\w*)\b",text))
+    products=bool(re.search(
+        r"\b(?:savon\w*|cosmetique\w*|produit\w* artisan\w*|e-?commerce|boutique en ligne)\b",text))
+    # A company map brief often says 'do not invent appointment booking' in
+    # disclaimers. Do not turn that negative instruction into a requirement.
+    if salon and not (single and not explicit_multi):
+        return {"mode":"multi","pages":[("home","Accueil","/"),
+                ("booking","Rendez-vous","/rendez-vous")],
+                "reason":"Coiffure : présentation rapide sur l'accueil et parcours de rendez-vous dédié."}
+    if products and not (single and not explicit_multi):
+        return {"mode":"multi","pages":[("home","Accueil","/"),
+                ("catalog","Catalogue","/catalogue"),
+                ("product","Fiches produits","/produits"),
+                ("contact","Contact et informations","/contact")],
+                "reason":"Commerce de produits : catalogue, fiches individuelles et accès aux informations utiles."}
     # A typical professional service business has one focused home plus
     # dedicated pages for service details, past work and scheduling.
     roles=[]
@@ -77,6 +94,7 @@ _ROUTE_ALIASES={
  "gallery":("realisations","galerie","portfolio","avant-apres"),
  "booking":("rendez-vous","reservation","rendezvous","prendre-rdv","rdv"),
  "catalog":("boutique","catalogue","produits","shop"),
+ "product":("produits","produit","fiches-produits","product"),
  "about":("a-propos","about","equipe","histoire"),
  "contact":("contact",),
 }
