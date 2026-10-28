@@ -220,16 +220,38 @@ def build_project(site_dir):
     scripts = config.get("scripts") or {}
     if "build" not in scripts:
         raise RuntimeError("Ce projet possède package.json mais aucun script npm build.")
-    install_args = [npm, "ci"] if (site / "package-lock.json").is_file() else [npm, "install"]
-    installed = _run(install_args, cwd=site, timeout=900)
-    if installed.returncode != 0:
-        raise RuntimeError((installed.stderr or installed.stdout or "npm install impossible").strip()[-5000:])
+    # Dependencies are not source code: reinstalling them after every
+    # quality review/repair can add several minutes per pass. Reuse only if
+    # both manifests are identical to the last successful installation.
+    import hashlib
+    def dependency_fingerprint():
+        digest=hashlib.sha256()
+        for name in ("package.json","package-lock.json"):
+            file=site/name
+            digest.update(name.encode("ascii"))
+            if file.is_file():digest.update(file.read_bytes())
+        return digest.hexdigest()
+    cache=site/".localaiweb-qa"/"npm-dependencies.sha256"
+    fingerprint=dependency_fingerprint()
+    ready=(site/"node_modules").is_dir() and cache.is_file()
+    if ready:
+        try:ready=cache.read_text(encoding="ascii").strip()==fingerprint
+        except OSError:ready=False
+    if not ready:
+        install_args=[npm,"ci"] if (site/"package-lock.json").is_file() else [npm,"install"]
+        install_args += ["--prefer-offline","--no-audit","--no-fund"]
+        installed=_run(install_args,cwd=site,timeout=360)
+        if installed.returncode!=0:
+            raise RuntimeError("Installation des dépendances trop longue ou impossible : "+
+                               (installed.stderr or installed.stdout or "npm install impossible").strip()[-2200:])
+        cache.parent.mkdir(parents=True,exist_ok=True)
+        cache.write_text(dependency_fingerprint(),encoding="ascii")
     build_args = [npm, "run", "build"]
     # Preview is hosted at /web-preview/<project>/; absolute /assets would
     # incorrectly point at the editor's own bundled files.
     if "vite build" in str(scripts.get("build", "")) and "--base" not in str(scripts.get("build", "")):
         build_args += ["--", "--base=./"]
-    built = _run(build_args, cwd=site, timeout=900)
+    built = _run(build_args, cwd=site, timeout=360)
     if built.returncode != 0:
         raise RuntimeError((built.stderr or built.stdout or "npm run build impossible").strip()[-5000:])
     candidates = [site / "dist", site / "build", site / "out", site / ".next" / "static"]
