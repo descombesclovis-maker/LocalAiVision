@@ -220,6 +220,24 @@ try {
     Wait-Process -Id $ParentPid -Timeout 120 -ErrorAction SilentlyContinue
   }
   Start-Sleep -Milliseconds 900
+  # Another process can keep the old HTTP port open even after the updater
+  # parent has exited. Never swap while a different server owns localhost.
+  $portBusy = $false
+  for ($portAttempt=0; $portAttempt -lt 60; $portAttempt++) {
+    try {
+      $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction Stop)
+      if ($listeners.Count -eq 0) { $portBusy = $false; break }
+      $portBusy = $true
+    } catch {
+      $portBusy = $false
+      break
+    }
+    Start-Sleep -Milliseconds 500
+  }
+  if ($portBusy) {
+    throw "Port 3000 toujours utilise par une autre instance : installation reportee pour eviter un redemarrage defectueux."
+  }
+  Write-UpdateLog "Original app stopped; HTTP port 3000 is available."
   if (-not (Test-Path -LiteralPath $CurrentExe -PathType Leaf)) {
     throw "Ancien executable absent ; abandon pour proteger les donnees."
   }
@@ -249,28 +267,40 @@ try {
 
   $newProcess = Start-Process -FilePath $CurrentExe -WorkingDirectory (Split-Path -Parent $CurrentExe) -PassThru
   $healthy = $false
+  $observedBuild = "aucun"
   for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep -Seconds 1
     $newProcess.Refresh()
-    if ($newProcess.HasExited) {
-      throw "Nouvel executable quitte immediatement (code $($newProcess.ExitCode)). DLL PyInstaller ou dependance peut-etre indisponible."
-    }
     try {
       $ping = Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/ping" -TimeoutSec 2
+      $observedBuild = [string]$ping.build_tag
       if ($ping.app -eq "LocalVisionAI" -and $ping.build_tag -eq $ExpectedBuild) {
         $healthy = $true
         break
       }
     } catch { }
+    if ($newProcess.HasExited -and $i -ge 5) {
+      throw "Nouvel EXE termine avec code $($newProcess.ExitCode) sans demarrer le build $ExpectedBuild. Port observe : $observedBuild."
+    }
   }
   if (-not $healthy) {
-    throw "Nouvelle version non operationnelle : verification HTTP/build echouee apres 90 secondes."
+    throw "Nouvelle version non operationnelle apres verification HTTP. Build attendu : $ExpectedBuild, observe : $observedBuild."
   }
   Write-UpdateLog "Update confirmed healthy: $ExpectedBuild. Keeping project and model data unchanged."
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
 } catch {
   Write-UpdateLog ("Update failed: " + $_.Exception.Message)
+  # Preserve the actual reason in update.log. A .failed file is a renamed
+  # Windows executable, not the diagnostic log.
+  try {
+    $startupLog = Join-Path (Split-Path -Parent $LogPath) "startup.log"
+    if (Test-Path -LiteralPath $startupLog -PathType Leaf) {
+      Get-Content -LiteralPath $startupLog -Tail 16 -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-UpdateLog ("STARTUP: " + $_)
+      }
+    }
+  } catch { }
   try {
     if ($newProcess) {
       $newProcess.Refresh()
@@ -302,10 +332,13 @@ try {
 
 
 def _exit_for_update():
+    # Never leave the old local web server holding port 3000 if a model worker
+    # refuses to terminate. Engine shutdown remains best-effort.
     try:
-        stop_engines()
+        threading.Thread(target=stop_engines, daemon=True).start()
     except Exception:
         pass
+    time.sleep(0.8)
     os._exit(0)
 
 
