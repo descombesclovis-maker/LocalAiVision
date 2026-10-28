@@ -114,6 +114,10 @@ class CommercialWorkflowTests(unittest.TestCase):
         self.assertIn('id="auditDialog"',client_html)
         self.assertIn("showAudit(p.id,p.name)",client_js)
         self.assertIn("/api/web/preflight?id=",client_js)
+        self.assertIn('id="exportClients"',client_html)
+        self.assertIn("function exportClients()",client_js)
+        self.assertIn("URL.createObjectURL",client_js)
+        self.assertIn("LocalAiWeb-clients-",client_js)
         self.assertIn("/api/web/asset/import-generation",(ROOT/"local_app/server.py").read_text(encoding="utf-8"))
         server=(ROOT/"local_app/server.py").read_text(encoding="utf-8")
         for route in ("/localaiweb/clients","/api/web/crm/overview",
