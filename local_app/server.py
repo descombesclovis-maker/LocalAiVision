@@ -241,6 +241,20 @@ try {
     throw "SHA256 different apres copie locale."
   }
   Write-UpdateLog "Staged EXE verified: $expectedLength bytes, SHA256 $expectedHash"
+  # Signature policies are never bypassed. If a verified publisher already
+  # signed the installed EXE, reject unsigned/differently signed replacements.
+  $oldSignature = Get-AuthenticodeSignature -FilePath $CurrentExe -ErrorAction SilentlyContinue
+  $newSignature = Get-AuthenticodeSignature -FilePath $NewExe -ErrorAction SilentlyContinue
+  if ($oldSignature -and $oldSignature.Status -eq "Valid") {
+    if (-not $newSignature -or $newSignature.Status -ne "Valid") {
+      throw "Mise a jour non signee refusee : l'ancienne version possede une signature valide."
+    }
+    if ($oldSignature.SignerCertificate.Thumbprint -ne $newSignature.SignerCertificate.Thumbprint) {
+      throw "Certificat de signature different : mise a jour refusee."
+    }
+  } elseif (-not $newSignature -or $newSignature.Status -ne "Valid") {
+    Write-UpdateLog "EXE unsigned: release SHA256 was verified, but Windows SmartScreen reputation is not guaranteed."
+  }
 
   # Wait for the old frozen bootloader process to release LocalVisionAI.exe.
   if ($ParentPid -gt 0) {
