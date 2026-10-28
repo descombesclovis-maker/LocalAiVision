@@ -74,7 +74,7 @@ class FreeformDesignTests(TestCase):
             self.assertIn('name="'+field+'"',html)
         self.assertIn('id="lawDesignForm"',html)
         self.assertIn("/api/web/project/design-profile",js)
-        self.assertIn("designDialog.showModal()",js)
+        self.assertIn("dialog.showModal()",js)
         self.assertNotIn("Signature 3D",html)
         self.assertNotIn("Décris-moi le site que tu imagines",html)
         self.assertNotIn("renderBriefQuestion",js)
