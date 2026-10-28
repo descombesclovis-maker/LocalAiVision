@@ -1,5 +1,5 @@
 /* France-first, no-search, no-filters OpenStreetMap business discovery.
-   Purple dots = businesses whose website is NOT RECORDED in OSM.
+   Green dot = no recorded website; red dot = website recorded. This is not a verified web audit.
    At country scale a single cached, distributed sample is displayed;
    detail loads progressively as the map is zoomed into a town. */
 (()=>{
@@ -28,6 +28,22 @@
    $('selectionCategory').textContent=item.category||'Établissement';
    $('selectionAddress').textContent=item.address||'Adresse non renseignée';
    $('mapCreateError').textContent='';
+   const recorded=!!item.website_recorded;
+   $('selectionNotice').textContent=recorded
+     ?'Un site internet est renseigné dans OpenStreetMap. Le lien et son fonctionnement restent à vérifier.'
+     :'Aucun site n’est renseigné dans OpenStreetMap : cela ne prouve pas que l’entreprise n’en possède pas.';
+   const siteLink=$('companyWebsite');
+   siteLink.hidden=true;siteLink.removeAttribute('href');
+   if(recorded && item.website){
+     try{
+       const url=new URL(item.website);
+       if(['https:','http:'].includes(url.protocol) && !url.username && !url.password){
+         siteLink.href=url.href;
+         siteLink.hidden=false;
+         siteLink.textContent='↗ Consulter le site existant : '+url.hostname;
+       }
+     }catch{}
+   }
    const facts=$('selectionPublicInfo');facts.replaceChildren();
    const rows=[
      ['Téléphone',item.phone],['Courriel professionnel',item.email],
@@ -66,13 +82,14 @@
    let added=0;
    for(const business of records||[]){
      if(!business||!business.id||!Number.isFinite(business.lat)||!Number.isFinite(business.lon))continue;
-     if(business.website || business.kind==='location')continue;
+     if(business.kind==='location')continue;
      if(markers.has(business.id))continue;
      if(markers.size>=2600)break;
      known.set(business.id,business);
+     const color=business.website_recorded?'#e14959':'#27bd72';
      const marker=L.circleMarker([business.lat,business.lon],{
-       radius:3.2,color:'#995afa',weight:0,stroke:false,
-       fill:true,fillColor:'#995afa',fillOpacity:0.94,
+       radius:3.1,color,weight:0,stroke:false,
+       fill:true,fillColor:color,fillOpacity:0.96,
      }).addTo(map);
      marker.bindTooltip(business.name,{direction:'top',opacity:0.96});
      marker.on('click',()=>details(business));
@@ -88,8 +105,9 @@
    try{
      const response=await api('/api/web/map/no-website/france');
      const added=insert(response.results);
-     setStatus(known.size+' établissements sans site renseigné dans OSM affichés. '+
-       'Aperçu partiel : zoome sur une ville pour obtenir des résultats locaux.');
+     const red=[...known.values()].filter(p=>p.website_recorded).length;
+     setStatus(known.size+' établissements affichés ('+red+' rouges avec site indiqué, '+
+       (known.size-red)+' verts sans site renseigné). Aperçu partiel : zoome sur une ville.');
    }catch(err){
      setStatus('La carte reste utilisable. Données d’entreprises momentanément indisponibles : '+err.message);
    }finally{
@@ -108,14 +126,15 @@
      return;
    }
    loading=true;previousArea=key;
-   setStatus('Recherche d’établissements sans site renseigné dans cette zone…');
+   setStatus('Recherche d’établissements dans cette zone…');
    try{
      const query=new URLSearchParams({lat:String(center.lat),lon:String(center.lng),
                                     zoom:String(map.getZoom())});
      const response=await api('/api/web/map/no-website/nearby?'+query.toString());
      const count=insert(response.results);
-     setStatus(count+' nouveaux points violets dans cette zone · '+known.size+
-       ' fiches chargées au total. Absence de site à vérifier avant démarchage.');
+     const red=[...known.values()].filter(p=>p.website_recorded).length;
+     setStatus(count+' nouveaux établissements dans cette zone · '+red+' rouges, '+
+       (known.size-red)+' verts au total. Présence de site à vérifier.');
    }catch(err){
      previousArea='';
      setStatus('Recherche temporairement indisponible : '+err.message);
