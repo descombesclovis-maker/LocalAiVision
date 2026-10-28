@@ -40,3 +40,12 @@
 .composer-bottom #lawChatStatus{flex:1;min-width:0}
 @media(max-width:620px){.studio{min-height:100dvh;grid-template-rows:minmax(300px,52%) minmax(240px,48%)}.chat-header{gap:8px}.globe-tool{width:40px;height:40px}.chat-composer{margin-bottom:max(8px,env(safe-area-inset-bottom))}.view-modes button{min-height:32px}.chat-history{font-size:13px}}
 @media(max-width:380px){.chat-header .update-action{display:none}.preview-heading{max-width:22%}}
+
+/* A world-prospecting globe remains accessible even before site generation. */
+.site-tools a{height:35px;width:35px;display:grid;place-items:center;border-radius:9px;border:1px solid #66538b;background:#31233f;color:#dec7ff;cursor:pointer;text-decoration:none}
+.site-tools a:hover{background:#593a7a;border-color:#b58ae7;color:#fff}
+.site-tools a:focus-visible{outline:2px solid #d0b7ff;outline-offset:2px}
+.law-world-tools{flex:none}
+.law-world-tools svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:960px){.site-tools a{width:30px;height:30px}}
+@media(max-width:620px){.site-tools a{width:26px;height:26px}}
