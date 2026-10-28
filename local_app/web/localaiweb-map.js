@@ -73,7 +73,6 @@
      const marker=L.circleMarker([business.lat,business.lon],{
        radius:3.2,color:'#995afa',weight:0,stroke:false,
        fill:true,fillColor:'#995afa',fillOpacity:0.94,
-       renderer:L.canvas({padding:0.25})
      }).addTo(map);
      marker.bindTooltip(business.name,{direction:'top',opacity:0.96});
      marker.on('click',()=>details(business));
