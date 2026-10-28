@@ -18,11 +18,16 @@
  }
  function home(){
    // Opening a new empty thread never discards existing saved conversations.
-   if(!activeConversationId || (conversations[activeConversationId]?.messages||[]).length) {
+   const current=activeConversationId?conversations[activeConversationId]:null;
+   if(!current || current.profile==='nsfw' || (current.messages||[]).length) {
      createBlankConversation('auto');
    } else {
      openConversation(activeConversationId);
    }
+   // The landing is always a neutral chat. Never inherit NSFW mode or a
+   // forced video workflow from a prior dedicated creation session.
+   byId('taskMode').value='auto';
+   updateCreationModeGuide();
    welcome.classList.remove('hidden');
    messages.replaceChildren();
    document.body.classList.remove('is-chatting','show-diagnostics');
@@ -183,7 +188,10 @@
  function historyPaint(){
    historyList.replaceChildren();
    const query=historySearch.value.toLocaleLowerCase('fr');
-   const rows=Object.values(conversations).filter(c=>(c.title||'').toLocaleLowerCase('fr').includes(query))
+   const nsfwHistory=activeConversationId && conversations[activeConversationId]?.profile==='nsfw';
+   const rows=Object.values(conversations)
+     .filter(c=>(c.profile==='nsfw')===!!nsfwHistory)
+     .filter(c=>(c.title||'').toLocaleLowerCase('fr').includes(query))
      .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
    if(!rows.length){
      const empty=document.createElement('p');empty.textContent='Aucune conversation à afficher.';
