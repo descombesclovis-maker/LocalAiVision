@@ -284,10 +284,25 @@
  };
  setTimeout(showFrance,300);
  window.addEventListener('resize',()=>{map.invalidateSize({pan:false});scheduleRedraw()});
- L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+ // Independent base-tile fallback, separate from the company directory.
+ // If the standard OSM tile endpoint is unreachable, public CARTO tiles
+ // can still show roads while official French directory pins load.
+ const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
    attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
    maxZoom:18,maxNativeZoom:18
  }).addTo(map);
+ let fallbackUsed=false,tileFailures=0;
+ osm.on('tileerror',()=>{
+   tileFailures++;
+   if(tileFailures<3||fallbackUsed)return;
+   fallbackUsed=true;
+   map.removeLayer(osm);
+   L.tileLayer('https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',{
+     maxZoom:18,maxNativeZoom:18,
+     attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · © CARTO'
+   }).addTo(map);
+   setStatus('Carte de fond alternative activée. '+countLabel());
+ });
  map.on('moveend',scheduleNearby);
  map.on('zoomend',scheduleRedraw);
  overview();
