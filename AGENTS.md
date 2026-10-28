@@ -17,7 +17,7 @@ All coding agents (Codex, Claude Code and collaborators) working in this reposit
 6. Keep changes in a reviewable branch/PR until checks pass. Make no silent force pushes.
 
 ## Agent routing and budget
-- LocalAiWeb's default coding engine is **Claude Code CLI**, explicitly requested for high-end website creation. If unavailable or unauthenticated on the user's Windows PC, fail with clear setup guidance instead of silently falling back to Codex or the local ChatGPT-style generator. An explicitly configured project may still select Codex/local. Do not trigger paid API charges without authorization.
+- LocalAiWeb's default coding engine is **Codex CLI signed in with the user's ChatGPT Plus account**, explicitly selected for premium site generation without another subscription. If unavailable or unauthenticated on the user's Windows PC, fail with clear setup guidance instead of silently falling back to Claude Code, local Qwen or a paid API. Projects may explicitly select Claude Code; only such explicit opt-in allows that provider. Do not purchase API credit, install packages or enable billing without authorization.
 - Use distinct passes for briefing, code changes, browser QA and targeted repair. Treat a passing build as necessary but insufficient; do not certify artistic quality without actual visual review.
 
 ## LocalAiWeb design and generation
