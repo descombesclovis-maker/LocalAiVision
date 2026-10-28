@@ -33,7 +33,7 @@ class ProSaleTests(unittest.TestCase):
             self.assertNotIn(element,page)
         self.assertIn('id="businessMap"',page)
         self.assertIn('id="mapCreate"',page)
-        self.assertIn('id="companyWebsite"',page)
+        self.assertIn('id="selectionWebsite"',page)
         self.assertIn("setView([46.60,2.28],6)",js)
         self.assertIn("function scheduleNearby()",js)
         self.assertIn(".map-selection",css)
