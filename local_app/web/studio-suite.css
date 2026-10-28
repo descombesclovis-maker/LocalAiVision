@@ -67,3 +67,20 @@ button:not(:disabled):hover,a:hover{border-color:#ac86dc}
 .agent-control:disabled{opacity:.55;cursor:wait}
 @media(max-width:900px){.chat-header{padding:10px;flex-wrap:wrap}.chat-header .chat-brand{min-width:175px}.chat-composer{margin-inline:8px}}
 @media(max-width:620px){.studio{grid-template-rows:minmax(0,56dvh) minmax(0,44dvh);min-height:0}.chat-composer{padding:9px;max-height:33dvh}#lawPrompt{min-height:48px;max-height:13dvh}.chat-header .update-action{display:none}}
+
+/* Codex is the chosen first-party ChatGPT Plus agent; provider switch is explicit. */
+.agent-workspace{display:flex;flex-direction:column;align-items:stretch;flex:0 1 174px;min-width:146px;gap:5px}
+.agent-select{appearance:auto;color:#f2e6ff;background:#291a3b;border:1px solid #7957a8;border-radius:10px;font:650 11px system-ui;padding:7px 6px;min-height:34px;width:100%;cursor:pointer}
+.agent-select option{background:#1c1529;color:#f2e6ff}
+.agent-workspace .agent-control{width:100%;font-size:10px;padding:6px 8px;min-height:32px;white-space:normal;justify-content:center}
+.agent-workspace :is(select,button):focus-visible{outline:3px solid #c8a8f7;outline-offset:2px}
+.cinema-toggle{min-height:38px;flex:0 0 auto;white-space:nowrap;border-radius:12px;padding:8px 12px;font:700 11px system-ui;border:1px solid #8862b5;background:#241734;color:#e8caff;cursor:pointer;transition:background .17s,border-color .17s,box-shadow .17s}
+.cinema-toggle:hover:not(:disabled){background:#533273}
+.cinema-toggle.active,.cinema-toggle[aria-pressed="true"]{background:linear-gradient(125deg,#6435a7,#9557dd);border-color:#ce9dff;color:#fff;box-shadow:0 0 17px #8246cf55}
+.cinema-toggle:focus-visible{outline:3px solid #bb8aee;outline-offset:3px}
+.chat-header{flex-wrap:wrap;gap:10px}
+.chat-header .chat-brand{flex:1 1 180px}
+.chat-composer .composer-bottom{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.chat-composer #lawChatStatus{flex:1 1 130px;min-width:0}
+@media(max-width:960px){.agent-workspace{flex:1 1 165px;max-width:220px}.chat-header{padding:12px}}
+@media(max-width:620px){.agent-workspace{max-width:100%;flex:1 1 135px}.cinema-toggle{font-size:10px;padding:7px 8px}.chat-composer #lawChatStatus{flex:1 1 100px}}
