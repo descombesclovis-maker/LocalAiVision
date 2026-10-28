@@ -35,7 +35,8 @@
     <section class="panel" aria-labelledby="clientsHeading">
       <div class="panel-head">
         <div><span class="kicker">RELATION CLIENT</span><h2 id="clientsHeading">Portefeuille</h2></div>
-        <label class="filter">Rechercher un client<input type="search" id="clientSearch" placeholder="Nom, ville, SIRET…" autocomplete="off"></label>
+        <div class="client-toolbar"><button type="button" id="exportClients" class="secondary" title="Exporter les fiches client sur cet ordinateur">Exporter CSV ↗</button>
+        <label class="filter">Rechercher un client<input type="search" id="clientSearch" placeholder="Nom, ville, SIRET…" autocomplete="off"></label></div>
       </div>
       <div id="clientGrid" class="client-grid" aria-label="Clients enregistrés"></div>
     </section>
