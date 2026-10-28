@@ -52,6 +52,7 @@
    $('selectionTitle').textContent=item.name||'Établissement';
    $('selectionCategory').textContent=item.category||'Entreprise';
    setValue('selectionAddress',item.address||[item.postcode,item.city].filter(Boolean).join(' '));
+   setValue('selectionSiret',item.siret);
    const phone=setValue('selectionPhone',item.phone);
    if(item.phone&&/^[+()\d.\-\s]{5,30}$/.test(item.phone))
      appendSafeLink(phone,'tel:'+item.phone.replace(/[\s.()-]/g,''),'tel:',item.phone);
