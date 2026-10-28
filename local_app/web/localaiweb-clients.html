@@ -25,6 +25,12 @@
       <div class="metric"><span>Propositions enregistrées</span><strong id="metricQuotes">—</strong></div>
       <div class="metric"><span>Factures émises</span><strong id="metricInvoices">—</strong></div>
       <div class="metric"><span>Projets web</span><strong id="metricProjects">—</strong></div>
+      <div class="metric priority-metric"><span>Relances à effectuer</span><strong id="metricDue">—</strong></div>
+    </section>
+    <section class="panel followups-panel" aria-labelledby="followupsHeading">
+      <div class="panel-head"><div><span class="kicker">ACTIONS PRIORITAIRES</span><h2 id="followupsHeading">Relances commerciales</h2></div><span class="manual-badge">Sans envoi automatique</span></div>
+      <p class="help">Retrouve les contacts à rappeler et leurs échéances. Les relances sont enregistrées localement, aucun message n'est envoyé sans toi.</p>
+      <div id="followupsGrid" class="followups-grid" aria-live="polite"></div>
     </section>
     <section class="panel" aria-labelledby="clientsHeading">
       <div class="panel-head">
@@ -51,17 +57,26 @@
   <div class="fields">
     <label class="wide">Entreprise / client *<input id="crmName" maxlength="120" required autocomplete="organization" placeholder="Nom exact de l’entreprise"></label>
     <label>Contact professionnel<input id="crmContact" maxlength="120" placeholder="Personne de contact (facultatif)"></label>
-    <label>Étape du projet<select id="crmStage"><option value="prospect">Prospect</option><option value="contacted">Contacté</option><option value="proposal">Devis envoyé</option><option value="accepted">Devis accepté</option><option value="in_progress">En production</option><option value="delivered">Livré</option><option value="won">Client actif</option><option value="lost">Sans suite</option></select></label>
+    <label>Étape du projet<select id="crmStage"><option value="prospect">Prospect</option><option value="contacted">Contacté</option><option value="proposal">Devis préparé</option><option value="accepted">Devis accepté</option><option value="in_progress">En production</option><option value="delivered">Livré</option><option value="won">Client actif</option><option value="lost">Sans suite</option></select></label>
     <label>Courriel professionnel<input id="crmEmail" type="email" maxlength="150" placeholder="contact@entreprise.fr"></label>
     <label>Téléphone professionnel<input id="crmPhone" maxlength="35" type="tel"></label>
     <label class="wide">Adresse de facturation / établissement<input id="crmAddress" maxlength="250"></label>
     <label>SIRET (si connu)<input id="crmSiret" inputmode="numeric" maxlength="14"></label>
     <label>Projet LocalAiWeb<select id="crmProject"><option value="">Aucun projet associé</option></select></label>
+    <label>Prochaine relance<input id="crmNextContact" type="date" min="2000-01-01" max="2100-12-31"></label>
     <label class="wide">Notes internes<textarea id="crmNotes" maxlength="1300" rows="4" placeholder="Besoin client, prochaines étapes, points à vérifier…"></textarea></label>
   </div>
   <div id="clientError" role="alert"></div>
   <div class="dialog-actions"><button id="cancelClient" class="secondary" type="button">Annuler</button><button id="saveClient" class="primary" type="submit">Enregistrer la fiche</button></div>
  </form>
+</dialog>
+<dialog id="auditDialog" class="audit-dialog" aria-labelledby="auditTitle">
+  <div class="dialog-head"><div><span class="kicker">CONTRÔLE TECHNIQUE · LOCALAIWEB</span><h2 id="auditTitle">Préparation avant livraison</h2></div><button type="button" id="auditClose" aria-label="Fermer">×</button></div>
+  <div id="auditFeedback" role="status" aria-live="polite">Vérification du projet…</div>
+  <div class="audit-score"><strong id="auditScore">—</strong><span id="auditVerdict">Analyse en cours</span></div>
+  <div id="auditChecks" class="audit-checks"></div>
+  <p class="help">Ce contrôle vérifie automatiquement le code et certains critères d'accessibilité. Il ne remplace pas les tests visuels, les vérifications légales, les vrais paiements ni l'accord du client.</p>
+  <a id="auditEditor" class="primary audit-editor" href="/localaiweb">Corriger dans l'éditeur ↗</a>
 </dialog>
 <script src="/assets/localaiweb-clients.js"></script>
 </body></html>
