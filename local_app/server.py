@@ -121,6 +121,31 @@ def update_status():
     }
 
 
+def update_diagnostics():
+    """Read a bounded local updater log; the .failed file is a binary, not a log."""
+    path=DATA / "logs" / "update.log"
+    if not path.is_file():
+        return {"ok":True, "state":"never", "message":"Aucune mise à jour effectuée.", "log_path":str(path)}
+    with path.open("rb") as stream:
+        stream.seek(max(0,path.stat().st_size-32000))
+        lines=stream.read().decode("utf-8-sig",errors="replace").splitlines()
+    starts=[i for i,line in enumerate(lines) if "Updater started." in line]
+    tail=lines[starts[-1]:] if starts else lines[-50:]
+    failed=next((line for line in reversed(tail) if "Update failed:" in line),"")
+    healthy=any("Update confirmed healthy:" in line for line in tail)
+    if healthy:
+        state="success"
+        message="La dernière mise à jour a démarré correctement."
+    elif failed:
+        state="failed"
+        message=failed.split("Update failed:",1)[-1].strip()
+    else:
+        state="in_progress"
+        message="Dernier journal : "+(tail[-1][-300:] if tail else "en cours")
+    return {"ok":True,"state":state,"message":message[:500],
+            "log_path":str(path),"recent_lines":tail[-22:]}
+
+
 def _download_update_exe(release, asset):
     safe_tag = re.sub(r'[^A-Za-z0-9._-]+', '_', str(release.get('tag_name') or 'latest'))
     folder = DATA / 'updates' / safe_tag
@@ -185,6 +210,8 @@ $incoming = "$CurrentExe.incoming"
 $failed = "$CurrentExe.failed"
 $newProcess = $null
 $replaced = $false
+$fallbackInstall = $false
+$originalExe = $CurrentExe
 
 function Write-UpdateLog([string]$Text) {
   try {
@@ -214,6 +241,20 @@ try {
     throw "SHA256 different apres copie locale."
   }
   Write-UpdateLog "Staged EXE verified: $expectedLength bytes, SHA256 $expectedHash"
+  # Signature policies are never bypassed. If a verified publisher already
+  # signed the installed EXE, reject unsigned/differently signed replacements.
+  $oldSignature = Get-AuthenticodeSignature -FilePath $CurrentExe -ErrorAction SilentlyContinue
+  $newSignature = Get-AuthenticodeSignature -FilePath $NewExe -ErrorAction SilentlyContinue
+  if ($oldSignature -and $oldSignature.Status -eq "Valid") {
+    if (-not $newSignature -or $newSignature.Status -ne "Valid") {
+      throw "Mise a jour non signee refusee : l'ancienne version possede une signature valide."
+    }
+    if ($oldSignature.SignerCertificate.Thumbprint -ne $newSignature.SignerCertificate.Thumbprint) {
+      throw "Certificat de signature different : mise a jour refusee."
+    }
+  } elseif (-not $newSignature -or $newSignature.Status -ne "Valid") {
+    Write-UpdateLog "EXE unsigned: release SHA256 was verified, but Windows SmartScreen reputation is not guaranteed."
+  }
 
   # Wait for the old frozen bootloader process to release LocalVisionAI.exe.
   if ($ParentPid -gt 0) {
@@ -244,7 +285,7 @@ try {
   # Only clear an older .previous after the new staged binary has been verified.
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
   $swapped = $false
-  for ($i = 0; $i -lt 35 -and -not $swapped; $i++) {
+  for ($i = 0; $i -lt 90 -and -not $swapped; $i++) {
     try {
       Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
       try {
@@ -259,7 +300,27 @@ try {
       Start-Sleep -Milliseconds 400
     }
   }
-  if (-not $swapped) { throw "Remplacement impossible : executable encore ouvert." }
+  if (-not $swapped) {
+    # Some desktop/cloud-synced/Program Files locations cannot be replaced by
+    # a non-elevated user. Install a verified per-user copy instead of asking
+    # to bypass Windows Defender or to grant administrator privileges.
+    $fallbackInstall = $true
+    $portableDir = Join-Path $env:LOCALAPPDATA "LocalVisionAI\\app"
+    New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+    $CurrentExe = Join-Path $portableDir "LocalVisionAI.exe"
+    $backup = "$CurrentExe.previous"
+    $failed = "$CurrentExe.failed"
+    Write-UpdateLog "Original EXE locked/protected. Safe per-user installation: $CurrentExe"
+    Copy-Item -LiteralPath $NewExe -Destination "$CurrentExe.incoming" -Force
+    if ((Get-FileHash -LiteralPath "$CurrentExe.incoming" -Algorithm SHA256).Hash -ne $expectedHash) {
+      throw "Verification de la copie utilisateur echouee."
+    }
+    if (Test-Path -LiteralPath $CurrentExe) {
+      Move-Item -LiteralPath $CurrentExe -Destination $backup -Force
+    }
+    Move-Item -LiteralPath "$CurrentExe.incoming" -Destination $CurrentExe -Force
+    $replaced = $true
+  }
   if ((Get-FileHash -LiteralPath $CurrentExe -Algorithm SHA256).Hash -ne $expectedHash) {
     throw "SHA256 different apres installation."
   }
@@ -287,6 +348,40 @@ try {
     throw "Nouvelle version non operationnelle apres verification HTTP. Build attendu : $ExpectedBuild, observe : $observedBuild."
   }
   Write-UpdateLog "Update confirmed healthy: $ExpectedBuild. Keeping project and model data unchanged."
+  if ($fallbackInstall) {
+    try {
+      $shell = New-Object -ComObject WScript.Shell
+      $desktop = [Environment]::GetFolderPath('Desktop')
+      $updated = $false
+      Get-ChildItem -LiteralPath $desktop -Filter '*.lnk' -ErrorAction SilentlyContinue | ForEach-Object {
+        $shortcut = $shell.CreateShortcut($_.FullName)
+        if ([string]::Equals([string]$shortcut.TargetPath, [string]$originalExe, [StringComparison]::OrdinalIgnoreCase)) {
+          $shortcut.TargetPath = $CurrentExe
+          $shortcut.WorkingDirectory = Split-Path -Parent $CurrentExe
+          $shortcut.IconLocation = "$CurrentExe,0"
+          $shortcut.Save()
+          $updated = $true
+        }
+      }
+      if (-not $updated) {
+        $shortcut = $shell.CreateShortcut((Join-Path $desktop "LocalAiVision.lnk"))
+        $shortcut.TargetPath = $CurrentExe
+        $shortcut.WorkingDirectory = Split-Path -Parent $CurrentExe
+        $shortcut.IconLocation = "$CurrentExe,0"
+        $shortcut.Save()
+      }
+      Write-UpdateLog "Desktop shortcut points to verified per-user build."
+    } catch {
+      Write-UpdateLog ("Shortcut could not be updated: " + $_.Exception.Message)
+    }
+  }
+  # Ask Windows Explorer to refresh its icon cache; do not tamper with security
+  # providers or Defender configuration.
+  try {
+    $member='[System.Runtime.InteropServices.DllImport("shell32.dll")] public static extern void SHChangeNotify(uint eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'
+    Add-Type -Namespace ShellRefresh -Name Native -MemberDefinition $member -ErrorAction SilentlyContinue
+    [ShellRefresh.Native]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+  } catch { }
   Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
 } catch {
@@ -310,7 +405,19 @@ try {
       }
     }
   } catch { }
-  if ($replaced -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
+  if ($fallbackInstall -and -not (Test-Path -LiteralPath $backup -PathType Leaf)) {
+    # A first-time per-user fallback had no prior file to restore.
+    # Keep the original installation intact and restart that trusted copy.
+    try {
+      if (Test-Path -LiteralPath $CurrentExe) {
+        Move-Item -LiteralPath $CurrentExe -Destination $failed -Force
+      }
+      Start-Process -FilePath $originalExe -WorkingDirectory (Split-Path -Parent $originalExe)
+      Write-UpdateLog "Fallback failed. Original installation restarted unchanged."
+    } catch {
+      Write-UpdateLog ("Fallback recovery failed: " + $_.Exception.Message)
+    }
+  } elseif ($replaced -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
     try {
       # Retain the failed build separately for diagnostics, then revert.
       Remove-Item -LiteralPath $failed -Force -ErrorAction SilentlyContinue
@@ -1459,6 +1566,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(update_status())
             except Exception as e:
                 self.send_json({"error": str(e)}, 502)
+            return
+        if u.path == "/api/update/diagnostics":
+            try:
+                self.send_json(update_diagnostics())
+            except Exception as e:
+                self.send_json({"error":str(e)},500)
             return
         if u.path == "/api/logs":
             parts = []

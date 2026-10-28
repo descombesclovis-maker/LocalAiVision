@@ -225,3 +225,9 @@ body.nsfw-active #settingImageModelRow,body.nsfw-active #settingVideoModelRow,bo
  .main-topbar #installLocalAi{font-size:0!important;width:32px!important;min-width:32px!important;padding:9px 3px!important}
  .main-topbar #installLocalAi::before{content:"⇩";font-size:17px}
 }
+
+/* Licensed/user-provided LocalAiVision identity, not the generic sparkle. */
+.sidebar .brand-mark{overflow:hidden;background:#fff;padding:1px}
+.sidebar .brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.welcome .vision-identity{display:block;width:min(390px,65vw);height:auto;max-height:220px;object-fit:contain;margin:0 auto 22px;border-radius:17px}
+@media(max-width:650px){.welcome .vision-identity{width:min(290px,68vw);max-height:145px}}

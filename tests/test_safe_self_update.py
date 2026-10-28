@@ -70,12 +70,35 @@ class UpdateSafetyTests(unittest.TestCase):
         self.assertIn("STARTUP: ",text)
         self.assertIn("$observedBuild",text)
         self.assertIn("Rollback successful",text)
+        self.assertIn("Safe per-user installation",text)
+        self.assertIn("Original installation restarted unchanged",text)
+        self.assertIn("Get-AuthenticodeSignature",text)
+        self.assertIn("SHChangeNotify",text)
 
     def test_updater_does_not_wait_for_unbounded_engine_cleanup(self):
         import inspect
         source=inspect.getsource(server._exit_for_update)
         self.assertIn("threading.Thread(target=stop_engines",source)
         self.assertIn("os._exit(0)",source)
+
+    def test_diagnostics_show_latest_update_failure_not_binary_failed_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logs=Path(tmp)/"logs"
+            logs.mkdir()
+            entry=logs/"update.log"
+            entry.write_text(
+                "[1] Updater started. Target build: build-267\\n"
+                "[1] Update failed: port indisponible\\n"
+                "[1] Rollback successful.\\n", encoding="utf-8")
+            with patch.object(server,"DATA",Path(tmp)):
+                issue=server.update_diagnostics()
+                self.assertEqual(issue["state"],"failed")
+                self.assertIn("port indisponible",issue["message"])
+                entry.write_text(entry.read_text(encoding="utf-8")+
+                    "[2] Updater started. Target build: build-268\\n"
+                    "[2] Update confirmed healthy: build-268\\n",encoding="utf-8")
+                resolved=server.update_diagnostics()
+                self.assertEqual(resolved["state"],"success")
 
     def test_update_endpoint_returns_build_tag_for_health_check(self):
         source=Path(server.__file__).read_text(encoding="utf-8")

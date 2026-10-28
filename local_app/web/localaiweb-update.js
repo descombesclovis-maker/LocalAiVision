@@ -40,9 +40,20 @@
    }
   }catch(error){
    btn.disabled=false;btn.textContent=label;
-   window.alert('Mise à jour impossible : '+error.message+
-      '\nTu peux aussi télécharger la dernière version depuis les Releases GitHub.');
+   const diag=await request('/api/update/diagnostics').catch(()=>null);
+   const detail=diag?.state==='failed'?'\nDernier échec : '+diag.message:'';
+   window.alert('Mise à jour impossible : '+error.message+detail+
+      '\nJournal de diagnostic : %LOCALAPPDATA%\\LocalVisionAI\\logs\\update.log');
   }
  }
  btn.addEventListener('click',update);
+ // A failed update rolls back and reopens the prior app. Make that failure
+ // visible instead of implying the button succeeded silently.
+ request('/api/update/diagnostics').then(diag=>{
+   if(diag.state==='failed'){
+     btn.title='Dernière mise à jour échouée : '+diag.message+
+       '. Consulte %LOCALAPPDATA%\\LocalVisionAI\\logs\\update.log';
+     btn.setAttribute('aria-label','Mise à jour précédente échouée. '+diag.message);
+   }
+ }).catch(()=>{});
 })();
