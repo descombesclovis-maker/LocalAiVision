@@ -1,4 +1,4 @@
-"""No-website OSM map: bounded sample, negative tag checks, France start, UI simplicity."""
+"""OSM map: France start, red/green website statuses and bounded sampling."""
 import tempfile
 from pathlib import Path
 import unittest
@@ -27,12 +27,19 @@ class WebsiteProspectMapTests(unittest.TestCase):
                    "tags":{"name":"Mairie","amenity":"townhall"}}
         contact_url={"type":"node","id":4,"lat":47.2,"lon":5.2,
                      "tags":{"name":"Boutique B","shop":"florist","contact:website":"https://example.org"}}
-        self.assertIsNone(mapdata._normalize(hotel))
+        site=mapdata._normalize(hotel)
+        self.assertTrue(site["website_recorded"])
+        self.assertEqual(site["website"],"https://example.fr")
+        self.assertTrue(site["website_link_available"])
         self.assertIsNone(mapdata._normalize(municipal))
-        self.assertIsNone(mapdata._normalize(contact_url))
+        external=mapdata._normalize(contact_url)
+        self.assertTrue(external["website_recorded"])
+        self.assertEqual(external["website"],"https://example.org")
         result=mapdata._normalize(barber)
         self.assertEqual(result["name"],"Salon Joli")
         self.assertEqual(result["website_status"],"non_renseigne_osm")
+        self.assertFalse(result["website_recorded"])
+        self.assertEqual(result["website"],"")
         self.assertTrue(result["selection_token"])
         self.assertFalse(result["verified"])
 
@@ -52,14 +59,31 @@ class WebsiteProspectMapTests(unittest.TestCase):
         query=parse_qs(call.call_args.kwargs["post"])["data"][0]
         self.assertIn('nwr(around:800,48.8566,2.3522)',query)
         self.assertIn('nwr(around:800,45.764,4.8357)',query)
-        self.assertIn('[!"website"]',query)
-        self.assertIn('[!"contact:website"]',query)
-        self.assertIn('[!"url"]',query)
+        self.assertNotIn('[!"website"]',query)
+        self.assertNotIn('[!"contact:website"]',query)
+        self.assertNotIn('[!"url"]',query)
         self.assertGreaterEqual(query.count("out center 12;"),20)
-        self.assertEqual([a["name"] for a in result["results"]],["Café Eiffel","La Librairie"])
+        self.assertEqual([a["name"] for a in result["results"]],
+                         ["Café Eiffel","La Librairie","Salon Web"])
+        self.assertTrue(result["results"][2]["website_recorded"])
         self.assertTrue(result["partial"])
         self.assertIn("≠",result["notice"])
         self.assertTrue(cached["cached"])
+
+    def test_safe_website_links_reject_executable_or_internal_targets(self):
+        self.assertEqual(mapdata.safe_website("www.coiffeur.fr"),"https://www.coiffeur.fr")
+        self.assertEqual(mapdata.safe_website("https://www.coiffeur.fr/services"),
+                         "https://www.coiffeur.fr/services")
+        for malformed in ("javascript:alert(1)","data:text/html,hello",
+                          "http://127.0.0.1/private","http://localhost",
+                          "https://example.com\\n<script>","file:///etc/passwd"):
+            self.assertEqual(mapdata.safe_website(malformed),"")
+        suspicious=mapdata._normalize({"type":"node","id":101,"lat":47.25,"lon":5.05,
+                        "tags":{"name":"Entreprise X","shop":"books",
+                                "website":"javascript:alert(1)"}})
+        self.assertTrue(suspicious["website_recorded"])
+        self.assertFalse(suspicious["website_link_available"])
+        self.assertEqual(suspicious["website"],"")
 
     def test_zoomed_area_rejects_world_scale_and_limits_radius(self):
         with self.assertRaises(ValueError):
@@ -88,13 +112,19 @@ class WebsiteProspectMapTests(unittest.TestCase):
                      'id="industrySearch"','id="mapNearby"','id="mapProvider"'):
             self.assertNotIn(item,html)
         self.assertIn("setView([46.60,2.28],6)",script)
-        self.assertIn("radius:3.2",script)
-        self.assertIn("fillColor:'#995afa'",script)
+        self.assertIn("radius:3.1",script)
+        self.assertIn("'#e14959'",script)
+        self.assertIn("'#27bd72'",script)
+        self.assertIn("website_recorded",script)
         self.assertIn("stroke:false",script)
         self.assertIn("map.on('moveend',scheduleNearby)",script)
         self.assertIn("overview();",script)
-        self.assertIn("sans site renseigné",html)
+        self.assertIn("aucun site renseigné",html)
+        self.assertIn("site internet renseigné",html)
         self.assertIn("ne prouve pas",html)
+        self.assertIn('id="companyWebsite"',html)
+        self.assertIn("target=\"_blank\"",html)
+        self.assertIn("rel=\"noopener noreferrer nofollow\"",html)
         self.assertIn('id="mapSelection"',html)
         self.assertIn('/api/web/project/create-from-map',script)
 
