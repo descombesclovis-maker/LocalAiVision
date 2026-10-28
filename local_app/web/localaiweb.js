@@ -336,7 +336,7 @@ async function initialize(){
    return;
   }
   const first=project.project?.initial_generation||{};
-  if(project.project?.project_kind==='pro' &&
+  if(project.project?.project_kind==='pro' && !generation.preview_ready &&
      (first.status==='pending'||first.status==='failed')){
     const dialog=document.getElementById('lawDesignDialog');
     if(dialog&&!dialog.open)dialog.showModal();
