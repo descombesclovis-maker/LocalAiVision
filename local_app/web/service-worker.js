@@ -1,5 +1,5 @@
 /* Application shell only. Never cache APIs, generated files, uploaded media or project content. */
-const CACHE='localai-shell-20261028-brand-v3';
+const CACHE='localai-shell-20261028-map-company-v1';
 const STATIC=new Set(['/assets/style.css','/assets/app.js','/assets/intent.js','/assets/styles.js',
  '/assets/localaiweb.css','/assets/localaiweb.js','/assets/localaiweb-map.css',
  '/assets/localaiweb-map.js','/assets/studio-redesign.css','/assets/studio-redesign.js',

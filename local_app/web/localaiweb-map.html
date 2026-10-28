@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#100e1b"><meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-web.svg" type="image/svg+xml">
 <title>LocalAiWeb Pro — Carte des entreprises</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" onerror="this.onerror=null;this.removeAttribute('integrity');this.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css'">
 <link rel="stylesheet" href="/assets/localaiweb-map.css"><link rel="stylesheet" href="/assets/studio-suite.css">
 </head>
 <body>
@@ -16,11 +16,9 @@
   <span class="map-header-note">France · Vue initiale</span>
 </header>
 <main class="map-layout">
-  <section class="map-area" aria-label="Carte interactive des établissements et sites renseignés dans OpenStreetMap">
+  <section class="map-area" aria-label="Carte interactive des entreprises françaises sur fond OpenStreetMap">
     <div id="businessMap" role="application" aria-label="Carte OpenStreetMap, initialement centrée sur la France"></div>
-    <div class="map-legend" aria-label="Légende des points sur la carte">
-      <span class="legend-item"><span class="legend-dot legend-green" aria-hidden="true"></span><span>Vert : site non renseigné ou statut inconnu (à vérifier)</span></span><span class="legend-item"><span class="legend-dot legend-red" aria-hidden="true"></span><span>Rouge : site renseigné dans OpenStreetMap</span></span>
-    </div>
+    <div class="map-counter" aria-label="Nombre de fiches actuellement chargées"><span class="single-pin" aria-hidden="true"></span><strong id="loadedCount">0</strong> entreprises chargées en France</div>
     <div id="mapFeedback" class="map-feedback" role="status" aria-live="polite">
       <span id="mapFeedbackText">Chargement progressif d’un aperçu de prospection en France…</span>
       <button id="mapReload" class="map-reload" type="button" hidden>↻ Réessayer le chargement</button>
@@ -31,23 +29,33 @@
     </div>
   </section>
   <aside id="mapSelection" class="map-selection" hidden aria-labelledby="selectionTitle">
-    <button type="button" id="mapClose" class="close-selection" aria-label="Fermer la fiche">×</button>
-    <div class="selection-overline">ENTREPRISE SÉLECTIONNÉE</div>
-    <h1 id="selectionTitle"></h1>
-    <p id="selectionCategory" class="selection-category"></p>
-    <p id="selectionAddress"></p>
-    <div id="selectionNotice" class="selection-notice">Aucun site renseigné dans OpenStreetMap ne signifie pas « sans site » : une vérification externe est nécessaire.</div>
-    <a id="verifyWebPresence" class="company-website" href="#" target="_blank" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>↗ Vérifier les informations sur le Web (recherche externe)</a>
-    <a id="companyWebsite" class="company-website" href="#" target="_blank" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>↗ Consulter le site internet de l’entreprise</a>
-    <div id="selectionPublicInfo" class="business-details"></div>
-    <div id="professionalProfile" class="registry-profile" aria-live="polite"></div>
-    <button id="mapRegistry" class="registry-check" type="button" hidden>Consulter les informations professionnelles publiques ↗</button>
-    <button id="mapCreate" type="button" class="create-site">✦ Générer une première maquette ↗</button>
-    <p class="disclaimer">Maquette privée et non officielle. L'identité et les informations de l'établissement doivent être vérifiées avant publication.</p>
-    <div id="mapCreateError" role="alert"></div>
+    <div class="place-card-header">
+      <button type="button" id="mapClose" class="close-selection" aria-label="Fermer la fiche de l'entreprise">×</button>
+      <p class="selection-overline">FICHE D'ÉTABLISSEMENT</p>
+      <h1 id="selectionTitle"></h1>
+      <p id="selectionCategory" class="selection-category"></p>
+    </div>
+    <div class="place-card-scroll">
+      <dl class="place-facts" id="placeFacts">
+        <div><dt>Adresse</dt><dd id="selectionAddress">Non renseignée</dd></div>
+        <div><dt>SIRET</dt><dd id="selectionSiret">Non renseigné</dd></div>
+        <div><dt>Téléphone</dt><dd id="selectionPhone">Non renseigné</dd></div>
+        <div><dt>Adresse e-mail</dt><dd id="selectionEmail">Non renseignée</dd></div>
+        <div><dt>Horaires d'ouverture</dt><dd id="selectionHours">Non renseignés</dd></div>
+        <div><dt>Site internet</dt><dd id="selectionWebsite">Non renseigné</dd></div>
+        <div><dt>Activité</dt><dd id="selectionActivity">Non renseignée</dd></div>
+        <div><dt>Informations complémentaires</dt><dd id="selectionDescription">Non renseignées</dd></div>
+      </dl>
+      <p id="selectionNotice" class="place-source-note"></p>
+      <div id="mapCreateError" role="alert" aria-live="polite"></div>
+    </div>
+    <footer class="place-card-footer">
+      <button id="mapCreate" type="button" class="create-site">Créer un site pour cette entreprise ↗</button>
+    </footer>
   </aside>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>if(!window.L){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"><\/script>')}</script>
 <script src="/assets/localaiweb-map.js"></script>
 <script src="/assets/pwa-install.js" defer></script>
 </body>

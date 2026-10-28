@@ -71,7 +71,7 @@ OVERPASS_ENDPOINTS=(
 )
 # Persist only actual OSM responses; show a clearly dated local cache offline.
 CACHE_DIR=Path(os.environ.get("LOCALVISIONAI_DATA",str(Path.home()/".localvisionai")))/"map_cache"
-FRANCE_BATCH_SIZE=10
+FRANCE_BATCH_SIZE=5
 FRANCE_BATCH_COUNT=(len(FRANCE_POINTS)+FRANCE_BATCH_SIZE-1)//FRANCE_BATCH_SIZE
 
 
@@ -235,19 +235,28 @@ def _french_registry_near(lat,lon,radius=2.5):
     args=urlencode({"lat":la,"long":lo,"radius":radius,"page":1,
                     "per_page":25})
     try:
-        with urlopen(Request("https://recherche-entreprises.api.gouv.fr/near_point?"+args,
+        # Reuse real downloaded records on subsequent launches without hitting
+        # the public directory on every map opening. Stale data are still marked
+        # as cached and never represented as live or complete.
+        if file.is_file() and time.time()-file.stat().st_mtime<3*86400:
+            loaded=json.loads(file.read_text(encoding="utf-8"))
+            if isinstance(loaded.get("results"),list):
+                raw=loaded
+                cached=True
+        if raw is None:
+            with urlopen(Request("https://recherche-entreprises.api.gouv.fr/near_point?"+args,
                       headers={"User-Agent":web_business_map.CONTACT,
-                               "Accept":"application/json"}),timeout=11) as response:
-            payload=response.read(600001)
-            if len(payload)>600000:raise ValueError("Réponse d'annuaire trop volumineuse.")
-            raw=json.loads(payload)
-            if not isinstance(raw.get("results"),list):raise ValueError("Réponse d'annuaire invalide.")
-        try:
-            CACHE_DIR.mkdir(parents=True,exist_ok=True)
-            tmp=file.with_suffix(".tmp")
-            tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
-            tmp.replace(file)
-        except (OSError,TypeError):pass
+                               "Accept":"application/json"}),timeout=8) as response:
+                payload=response.read(600001)
+                if len(payload)>600000:raise ValueError("Réponse d'annuaire trop volumineuse.")
+                raw=json.loads(payload)
+                if not isinstance(raw.get("results"),list):raise ValueError("Réponse d'annuaire invalide.")
+            try:
+                CACHE_DIR.mkdir(parents=True,exist_ok=True)
+                tmp=file.with_suffix(".tmp")
+                tmp.write_text(json.dumps(raw,ensure_ascii=False),encoding="utf-8")
+                tmp.replace(file)
+            except (OSError,TypeError):pass
     except Exception:
         try:
             raw=json.loads(file.read_text(encoding="utf-8"))
@@ -278,6 +287,7 @@ def _french_registry_near(lat,lon,radius=2.5):
                 "name":location.get("nom_commercial") or
                        ((location.get("liste_enseignes") or [""])[0]) or
                        company.get("nom_complet") or company.get("nom_raison_sociale"),
+                "siret":siret,
                 "lat":y,"lon":x,"osm_id":"siret/"+siret,
                 "category":str(location.get("activite_principale") or "entreprise"),
                 "address":location.get("adresse") or "",
@@ -321,13 +331,35 @@ def france_overview(batch=0):
             f'nwr(around:850,{lat},{lon})["name"]'
             f'{BUSINESS_TAG};out center 18;')
     statement="[out:json][timeout:24];"+"".join(pieces)
-    # Public OSM instances are frequently overloaded. The French public
-    # registry provides immediately geocoded real establishments without
-    # inventing a website status. OSM remains available for detailed zoom.
-    try:
-        result=_french_registry_near(*centers[0],radius=2.5)
-    except RuntimeError:
+    # Distribute real, geocoded establishments across five distinct zones
+    # per batch rather than requesting only one city, which caused a nearly
+    # empty France map. Concurrency is capped for the public official API.
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    results=[]
+    errors=[]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures=[pool.submit(_french_registry_near,lat,lon,2.5) for lat,lon in centers]
+        for future in as_completed(futures):
+            try:
+                result=future.result()
+                results.extend(result["results"])
+            except Exception as exc:
+                errors.append(str(exc))
+    if not results:
+        # Keep the actual OSM fallback; never fabricate company coordinates.
         result=_load(key,statement,"france_overview")
+    else:
+        seen=set()
+        unique=[]
+        for company in results:
+            if company["id"] not in seen:
+                unique.append(company);seen.add(company["id"])
+        result={"results":unique,"partial":True,"mode":"official_french_registry",
+                "source":"API Recherche d'entreprises / data.gouv.fr",
+                "website_verified":False,"website_status":"inconnu_registre",
+                "notice":"Données publiques géocodées, échantillonnage national progressif. "
+                         "Ce chargement ne contient pas tous les établissements français.",
+                "cached":False,"fallback":True,"offline":False}
     result["batch"]=number
     result["total_batches"]=FRANCE_BATCH_COUNT
     result["next_batch"]=number+1 if number+1<FRANCE_BATCH_COUNT else None
@@ -337,8 +369,8 @@ def france_overview(batch=0):
 def area_details(lat,lon,zoom):
     la,lo=web_business_map._position(lat,lon)
     z=int(zoom)
-    if z<10 or z>19:
-        raise ValueError("Zoome sur une ville (niveau 10 minimum) pour consulter les établissements.")
+    if z<8 or z>19:
+        raise ValueError("Zoome légèrement sur la carte (niveau 8 minimum).")
     radius=5000 if z<=10 else 3000 if z==11 else 1800 if z==12 else 1100 if z==13 else 700
     key=("nearby",round(la,3),round(lo,3),radius)
     statement=(

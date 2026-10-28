@@ -310,9 +310,12 @@ class LocalAiWebStore:
         meta = self.meta(project_id)
         meta["project_kind"] = "pro"
         meta["business"] = dict(business)
+        from local_app import web_business_intelligence
+        meta["market_brief"] = web_business_intelligence.plan(business)
         meta["initial_generation"] = {
             "status":"pending",
-            "prompt":web_business_map.first_draft_prompt(business),
+            "prompt":(web_business_map.first_draft_prompt(business)+"\n\n"+
+                      web_business_intelligence.direction(business)),
             "attempts":0,
             "created_at":time.time()
         }

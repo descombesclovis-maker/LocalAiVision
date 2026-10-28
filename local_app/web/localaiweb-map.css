@@ -20,3 +20,38 @@
 
 .legend-green{background:#36d77f!important;box-shadow:0 0 9px #36d77f66}
 .legend-red{background:#ef535e!important;box-shadow:0 0 9px #ef535e66}
+
+/* Uniform green, not a website-status color code. Small visible marks with
+   large reliable click targets and a clickable grouped-pin picker. */
+.map-legend{display:none!important}
+.map-counter{position:absolute;top:17px;left:50%;transform:translateX(-50%);z-index:620;display:flex;align-items:center;gap:9px;white-space:nowrap;background:#181321ec;border:1px solid #6e5980;border-radius:13px;color:#f0e6f9;padding:10px 15px;font-size:11px;box-shadow:0 8px 30px #10091b44;pointer-events:none}
+.single-pin{width:9px;height:9px;flex:none;border-radius:50%;background:#40d080;box-shadow:0 0 0 3px #38cb7840}
+.company-marker-hit{background:transparent!important;border:0!important;cursor:pointer;display:grid;place-items:center}
+.company-marker-hit .company-marker-single{width:7px;height:7px;border-radius:50%;background:#3ccc78;box-shadow:0 0 0 2px #172c2473;display:block;transition:transform .15s}
+.company-marker-hit:hover .company-marker-single,.company-marker-hit:focus .company-marker-single{transform:scale(1.7)}
+.company-marker-hit .company-marker-group{display:grid;place-items:center;min-width:25px;max-width:34px;min-height:25px;border-radius:999px;padding:1px 4px;background:#31b76d;border:2px solid #f0fff5;box-shadow:0 3px 12px #0006;font-size:10px;line-height:1;font-weight:800;color:#0c2d1a}
+.company-marker-hit:hover .company-marker-group{transform:scale(1.1)}
+.place-picker{color:#261c2f;font-family:Inter,system-ui,sans-serif}
+.place-picker-title{display:block;font-size:14px;line-height:1.35}
+.place-picker-note{font-size:11px;color:#625670;margin:6px 0}
+.place-picker-list{max-height:275px;overflow:auto;display:grid;gap:5px}
+.place-picker-option{border:1px solid #d7c9df;border-radius:9px;background:#fff;color:#27193d;text-align:left;padding:9px 10px;cursor:pointer;font-size:12px;display:grid;gap:3px}
+.place-picker-option:hover,.place-picker-option:focus-visible{background:#f0e7fa;border-color:#8d5dac}
+.place-picker-option small{font-size:10px;color:#817286}
+.map-selection{display:flex;flex-direction:column;overflow:hidden;width:min(390px,calc(100% - 34px));padding:0;border-radius:19px}
+.map-selection[hidden]{display:none!important}
+.place-card-header{padding:25px 22px 16px;border-bottom:1px solid #79588950;flex:none}
+.place-card-header h1{font-size:clamp(20px,2vw,28px)}
+.place-card-header .close-selection{float:right}
+.place-card-scroll{overflow-y:auto;min-height:0;padding:0 22px 17px;flex:1 1 auto;overscroll-behavior:contain}
+.place-facts{margin:4px 0 0}
+.place-facts>div{display:flex;flex-direction:column;gap:5px;border-bottom:1px solid #ffffff1c;padding:14px 0}
+.place-facts dt{font-size:10px;color:#b8a9cb;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+.place-facts dd{font-size:13px;color:#f5ecff;margin:0;overflow-wrap:anywhere;line-height:1.55}
+.place-facts .place-link{color:#d6b3ff;font-weight:650;text-decoration:underline;text-underline-offset:3px}
+.place-facts .web-fact{color:#f3eff8}
+.place-source-note{font-size:10px!important;line-height:1.6;color:#9c8fac!important;margin:15px 0 0}
+.place-card-footer{padding:15px 20px max(18px,env(safe-area-inset-bottom,0px));flex:none;background:#1d1528;border-top:1px solid #7b5c9260}
+.place-card-footer .create-site{margin:0;min-height:49px;font-size:13px}
+#mapCreateError{margin-top:11px}
+@media(max-width:650px){.map-counter{top:10px;left:50%;font-size:10px;white-space:normal;max-width:calc(100% - 90px);padding:8px}.map-selection{max-height:76%;bottom:8px;top:auto;width:auto}.place-card-header{padding:16px}.place-card-scroll{padding:0 16px}.place-card-footer{padding:11px 15px max(11px,env(safe-area-inset-bottom,0px))}}

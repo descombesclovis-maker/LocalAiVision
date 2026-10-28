@@ -107,14 +107,15 @@ class IndustryMapTests(unittest.TestCase):
         for name in ("lawInspectBtn","lawBrowserBtn","lawZipBtn","lawWorldMapBtn"):
             self.assertIn('id="'+name+'"',ui)
         self.assertLess(ui.index('id="lawZipBtn"'),ui.index('id="lawWorldMapBtn"'))
-        for field in ("mapSelection","mapRegistry",
-                      "professionalProfile","selectionPublicInfo"):
+        for field in ("mapSelection","selectionTitle","selectionAddress",
+                      "selectionPhone","selectionEmail","selectionHours",
+                      "selectionWebsite","mapCreate"):
             self.assertIn('id="'+field+'"',page)
         self.assertIn("setView([46.60,2.28],6)",script)
         self.assertNotIn('id="industryFilter"',page)
         self.assertNotIn('id="mapQuery"',page)
         self.assertIn("/api/web/map/no-website/france",script)
-        self.assertIn("/api/web/map/profile",script)
+        self.assertNotIn("/api/web/map/profile",script)
         self.assertIn("function scheduleNearby()",script)
         self.assertIn("/api/update/check",updater)
         self.assertIn("/api/update/install",updater)
