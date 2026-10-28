@@ -142,6 +142,8 @@ def _normalize(row):
         "description":tags.get("description"),
         "operator":tags.get("operator"),
         "website":safe_website(website_raw),
+        "image_url":web_business_map._commons_photo(tags),
+        "image_credit":"Photo Wikimedia Commons — licence à vérifier" if web_business_map._commons_photo(tags) else "",
         "source":"overpass",
     })
     if info:
@@ -301,6 +303,8 @@ def _french_registry_near(lat,lon,radius=2.5,pages=1):
                        ((location.get("liste_enseignes") or [""])[0]) or
                        company.get("nom_complet") or company.get("nom_raison_sociale"),
                 "siret":siret,
+                "establishment_created":(location.get("date_creation") or
+                                         location.get("date_creation_etablissement") or ""),
                 "lat":y,"lon":x,"osm_id":"siret/"+siret,
                 "category":str(location.get("activite_principale") or "entreprise"),
                 "address":location.get("adresse") or "",
@@ -351,7 +355,7 @@ def france_overview(batch=0):
     results=[]
     errors=[]
     with ThreadPoolExecutor(max_workers=2) as pool:
-        futures=[pool.submit(_french_registry_near,lat,lon,2.5) for lat,lon in centers]
+        futures=[pool.submit(_french_registry_near,lat,lon,2.5,3) for lat,lon in centers]
         for future in as_completed(futures):
             try:
                 result=future.result()
