@@ -8,3 +8,9 @@
 .company-website:hover{background:#43325c;border-color:#a58fd7}
 .company-website[hidden]{display:none!important}
 @media(max-width:650px){.map-legend{flex-wrap:wrap;gap:6px 12px}.legend-item{font-size:9px}.legend-dot{height:7px;width:7px}}
+
+/* Keep loading failures visible and actionable; status must not cover the map. */
+.map-feedback{pointer-events:auto}
+.map-reload{display:block;margin-top:7px;border:1px solid #b992ff;border-radius:8px;background:#6b3eb5;color:#fff;padding:7px 11px;font-weight:700;font-size:11px;cursor:pointer}
+.map-reload[hidden]{display:none!important}
+.map-reload:hover{background:#8656d0}
