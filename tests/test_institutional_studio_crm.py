@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 import unittest
 
-from local_app import web_crm, web_builder, web_sales_invoice
+from local_app import web_crm, web_builder, web_sales_invoice, web_assets_bridge
 
 ROOT=Path(__file__).resolve().parents[1]
 SELLER={"name":"Agence Démo","siret":"53784237900027",
@@ -59,6 +59,23 @@ class CommercialWorkflowTests(unittest.TestCase):
         self.assertEqual(len(data["quotes"]),2)
         self.assertEqual(len(data["clients"]),1)
 
+    def test_media_asset_is_copied_into_site_and_source_is_untouched(self):
+        comfy=self.root/"comfy"
+        output=comfy/"output"
+        output.mkdir(parents=True)
+        source=output/"generated.png"
+        source.write_bytes(bytes.fromhex("89504e470d0a1a0a")+"image-data-bytes")
+        result=web_assets_bridge.import_generation(
+            self.store,comfy,self.project_id,"generated.png")
+        target=self.store.project_dir(self.project_id)/"site"/result["path"]
+        self.assertEqual(target.read_bytes(),source.read_bytes())
+        self.assertTrue(source.exists())
+        self.assertIn(result["path"],self.store.assets(self.project_id)[0]["path"])
+        self.assertIn("Nouvelle ressource locale importée",self.store.chat_history(self.project_id)[-1]["text"])
+        with self.assertRaises(ValueError):
+            web_assets_bridge.import_generation(
+                self.store,comfy,self.project_id,"script.exe")
+
     def test_studio_navigation_and_commercial_routes_exist(self):
         html=(ROOT/"local_app/web/index.html").read_text(encoding="utf-8")
         sidebar=html.split('<aside class="sidebar closed" id="sidebar"')[1].split("</aside>")[0]
@@ -69,6 +86,9 @@ class CommercialWorkflowTests(unittest.TestCase):
         self.assertIn('id="historyDialog"',html)
         script=(ROOT/"local_app/web/studio-redesign.js").read_text(encoding="utf-8")
         self.assertIn("historyDialog.showModal()",script)
+        self.assertIn("selectAssetForProject(entry)",script)
+        self.assertIn('id="assetDialog"',html)
+        self.assertIn("/api/web/asset/import-generation",(ROOT/"local_app/server.py").read_text(encoding="utf-8"))
         server=(ROOT/"local_app/server.py").read_text(encoding="utf-8")
         for route in ("/localaiweb/clients","/api/web/crm/overview",
                       "/api/web/crm/client/upsert","/api/web/crm/quote/create",
