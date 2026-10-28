@@ -219,6 +219,14 @@
   </div>
 </div>
 
+<dialog id="assetDialog" class="history-dialog asset-dialog" aria-labelledby="assetTitle">
+  <div class="history-head"><h2 id="assetTitle">Ajouter une création au site</h2><button id="assetClose" type="button" aria-label="Fermer">×</button></div>
+  <p>Copie la photo ou vidéo sélectionnée dans les ressources d'un projet LocalAiWeb existant. Le fichier d'origine sera conservé.</p>
+  <label for="assetProject">Choisir le projet cible</label>
+  <select id="assetProject" aria-label="Projet LocalAiWeb cible"></select>
+  <p id="assetFeedback" role="status" aria-live="polite"></p>
+  <button type="button" id="assetConfirm" class="asset-confirm">Ajouter au site ↗</button>
+</dialog>
 <dialog id="historyDialog" class="history-dialog" aria-labelledby="historyTitle">
   <div class="history-head"><h2 id="historyTitle">Conversations enregistrées</h2><button id="historyClose" type="button" aria-label="Fermer">×</button></div>
   <label for="historySearch">Rechercher dans l'historique</label><input id="historySearch" type="search" placeholder="Nom de la conversation…" autocomplete="off">
