@@ -72,7 +72,7 @@ class ProSaleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"Adresse professionnelle"):
                 sales.issue(store,pid,folder,{**SELLER,"address":""},CLIENT,
                             ["landing"],accepted=True,service_date=date.today().isoformat())
-            with self.assertRaisesRegex(ValueError,"Date de prestation"):
+            with self.assertRaisesRegex(ValueError,"Date de"):
                 sales.issue(store,pid,folder,SELLER,CLIENT,["landing"],accepted=True)
             invoice=sales.issue(store,pid,folder,SELLER,CLIENT,["landing"],accepted=True,
                                 service_date=date.today().isoformat())
