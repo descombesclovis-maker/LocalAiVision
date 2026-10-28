@@ -1,4 +1,4 @@
-"""OSM map: France start, red/green website statuses and bounded sampling."""
+"""OSM map: France start, violet unlisted-site prospects and bounded sampling."""
 import tempfile
 from pathlib import Path
 import unittest
@@ -59,13 +59,13 @@ class WebsiteProspectMapTests(unittest.TestCase):
         query=parse_qs(call.call_args.kwargs["post"])["data"][0]
         self.assertIn('nwr(around:800,48.8566,2.3522)',query)
         self.assertIn('nwr(around:800,45.764,4.8357)',query)
-        self.assertNotIn('[!"website"]',query)
-        self.assertNotIn('[!"contact:website"]',query)
-        self.assertNotIn('[!"url"]',query)
-        self.assertGreaterEqual(query.count("out center 12;"),20)
+        for tag in mapdata.WEBSITE_KEYS:
+            self.assertIn(f'[!"{tag}"]',query)
+        self.assertGreaterEqual(query.count("out center 6;"),80)
         self.assertEqual([a["name"] for a in result["results"]],
-                         ["Café Eiffel","La Librairie","Salon Web"])
-        self.assertTrue(result["results"][2]["website_recorded"])
+                         ["Café Eiffel","La Librairie"])
+        self.assertTrue(all(not item["website_recorded"] for item in result["results"]))
+        self.assertFalse(result["website_verified"])
         self.assertTrue(result["partial"])
         self.assertIn("≠",result["notice"])
         self.assertTrue(cached["cached"])
@@ -95,8 +95,31 @@ class WebsiteProspectMapTests(unittest.TestCase):
         query=parse_qs(request.call_args.kwargs["post"])["data"][0]
         self.assertIn("around:1100,47.3,5.01",query)
         self.assertIn("out center 220;",query)
+        self.assertIn('[!"website"]',query)
         self.assertEqual(result["results"],[])
         self.assertEqual(result["mode"],"nearby")
+
+    def test_visible_viewport_is_bounded_and_excludes_all_site_keys(self):
+        company={"type":"node","id":3,"lat":47.35,"lon":5.02,
+                 "tags":{"shop":"hairdresser","name":"Atelier sans site"}}
+        company_with_url={"type":"node","id":4,"lat":47.34,"lon":5.03,
+                 "tags":{"shop":"hairdresser","name":"Avec site","contact:url":"https://example.org"}}
+        with patch.object(shared,"_json_http",return_value={
+            "elements":[company,company_with_url]}) as call:
+            result=mapdata.viewport_details(47.30,4.98,47.37,5.06,14)
+        query=parse_qs(call.call_args.kwargs["post"])["data"][0]
+        self.assertIn("nwr(47.3,4.98,47.37,5.06)",query)
+        self.assertIn("out center 350;",query)
+        self.assertIn('[!"contact:url"]',query)
+        self.assertEqual([item["name"] for item in result["results"]],
+                         ["Atelier sans site"])
+        self.assertEqual(result["mode"],"viewport")
+        with self.assertRaisesRegex(ValueError,"Zone trop vaste"):
+            mapdata.viewport_details(44.0,2.0,45.0,3.0,14)
+        with self.assertRaisesRegex(ValueError,"Zoome"):
+            mapdata.viewport_details(47.3,4.98,47.37,5.06,10)
+        with self.assertRaisesRegex(ValueError,"invalides"):
+            mapdata.viewport_details(47.4,4.98,47.3,5.06,14)
 
     def test_public_rate_limit_prevents_overpass_request_flood(self):
         with patch.object(shared,"_json_http",return_value={"elements":[]}) as request:
@@ -112,18 +135,23 @@ class WebsiteProspectMapTests(unittest.TestCase):
                      'id="industrySearch"','id="mapNearby"','id="mapProvider"'):
             self.assertNotIn(item,html)
         self.assertIn("setView([46.60,2.28],6)",script)
-        self.assertIn("radius:3.1",script)
-        self.assertIn("'#e14959'",script)
-        self.assertIn("'#27bd72'",script)
+        self.assertIn("radius:2.3",script)
+        self.assertIn("'#a868f6'",script)
+        self.assertNotIn("'#e14959'",script)
+        self.assertNotIn("'#27bd72'",script)
         self.assertIn("website_recorded",script)
         self.assertIn("stroke:false",script)
         self.assertIn("map.on('moveend',scheduleNearby)",script)
         self.assertIn("overview();",script)
         self.assertIn("aucun site renseigné",html)
-        self.assertIn("site internet renseigné",html)
+        self.assertIn("Violet",html)
+        self.assertNotIn("Rouge : site internet",html)
         self.assertIn("doit être vérifié",html)
         self.assertIn("ne prouve pas",script)
         self.assertIn('id="companyWebsite"',html)
+        self.assertIn('id="verifyWebPresence"',html)
+        self.assertIn("/api/web/map/no-website/viewport",script)
+        self.assertIn("function pruneOffscreen()",script)
         self.assertIn("target=\"_blank\"",html)
         self.assertIn("rel=\"noopener noreferrer nofollow\"",html)
         self.assertIn('id="mapSelection"',html)
@@ -134,6 +162,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         windows=(BASE/".github/workflows/build-windows.yml").read_text(encoding="utf-8")
         self.assertIn("/api/web/map/no-website/france",server)
         self.assertIn("/api/web/map/no-website/nearby",server)
+        self.assertIn("/api/web/map/no-website/viewport",server)
         self.assertIn("--hidden-import local_app.web_map_no_website",windows)
         self.assertIn("Smoke test native EXE and extracted Python DLL",windows)
 
