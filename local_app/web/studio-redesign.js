@@ -226,5 +226,41 @@
  }).catch(()=>{
    if(!userInteracted)home();
  });
+ // Real engine health, no fake 'connected' status. The repair action
+ // delegates to the existing resumable engine installer after user consent.
+ const recovery=byId('engineRecovery'),recoveryText=byId('engineRecoveryText');
+ const recoveryButton=byId('engineRecoveryButton');
+ async function updateEngineHealth(){
+   try{
+     const response=await fetch('/api/health',{cache:'no-store'});
+     if(!response.ok)throw Error('Serveur local HTTP '+response.status);
+     const data=await response.json();
+     const ready=!!data.online || !!data.llm?.online;
+     const running=data.startup?.state==='running';
+     recovery.hidden=ready&&!running;
+     if(running){
+       recoveryText.textContent=data.startup?.message||'Préparation des moteurs en cours…';
+       recoveryButton.disabled=true;recoveryButton.textContent='Installation en cours…';
+     }else if(!ready){
+       recoveryText.textContent=data.startup?.error
+         ?'Moteurs non disponibles : '+String(data.startup.error).slice(0,110)
+         :'Moteurs locaux non connectés. Les générations nécessitent ComfyUI ou Qwen.';
+       recoveryButton.disabled=false;recoveryButton.textContent='Démarrer / réparer ↗';
+     }
+   }catch(error){
+     recovery.hidden=false;recoveryText.textContent='Diagnostic local impossible : '+error.message;
+     recoveryButton.disabled=true;
+   }
+ }
+ recoveryButton.addEventListener('click',()=>{
+   if(recoveryButton.disabled)return;
+   if(window.confirm('Démarrer ou réparer les moteurs locaux ? Des modèles et dépendances peuvent être téléchargés. Les fichiers déjà présents sont conservés.')){
+     byId('retrySetup')?.click();
+     recoveryButton.disabled=true;recoveryText.textContent='Préparation demandée…';
+     window.setTimeout(updateEngineHealth,2400);
+   }
+ });
+ window.setInterval(()=>{if(!document.hidden)updateEngineHealth()},14000);
+ updateEngineHealth();
  if(!welcome.classList.contains('hidden'))document.body.classList.add('is-landing');
 })();
