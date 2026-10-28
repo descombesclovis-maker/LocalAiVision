@@ -1,4 +1,4 @@
-/* LocalAiWeb: real agent connection and persistent, purposeful studio art mode.
+/* LocalAiWeb: real agent connection with clean freeform chat.
    ChatGPT Plus signs in to the installed Codex CLI. Never silently purchase API
    credits, auto-install packages or label an unauthenticated agent as ready. */
 (()=>{
@@ -6,7 +6,6 @@
 const button=document.getElementById('connectAgent');
 if(!button)return;
 const selector=document.getElementById('lawAgentSelect');
-const cinema=document.getElementById('lawCinemaMode');
 const projectId=(new URLSearchParams(location.search)).get('id')||'';
 const validProject=/^web-[a-f0-9]{12}$/.test(projectId);
 let state={},current='codex',saving=false;
@@ -37,7 +36,6 @@ function render(){
  }
  button.disabled=saving;
  if(selector)selector.disabled=saving;
- if(cinema)cinema.disabled=saving;
 }
 async function check(){
  if(saving)return;
@@ -65,12 +63,6 @@ async function setup(){
   const provider=saved.ai_provider==='claude'&&project.agent_selected_by_user===true
    ?'claude':'codex';
   selector.value=provider;current=provider;
-  if(cinema){
-   const enabled=saved.art_direction==='spatial3d';
-   cinema.classList.toggle('active',enabled);
-   cinema.setAttribute('aria-pressed',String(enabled));
-   cinema.title=enabled?'Désactiver la signature 3D du projet':'Activer la direction artistique 3D immersive pour les prochaines générations.';
-  }
   render();
  }catch(error){feedback('Préférences de projet indisponibles : '+error.message)}
 }
@@ -87,20 +79,6 @@ selector?.addEventListener('change',async()=>{
   selector.value=previous;
   feedback('Agent inchangé : '+error.message);
  }finally{saving=false;render()}
-});
-cinema?.addEventListener('click',async()=>{
- if(saving)return;
- const currentMode=cinema.getAttribute('aria-pressed')==='true',next=!currentMode;
- saving=true;render();
- try{
-  await patchSettings({art_direction:next?'spatial3d':'auto'});
-  cinema.classList.toggle('active',next);
-  cinema.setAttribute('aria-pressed',String(next));
-  feedback(next
-   ?'Signature 3D activée pour ce projet : le prochain site utilisera une direction immersive, de vrais effets et des alternatives mobiles si pertinent.'
-   :'Direction artistique automatique réactivée pour ce projet.');
- }catch(error){feedback('Mode 3D inchangé : '+error.message)}
- finally{saving=false;render()}
 });
 button.addEventListener('click',async()=>{
  if(saving)return;

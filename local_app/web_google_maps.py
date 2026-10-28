@@ -20,8 +20,9 @@ def configuration():
     """Expose only the browser key (public by design), never the Places REST secret."""
     browser=os.environ.get("LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY","").strip()
     private=os.environ.get("LOCALAIWEB_GOOGLE_PLACES_API_KEY","").strip()
-    return {"enabled":bool(browser and private),
-            "browser_key":browser if browser and private else "",
+    return {"enabled":bool(browser),
+            "browser_key":browser,
+            "places_enabled":bool(private),
             "requires_billing":True}
 
 def _request(endpoint, *, data=None, field_mask):
@@ -76,3 +77,4 @@ def place_details(place_id):
     result=_convert(place)
     if not result:raise ValueError("Impossible de sélectionner cette entreprise Google Maps.")
     return {"business":result}
+

@@ -82,16 +82,18 @@ function sentMessageActions(item, text){
  });
  item.appendChild(actions);
 }
-function message(text,role='assistant',choices=[]){
+function message(text,role='assistant'){
+ // The studio chat is deliberately empty until the user speaks. Agent
+ // progress and errors belong to the small status line, never chat bubbles.
+ if(role!=='user'){
+   if(/^(Erreur|Impossible|Création interrompue|Connexion|Publication)/i.test(String(text||'')))
+     $('#lawChatStatus').textContent=String(text).slice(0,230);
+   return null;
+ }
  const item=document.createElement('article');item.className='message '+(role==='user'?'user':'assistant');
  if(role!=='user'){const name=document.createElement('div');name.className='message-author';name.textContent='LocalAiWeb';item.appendChild(name);}
  const textNode=document.createElement('p');textNode.textContent=String(text||'');item.appendChild(textNode);
  if(role==='user')sentMessageActions(item,String(text||''));
- if(choices.length){
-  const area=document.createElement('div');area.className='choices';
-  choices.forEach(value=>{const b=document.createElement('button');b.type='button';b.textContent=value;b.onclick=()=>sendText(value);area.appendChild(b);});
-  item.appendChild(area);
- }
  chat.appendChild(item);scrollBottom();return item;
 }
 function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';}
@@ -115,8 +117,6 @@ function detectIntent(text){
  if(/^(?:exporter(?: le site)?|telecharger(?: le site)?|telecharger le code|exporter en zip)[.! ]*$/.test(t))return 'export';
  if(/^(?:aide|comment ca marche|comment utiliser localaiweb)[.! ?]*$/.test(t))return 'help';
  if(/^(?:annuler|retour en arriere|restaurer la version precedente)[.! ]*$/.test(t))return 'restore';
- if(/^(?:lancer le questionnaire|commencer le questionnaire|questionnaire|guide-moi|pose-moi des questions)[.! ]*$/.test(t))return 'guide';
- if(/^(?:terminer le questionnaire|construis avec ces reponses|creer maintenant|genere maintenant)[.! ]*$/.test(t))return 'build';
  return '';
 }
 async function ensureProject(){
@@ -161,7 +161,7 @@ function generationFeedback(result){
   '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
   (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
   '\\nLes devis sont disponibles depuis le dossier commercial et doivent être vérifiés avant émission.',
-  'assistant',['Améliore le rendu visuel','Optimise téléphone et tablette','Ajoute des fonctionnalités']);
+  'assistant');
 }
 async function watchGeneration(id){
  if(activeGeneration===id)return;
@@ -192,7 +192,7 @@ async function watchGeneration(id){
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
           '\\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
-          'assistant',['Relancer la maquette']);
+          'assistant');
          stage='ready';stop();
        }else{
          message('Aucune génération active. Après un redémarrage du logiciel, relance la maquette pour terminer le travail.');
@@ -279,34 +279,6 @@ async function restoreLast(){
  const d=await api('/api/web/version/restore',{id:project.project.id,version_id:versions[0].id});
  project=d;preview();message('J’ai restauré une version précédente. Regarde le site à droite.');
 }
-function renderBriefQuestion(result){
- if(!result?.question)return;
- stage='specification';
- const q=result.question;
- const step=(result.plan?.index||0)+1,total=(result.plan?.questions||[]).length;
- message('Pour que ton site corresponde exactement à ta demande, il me manque une précision.\n'
-   +'Question '+step+' / '+total+' : '+q.question
-   +'\nRéponds librement ou choisis une proposition. Je ne génère pas le site avant d’avoir tes réponses.',
-   'assistant',q.choices||[]);
-}
-async function beginSpecification(text){
- await ensureProject();
- const result=await api('/api/web/brief/begin',{id:project.project.id,prompt:text});
- if(result.ready){
-   stage='ready';
-   return generate(text);
- }
- renderBriefQuestion(result);
-}
-async function answerSpecification(text){
- const result=await api('/api/web/brief/answer',{id:project.project.id,answer:text});
- if(result.ready){
-   stage='ready';
-   message('Merci, toutes les précisions nécessaires sont réunies. Je passe à la réalisation du site. Les couleurs, les catégories et les fonctions demandées sont prioritaires.');
-   return generate(result.prompt);
- }
- renderBriefQuestion(result);
-}
 async function startProDraft(retry=false){
  if(!project || project.project?.project_kind!=='pro')return false;
  const claim=await api('/api/web/project/auto-claim',{id:project.project.id,retry});
@@ -333,22 +305,12 @@ async function sendText(value,{preserveDraft=false}={}){
   }
   if(intent==='projects'){await showProjects();return;}
   if(/^ouvrir\s+/i.test(text)&&await handleProjectOpen(text))return;
-  if(intent==='help'){
-   message('Décris ton site ici et observe le résultat complet à droite. Pour revenir à la bibliothèque, clique sur la flèche près de LocalAiWeb ou écris « mes projets ». Pour modifier, continue simplement à discuter.');return;
-  }
-  if(intent==='guide'){
-   stage='welcome';message('Décris ton site en quelques phrases. Je te poserai ensuite, si besoin, une ou deux questions sur son style et ses couleurs.');return;
-  }
+
   if(intent==='publish'){await publish();return;}
   if(intent==='export'){await exportSite();return;}
   if(intent==='restore'){await restoreLast();return;}
-  if(stage==='specification'){
-   await answerSpecification(text);return;
-  }
-  if(stage==='welcome'){
-   await beginSpecification(text);return;
-  }
-  if(intent==='build'){await generate('Crée maintenant un site complet et cohérent suivant mes réponses. Produis toutes les pages et interactions réelles nécessaires, un design soigné, une navigation fluide, un responsive impeccable et un contenu utile.');return;}
+  // Natural-language instructions go straight to the selected coding agent.
+  // No questionnaire, mandatory style guide, canned suggestions or QCM.
   await generate(text);
  }catch(error){message('Erreur : '+error.message);}
  finally{setBusy(false);}
@@ -359,50 +321,54 @@ document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener
 async function initialize(){
  try{
   await ensureProject();
+  const id=project.project.id;
   const salesLink=document.getElementById('lawSalesBtn');
-  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
-  const rows=project.chat||[];
-  const initial=project.project?.initial_generation||{};
-  const generation=await api('/api/web/generation/status?id='+encodeURIComponent(project.project.id));
+  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
+  chat.replaceChildren();
+  for(const row of project.chat||[]){
+   if(row.role==='user')message(row.text,'user');
+  }
+  stage='ready';
+  const generation=await api('/api/web/generation/status?id='+encodeURIComponent(id));
   if(generation.state==='running'){
-   chat.innerHTML='';
-   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
-   message('La création est toujours en cours. Le logiciel conserve ton projet et je reprends le suivi de la génération.');
-   updateLivePreview(generation,project.project.id);
-   stage='ready';
-   await watchGeneration(project.project.id);
+   updateLivePreview(generation,id);
+   await watchGeneration(id);
    return;
   }
-  if(project.project?.project_kind==='pro' && initial.status==='pending'){
-   chat.innerHTML='';
-   message('Entreprise sélectionnée : '+project.project.name+
-     '. Je lance automatiquement la première proposition de site.','assistant');
-   await startProDraft(false);
-  }else if(project.project?.project_kind==='pro' &&
-           ['failed','claimed'].includes(initial.status)){
-   chat.innerHTML='';
-   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
-   message(initial.status==='failed'
-      ?'La création automatique a rencontré un problème : '+(initial.error||'moteur indisponible')+
-       '\nLe projet Pro est enregistré. Tu peux relancer la première maquette.'
-      :'La première génération a déjà été demandée. Si elle semble interrompue, '+
-       'rouvre le projet après quelques minutes ou demande à relancer la maquette.',
-      'assistant',['Relancer la maquette']);
-   stage='ready';
-  }else if(rows.length){
-   chat.innerHTML='';
-   rows.forEach(row=>message(row.text,row.role==='user'?'user':'assistant'));
-   message('Je suis prêt à continuer ce projet. Décris la prochaine modification ou écris « questionnaire » pour clarifier tes attentes.','assistant',['Améliore le rendu','Questionnaire','Publier le site']);
-   stage='ready';
-  }else{
-   chat.innerHTML='';
-   message('Bonjour ! Décris-moi le site que tu imagines. Je peux créer aussi bien un site simple qu’une expérience 3D premium avec un véritable site complet à droite.\n\nJe peux te guider avec un questionnaire précis. Veux-tu commencer par quelques questions, ou préfères-tu décrire directement ton idée ?','assistant',['Commencer le questionnaire','Créer un site vitrine simple','Créer un site 3D cinématique']);
-   stage='welcome';
+  const first=project.project?.initial_generation||{};
+  if(project.project?.project_kind==='pro' && !generation.preview_ready &&
+     (first.status==='pending'||first.status==='failed')){
+    const dialog=$('#lawDesignDialog');
+    if(dialog&&!dialog.open)dialog.showModal();
   }
-  const unfinished=project.project?.generation_plan;
-  if(unfinished && !unfinished.ready && unfinished.questions?.length){
-   renderBriefQuestion({plan:unfinished,question:unfinished.questions[unfinished.index]});
-  }
- }catch(error){message('Impossible de charger tes projets : '+error.message);}
+ }catch(error){
+  $('#lawChatStatus').textContent='Chargement impossible : '+error.message;
+ }
 }
+const designDialog=$('#lawDesignDialog');
+const designForm=$('#lawDesignForm');
+$('#lawDesignCancel')?.addEventListener('click',()=>{
+ designDialog.close();prompt.focus();
+});
+designForm?.addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(busy||!project)return;
+ const submit=$('#lawDesignCreate');
+ const error=$('#lawDesignError');
+ error.textContent='';submit.disabled=true;
+ try{
+  const choices=Object.fromEntries(new FormData(designForm).entries());
+  project=await api('/api/web/project/design-profile',{
+   id:project.project.id,profile:choices});
+  designDialog.close();
+  // This single explicit action creates the first business site.
+  const initial=project.project.initial_generation||{};
+  if(initial.status==='pending'||initial.status==='failed'){
+   await startProDraft(initial.status==='failed');
+  }
+ }catch(e){
+  error.textContent='Impossible de lancer la maquette : '+e.message;
+  $('#lawChatStatus').textContent=e.message;
+ }finally{submit.disabled=false}
+});
 initialize();

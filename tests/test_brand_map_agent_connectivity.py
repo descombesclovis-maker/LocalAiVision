@@ -75,7 +75,9 @@ class BrandMapAgentTests(unittest.TestCase):
         self.assertIn('elif provider == "claude":',script)
         self.assertIn('elif provider == "codex":',script)
         self.assertIn('id="lawAgentSelect"',editor)
-        self.assertIn('id="lawCinemaMode"',editor)
+        self.assertNotIn('id="lawCinemaMode"',editor)
+        self.assertIn('id="lawDesignDialog"',editor)
+        self.assertIn('id="lawDesignForm"',editor)
         self.assertIn("/api/web/project/agent-settings",source)
 
     def test_real_local_model_repair_command_is_available(self):

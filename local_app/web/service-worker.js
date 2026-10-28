@@ -1,8 +1,8 @@
 /* Application shell only. Never cache APIs, generated files, uploaded media or project content. */
-const CACHE='localai-shell-20261028-map-company-v1';
+const CACHE='localai-shell-20261028-google-pro-chat-v1';
 const STATIC=new Set(['/assets/style.css','/assets/app.js','/assets/intent.js','/assets/styles.js',
  '/assets/localaiweb.css','/assets/localaiweb.js','/assets/localaiweb-map.css',
- '/assets/localaiweb-map.js','/assets/studio-redesign.css','/assets/studio-redesign.js',
+ '/assets/localaiweb-map.js','/assets/localaiweb-google-map.js','/assets/studio-redesign.css','/assets/studio-redesign.js',
  '/assets/studio-suite.css','/assets/localaiweb-clients.css','/assets/localaiweb-clients.js',
  '/assets/localaiweb-projects.css','/assets/localaiweb-projects.js',
  '/assets/app-icon.svg','/assets/brand-vision.svg','/assets/brand-web.svg',

@@ -1761,6 +1761,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":"Service OpenStreetMap indisponible : "+str(exc)}, 503)
             return
+        if u.path == "/api/web/map/registry/city":
+            try:
+                from local_app import web_map_no_website
+                params=parse_qs(u.query)
+                self.send_json(web_map_no_website.registry_city(
+                    params.get("lat",[""])[0],params.get("lon",[""])[0],
+                    params.get("zoom",[""])[0]))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},503)
+            return
         if u.path == "/api/web/map/no-website/nearby":
             try:
                 from local_app import web_map_no_website
@@ -2113,6 +2123,22 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(_web_store().create(body.get("name") or "Nouveau projet", body.get("template") or "default"))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
+            return
+        if u.path == "/api/web/project/design-profile":
+            try:
+                from local_app import web_design_profile
+                store=_web_store()
+                project_id=body.get("id")
+                meta=store.meta(project_id)
+                if meta.get("project_kind")!="pro":
+                    raise ValueError("Cette préparation graphique concerne les projets issus de la carte.")
+                profile=web_design_profile.validate(body.get("profile"))
+                meta["design_profile"]=profile
+                meta["updated_at"]=time.time()
+                store.write_meta(project_id,meta)
+                self.send_json(store.payload(project_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
             return
         if u.path == "/api/web/project/agent-settings":
             try:
