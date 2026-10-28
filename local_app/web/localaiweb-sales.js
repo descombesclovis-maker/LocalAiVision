@@ -63,6 +63,42 @@
    $('projectLabel').textContent='Impossible de charger le projet : '+err.message;
   }
  }
+ function sellerData(){
+   return {name:$('sellerName').value.trim(),siret:$('sellerSiret').value.trim(),
+     address:$('sellerAddress').value.trim(),legal_form:$('legalForm').value,
+     capital:$('sellerCapital').value.trim(),vat_mode:$('vatMode').value,
+     vat_number:$('sellerVat').value.trim(),payment_details:$('paymentDetails').value.trim(),
+     late_penalty_rate:$('latePenaltyRate').value.trim()};
+ }
+ function customerData(){
+   return {name:$('customerName').value.trim(),address:$('customerAddress').value.trim(),
+     siret:$('customerSiret').value.trim(),email:$('customerEmail').value.trim(),
+     type:$('customerType').value};
+ }
+ $('issueQuote').addEventListener('click',async()=>{
+   const button=$('issueQuote'),area=$('quoteFeedback');
+   if(!estimate||!selected.size){area.textContent='Aucune prestation identifiée. Génère d’abord le site.';return}
+   button.disabled=true;area.textContent='Préparation du devis…';
+   try{
+     const seller=sellerData(),customer=customerData();
+     if(!seller.name||!seller.siret||!customer.name||!customer.address){
+       throw Error('Renseigne les identités réelles du prestataire et du client avant de créer le devis.');
+     }
+     const total=currency([...selected.values()].reduce((sum,item)=>sum+Number(item.subtotal_eur),0));
+     if(!window.confirm('Créer un devis commercial numéroté pour '+customer.name+
+         ' ?\\nMontant HT estimé : '+total+
+         '\\nLe client devra accepter le devis. Aucun paiement ou envoi ne sera déclenché.'))return;
+     const result=await api('/api/web/crm/quote/create',{
+       project_id:projectId,seller,customer,items:[...selected.keys()],
+       valid_days:Number($('quoteValidDays').value),confirmed:true});
+     area.replaceChildren();
+     const strong=document.createElement('strong');strong.textContent='Devis '+result.quote_number+' enregistré · '+currency(result.total_eur);
+     const link=document.createElement('a');link.href=result.download;link.target='_blank';link.rel='noopener noreferrer';
+     link.textContent='Ouvrir le devis PDF ↗';
+     area.append(strong,document.createElement('br'),link);
+   }catch(err){area.textContent='Devis non créé : '+err.message}
+   finally{button.disabled=false}
+ });
  $('invoiceForm').addEventListener('submit',async event=>{
   event.preventDefault();
   if(!estimate || !selected.size)return;
