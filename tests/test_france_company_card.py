@@ -23,6 +23,8 @@ class FranceBusinessCardTests(unittest.TestCase):
         self.assertIn("L.divIcon(",js)
         self.assertIn("iconSize:[32,32]",js)
         self.assertIn("company-marker-single",css)
+        self.assertIn("/api/web/map/registry/city",js)
+        self.assertIn("Promise.allSettled(operations)",js)
         self.assertIn("company-marker-group",css)
         self.assertNotIn("legend-red",html)
         self.assertNotIn("legend-green",html)
