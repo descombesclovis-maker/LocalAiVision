@@ -22,6 +22,20 @@ _web_progress_rows = {}
 _web_generation_lock = threading.Lock()
 _web_generation_jobs = {}
 
+def _web_persist_generation(project_id, record):
+    """Remember the job outcome independently from the browser connection."""
+    try:
+        path=_web_store().project_dir(project_id)/"generation_status.json"
+        temporary=path.with_suffix(".pending")
+        # Only nonsecret status: never persist the Codex prompt or auth.
+        fields=("ticket","state","started_at","finished_at","phase",
+                "summary","error","provider")
+        safe={key:record[key] for key in fields if key in record}
+        temporary.write_text(json.dumps(safe,ensure_ascii=False),encoding="utf-8")
+        os.replace(temporary,path)
+    except (OSError,ValueError,KeyError):
+        pass
+
 def _web_async_generate(project_id, prompt, ticket):
     """Run the existing, tested synchronous generation route in a worker.
 
@@ -51,6 +65,7 @@ def _web_async_generate(project_id, prompt, ticket):
         if _web_generation_jobs.get(project_id, {}).get("ticket") == ticket:
             _web_generation_jobs[project_id].update(outcome)
             _web_generation_jobs[project_id]["finished_at"] = time.time()
+            _web_persist_generation(project_id,_web_generation_jobs[project_id])
     if outcome["state"] == "error":
         _web_progress(project_id, "error", outcome["error"])
 
@@ -60,6 +75,17 @@ def _web_generation_status(project_id):
         job = dict(_web_generation_jobs.get(project_id) or {})
     with _web_progress_lock:
         progress = dict(_web_progress_rows.get(project_id) or {})
+    if not job:
+        try:
+            path=_web_store().project_dir(project_id)/"generation_status.json"
+            saved=json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(saved,dict):
+                job=saved
+                if job.get("state")=="running":
+                    job={"state":"error","error":"La génération a été interrompue "
+                         "par l'arrêt du logiciel. Le projet a été conservé."}
+        except (OSError,ValueError,TypeError):
+            pass
     result = {**progress, **job}
     if not job:
         result["state"] = "idle"
@@ -98,6 +124,7 @@ def _web_start_generation(project_id, prompt):
             "state": "running", "ticket": ticket,
             "started_at": time.time(), "phase": "planning",
         }
+        _web_persist_generation(project_id,_web_generation_jobs[project_id])
     _web_progress(project_id, "planning", "L'agent prépare la première proposition…")
     worker = threading.Thread(
         target=_web_async_generate, args=(project_id, request, ticket),
@@ -2240,7 +2267,8 @@ class Handler(BaseHTTPRequestHandler):
                         # Single bounded Codex pass. No 15-minute read-only retry
                         # for the very first screen; tell the user if blocked.
                         coder = lambda site, instruction: integrations_cli.codex_apply(
-                            site, instruction, timeout=420, allow_retry=False)
+                            site, instruction, timeout=360, allow_retry=False,
+                            prefer_bundle=(os.name=="nt"))
                     else:
                         coder = (integrations_cli.claude_apply if agent_name == "claude"
                                  else integrations_cli.codex_apply)
