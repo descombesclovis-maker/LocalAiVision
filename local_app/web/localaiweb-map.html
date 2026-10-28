@@ -16,14 +16,14 @@
   <span class="map-header-note">France · Vue initiale</span>
 </header>
 <main class="map-layout">
-  <section class="map-area" aria-label="Carte interactive des établissements sans site renseigné">
+  <section class="map-area" aria-label="Carte interactive des entreprises avec ou sans site renseigné">
     <div id="businessMap" role="application" aria-label="Carte OpenStreetMap, initialement centrée sur la France"></div>
-    <div class="map-legend" aria-label="Signification des points violets">
-      <span class="legend-dot" aria-hidden="true"></span>
-      <span>Établissements <strong>sans site renseigné</strong> dans OpenStreetMap</span>
+    <div class="map-legend" aria-label="Légende des points sur la carte">
+      <span class="legend-item"><span class="legend-dot legend-green" aria-hidden="true"></span><span>Vert : aucun site renseigné</span></span>
+      <span class="legend-item"><span class="legend-dot legend-red" aria-hidden="true"></span><span>Rouge : site internet renseigné</span></span>
     </div>
     <div id="mapFeedback" class="map-feedback" role="status" aria-live="polite">
-      Chargement d'un aperçu des entreprises en France…
+      Chargement d’un aperçu partiel des entreprises en France…
     </div>
     <div class="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — ODbL</a></div>
     <div id="mapUnavailable" class="map-unavailable" hidden>
@@ -36,8 +36,8 @@
     <h1 id="selectionTitle"></h1>
     <p id="selectionCategory" class="selection-category"></p>
     <p id="selectionAddress"></p>
-    <div class="selection-notice">Aucun site internet n'est renseigné dans la fiche cartographique.
-      Cela <strong>ne prouve pas</strong> que l'établissement n'en possède pas.</div>
+    <div id="selectionNotice" class="selection-notice">Le statut du site repose sur les données d’OpenStreetMap et doit être vérifié.</div>
+    <a id="companyWebsite" class="company-website" href="#" target="_blank" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>↗ Consulter le site internet de l’entreprise</a>
     <div id="selectionPublicInfo" class="business-details"></div>
     <div id="professionalProfile" class="registry-profile" aria-live="polite"></div>
     <button id="mapRegistry" class="registry-check" type="button" hidden>Consulter les informations professionnelles publiques ↗</button>
