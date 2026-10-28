@@ -151,15 +151,10 @@ window.LocalAiWebGoogleMap={
      }
      lastKey=key;lastAt=Date.now();loading=true;
      try{
-       const bounds=map.getBounds();
-       const sw=bounds?.getSouthWest(),ne=bounds?.getNorthEast();
-       const narrow=zoom>=13&&sw&&ne&&ne.lat()-sw.lat()<.1&&ne.lng()-sw.lng()<.1;
-       const args=narrow?new URLSearchParams({
-         south:String(sw.lat()),west:String(sw.lng()),
-         north:String(ne.lat()),east:String(ne.lng()),zoom:String(zoom)
-       }):new URLSearchParams({lat:String(lat),lon:String(lon),zoom:String(zoom)});
-       const route=narrow?'/api/web/map/no-website/viewport':'/api/web/map/no-website/nearby';
-       const data=await api(route+'?'+args);
+       const args=new URLSearchParams({lat:String(lat),lon:String(lon),zoom:String(zoom)});
+       // Three pages of real independently licensed French firms, with
+       // priority for retail, small trades and local services.
+       const data=await api('/api/web/map/registry/city?'+args);
        const before=businesses.size;
        add(data.results);
        setStatus((businesses.size-before)+' petits commerces et établissements ajoutés · '+
