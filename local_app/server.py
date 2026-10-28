@@ -1530,6 +1530,21 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 503)
             return
+        if u.path == "/api/web/map/no-website/viewport":
+            try:
+                from local_app import web_map_no_website
+                params=parse_qs(u.query)
+                self.send_json(web_map_no_website.viewport_details(
+                    params.get("south", [""])[0],
+                    params.get("west", [""])[0],
+                    params.get("north", [""])[0],
+                    params.get("east", [""])[0],
+                    params.get("zoom", [""])[0]))
+            except ValueError as exc:
+                self.send_json({"error":str(exc)}, 400)
+            except Exception as exc:
+                self.send_json({"error":str(exc)}, 503)
+            return
         if u.path == "/api/web/map/categories":
             from local_app import web_business_categories
             self.send_json(web_business_categories.catalog())
