@@ -100,7 +100,7 @@ class FreeformDesignTests(TestCase):
             self.assertIn("Objets 3D interactifs",instruction)
             self.assertIn("Récit au défilement",instruction)
             self.assertIn("Photographie chaleureuse",instruction)
-            self.assertIn("Demandes de l'utilisateur",instruction.capitalize() if False else instruction)
+            self.assertIn("nouvelles demandes de l'utilisateur",instruction)
         with self.assertRaises(ValueError):
             web_design_profile.validate({"dimension":"ultra-secret"})
         with self.assertRaises(ValueError):
