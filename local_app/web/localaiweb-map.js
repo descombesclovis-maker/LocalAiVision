@@ -270,6 +270,24 @@
      btn.textContent='Créer un site pour cette entreprise ↗';
    }finally{creating=false;btn.disabled=false}
  });
+ async function startMap(){
+   try{
+     const config=await api('/api/web/map/config');
+     if(config.enabled && window.LocalAiWebGoogleMap){
+       const started=await window.LocalAiWebGoogleMap.start(config,details,setStatus,api);
+       if(started)return;
+     }
+     if(!config.enabled){
+       // Never claim official Google Maps when the user has not configured
+       // a Google Cloud billing account and two appropriate API keys.
+       setStatus('Carte publique disponible. Pour la carte officielle Google Maps et ses commerces, configure Google Maps Platform.');
+     }
+   }catch(error){
+     setStatus('Google Maps indisponible : '+error.message+'. Carte publique de secours chargée.');
+   }
+   startPublicMap();
+ }
+ function startPublicMap(){
  if(typeof L==='undefined'){
    $('mapUnavailable').hidden=false;
    setStatus('Impossible de charger la carte. Une connexion Internet est nécessaire.');
@@ -306,4 +324,6 @@
  map.on('moveend',scheduleNearby);
  map.on('zoomend',scheduleRedraw);
  overview();
+ }
+ void startMap();
 })();
