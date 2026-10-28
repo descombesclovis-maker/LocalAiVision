@@ -15,18 +15,20 @@ WEB=BASE/"local_app"/"web"
 
 
 class BrandTests(unittest.TestCase):
-    def test_all_three_supplied_webp_images_are_valid_embedded_assets(self):
-        for name in ("brand-vision.svg","brand-identity.svg","brand-web.svg"):
+    def test_crisp_vector_branding_and_separate_slogans(self):
+        for name in ("brand-vision.svg","brand-identity.svg","brand-web.svg","brand-web-identity.svg"):
             with self.subTest(name=name):
                 content=(WEB/name).read_text(encoding="utf-8")
-                ET.fromstring(content)
-                match=re.search(r'data:image/webp;base64,([A-Za-z0-9+/=]+)',content)
-                self.assertIsNotNone(match)
-                data=base64.b64decode(match.group(1),validate=True)
-                self.assertGreater(len(data),1000)
-                self.assertEqual(data[:4],b"RIFF")
-                self.assertEqual(data[8:12],b"WEBP")
-                self.assertEqual(struct.unpack("<I",data[4:8])[0]+8,len(data))
+                root=ET.fromstring(content)
+                self.assertIn("viewBox",root.attrib)
+                self.assertNotIn("data:image/webp;base64",content)
+                self.assertIn("<path",content)
+        vision=(WEB/"brand-identity.svg").read_text(encoding="utf-8")
+        web=(WEB/"brand-web-identity.svg").read_text(encoding="utf-8")
+        self.assertIn("CRÉATIONS VISUELLES",vision)
+        self.assertNotIn("CRÉATION DE SITES WEB",vision)
+        self.assertIn("CRÉATIONS DE SITES WEBS",web)
+        self.assertNotIn("CRÉATIONS VISUELLES",web)
 
     def test_studios_use_the_correct_symbols_and_master_identity(self):
         vision=(WEB/"index.html").read_text(encoding="utf-8")
@@ -36,7 +38,8 @@ class BrandTests(unittest.TestCase):
         manifest=(WEB/"manifest.webmanifest").read_text(encoding="utf-8")
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('src="/assets/brand-identity.svg"',vision)
-        self.assertIn('src="/assets/brand-identity.svg"',projects)
+        self.assertIn('src="/assets/brand-web-identity.svg"',projects)
+        self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):
             self.assertIn('src="/assets/brand-web.svg"',web_ui)
         self.assertIn("/assets/app-icon.svg",manifest)
