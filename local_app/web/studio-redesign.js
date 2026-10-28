@@ -108,7 +108,11 @@
  });
  prompt?.addEventListener('focus',()=>{
    if(document.body.classList.contains('is-landing')){
-     darkMode();welcome.classList.add('hidden');activeNav('');
+     darkMode();welcome.classList.add('welcome-exiting');activeNav('');
+     window.setTimeout(()=>{
+       if(!document.body.classList.contains('is-landing'))welcome.classList.add('hidden');
+       welcome.classList.remove('welcome-exiting');
+     },260);
    }
  });
  prompt?.addEventListener('input',()=>{if(prompt.value.trim())darkMode()});
