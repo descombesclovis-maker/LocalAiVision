@@ -114,7 +114,7 @@ def france_overview():
         # bulk export and distribute the displayed points across France.
         pieces.append(
             f'nwr(around:800,{lat},{lon})["name"]'
-            f'{BUSINESS_TAG}{NO_WEBSITE};out center 7;')
+            f'{BUSINESS_TAG}{NO_WEBSITE};out center 12;')
     statement="[out:json][timeout:25];"+"".join(pieces)
     return _load(key,statement,"france_overview")
 
