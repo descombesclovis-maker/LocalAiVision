@@ -22,6 +22,17 @@ _web_progress_rows = {}
 _web_generation_lock = threading.Lock()
 _web_generation_jobs = {}
 
+def _map_index_response(result):
+    """Reuse only publicly diffusible business facts for local prospecting."""
+    if isinstance(result,dict) and isinstance(result.get("results"),list):
+        try:
+            from local_app import web_prospects
+            web_prospects.save(result["results"])
+        except (OSError,ValueError,TypeError):
+            pass
+    return result
+
+
 def _web_persist_generation(project_id, record):
     """Remember the job outcome independently from the browser connection."""
     try:
@@ -1758,6 +1769,22 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 404)
             return
+        if u.path == "/api/web/map/index":
+            try:
+                from local_app import web_prospects
+                params=parse_qs(u.query)
+                self.send_json(web_prospects.browse(
+                    limit=params.get("limit",["12000"])[0]))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/map/prospects/today":
+            try:
+                from local_app import web_prospects
+                self.send_json(web_prospects.daily())
+            except Exception as exc:
+                self.send_json({"error":str(exc)},503)
+            return
         if u.path == "/api/web/map/config":
             from local_app import web_google_maps
             self.send_json(web_google_maps.configuration())
@@ -1782,7 +1809,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from local_app import web_map_no_website
                 batch=parse_qs(u.query).get("batch",["0"])[0]
-                self.send_json(web_map_no_website.france_overview(batch))
+                self.send_json(_map_index_response(web_map_no_website.france_overview(batch)))
             except ValueError as exc:
                 self.send_json({"error":str(exc)}, 400)
             except Exception as exc:
@@ -1792,9 +1819,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from local_app import web_map_no_website
                 params=parse_qs(u.query)
-                self.send_json(web_map_no_website.registry_city(
+                self.send_json(_map_index_response(web_map_no_website.registry_city(
                     params.get("lat",[""])[0],params.get("lon",[""])[0],
-                    params.get("zoom",[""])[0]))
+                    params.get("zoom",[""])[0])))
             except Exception as exc:
                 self.send_json({"error":str(exc)},503)
             return
@@ -1802,10 +1829,10 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from local_app import web_map_no_website
                 params=parse_qs(u.query)
-                self.send_json(web_map_no_website.area_details(
+                self.send_json(_map_index_response(web_map_no_website.area_details(
                     params.get("lat", [""])[0],
                     params.get("lon", [""])[0],
-                    params.get("zoom", [""])[0]))
+                    params.get("zoom", [""])[0])))
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 503)
             return
@@ -1813,12 +1840,12 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from local_app import web_map_no_website
                 params=parse_qs(u.query)
-                self.send_json(web_map_no_website.viewport_details(
+                self.send_json(_map_index_response(web_map_no_website.viewport_details(
                     params.get("south", [""])[0],
                     params.get("west", [""])[0],
                     params.get("north", [""])[0],
                     params.get("east", [""])[0],
-                    params.get("zoom", [""])[0]))
+                    params.get("zoom", [""])[0])))
             except ValueError as exc:
                 self.send_json({"error":str(exc)}, 400)
             except Exception as exc:
