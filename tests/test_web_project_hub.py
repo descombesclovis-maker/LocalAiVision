@@ -59,10 +59,13 @@ class WebProjectHubTests(unittest.TestCase):
 class CodingAgentWorkflowTests(unittest.TestCase):
     def test_requires_an_authenticated_agent_in_premium_mode(self):
         self.assertEqual(web_hybrid.select_coding_agent('auto',{'claude':{'ready':True},
-                                                             'codex':{'ready':True}}),'codex')
-        self.assertEqual(web_hybrid.select_coding_agent('auto',{'codex':{'ready':True}}),'codex')
+                                                             'codex':{'ready':True}}),'claude')
+        self.assertEqual(web_hybrid.select_coding_agent('codex',{'codex':{'ready':True}}),'codex')
         self.assertEqual(web_hybrid.select_coding_agent('local',{}),'local')
-        self.assertEqual(web_hybrid.select_coding_agent('auto',{},allow_local_fallback=True),'local')
+        with self.assertRaisesRegex(RuntimeError,'Claude Code'):
+            web_hybrid.select_coding_agent('auto',{'codex':{'ready':True}})
+        with self.assertRaisesRegex(RuntimeError,'Claude Code'):
+            web_hybrid.select_coding_agent('auto',{},allow_local_fallback=True)
         with self.assertRaisesRegex(RuntimeError,'Aucun agent professionnel'):
             web_hybrid.select_coding_agent('auto',{})
         with self.assertRaisesRegex(RuntimeError,'Claude Code'):

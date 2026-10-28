@@ -213,6 +213,7 @@ class LocalAiWebStore:
                                  'settings': {'quality':'premium','responsive':True,'accessibility':True,
                                               'seo':True,'performance':True,'micro_interactions':True,
                                               'reduced_motion':True,'semantic_html':True,'language':'fr',
+                                              'ai_provider':'claude',
                                               'site_kind':'landing' if template == 'cinematic3d' else 'auto',
                                               'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
                                  'template':template, 'project_kind':'libre'})

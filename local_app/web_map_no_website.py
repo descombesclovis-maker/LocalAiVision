@@ -1,4 +1,4 @@
-"""Visible, bounded OpenStreetMap businesses with and without a recorded website.
+"""Visible, bounded OpenStreetMap prospects without a recorded website.
 
 Missing website OSM tags DO NOT prove that a business has no actual website.
 OpenStreetMap/Overpass is shared infrastructure: a single cached overview of
@@ -23,8 +23,35 @@ FRANCE_POINTS = (
  (45.7772,3.0870),(47.9029,1.9093),(47.3941,0.6848),
  (49.4432,1.0993),(49.8941,2.2958),(45.8336,1.2611),
  (48.6921,6.1844),(46.5802,0.3404),(43.4832,-1.5586),
+ # Distribute initial leads beyond major metros, without making an
+ # exhaustive country-wide Overpass extraction (which is impractical).
+ (45.1885,5.7245),(45.4397,4.3872),(45.8992,6.1294),
+ (45.5646,5.9178),(44.9334,4.8924),(43.9493,4.8055),
+ (43.1242,5.9280),(43.8367,4.3601),(42.6887,2.8948),
+ (43.3442,3.2158),(43.1843,3.0031),(43.2132,2.3518),
+ (43.2951,-0.3708),(43.2327,0.0781),(46.1591,-1.1520),
+ (45.6484,0.1562),(46.3237,-0.4588),(45.1582,1.5321),
+ (45.1840,0.7211),(44.3937,0.6008),(44.0221,1.3520),
+ (43.9273,2.1480),(44.3495,2.5750),(44.9282,2.4449),
+ (46.5669,3.3322),(46.9896,3.1590),(47.0844,2.3964),
+ (46.8114,1.6913),(47.5923,1.3281),(48.0077,0.1984),
+ (48.0704,-0.7731),(48.4310,0.0900),(49.1829,-0.3707),
+ (49.6394,-1.6160),(49.1143,-1.0910),(48.8826,-0.6385),
+ (48.4473,1.4890),(47.7982,3.5738),(48.2973,4.0744),
+ (49.2583,4.0317),(49.7711,4.7198),(49.1193,6.1757),
+ (48.1734,6.4494),(48.0793,7.3585),(47.7508,7.3359),
+ (47.6397,6.8638),(47.6198,6.1559),(47.0922,5.4911),
+ (46.2044,5.2255),(46.3069,4.8287),(46.7806,4.8539),
+ (46.6749,5.5500),(41.9192,8.7386),(42.7028,9.4509),
+ (50.9513,1.8587),(51.0344,2.3768),(50.7238,1.6133),
+ (50.2910,2.7775),(50.4293,2.8277),(50.3709,3.0807),
+ (50.1750,3.2340),(50.3599,3.5238),(49.4330,2.0844),
+ (49.4179,2.8261),(49.5641,3.6249),(49.8477,3.2877),
 )
 WEBSITE_KEYS=("website","contact:website","url","contact:url","website:mobile")
+# Both Overpass and this server screen the known website tags. Their absence
+# cannot certify that an establishment does not have a website.
+NO_WEBSITE_TAGS="".join(f'[!"{tag}"]' for tag in WEBSITE_KEYS)
 BUSINESS_TAG='[~"^(shop|craft|office|amenity|leisure|tourism)$"~"."]'
 LOCK=threading.RLock()
 CACHE={}
@@ -125,12 +152,18 @@ def _load(key, query, mode):
     items=[]
     seen=set()
     for row in (raw.get("elements") or [])[:650]:
+        tags=row.get("tags") or {}
+        if any(str(tags.get(tag) or "").strip() for tag in WEBSITE_KEYS):
+            continue
         business=_normalize(row)
-        if not business or business["id"] in seen:continue
+        if not business or business["id"] in seen or business["website_recorded"]:
+            continue
         seen.add(business["id"])
         items.append(business)
     result={"results":items,"mode":mode,"partial":True,
-            "notice":"Site indiqué dans OSM ≠ site vérifié ; absence de site indiqué ≠ absence confirmée.",
+            "website_status":"non_renseigne_osm",
+            "website_verified":False,
+            "notice":"Aucun site indiqué dans OSM ≠ absence de site confirmée. Vérification complémentaire nécessaire.",
             "source":"OpenStreetMap / Overpass","cached":False}
     with LOCK:
         if len(CACHE)>70:CACHE.clear()
@@ -147,7 +180,7 @@ def france_overview():
         # bulk export and distribute the displayed points across France.
         pieces.append(
             f'nwr(around:800,{lat},{lon})["name"]'
-            f'{BUSINESS_TAG};out center 12;')
+            f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 6;')
     statement="[out:json][timeout:25];"+"".join(pieces)
     return _load(key,statement,"france_overview")
 
@@ -162,6 +195,27 @@ def area_details(lat,lon,zoom):
     statement=(
         "[out:json][timeout:24];"
         f'nwr(around:{radius},{la},{lo})["name"]'
-        f'{BUSINESS_TAG};out center 220;'
+        f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 220;'
     )
     return _load(key,statement,"nearby")
+
+
+def viewport_details(south,west,north,east,zoom):
+    """Fetch only a small visible viewport. Broad extents are never scraped."""
+    la1,lo1=web_business_map._position(south,west)
+    la2,lo2=web_business_map._position(north,east)
+    z=int(zoom)
+    if z<13 or z>19:
+        raise ValueError("Zoome sur un quartier pour charger une zone visible.")
+    if not (la1<la2 and lo1<lo2):
+        raise ValueError("Limites cartographiques invalides.")
+    # At latitude 0 the maximum area is under 11 km by 11 km.
+    if la2-la1>0.10 or lo2-lo1>0.10:
+        raise ValueError("Zone trop vaste ; zoome davantage.")
+    key=("viewport",round(la1,4),round(lo1,4),round(la2,4),round(lo2,4))
+    statement=(
+        "[out:json][timeout:24];"
+        f'nwr({la1},{lo1},{la2},{lo2})["name"]'
+        f'{BUSINESS_TAG}{NO_WEBSITE_TAGS};out center 350;'
+    )
+    return _load(key,statement,"viewport")

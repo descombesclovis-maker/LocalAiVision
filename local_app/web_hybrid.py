@@ -24,15 +24,16 @@ def select_coding_agent(provider, status, *, allow_local_fallback=False):
         raise ValueError('Moteur de création inconnu.')
     if requested == 'local':
         return 'local'
-    # Reuse the existing Codex subscription first; never require API credits by default.
-    agents = ('codex', 'claude') if requested == 'auto' else (requested,)
+    # Claude Code is the default creative engine for LocalAiWeb. Do not
+    # silently substitute Codex or the local chat generator if it is offline.
+    # Explicit project settings can still request a different provider.
+    agents = ('claude',) if requested == 'auto' else (requested,)
     for candidate in agents:
         if bool((status.get(candidate) or {}).get('ready')):
             return candidate
-    if requested == 'auto' and allow_local_fallback:
-        return 'local'
-    target = 'Claude Code ou Codex' if requested == 'auto' else (
-        'Claude Code' if requested == 'claude' else 'Codex')
+    # Legacy opt-in fallback is intentionally disabled for auto: requesting
+    # premium Claude must never silently generate a generic local HTML page.
+    target = 'Claude Code' if requested in ('auto', 'claude') else 'Codex'
     raise RuntimeError(
         'Aucun agent professionnel connecté. Pour éviter de générer une ancienne '
         'maquette HTML, connecte ' + target +

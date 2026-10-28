@@ -68,3 +68,36 @@ poste utilisateur nécessite un test réel après installation.
 Pour un usage intensif de prospection à grande échelle, remplacer
 les instances communautaires OSM par des fournisseurs adaptés et vérifier
 les règles de protection des données et de prospection applicables.
+
+
+## Évolution carte violette (28 octobre 2026)
+
+- Ouverture centrée sur la France, carte grand format sans saisie de société,
+  menu de métiers ou panneau latéral permanent.
+- Petits points **violets pleins** correspondant uniquement aux établissements
+  dont les champs de site Internet les plus courants sont absents d'OSM.
+  L'absence d'information OSM **ne confirme pas l'absence réelle de site**.
+- Un aperçu initial réparti sur de nombreuses villes françaises, y compris
+  des agglomérations secondaires et la Corse, est chargé automatiquement.
+  Cet aperçu reste partiel : le logiciel ne dispose d'aucun annuaire exhaustif
+  de toutes les sociétés françaises ou mondiales.
+- Un zoom permet de charger les établissements autour de la ville ou, dans
+  les quartiers suffisamment zoomés, ceux de la zone exacte visible.
+  Requêtes bornées, cache, limitation de fréquence et déchargement de marqueurs
+  lointains pour conserver les performances.
+- Un clic sur un prospect ouvre la fiche professionnelle, les informations
+  accessibles et un lien de **recherche manuelle** pour vérifier l'existence
+  éventuelle d'un site. Ce lien ne constitue pas une vérification automatique.
+- Le bouton de création ouvre un projet **Pro** privé comme auparavant.
+- **Claude Code CLI** devient le moteur par défaut des projets Pro et Libre.
+  Il doit être installé et authentifié sur le PC qui exécute LocalAiVision.
+  Le logiciel signale l'indisponibilité de Claude au lieu de produire en silence
+  un site bas de gamme par un autre modèle. Les projets configurés explicitement
+  pour un autre moteur conservent cette option.
+
+**Limite importante :** afficher l'intégralité des entreprises de France sur
+un seul écran et vérifier automatiquement leur absence de site exige un index
+professionnel dédié, maintenu et exploitable (données, infrastructure et
+licences). Ni une requête globale Overpass, ni un échantillon OSM ne peuvent
+prétendre fournir ce résultat. La carte indique donc les données comme
+partielles et invite à poursuivre l'exploration par zone.
