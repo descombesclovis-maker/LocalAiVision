@@ -90,7 +90,7 @@ def main():
             # that can retain a file handle even after its HTTP child dies.
             # Stop ONLY processes whose executable is this temporary test EXE.
             command=(
-                "$target='_"+str(old).replace("'","''")+"'".replace("_","")+"; "
+                "$target='" + str(old).replace("'", "''") + "'; "
                 "Get-CimInstance Win32_Process | Where-Object { "
                 "$_.ExecutablePath -eq $target } | ForEach-Object { "
                 "& taskkill.exe /PID $_.ProcessId /T /F 2>$null | Out-Null }"
