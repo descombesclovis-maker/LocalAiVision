@@ -116,6 +116,9 @@ def _result(record):
       "country":_plain(record.get("country"),80),
       "email":_plain(record.get("email"),140),
       "description":_plain(record.get("description"),300),
+      "image_url":_plain(record.get("image_url"),350),
+      "image_credit":_plain(record.get("image_credit"),110),
+      "establishment_created":_plain(record.get("establishment_created"),25),
       "operator":_plain(record.get("operator"),100),
       "kind":"location" if kind=="location" else "business",
       "source":("Google Maps / Places" if record.get("source")=="google"
@@ -134,6 +137,19 @@ def _result(record):
             _selected[token]=(time.monotonic(),business)
         business["selection_token"]=token
     return business
+
+
+def _commons_photo(tags):
+    """Do not hotlink arbitrary user-entered images or unknown copyrights."""
+    from urllib.parse import quote, urlparse
+    raw=str((tags or {}).get("image") or (tags or {}).get("wikimedia_commons") or "").strip()
+    if raw.startswith("File:") and len(raw)<210:
+        return "https://commons.wikimedia.org/wiki/Special:FilePath/"+quote(raw[5:])
+    if raw.startswith("https://"):
+        url=urlparse(raw)
+        if url.hostname in ("upload.wikimedia.org","commons.wikimedia.org") and not url.username:
+            return raw[:350]
+    return ""
 
 
 def location_or_business_search(query):
@@ -209,6 +225,8 @@ def nearby_businesses(lat,lon,radius=1500,industry='all'):
           "country":tags.get("addr:country"),
           "email":tags.get("contact:email") or tags.get("email"),
           "description":tags.get("description"),
+          "image_url":_commons_photo(tags),
+          "image_credit":"Wikimedia Commons — licence à vérifier" if _commons_photo(tags) else "",
           "operator":tags.get("operator"),
           "source":"overpass"})
         if item:results.append(item)
