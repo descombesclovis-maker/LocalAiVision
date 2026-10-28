@@ -60,18 +60,19 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertIn('nwr(around:850,48.8566,2.3522)',query)
         self.assertIn('nwr(around:850,45.764,4.8357)',query)
         for tag in mapdata.WEBSITE_KEYS:
-            self.assertIn(f'[!"{tag}"]',query)
+            self.assertNotIn(f'[!"{tag}"]',query)
         self.assertEqual(query.count("out center 18;"),10)
         self.assertNotIn("41.9192,8.7386",query)  # Corsica is loaded in a later batch.
         self.assertEqual([a["name"] for a in result["results"]],
-                         ["Café Eiffel","La Librairie"])
-        self.assertTrue(all(not item["website_recorded"] for item in result["results"]))
+                         ["Café Eiffel","La Librairie","Salon Web"])
+        self.assertEqual([a["website_recorded"] for a in result["results"]],
+                         [False,False,True])
         self.assertFalse(result["website_verified"])
         self.assertTrue(result["partial"])
         self.assertEqual(result["batch"],0)
         self.assertGreater(result["total_batches"],1)
         self.assertEqual(result["next_batch"],1)
-        self.assertIn("≠",result["notice"])
+        self.assertIn("non confirmée",result["notice"])
         self.assertTrue(cached["cached"])
 
     def test_france_batches_are_bounded_and_cache_per_region(self):
@@ -99,6 +100,21 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertEqual(call.call_args.args[0],"overpass_backup")
         self.assertEqual(result["results"][0]["name"],"Boulangerie réelle")
 
+    def test_offline_cache_only_returns_previous_real_osm_responses(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(mapdata,"CACHE_DIR",Path(folder)):
+                response={"elements":[{"type":"node","id":301,"lat":48.8,"lon":2.3,
+                    "tags":{"name":"Boulangerie cached","shop":"bakery"}}]}
+                with patch.object(shared,"_json_http",return_value=response):
+                    online=mapdata.france_overview()
+                self.assertFalse(online["offline"])
+                mapdata.CACHE.clear()
+                mapdata.LAST_REQUEST=0.0
+                with patch.object(shared,"_json_http",side_effect=RuntimeError("OSM indisponible")):
+                    cached=mapdata.france_overview()
+                self.assertTrue(cached["offline"])
+                self.assertEqual([x["name"] for x in cached["results"]],["Boulangerie cached"])
+
     def test_safe_website_links_reject_executable_or_internal_targets(self):
         self.assertEqual(mapdata.safe_website("www.coiffeur.fr"),"https://www.coiffeur.fr")
         self.assertEqual(mapdata.safe_website("https://www.coiffeur.fr/services"),
@@ -124,7 +140,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         query=parse_qs(request.call_args.kwargs["post"])["data"][0]
         self.assertIn("around:1100,47.3,5.01",query)
         self.assertIn("out center 220;",query)
-        self.assertIn('[!"website"]',query)
+        self.assertNotIn('[!"website"]',query)
         self.assertEqual(result["results"],[])
         self.assertEqual(result["mode"],"nearby")
 
@@ -139,9 +155,9 @@ class WebsiteProspectMapTests(unittest.TestCase):
         query=parse_qs(call.call_args.kwargs["post"])["data"][0]
         self.assertIn("nwr(47.3,4.98,47.37,5.06)",query)
         self.assertIn("out center 350;",query)
-        self.assertIn('[!"contact:url"]',query)
+        self.assertNotIn('[!"contact:url"]',query)
         self.assertEqual([item["name"] for item in result["results"]],
-                         ["Atelier sans site"])
+                         ["Atelier sans site","Avec site"])
         self.assertEqual(result["mode"],"viewport")
         with self.assertRaisesRegex(ValueError,"Zone trop vaste"):
             mapdata.viewport_details(44.0,2.0,45.0,3.0,14)
@@ -164,10 +180,9 @@ class WebsiteProspectMapTests(unittest.TestCase):
                      'id="industrySearch"','id="mapNearby"','id="mapProvider"'):
             self.assertNotIn(item,html)
         self.assertIn("setView([46.60,2.28],6)",script)
-        self.assertIn("radius:2.3",script)
-        self.assertIn("'#a868f6'",script)
-        self.assertNotIn("'#e14959'",script)
-        self.assertNotIn("'#27bd72'",script)
+        self.assertIn("radius:3.0",script)
+        self.assertIn("'#36d77f'",script)
+        self.assertIn("'#ef535e'",script)
         self.assertIn("website_recorded",script)
         self.assertIn("stroke:false",script)
         self.assertIn("map.on('moveend',scheduleNearby)",script)
@@ -177,9 +192,9 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertIn("overview(next)",script)
         self.assertIn("mapFeedbackText",script)
         self.assertIn('id="mapReload"',html)
-        self.assertIn("aucun site renseigné",html)
-        self.assertIn("Violet",html)
-        self.assertNotIn("Rouge : site internet",html)
+        self.assertIn("aucun site indiqué",html)
+        self.assertIn("Vert",html)
+        self.assertIn("Rouge",html)
         self.assertIn("vérification externe est nécessaire",html)
         self.assertIn("absence de site confirmée",script)
         self.assertIn('id="companyWebsite"',html)
