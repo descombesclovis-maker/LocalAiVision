@@ -78,23 +78,33 @@ def browse(limit=12000, south=40.8,west=-6.2,north=52,east=10.3):
            "where lat between ? and ? and lon between ? and ? "
            "order by updated desc limit ?",(south,north,west,east,limit)).fetchall()
         total=con.execute("select count(*) from companies").fetchone()[0]
-    from local_app import web_business_map
-    results=[]
-    for (raw,) in records:
-        info=json.loads(raw)
-        # Re-mint an expiring click-selection token; never trust a token
-        # serialized in persistent JSON.
-        fresh=web_business_map._result({
-            **info,"osm_id":info["id"],
-            "source":("french_registry" if "data.gouv" in info.get("source","")
-                      else "overpass"),
-        })
-        if fresh:
-            fresh.update({k:v for k,v in info.items() if k not in ("selection_token","id")})
-            results.append(fresh)
+    # Do not issue 12,000 short-lived selection tokens: issue a fresh token
+    # only when a specific point is clicked.
+    results=[json.loads(raw) for (raw,) in records]
     return {"results":results,"count":total,"partial":total>limit,
             "source":"Annuaire français + OpenStreetMap, index local",
             "website_verified":False}
+
+def find(identifier):
+    """Mint a fresh 30-minute token only for the selected indexed company."""
+    if not isinstance(identifier,str) or not (4<=len(identifier)<=90):
+        raise ValueError("Entreprise sélectionnée invalide.")
+    with _LOCK,_db() as con:
+        value=con.execute("select payload from companies where id=?",
+                          (identifier,)).fetchone()
+    if not value:
+        raise ValueError("Cette entreprise n'est plus dans l'index local.")
+    source=json.loads(value[0])
+    from local_app import web_business_map
+    provider=("french_registry" if "data.gouv" in str(source.get("source",""))
+              else "overpass")
+    record=web_business_map._result({
+        **source,"osm_id":identifier,"source":provider})
+    if not record:
+        raise ValueError("Fiche professionnelle invalide.")
+    record.update({k:v for k,v in source.items() if k!="selection_token"})
+    return record
+
 
 def _score(row,day):
     activity=(str(row.get("category") or "")+" "+
@@ -144,7 +154,6 @@ def daily(today=None,limit=5):
             if row["id"] not in present:
                 selected.append(row);present.add(row["id"])
             if len(selected)>=limit:break
-    from local_app import web_business_map
     results=[]
     for row in selected:
         fresh=0
@@ -158,15 +167,10 @@ def daily(today=None,limit=5):
         if not row.get("website"):
             reasons.append("Site non renseigné dans la source — à vérifier")
         reasons.append("Activité locale susceptible de bénéficier d'une identité numérique")
-        result=web_business_map._result({
-            **row,"osm_id":row["id"],
-            "source":"french_registry" if "data.gouv" in str(row.get("source")) else "overpass"})
-        if result:
-            result.update({k:v for k,v in row.items() if k!="selection_token"})
-            result["selection_token"]=result["selection_token"]
-            result["reason"]=" · ".join(reasons)
-            result["score"]=_score(row,day)
-            results.append(result)
+        result=dict(row)
+        result["reason"]=" · ".join(reasons)
+        result["score"]=_score(row,day)
+        results.append(result)
     return {"date":day.isoformat(),"results":results,"pool":len(candidates),
             "notice":"Sélection indicative sur des données publiques disponibles, "
                      "pas une prédiction de propension à acheter ni la preuve "
