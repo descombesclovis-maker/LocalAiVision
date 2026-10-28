@@ -455,13 +455,23 @@ def claude_apply(site_dir, prompt):
         raise RuntimeError("La demande Claude est vide.")
     instruction = (
         "You are an expert full-stack developer and visual art director. "
-        "Edit ONLY this website project. Implement complete pages, polished navigation, "
-        "responsive interactions, and the user's exact brand colors. Use real generated "
-        "images from local assets/ as provided; never invent a product photograph. "
-        "For explicitly requested 3D, build an actual Three.js scene or React Three Fiber "
-        "with GLTF support and accessible scroll-linked motion. "
-        "Check generated files and production build. Never print keys or write secrets "
-        "to client code. Original request:\n" + text
+        "Edit ONLY this website project; never alter sibling projects or the application. "
+        "Act as a senior creative director, UX architect and full-stack engineer. "
+        "First derive a distinct visual concept from the real business, its sector, "
+        "audience, products and verified identity; avoid generic Shopify, dashboard "
+        "and repetitive hero/card layouts. Respect the user's exact brand colors. "
+        "Produce complete real pages, refined typography, cinematic but purposeful "
+        "motion, tactile details, polished navigation and responsive interactions. "
+        "In the site project document the design intent and meaningful page architecture. "
+        "Use legitimate supplied images and assets only; never invent a product photograph "
+        "or impersonate official branding. For genuinely appropriate immersive 3D, implement "
+        "real Three.js or React Three Fiber geometry, lighting, materials, camera and "
+        "WebGL/mobile/reduced-motion fallbacks, not a flat simulated 3D screenshot. "
+        "Keep every interaction functional; never fake connected booking, payments or authentication. "
+        "Write user-visible content in natural French. After editing, run the available "
+        "production build and tests, fix errors and inspect desktop/mobile output where possible. "
+        "Never print keys or write secrets to client code. Preserve existing working site features. "
+        "Original request:\n" + text
     )
     result = _run(cmd + [
         "-p", "--model", "sonnet", "--permission-mode", "acceptEdits",
