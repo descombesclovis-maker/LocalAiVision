@@ -4,7 +4,7 @@
 const $=id=>document.getElementById(id);
 const clientFields={name:'crmName',stage:'crmStage',email:'crmEmail',
  phone:'crmPhone',address:'crmAddress',siret:'crmSiret',
- contact_name:'crmContact',notes:'crmNotes'};
+ contact_name:'crmContact',notes:'crmNotes',next_contact:'crmNextContact'};
 const dialog=$('clientDialog'),grid=$('clientGrid');
 let state={clients:[],quotes:[],invoices:[],unlinked_pro_projects:[],projects_count:0},projects=[];
 let editing=null,saving=false;
@@ -17,6 +17,10 @@ const api=async(url,body)=>{
  return data;
 };
 const euro=x=>Number(x||0).toLocaleString('fr-FR',{style:'currency',currency:'EUR'});
+const formatDate=value=>{
+  const date=String(value||'').split('-');
+  return date.length===3?date[2]+'/'+date[1]+'/'+date[0]:String(value||'');
+};
 const node=(tag,cls,text)=>{
  const el=document.createElement(tag);if(cls)el.className=cls;
  if(text!==undefined)el.textContent=text;return el;
@@ -43,16 +47,23 @@ function makeCard(record){
  const addr=node('p','',record.address||'Coordonnées à renseigner');
  const projectCount=(record.projects||[]).length;
  const number=node('small','',projectCount+' projet'+(projectCount>1?'s':'')+' associé'+(projectCount>1?'s':''));
+ const due=record.next_contact?node('small','due-tag','Prochaine relance · '+formatDate(record.next_contact)):null;
  const controls=node('div','card-actions');
  const edit=node('button','','Modifier');edit.type='button';edit.onclick=()=>open(record);
  controls.append(edit);
  for(const p of record.projects||[]){
   const link=node('a','',p.name||'Ouvrir le site');link.href='/localaiweb/editor?id='+encodeURIComponent(p.id);
   controls.append(link);
+  const audit=node('button','','Audit du site');
+  audit.type='button';audit.title='Vérifier automatiquement la qualité technique du site';
+  audit.addEventListener('click',()=>showAudit(p.id,p.name));
+  controls.append(audit);
   const sale=node('a','','Devis / facture');
   sale.href='/localaiweb/vente?id='+encodeURIComponent(p.id);controls.append(sale);
  }
- card.append(tag,name,addr,number,controls);
+ card.append(tag,name,addr,number);
+ if(due)card.append(due);
+ card.append(controls);
  return card;
 }
 function renderClients(){
@@ -80,6 +91,55 @@ function renderUnlinked(){
   row.append(btn);box.append(row);
  }
 }
+function renderFollowups(){
+ const box=$('followupsGrid');box.replaceChildren();
+ const due=state.followups_due||[],upcoming=state.followups_upcoming||[];
+ $('metricDue').textContent=due.length;
+ const all=[...due.map(x=>({...x,priority:true})),...upcoming.map(x=>({...x,priority:false}))];
+ if(!all.length){
+   box.append(node('div','empty','Aucune relance à effectuer. Ajoute une date de relance à une fiche client pour organiser ton suivi.'));
+   return;
+ }
+ for(const task of all){
+   const row=node('div','followup-row'+(task.priority?' overdue':''));
+   const detail=node('div','followup-detail');
+   detail.append(node('strong','',task.name));
+   detail.append(node('small','',(task.priority?'À contacter · ':'À venir · ')+formatDate(task.due)));
+   const button=node('button','','Ouvrir la fiche ↗');button.type='button';
+   const record=state.clients.find(c=>c.id===task.id);
+   button.onclick=()=>{if(record)open(record)};
+   row.append(detail,button);box.append(row);
+ }
+}
+async function showAudit(projectId,projectName){
+ const modal=$('auditDialog');
+ $('auditTitle').textContent='Audit · '+(projectName||'Site');
+ $('auditScore').textContent='—';$('auditVerdict').textContent='Analyse en cours';
+ $('auditFeedback').textContent='Analyse du code, des liens et des critères de base…';
+ $('auditChecks').replaceChildren();
+ $('auditEditor').href='/localaiweb/editor?id='+encodeURIComponent(projectId);
+ modal.showModal();
+ try{
+   const report=await api('/api/web/preflight?id='+encodeURIComponent(projectId));
+   $('auditScore').textContent=String(report.score??'—')+' / 100';
+   const status=report.ok?'Contrôles automatiques réussis':'Corrections nécessaires avant publication';
+   $('auditVerdict').textContent=status;
+   const count=(report.checks||[]).filter(check=>check.ok).length;
+   $('auditFeedback').textContent=count+'/'+(report.checks||[]).length+' vérifications validées · '+(report.file_count||0)+' fichiers';
+   for(const check of report.checks||[]){
+     const row=node('div','audit-check'+(check.ok?' passed':' failed'));
+     const title=node('strong','',(check.ok?'✓ ':'! ')+check.label);
+     row.append(title);
+     if(check.note)row.append(node('small','',check.note));
+     $('auditChecks').append(row);
+   }
+   if(!(report.checks||[]).length)$('auditChecks').append(node('div','empty','Aucun contrôle automatique disponible.'));
+ }catch(error){
+   $('auditFeedback').textContent='Impossible de vérifier ce projet : '+error.message;
+   $('auditVerdict').textContent='Audit non exécuté';
+ }
+}
+$('auditClose').addEventListener('click',()=>$('auditDialog').close());
 function renderDocuments(box,rows,kind){
  box.replaceChildren();
  if(!rows.length){box.append(node('div','empty',kind==='quote'?'Aucun devis enregistré. Crée un devis depuis le projet.':'Aucune facture émise depuis ce nouvel espace.'));return}
@@ -98,7 +158,7 @@ function render(){
  $('metricQuotes').textContent=state.quotes.length;
  $('metricInvoices').textContent=state.invoices.length;
  $('metricProjects').textContent=state.projects_count;
- renderClients();renderUnlinked();
+ renderClients();renderUnlinked();renderFollowups();
  renderDocuments($('quoteRows'),state.quotes,'quote');
  renderDocuments($('invoiceRows'),state.invoices,'invoice');
 }
