@@ -4,6 +4,7 @@ No street view screenshots, invented building images or unlicensed Google
 Places photos. A verified Commons file is shown only when linked to an OSM
 Wikidata item, or when its filename mentions both the full trade name and city.
 """
+import html
 import json
 import re
 import threading
@@ -27,6 +28,14 @@ def _json(host, params):
         raw=response.read(600001)
     if len(raw)>600000:raise ValueError("Réponse Wikimedia trop volumineuse.")
     return json.loads(raw)
+
+
+def _attribution(info, license_name):
+    meta=info.get("extmetadata") or {}
+    raw=str((meta.get("Artist") or {}).get("value") or "")
+    author=html.unescape(re.sub(r"<[^>]+>"," ",raw))
+    author=" ".join(author.split())[:110]
+    return "Wikimedia Commons · "+license_name+((" · "+author) if author else "")
 
 
 def _license(info):
@@ -53,7 +62,7 @@ def _photo_page(title):
         url=str(info.get("thumburl") or info.get("url") or "")
         if not license_name or not url.startswith("https://upload.wikimedia.org/"):
             continue
-        return {"image_url":url[:500],"image_credit":"Wikimedia Commons · "+license_name,
+        return {"image_url":url[:500],"image_credit":_attribution(info,license_name),
                 "photo_source":str(info.get("descriptionurl") or "")[:500],
                 "photo_type":"photographie_documentee"}
     return None
@@ -100,7 +109,7 @@ def _search_photo(item):
         if ("logo" in normalized or not title.lower().endswith(_ALLOWED_IMAGES)
                 or not license_name or not url.startswith("https://upload.wikimedia.org/")):
             continue
-        return {"image_url":url[:500],"image_credit":"Wikimedia Commons · "+license_name,
+        return {"image_url":url[:500],"image_credit":_attribution(info,license_name),
                 "photo_source":str(info.get("descriptionurl") or "")[:500],
                 "photo_type":"photographie_nom_et_ville_a_verifier"}
     return None
