@@ -6,3 +6,21 @@
 #googleBusinessMap{position:absolute;inset:0;z-index:1}
 #googleBusinessMap[hidden],#businessMap[hidden]{display:none!important}
 @media(max-width:650px){.map-provider-choice{font-size:10px}.map-provider-choice select{max-width:158px;padding:9px 6px;font-size:10px}.map-return{font-size:10px;padding:9px}.map-brand small{display:none}.map-brand strong{font-size:12px}}
+
+/* Professional world map filters and source-backed company dossier */
+.industry-controls{display:flex;flex-direction:column;gap:9px;border-radius:14px;background:#171222;border:1px solid #675078;padding:14px;margin:15px 0 13px}
+.industry-controls label{font-size:12px;font-weight:750;color:#f0e6ff;display:flex;justify-content:space-between;gap:8px}
+.industry-controls label span{font-weight:500;font-size:10px;color:#bca9d4}
+.industry-controls select,.industry-controls input{width:100%;min-width:0;display:block;min-height:42px;border-radius:9px;background:#0c0a14;border:1px solid #66517f;color:#f9efff;padding:9px 11px;font-size:12px;outline:none}
+.industry-controls select:focus,.industry-controls input:focus{border-color:#bb8dff}
+.industry-controls small{font-size:10px;color:#afa4bd;line-height:1.5}
+.business-details{padding-top:8px;border-top:1px solid #ffffff20;margin-top:15px}
+.business-fact{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.business-fact strong{color:#e7d7f9}
+.registry-check{background:#28203b;border:1px solid #735e9c;border-radius:9px;padding:11px 12px;color:#e7d6fd;font-size:11px;cursor:pointer;margin-top:9px;width:100%;text-align:left}
+.registry-check:hover{background:#433155}.registry-check:disabled{opacity:.6}
+.registry-check[hidden]{display:none!important}
+.registry-profile{font-size:11px;line-height:1.6;color:#ddcdef;overflow-wrap:anywhere}
+.registry-profile p{margin:8px 0}.registry-profile a{color:#d2abff;display:inline-block;margin-top:8px}
+.result[hidden]{display:none!important}
+@media(max-width:650px){.industry-controls{padding:11px;margin:9px 0}}
