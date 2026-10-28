@@ -2,7 +2,7 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FORMA · Vente & facturation</title><link rel="stylesheet" href="/assets/localaiweb-sales.css"></head>
 <body><header class="top">
- <a id="returnEditor" class="back" href="/localaiweb">← Retour à LocalAiWeb</a>
+ <a id="returnEditor" class="back" href="/localaiweb">← Retour à LocalAiWeb</a><a class="back" href="/localaiweb/clients">◈ Portefeuille clients ↗</a>
  <div class="brand">F<span>O</span>RMA <small>STUDIO WEB · ESPACE COMMERCIAL</small></div>
  <div class="badge">CHIFFRAGE & LIVRAISON</div>
 </header>
@@ -17,7 +17,7 @@
  <p class="hint">Le projet génère automatiquement un chiffrage. Une facture définitive numérotée ne peut être émise qu'après validation de l'identité du client, de ton statut juridique, de la TVA et de la prestation. Une facture émise est conservée. En 2026, le PDF ne remplace pas la facturation électronique structurée lorsque celle-ci est légalement exigée ; utilise une plateforme agréée si nécessaire.</p>
  <form id="invoiceForm">
  <h3>Prestataire · FORMA</h3>
- <div class="fields"><label>Nom légal<input id="sellerName" value="Lilian Descombes" required></label><label>SIRET<input id="sellerSiret" value="53784237900027" required maxlength="14"></label>
+ <div class="fields"><label>Nom légal<input id="sellerName" required autocomplete="organization" placeholder="Ton identité juridique réelle"></label><label>SIRET<input id="sellerSiret" required maxlength="14" inputmode="numeric" placeholder="14 chiffres"></label>
  <label class="wide">Adresse professionnelle<input id="sellerAddress" required placeholder="Adresse complète de facturation"></label>
  <label>Statut juridique<select id="legalForm" required><option value="">Sélectionner</option><option value="EI">Entreprise individuelle (EI)</option><option value="micro-entrepreneur EI">Micro-entreprise (EI)</option><option value="SASU">SASU</option><option value="SAS">SAS</option><option value="EURL">EURL</option><option value="SARL">SARL</option><option value="autre société">Autre société</option></select></label>
  <label>Capital social (si société)<input id="sellerCapital" placeholder="Ex. 1 000 €"></label>
@@ -32,6 +32,7 @@
  <label>Courriel client<input id="customerEmail" type="email" placeholder="facultatif"></label>
  <label>Date réelle de prestation<input id="serviceDate" type="date" required></label><label>Délai de paiement (jours)<input id="dueDays" type="number" min="0" max="120" value="30" required></label></div>
  <label class="approval"><input type="checkbox" id="invoiceApproval" required><span>Je certifie que les coordonnées, le régime de TVA, les prix et la livraison des prestations sont exacts. J’autorise l’émission d’une facture définitive numérotée.</span></label>
+ <div class="quote-actions"><p class="hint">Un devis peut être établi avant livraison. Il devra être accepté par le client ; il ne crée ni commande ni facture.</p><label for="quoteValidDays">Validité du devis (jours)</label><input type="number" id="quoteValidDays" min="1" max="90" value="30"><button id="issueQuote" class="primary secondary" type="button">Créer le devis PDF ↗</button><div id="quoteFeedback" class="feedback" role="status" aria-live="polite"></div></div>
  <button id="issueInvoice" class="primary" type="submit">Émettre la facture PDF FORMA ↗</button>
  <div id="invoiceFeedback" class="feedback" role="status" aria-live="polite"></div></form>
  </section>
