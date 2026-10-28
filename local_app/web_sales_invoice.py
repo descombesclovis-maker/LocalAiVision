@@ -49,6 +49,13 @@ def estimate(store,project_id):
     html="\n".join(x for key,x in files.items() if key.endswith((".html",".tsx",".jsx",".vue",".svelte")))
     code=html.lower()
     total_files=len(files)
+    # Every new project starts with a placeholder HTML file; it must not
+    # be treated as a delivered website or generate a chargeable quote.
+    if "La prévisualisation devrait apparaitre ici." in files.get("index.html",""):
+        files={}
+        html=""
+        code=""
+        total_files=0
     page_count=sum(1 for key in files if key.endswith(".html"))
     route_count=len(set(re.findall(r"""(?:href|to|path)\s*[:=]\s*["'](?:#)?/([\w-]{3,})""",html)))
     is_multi=page_count>=2 or route_count>=2
