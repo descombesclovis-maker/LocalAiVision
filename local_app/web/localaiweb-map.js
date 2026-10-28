@@ -1,273 +1,293 @@
-/* France-first, no-search, no-filters OpenStreetMap business discovery.
-   Tiny violet dot = no website recorded in OSM, not a verified website audit.
-   A distributed overview and bounded, rate-limited viewport requests prevent
-   attempting to download every company in the world. */
+/* France-first company directory with one uniform green pin style.
+   Source records are real, partial and may not supply an official website.
+   At low zoom, a click on a grouped pin opens an accessible company picker;
+   no need to zoom to individual street level. */
 (()=>{
+ 'use strict';
  const $=id=>document.getElementById(id);
  const info=$('mapFeedbackText'),reload=$('mapReload'),panel=$('mapSelection'),btn=$('mapCreate');
- let map,selected=null,profileNonce=0,creating=false,loading=false;
+ let map,selected=null,creating=false,loading=false;
  let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
- let known=new Map(),markers=new Map();
- const setStatus=message=>info.textContent=message;
- function element(tag,cls,label){
-   const item=document.createElement(tag);if(cls)item.className=cls;
-   if(label!==undefined)item.textContent=label;return item;
- }
+ const businesses=new Map(),pins=new Map(),MAX_STORED=12500;
+ const setStatus=message=>{info.textContent=message};
+ const element=(tag,cls,value)=>{
+   const item=document.createElement(tag);
+   if(cls)item.className=cls;
+   if(value!==undefined)item.textContent=String(value);
+   return item;
+ };
  async function api(url,body){
-   const options=body===undefined?{cache:'no-store'}:
-     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
-   const response=await fetch(url,options);
+   const response=await fetch(url,body===undefined?{cache:'no-store'}:{
+     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
    let data={};try{data=await response.json()}catch{}
    if(!response.ok||data.error)throw Error(data.error||('Erreur HTTP '+response.status));
    return data;
  }
+ function setValue(id,value){
+   const target=$(id);
+   target.replaceChildren();
+   const clean=String(value||'').trim();
+   target.textContent=clean||'Non renseigné';
+   return target;
+ }
+ function appendSafeLink(node,raw,protocol,label){
+   const source=String(raw||'').trim();
+   if(!source)return false;
+   try{
+     const url=new URL(source);
+     if(protocol==='https:'){
+       if(!['https:','http:'].includes(url.protocol)||url.username||url.password)return false;
+       if(!/\./.test(url.hostname)||url.hostname==='localhost')return false;
+     }else if(url.protocol!==protocol)return false;
+     const link=element('a','place-link',label||source);
+     link.href=url.href;
+     if(protocol==='https:'){link.target='_blank';link.rel='noopener noreferrer nofollow';link.referrerPolicy='no-referrer'}
+     node.replaceChildren(link);
+     return true;
+   }catch{return false}
+ }
  function details(item){
-   profileNonce++;
    selected=item;
    panel.hidden=false;
-   $('selectionTitle').textContent=item.name;
-   $('selectionCategory').textContent=item.category||'Établissement';
-   $('selectionAddress').textContent=item.address||'Adresse non renseignée';
+   $('selectionTitle').textContent=item.name||'Établissement';
+   $('selectionCategory').textContent=item.category||'Entreprise';
+   setValue('selectionAddress',item.address||[item.postcode,item.city].filter(Boolean).join(' '));
+   const phone=setValue('selectionPhone',item.phone);
+   if(item.phone&&/^[+()\d.\-\s]{5,30}$/.test(item.phone))
+     appendSafeLink(phone,'tel:'+item.phone.replace(/[\s.()-]/g,''),'tel:',item.phone);
+   const email=setValue('selectionEmail',item.email);
+   if(item.email&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email))
+     appendSafeLink(email,'mailto:'+item.email,'mailto:',item.email);
+   setValue('selectionHours',item.opening_hours||'Non renseignés');
+   setValue('selectionActivity',item.category||item.osm_category);
+   setValue('selectionDescription',item.description||item.operator);
+   const website=$('selectionWebsite');website.replaceChildren();
+   const webSource=String(item.website||'').trim();
+   if(item.website_recorded||webSource){
+     website.append(element('strong','web-fact','Oui, renseigné'));
+     if(webSource){
+       website.append(document.createTextNode(' · '));
+       if(!appendSafeLinkInto(website,webSource))
+         website.append(document.createTextNode('Lien non disponible'));
+     }
+   }else{
+     website.append(element('strong','web-fact','Non renseigné'));
+     website.append(document.createTextNode(' — absence non vérifiée'));
+   }
+   $('selectionNotice').textContent=
+     'Données publiques : '+(item.source||'source non précisée')+
+     '. Horaires, coordonnées et site internet peuvent être incomplets ou périmés.';
    $('mapCreateError').textContent='';
-   const recorded=!!item.website_recorded;
-   const registryUnknown=item.website_status==='inconnu_registre';
-   $('selectionNotice').textContent=recorded
-     ?'Un site est renseigné dans OpenStreetMap. Son fonctionnement reste à vérifier.'
-     :registryUnknown
-       ?'Donnée issue de l’annuaire officiel français. L’annuaire ne contient pas le statut du site Web : absence NON vérifiée.'
-       :'Site non renseigné dans OpenStreetMap. Absence NON confirmée. Vérifie avant toute démarche.'; 
-   const verify=$('verifyWebPresence');
-   verify.hidden=true;verify.removeAttribute('href');
-   // User-initiated search only: no scraping or automatic publication assertions.
-   if(item.name){
-     verify.href='https://www.google.com/search?'+new URLSearchParams({
-       q:[item.name,item.city||item.address||'', 'site officiel'].filter(Boolean).join(' ')
-     });
-     verify.hidden=false;
-   }
-   const siteLink=$('companyWebsite');
-   siteLink.hidden=true;siteLink.removeAttribute('href');
-   if(recorded && item.website){
-     try{
-       const url=new URL(item.website);
-       if(['https:','http:'].includes(url.protocol) && !url.username && !url.password){
-         siteLink.href=url.href;
-         siteLink.hidden=false;
-         siteLink.textContent='↗ Consulter le site existant : '+url.hostname;
-       }
-     }catch{}
-   }
-   const facts=$('selectionPublicInfo');facts.replaceChildren();
-   const rows=[
-     ['Téléphone',item.phone],['Courriel professionnel',item.email],
-     ['Horaires déclarés',item.opening_hours],['Description publique',item.description],
-     ['Exploitant',item.operator]
-   ];
-   for(const [title,value] of rows){
-     if(!value)continue;
-     const line=element('p','');
-     line.append(element('strong','',title+' : '),document.createTextNode(String(value).slice(0,230)));
-     facts.append(line);
-   }
-   $('professionalProfile').replaceChildren();
-   const registry=$('mapRegistry');
-   registry.hidden=!((item.source||'').startsWith('OpenStreetMap') ||
-                          (item.source||'').includes("data.gouv.fr"));
-   registry.disabled=false;
-   if(item.official_registry?.matched)showRegistry(item.official_registry);
+   btn.disabled=!item.selection_token;
+   btn.textContent='Créer un site pour cette entreprise ↗';
  }
- function showRegistry(data){
-   const box=$('professionalProfile');box.replaceChildren();
-   if(!data?.matched){
-     box.append(element('p','',data?.message||'Aucune correspondance certaine avec le registre.'));return;
+ function appendSafeLinkInto(parent,raw){
+   try{
+     const url=new URL(raw);
+     if(!['https:','http:'].includes(url.protocol)||url.username||url.password||
+        url.hostname==='localhost'||!url.hostname.includes('.'))return false;
+     const link=element('a','place-link',url.hostname);
+     link.href=url.href;link.target='_blank';link.rel='noopener noreferrer nofollow';
+     link.referrerPolicy='no-referrer';parent.append(link);return true;
+   }catch{return false}
+ }
+ function removePins(){
+   for(const pin of pins.values())map.removeLayer(pin);
+   pins.clear();
+ }
+ function groupedPopup(entries){
+   const outer=element('section','place-picker');
+   outer.append(element('strong','place-picker-title',
+     entries.length+' entreprises à cet emplacement de la carte'));
+   outer.append(element('p','place-picker-note','Choisis une entreprise sans zoomer davantage.'));
+   const list=element('div','place-picker-list');
+   for(const business of entries.slice(0,30)){
+     const button=element('button','place-picker-option',business.name);
+     button.type='button';
+     button.append(element('small','',business.category||business.city||''));
+     button.addEventListener('click',()=>{
+       map.closePopup();details(business);
+     });
+     list.append(button);
    }
-   box.append(element('p','',data.legal_name+' · SIREN '+data.siren+
-     (data.naf?' · NAF '+data.naf:'')));
-   for(const officer of data.officers||[])
-     box.append(element('p','',officer.name+' — '+officer.role));
-   box.append(element('small','',
-     'Dirigeants déclarés : pas nécessairement propriétaires. Informations professionnelles à vérifier.'));
-   if(data.source){
-     const link=element('a','', 'Source officielle ↗');
-     link.href=data.source;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+   outer.append(list);
+   if(entries.length>30)outer.append(element('small','',
+     'Affichage limité aux 30 premières entreprises : rapproche la carte pour voir les autres.'));
+   return outer;
+ }
+ function markerFor(entry){
+   const representative=entry[0];
+   const count=entry.length;
+   // 30px transparent hit region for every 6px visible dot.
+   const html=count===1
+     ?'<span class="company-marker-single" aria-hidden="true"></span>'
+     :'<span class="company-marker-group" aria-hidden="true">'+count+'</span>';
+   const icon=L.divIcon({html,className:'company-marker-hit',
+     iconSize:[32,32],iconAnchor:[16,16]});
+   const pin=L.marker([representative.lat,representative.lon],{icon,keyboard:true}).addTo(map);
+   if(count===1){
+     pin.bindTooltip(element('span','',representative.name),{direction:'top',opacity:.96});
+     pin.on('click',()=>details(representative));
+   }else{
+     pin.bindTooltip(element('span','',count+' entreprises : cliquer pour choisir'),
+       {direction:'top',opacity:.96});
+     pin.on('click',()=>{
+       const popup=L.popup({maxWidth:310,minWidth:220,autoPan:true,closeButton:true})
+          .setLatLng(pin.getLatLng()).setContent(groupedPopup(entry));
+       popup.openOn(map);
+     });
    }
+   return pin;
+ }
+ let rendering=false;
+ function redraw(){
+   if(!map||rendering)return;
+   rendering=true;
+   // Projection grid avoids stacking unclickable points at France-level zoom.
+   const cell=map.getZoom()<=7?38:map.getZoom()<=10?33:25;
+   const groups=new Map();
+   const bounds=map.getBounds().pad(.12);
+   for(const item of businesses.values()){
+     if(!bounds.contains([item.lat,item.lon]))continue;
+     const pt=map.latLngToContainerPoint([item.lat,item.lon]);
+     const key=Math.floor(pt.x/cell)+':'+Math.floor(pt.y/cell);
+     if(!groups.has(key))groups.set(key,[]);
+     groups.get(key).push(item);
+   }
+   removePins();
+   for(const [key,group] of groups){
+     pins.set(key,markerFor(group));
+   }
+   $('loadedCount').textContent=businesses.size.toLocaleString('fr-FR');
+   rendering=false;
+ }
+ let redrawTimeout;
+ function scheduleRedraw(){
+   clearTimeout(redrawTimeout);
+   redrawTimeout=setTimeout(redraw,110);
  }
  function insert(records){
-   let added=0;
-   for(const business of records||[]){
-     if(!business||!business.id||!Number.isFinite(business.lat)||!Number.isFinite(business.lon))continue;
-     if(business.kind==='location')continue;
-     if(markers.has(business.id))continue;
-     if(markers.size>=2600)break;
-     known.set(business.id,business);
-     const color=business.website_recorded?'#ef535e':'#36d77f';
-     const marker=L.circleMarker([business.lat,business.lon],{
-       radius:3.0,color,weight:0,stroke:false,
-       fill:true,fillColor:color,fillOpacity:0.92,
-     }).addTo(map);
-     // OSM names are untrusted user-contributed text: never parse as HTML.
-     marker.bindTooltip(element('span','',business.name),{direction:'top',opacity:0.96});
-     marker.on('click',()=>details(business));
-     markers.set(business.id,marker);
-     added++;
+   let count=0;
+   for(const item of records||[]){
+     if(!item||item.kind==='location'||!item.id||
+        !Number.isFinite(item.lat)||!Number.isFinite(item.lon))continue;
+     if(businesses.has(item.id))continue;
+     if(businesses.size>=MAX_STORED)break;
+     businesses.set(item.id,item);count++;
    }
-   return added;
+   if(count)scheduleRedraw();
+   return count;
  }
- function pruneOffscreen(){
-   // Retain a generous cache while preventing a long prospecting session from
-   // reaching a permanent marker cap (which would hide new destinations).
-   if(markers.size<=1500)return;
-   const area=map.getBounds().pad(0.8);
-   for(const [id,marker] of markers){
-     if(markers.size<=950)break;
-     if(!area.contains(marker.getLatLng()) && (!selected || selected.id!==id)){
-       map.removeLayer(marker);markers.delete(id);known.delete(id);
-     }
+ function compactOnMove(){
+   if(businesses.size<9500)return;
+   const bounds=map.getBounds().pad(2);
+   for(const [id,item] of businesses){
+     if(businesses.size<6500)break;
+     if((!selected||id!==selected.id)&&!bounds.contains([item.lat,item.lon]))
+       businesses.delete(id);
    }
+ }
+ function countLabel(){
+   const n=businesses.size;
+   return n+' entreprises réelles chargées · données publiques partielles (pas un registre national complet).';
  }
  async function overview(batch=0){
-   window.clearTimeout(overviewTimer);
-   if(loading){
-     overviewTimer=window.setTimeout(()=>overview(batch),1800);
-     return;
-   }
+   clearTimeout(overviewTimer);
+   if(loading){overviewTimer=setTimeout(()=>overview(batch),700);return}
    loading=true;reload.hidden=true;nextOverviewBatch=batch;
-   setStatus('Chargement des entreprises françaises · lot '+(batch+1)+' · '+known.size+' points déjà visibles…');
+   setStatus('Chargement de la France · zone '+(batch+1)+' · '+countLabel());
    try{
      const response=await api('/api/web/map/no-website/france?batch='+encodeURIComponent(batch));
      insert(response.results);
-     const total=Math.max(1,Number(response.total_batches)||1);
      nextOverviewBatch=response.next_batch;
-     if(known.size===0 && response.next_batch===null){
-       setStatus('Aucun établissement reçu. La source de données ne couvre pas cette recherche. Réessaie ou zoome.');
+     setStatus(countLabel()+' · Zone '+(batch+1)+'/'+Math.max(1,response.total_batches||1));
+     if(response.next_batch!==null&&response.next_batch!==undefined){
+       // Respect the official directory's fair-use limits; datasets are cached.
+       overviewTimer=setTimeout(()=>overview(response.next_batch),3600);
+     }else if(businesses.size===0){
        reload.hidden=false;
-     }else{
-       const red=[...known.values()].filter(x=>x.website_recorded).length;
-       const source=response.fallback?'Annuaire français officiel': 'OpenStreetMap';
-       setStatus(known.size+' entreprises chargées · '+(known.size-red)+' vertes / '+red+' rouges · lot '+(batch+1)+'/'+total+
-         (response.offline?' · données locales en cache':' · source '+source)+'. Statut du site à vérifier.');
-     }
-     if(response.next_batch!==null && response.next_batch!==undefined){
-       // The public OSM service is best-effort. Small batches avoid the
-       // previous 90-city timeout and progressively fill the France view.
-       const next=response.next_batch;
-       overviewTimer=window.setTimeout(()=>overview(next),14500);
+       setStatus('Aucune entreprise disponible pour le moment. Réessaie avec une connexion Internet.');
      }
    }catch(err){
-     nextOverviewBatch=batch;
-     reload.hidden=false;
-     setStatus('Sources d’entreprises indisponibles (OSM et annuaire français) : '+
-        err.message+' · Réessaie lorsque ta connexion sera rétablie.');
+     reload.hidden=false;nextOverviewBatch=batch;
+     setStatus('Annuaire des entreprises temporairement indisponible : '+
+       err.message+'. Tu peux réessayer ou consulter les points déjà chargés.');
    }finally{
      loading=false;lastLoad=Date.now();
-     if(map.getZoom()>=10)scheduleNearby();
+     if(map.getZoom()>=8)scheduleNearby();
    }
  }
  async function nearby(){
-   if(!map||loading||map.getZoom()<10)return;
-   const center=map.getCenter();
-   const bounds=map.getBounds(),sw=bounds.getSouthWest(),ne=bounds.getNorthEast();
-   const viewport=map.getZoom()>=13 && ne.lat-sw.lat<=0.10 && ne.lng-sw.lng<=0.10 &&
-     sw.lng>=-180 && ne.lng<=180;
-   const key=viewport
-     ?[sw.lat,sw.lng,ne.lat,ne.lng].map(n=>n.toFixed(4)).join('/') 
-     :center.lat.toFixed(3)+'/'+center.lng.toFixed(3)+'/'+map.getZoom();
+   if(!map||loading||map.getZoom()<8)return;
+   const center=map.getCenter(),bounds=map.getBounds(),sw=bounds.getSouthWest(),ne=bounds.getNorthEast();
+   const viewport=map.getZoom()>=13 && ne.lat-sw.lat<=.10&&ne.lng-sw.lng<=.10;
+   const key=viewport?[sw.lat,sw.lng,ne.lat,ne.lng].map(v=>v.toFixed(4)).join('/')
+     :[center.lat,center.lng,map.getZoom()].map(v=>v.toFixed(3)).join('/');
    if(key===previousArea)return;
-   const remaining=15000-(Date.now()-lastLoad);
-   if(remaining>0){
-     setStatus('Chargement progressif pour respecter OpenStreetMap · prochaine zone dans '+
-       Math.ceil(remaining/1000)+' s.');
-     window.clearTimeout(pending);
-     pending=window.setTimeout(nearby,remaining+300);
-     return;
-   }
-   loading=true;previousArea=key;
-   setStatus('Recherche d’établissements dans cette zone…');
+   const remaining=2800-(Date.now()-lastLoad);
+   if(remaining>0){clearTimeout(pending);pending=setTimeout(nearby,remaining+120);return}
+   previousArea=key;loading=true;
+   setStatus('Recherche d’établissements publics dans cette zone…');
    try{
      const query=viewport
        ?new URLSearchParams({south:String(sw.lat),west:String(sw.lng),
           north:String(ne.lat),east:String(ne.lng),zoom:String(map.getZoom())})
-       :new URLSearchParams({lat:String(center.lat),lon:String(center.lng),
-          zoom:String(map.getZoom())});
-     const endpoint=viewport?'/api/web/map/no-website/viewport':'/api/web/map/no-website/nearby';
-     const response=await api(endpoint+'?'+query.toString());
-     pruneOffscreen();
-     const count=insert(response.results);
-     const red=[...known.values()].filter(x=>x.website_recorded).length;
-     setStatus(count+' nouveaux établissements · '+(known.size-red)+' verts / '+red+' rouges. '+
-       (response.fallback?'Annuaire officiel français':'OpenStreetMap')+
-       ' : données partielles, existence réelle du site non vérifiée.');
+       :new URLSearchParams({lat:String(center.lat),lon:String(center.lng),zoom:String(map.getZoom())});
+     const result=await api((viewport
+       ?'/api/web/map/no-website/viewport':'/api/web/map/no-website/nearby')+'?'+query);
+     compactOnMove();const count=insert(result.results);
+     setStatus(count+' entreprises supplémentaires · '+countLabel());
    }catch(err){
      previousArea='';
-     setStatus('Recherche temporairement indisponible : '+err.message);
-   }finally{loading=false;lastLoad=Date.now();}
+     setStatus('Recherche locale indisponible : '+err.message+' · Les points déjà chargés restent accessibles.');
+   }finally{loading=false;lastLoad=Date.now()}
  }
  function scheduleNearby(){
-   pruneOffscreen();
-   window.clearTimeout(pending);
-   if(map.getZoom()<10){
-     // An initial Leaflet moveend must not overwrite a loading error or hide
-     // the empty-state diagnosis, as it did in the screenshot.
-     return;
-   }
-   pending=window.setTimeout(nearby,1300);
+   scheduleRedraw();
+   clearTimeout(pending);
+   if(map.getZoom()>=8)pending=setTimeout(nearby,750);
  }
  reload.addEventListener('click',()=>{
-   if(loading)return;
-   reload.hidden=true;
-   overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0);
+   if(!loading)overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0)
  });
- $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null;profileNonce++});
- $('mapRegistry').addEventListener('click',async()=>{
-   if(!selected?.selection_token)return;
-   const token=selected.selection_token,nonce=profileNonce;
-   const button=$('mapRegistry');button.disabled=true;
-   $('professionalProfile').textContent='Vérification des informations professionnelles publiques…';
-   try{
-     const result=await api('/api/web/map/profile?selection_token='+encodeURIComponent(token));
-     if(nonce===profileNonce){
-       showRegistry(result.profile);
-       if(result.profile?.matched)selected.official_registry=result.profile;
-     }
-   }catch(err){
-     if(nonce===profileNonce)$('professionalProfile').textContent='Registre indisponible : '+err.message;
-   }finally{button.disabled=false;}
- });
+ $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null});
  btn.addEventListener('click',async()=>{
    if(creating||!selected?.selection_token)return;
    creating=true;btn.disabled=true;
-   $('mapCreateError').textContent='';btn.textContent='Création du projet Pro…';
+   $('mapCreateError').textContent='';
+   btn.textContent='Recherche des informations et création du dossier…';
    try{
+     // The server enriches ONLY publicly available professional facts on
+     // user-initiated creation, never hidden/private demographic profiles.
      const response=await api('/api/web/project/create-from-map',{
        selection_token:selected.selection_token});
-     const projectId=response.project?.id;
-     if(!/^web-[a-f0-9]{12}$/.test(projectId||''))throw Error('Projet non créé.');
-     window.location.assign('/localaiweb/editor?id='+encodeURIComponent(projectId));
+     const id=response.project?.id;
+     if(!/^web-[a-f0-9]{12}$/.test(id||''))throw Error('Aucun projet créé.');
+     location.assign('/localaiweb/editor?id='+encodeURIComponent(id));
    }catch(err){
      $('mapCreateError').textContent='Création impossible : '+err.message;
-     btn.textContent='✦ Générer une première maquette ↗';
-   }finally{creating=false;btn.disabled=false;}
+     btn.textContent='Créer un site pour cette entreprise ↗';
+   }finally{creating=false;btn.disabled=false}
  });
  if(typeof L==='undefined'){
    $('mapUnavailable').hidden=false;
-   setStatus('La carte nécessite Internet pour charger les données OpenStreetMap.');
+   setStatus('Impossible de charger la carte. Une connexion Internet est nécessaire.');
    return;
  }
  map=L.map('businessMap',{zoomControl:true,worldCopyJump:true,preferCanvas:true})
       .setView([46.60,2.28],6);
- // WebView2 can measure the map before its native window has its final size.
- // Recalculate the viewport after layout, then center on ALL of France.
  const franceBounds=[[41.3,-5.8],[51.4,9.8]];
  const showFrance=()=>{
    map.invalidateSize({pan:false});
    map.fitBounds(franceBounds,{padding:[25,30],maxZoom:6,animate:false});
  };
- window.setTimeout(showFrance,300);
- window.addEventListener('resize',()=>map.invalidateSize({pan:false}));
+ setTimeout(showFrance,300);
+ window.addEventListener('resize',()=>{map.invalidateSize({pan:false});scheduleRedraw()});
  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
    attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
    maxZoom:18,maxNativeZoom:18
  }).addTo(map);
  map.on('moveend',scheduleNearby);
+ map.on('zoomend',scheduleRedraw);
  overview();
 })();
