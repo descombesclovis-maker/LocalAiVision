@@ -38,7 +38,7 @@ class FranceBusinessCardTests(unittest.TestCase):
 
     def test_france_batch_collects_multiple_real_region_centers(self):
         seen=[]
-        def region(lat,lon,radius=2.5):
+        def region(lat,lon,radius=2.5,pages=1):
             seen.append((lat,lon))
             company=web_business_map._result({
               "name":"Entreprise "+str(len(seen)), "osm_id":"siret/"+str(len(seen)).zfill(14),
