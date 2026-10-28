@@ -15,7 +15,7 @@ import re
 import threading
 
 BRAND="FORMA"
-SELLER_DEFAULT={"name":"Lilian Descombes","siret":"53784237900027"}
+SELLER_DEFAULT={"name":"","siret":""}  # Never invent a legal seller or SIRET.
 DISCOUNT=Decimal("0.30")
 # Indicative 2026 baseline values, not a real-time market-price feed.
 CATALOG={
@@ -98,8 +98,10 @@ def estimate(store,project_id):
 def validate_parties(seller,customer):
     if not isinstance(seller,dict) or not isinstance(customer,dict):
         raise ValueError("Renseigne les deux identités de facturation.")
-    name=str(seller.get("name") or SELLER_DEFAULT["name"]).strip()
-    siret=re.sub(r"\s","",str(seller.get("siret") or SELLER_DEFAULT["siret"]))
+    name=str(seller.get("name") or "").strip()
+    if not name:
+        raise ValueError("Le nom légal réel du prestataire est obligatoire.")
+    siret=re.sub(r"\s","",str(seller.get("siret") or ""))
     if not re.fullmatch(r"\d{14}",siret):
         raise ValueError("Le SIRET du prestataire doit contenir 14 chiffres.")
     doubled=sum((n*2//10+n*2%10) if idx%2==0 else n
@@ -216,7 +218,7 @@ def pdf_bytes(data):
     label(48,h-217,"À régler avant le "+data["due_date"],9)
     seller=data["seller"];client=data["customer"]
     label(48,h-252,"ÉMETTEUR",10,True,"#7250ab")
-    label(48,h-271,SELLER_DEFAULT["name"]+" | FORMA",10,True)
+    label(48,h-271,seller["name"],10,True)
     label(48,h-288,str(seller["legal_form"])+"   |   SIRET "+str(seller["siret"]),8)
     label(48,h-305,seller.get("address",""),9)
     label(320,h-252,"CLIENT",10,True,"#7250ab")
