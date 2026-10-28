@@ -164,10 +164,37 @@ def snapshot(root,store):
                "business":p.get("business",{})}
               for p in projects if p.get("project_kind")=="pro" and p["id"] not in assigned]
     stages={stage:sum(c["stage"]==stage for c in clients) for stage in STAGES}
+    # Older PDF invoices are never deleted/migrated blindly. Read their
+    # original metadata and present them as historical commercial records.
+    # A prior invoice has no CRM client_id until explicitly linked.
+    invoices=list(data["invoices"])
+    seen={row.get("invoice_number") for row in invoices}
+    archive=Path(root).resolve().parent/"invoices"
+    if archive.is_dir():
+        for path in sorted(archive.glob("FORMA-????-?????.json"))[:5000]:
+            if path.stem in seen or path.stat().st_size>300_000:
+                continue
+            try:
+                old=json.loads(path.read_text(encoding="utf-8"))
+                if old.get("invoice_number")!=path.stem:
+                    continue
+                invoices.append({
+                    "invoice_number":path.stem,
+                    "project_id":old.get("project_id",""),
+                    "client_id":_client_by_project(data,old.get("project_id","")).get("id") if _client_by_project(data,old.get("project_id","")) else "",
+                    "total_eur":old.get("total_eur","0"),
+                    "issue_date":old.get("issue_date",""),
+                    "due_date":old.get("due_date",""),
+                    "status":old.get("status","issued_unpaid"),
+                    "download":"/api/web/invoice/file?number="+path.stem
+                })
+                seen.add(path.stem)
+            except (OSError,ValueError,TypeError,AttributeError):
+                continue
     return {"clients":sorted(clients,key=lambda x:x.get("updated_at",0),reverse=True),
             "unlinked_pro_projects":unlinked,
             "quotes":list(reversed(data["quotes"])),
-            "invoices":list(reversed(data["invoices"])),
+            "invoices":sorted(invoices,key=lambda x:x.get("issue_date",""),reverse=True),
             "stages":stages,"projects_count":len(projects),
             "stage_labels":STAGE_LABELS,
             "notice":"Registre local privé. Coordonnées professionnelles à vérifier. Aucun message commercial envoyé automatiquement."}
