@@ -19,7 +19,7 @@ from local_app import web_sales_invoice as sales
 
 _LOCK=threading.RLock()
 STAGES=("prospect","contacted","proposal","accepted","in_progress","delivered","won","lost")
-STAGE_LABELS={"prospect":"Prospect","contacted":"Contacté","proposal":"Devis envoyé",
+STAGE_LABELS={"prospect":"Prospect","contacted":"Contacté","proposal":"Devis préparé",
               "accepted":"Devis accepté","in_progress":"En production",
               "delivered":"Livré","won":"Client actif","lost":"Sans suite"}
 CLIENT_ID=re.compile(r"^client-[a-f0-9]{12}$")
@@ -89,6 +89,10 @@ def _upsert(data,store,body,*,auto=False):
         _client_by_project(data,project_id) if project_id else None)
     if requested and existing is None:
         raise ValueError("Fiche client inexistante.")
+    if project_id:
+        linked=_client_by_project(data,project_id)
+        if linked and existing and linked.get("id")!=existing.get("id"):
+            raise ValueError("Ce projet est déjà rattaché à une autre fiche client.")
     if not existing and len(data["clients"])>=10000:
         raise ValueError("Capacité du registre atteinte.")
     name=_field(body.get("name") or (existing or {}).get("name"),120)
@@ -103,6 +107,14 @@ def _upsert(data,store,body,*,auto=False):
     siret=_field(body.get("siret", (existing or {}).get("siret","")),20).replace(" ","")
     if siret and not re.fullmatch(r"\d{14}",siret):
         raise ValueError("SIRET client invalide (14 chiffres attendus).")
+    due=_field(body.get("next_contact", (existing or {}).get("next_contact","")),12)
+    if due:
+        try:
+            parsed=date.fromisoformat(due)
+            if parsed.year<2000 or parsed.year>2100:
+                raise ValueError()
+        except (TypeError,ValueError):
+            raise ValueError("Date de relance invalide (AAAA-MM-JJ).") from None
     if existing is None:
         existing={"id":"client-"+uuid.uuid4().hex[:12],"created_at":time.time(),"project_ids":[]}
         data["clients"].append(existing)
@@ -112,6 +124,7 @@ def _upsert(data,store,body,*,auto=False):
         "address":_field(body.get("address",(existing or {}).get("address","")),250),
         "siret":siret,
         "contact_name":_field(body.get("contact_name",(existing or {}).get("contact_name","")),120),
+        "next_contact":due,
         "notes":_field(body.get("notes",(existing or {}).get("notes","")),1300),
         "updated_at":time.time()
     })
@@ -164,6 +177,17 @@ def snapshot(root,store):
                "business":p.get("business",{})}
               for p in projects if p.get("project_kind")=="pro" and p["id"] not in assigned]
     stages={stage:sum(c["stage"]==stage for c in clients) for stage in STAGES}
+    today=date.today().isoformat()
+    followups=sorted(
+        ({"id":c["id"],"name":c["name"],"due":c["next_contact"],"stage":c["stage"]}
+         for c in clients if c.get("next_contact") and c["next_contact"]<=today
+         and c.get("stage") not in ("lost","won")),
+        key=lambda c:(c["due"],c["name"].casefold()))
+    upcoming=sorted(
+        ({"id":c["id"],"name":c["name"],"due":c["next_contact"],"stage":c["stage"]}
+         for c in clients if c.get("next_contact") and c["next_contact"]>today
+         and c.get("stage") not in ("lost","won")),
+        key=lambda c:(c["due"],c["name"].casefold()))
     # Older PDF invoices are never deleted/migrated blindly. Read their
     # original metadata and present them as historical commercial records.
     # A prior invoice has no CRM client_id until explicitly linked.
@@ -196,6 +220,7 @@ def snapshot(root,store):
             "quotes":list(reversed(data["quotes"])),
             "invoices":sorted(invoices,key=lambda x:x.get("issue_date",""),reverse=True),
             "stages":stages,"projects_count":len(projects),
+            "followups_due":followups,"followups_upcoming":upcoming[:15],
             "stage_labels":STAGE_LABELS,
             "notice":"Registre local privé. Coordonnées professionnelles à vérifier. Aucun message commercial envoyé automatiquement."}
 
@@ -242,7 +267,7 @@ def create_quote(root,store,request):
                 "subtotal_eur":str(sales.money(subtotal)),"vat_eur":str(vat),
                 "total_eur":str(total),"vat_mode":parties["vat_mode"],
                 "currency":"EUR","status":"issued_proposal",
-                "notice":"Devis proposé, non accepté. Aucun paiement ni publication automatique."}
+                "notice":"Devis préparé, ni envoyé ni accepté automatiquement. Aucun paiement ni publication automatique."}
         pdf=quote_pdf(record)
         folder=_folder(root)/"quotes";folder.mkdir(exist_ok=True)
         path=folder/(number+".pdf")
