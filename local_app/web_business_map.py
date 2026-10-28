@@ -300,7 +300,7 @@ def first_draft_prompt(business):
       "les photos de la page Google Maps ni les médias protégés du site officiel. "
       "Choisis des photographies authentiques sous licence compatible et citées, "
       "ou utilise des illustrations IA présentées comme telles. "
-      "Ne fabrique ni faux logo officiel ni fausses photos de clients. "
+      "Ne fabrique ni faux logo officiel ni fausses photos de cet établissement. "
       "Ajoute un moyen de contacter l'entreprise seulement si la donnée existe et que "
       "la fonctionnalité est authentiquement opérante. "
       "Ne présente aucune information commerciale ou preuve sociale comme vérifiée. "
