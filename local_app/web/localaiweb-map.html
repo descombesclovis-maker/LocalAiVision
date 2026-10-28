@@ -16,7 +16,12 @@
   <span class="map-header-note">France · Vue initiale</span>
 </header>
 <main class="map-layout">
-  <section class="map-area" aria-label="Carte interactive des entreprises françaises sur fond OpenStreetMap">
+  <section class="map-area" aria-label="Carte interactive des commerces et entreprises françaises">
+    <aside class="daily-prospects" id="dailyProspects" aria-labelledby="dailyProspectsTitle">
+      <div class="daily-prospects-intro"><strong id="dailyProspectsTitle">✦ 5 commerces à découvrir aujourd'hui</strong>
+        <span id="dailyProspectsStatus">Sélection sur les établissements publics disponibles · opportunités à vérifier</span></div>
+      <div id="dailyProspectsList" class="daily-prospects-list" aria-live="polite"></div>
+    </aside>
     <div id="businessMap" role="application" aria-label="Carte OpenStreetMap, initialement centrée sur la France"></div>
     <div class="map-counter" aria-label="Nombre de fiches actuellement chargées"><span class="single-pin" aria-hidden="true"></span><strong id="loadedCount">0</strong> entreprises chargées en France</div>
     <div id="mapFeedback" class="map-feedback" role="status" aria-live="polite">
@@ -36,6 +41,10 @@
       <p id="selectionCategory" class="selection-category"></p>
     </div>
     <div class="place-card-scroll">
+      <figure id="selectionPhotoBox" class="shop-photo-box">
+        <img id="selectionPhoto" alt="" loading="lazy" referrerpolicy="no-referrer" hidden>
+        <figcaption id="selectionPhotoNote">Aucune photo publique autorisée disponible pour cet établissement.</figcaption>
+      </figure>
       <dl class="place-facts" id="placeFacts">
         <div><dt>Adresse</dt><dd id="selectionAddress">Non renseignée</dd></div>
         <div><dt>SIRET</dt><dd id="selectionSiret">Non renseigné</dd></div>
