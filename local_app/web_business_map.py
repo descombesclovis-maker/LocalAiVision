@@ -107,6 +107,7 @@ def _result(record):
       "category":CATEGORY_NAMES.get(raw_category, raw_category.replace("_"," ")),
       "osm_category":raw_category,
        "google_place_id":_plain(record.get("google_place_id"),220),
+      "siret":_plain(record.get("siret"),14),
       "website":_plain(record.get("website"),170),
       "phone":_plain(record.get("phone"),65),
       "opening_hours":_plain(record.get("opening_hours"),125),
@@ -270,7 +271,10 @@ def first_draft_prompt(business):
 
     source=str(business.get("source") or "")
     google_source=source.startswith("Google")
-    provider="Google Maps / Places API" if google_source else "OpenStreetMap"
+    provider=("Google Maps / Places API" if google_source
+              else "Annuaire officiel des entreprises françaises"
+                   if "data.gouv.fr" in source
+              else "OpenStreetMap")
     attribution=("« Données de localisation : Google Maps »" if google_source
                  else "« Données © contributeurs OpenStreetMap — ODbL »")
     return (
