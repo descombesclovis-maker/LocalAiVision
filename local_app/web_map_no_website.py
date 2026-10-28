@@ -1,15 +1,15 @@
-"""Visible, bounded OpenStreetMap leads without a *recorded* website.
+"""Visible, bounded OpenStreetMap businesses with and without a recorded website.
 
-The absence of OSM website tags DOES NOT prove that the business has no site.
+Missing website OSM tags DO NOT prove that a business has no actual website.
 OpenStreetMap/Overpass is shared infrastructure: a single cached overview of
 France is a geographically distributed *sample*, not an exhaustive dataset.
 Local detail loads are debounced in the UI and throttled on the server.
 """
 from __future__ import annotations
-import math
+import ipaddress
 import threading
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from local_app import web_business_map
 
@@ -24,7 +24,7 @@ FRANCE_POINTS = (
  (49.4432,1.0993),(49.8941,2.2958),(45.8336,1.2611),
  (48.6921,6.1844),(46.5802,0.3404),(43.4832,-1.5586),
 )
-NO_WEBSITE='[!"website"][!"contact:website"][!"url"][!"contact:url"][!"website:mobile"]'
+WEBSITE_KEYS=("website","contact:website","url","contact:url","website:mobile")
 BUSINESS_TAG='[~"^(shop|craft|office|amenity|leisure|tourism)$"~"."]'
 LOCK=threading.RLock()
 CACHE={}
@@ -33,13 +33,42 @@ CACHE_SECONDS=1800
 THROTTLE_SECONDS=27
 
 
+def safe_website(raw):
+    """Allow an ordinary public HTTP(S) URL only, never arbitrary HTML/JS."""
+    candidate=str(raw or "").strip()
+    if not candidate or any(ch.isspace() for ch in candidate):
+        return ""
+    if not candidate.startswith(("http://","https://")):
+        if "://" in candidate or candidate.startswith(("/", "#")):
+            return ""
+        candidate="https://"+candidate
+    try:
+        parsed=urlsplit(candidate)
+        host=(parsed.hostname or "").strip().lower()
+        if parsed.scheme not in ("http","https") or not host or parsed.username or parsed.password:
+            return ""
+        if host in ("localhost","localhost.localdomain") or host.endswith((".local",".internal")):
+            return ""
+        try:
+            ip=ipaddress.ip_address(host)
+            if not ip.is_global:
+                return ""
+        except ValueError:
+            if "." not in host or host.startswith(".") or host.endswith("."):
+                return ""
+        if len(candidate)>170 or parsed.port not in (None,80,443):
+            return ""
+    except ValueError:
+        return ""
+    return candidate
+
+
 def _normalize(row):
     tags=row.get("tags") or {}
     if not tags.get("name"):
         return None
-    if any(str(tags.get(key) or "").strip() for key in (
-        "website","contact:website","url","contact:url","website:mobile")):
-        return None
+    website_raw=next((str(tags.get(key) or "").strip() for key in WEBSITE_KEYS
+                      if str(tags.get(key) or "").strip()),"")
     # Exclude non-commercial public facilities from broad OSM category matches.
     if not tags.get("shop") and not tags.get("craft") and not tags.get("office"):
         if not any(tags.get(key) in (
@@ -69,10 +98,13 @@ def _normalize(row):
         "opening_hours":tags.get("opening_hours"),
         "description":tags.get("description"),
         "operator":tags.get("operator"),
+        "website":safe_website(website_raw),
         "source":"overpass",
     })
     if info:
-        info["website_status"]="non_renseigne_osm"
+        info["website_status"]=("renseigne_osm" if website_raw else "non_renseigne_osm")
+        info["website_recorded"]=bool(website_raw)
+        info["website_link_available"]=bool(info.get("website"))
     return info
 
 
@@ -85,7 +117,7 @@ def _load(key, query, mode):
             return dict(cached[1], cached=True)
         if now-LAST_REQUEST < THROTTLE_SECONDS:
             raise RuntimeError(
-                "La carte se recharge progressivement. Évite les déplacements rapides et réessaie dans quelques instants.")
+                "La carte se recharge progressivement. Réessaie dans quelques instants.")
         LAST_REQUEST=now
     raw=web_business_map._json_http(
         "overpass",web_business_map.OVERPASS,post=urlencode({"data":query}))
@@ -97,7 +129,7 @@ def _load(key, query, mode):
         seen.add(business["id"])
         items.append(business)
     result={"results":items,"mode":mode,"partial":True,
-            "notice":"Sans site renseigné dans OpenStreetMap ≠ absence confirmée de site web.",
+            "notice":"Site indiqué dans OSM ≠ site vérifié ; absence de site indiqué ≠ absence confirmée.",
             "source":"OpenStreetMap / Overpass","cached":False}
     with LOCK:
         if len(CACHE)>70:CACHE.clear()
@@ -114,7 +146,7 @@ def france_overview():
         # bulk export and distribute the displayed points across France.
         pieces.append(
             f'nwr(around:800,{lat},{lon})["name"]'
-            f'{BUSINESS_TAG}{NO_WEBSITE};out center 12;')
+            f'{BUSINESS_TAG};out center 12;')
     statement="[out:json][timeout:25];"+"".join(pieces)
     return _load(key,statement,"france_overview")
 
@@ -129,6 +161,6 @@ def area_details(lat,lon,zoom):
     statement=(
         "[out:json][timeout:24];"
         f'nwr(around:{radius},{la},{lo})["name"]'
-        f'{BUSINESS_TAG}{NO_WEBSITE};out center 220;'
+        f'{BUSINESS_TAG};out center 220;'
     )
     return _load(key,statement,"nearby")
