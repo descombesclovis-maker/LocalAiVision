@@ -1,5 +1,6 @@
 """Small independent, no recorded website and genuine photo card contract."""
 import tempfile
+from contextlib import closing
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -49,7 +50,7 @@ class LocalSmallBusinessTests(unittest.TestCase):
                             {**base,"id":"node/3","name":"Salon avec site","website":"https://s.fr"}])
                 # Simulate a database populated by an earlier application version.
                 import sqlite3, json, time
-                with sqlite3.connect(path) as db:
+                with closing(sqlite3.connect(path)) as db:
                     old={**base,"id":"node/4","name":"Picard Lyon"}
                     db.execute("insert into companies values(?,?,?,?,?,?)",
                          (old["id"],old["lat"],old["lon"],old["name"],
