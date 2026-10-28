@@ -119,6 +119,8 @@ def _result(record):
       "kind":"location" if kind=="location" else "business",
       "source":("Google Maps / Places" if record.get("source")=="google"
                  else "OpenStreetMap / Photon" if record.get("source")=="photon"
+                 else "API Recherche d'entreprises / data.gouv.fr"
+                      if record.get("source")=="french_registry"
                  else "OpenStreetMap / Overpass"),
       "verified":False
     }
