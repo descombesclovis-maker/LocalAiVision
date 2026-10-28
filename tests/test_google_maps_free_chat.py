@@ -11,43 +11,7 @@ WEB=ROOT/"local_app"/"web"
 
 
 class GoogleMapsSmallCommerceTests(TestCase):
-    def setUp(self):
-        web_google_maps._NEARBY_CACHE.clear()
-        web_google_maps._NEARBY_RATE.clear()
-        web_business_map._selected.clear()
-
-    def test_google_nearby_targets_small_businesses_not_only_popular_chains(self):
-        sample={"places":[{"id":"ChIJ12345678","location":{"latitude":46.56,
-                 "longitude":4.98},"displayName":{"text":"Petite boulangerie"},
-                 "formattedAddress":"Rue Centrale, France",
-                 "primaryTypeDisplayName":{"text":"Boulangerie"}}]}
-        with patch.object(web_google_maps,"_request",return_value=sample) as service:
-            result=web_google_maps.nearby_small_businesses(46.56,4.98,13,1)
-            cached=web_google_maps.nearby_small_businesses(46.56,4.98,13,1)
-        self.assertEqual(service.call_count,1)
-        payload=service.call_args.kwargs["data"]
-        self.assertEqual(payload["maxResultCount"],20)
-        self.assertEqual(payload["rankPreference"],"DISTANCE")
-        self.assertIn("bakery",payload["includedPrimaryTypes"])
-        self.assertIn("florist",payload["includedPrimaryTypes"])
-        self.assertNotIn("supermarket",payload["includedPrimaryTypes"])
-        self.assertEqual(result["results"][0]["name"],"Petite boulangerie")
-        self.assertEqual(result["results"][0]["source"],"Google Maps / Places")
-        self.assertTrue(result["results"][0]["selection_token"])
-        self.assertTrue(cached["cached"])
-        self.assertEqual(result["max_per_segment"],20)
-
-    def test_api_requests_limited_to_city_and_three_shop_segments(self):
-        for args in [(46.5,2.5,6,0),(46.5,2.5,12,7),(52.0,4.0,13,1)]:
-            with self.assertRaises(ValueError):
-                web_google_maps.nearby_small_businesses(*args)
-        # Neither code nor UX may scrape Google Maps to obtain all firms.
-        code=(ROOT/"local_app/web_google_maps.py").read_text(encoding="utf-8")
-        self.assertIn("places:searchNearby",code)
-        self.assertIn('maxResultCount":20',code)
-        self.assertNotIn("requests.get('https://www.google.com/maps",code)
-
-    def test_map_switch_uses_actual_official_provider_when_configured(self):
+    def test_google_basemap_uses_french_registry_not_google_places_for_leads(self):
         html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
         public=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
         google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
@@ -56,12 +20,34 @@ class GoogleMapsSmallCommerceTests(TestCase):
         self.assertIn("if(config.enabled",public)
         self.assertIn("maps.googleapis.com/maps/api/js?",google)
         self.assertIn("featureType:'poi'",google)
-        self.assertIn("/api/web/map/google/local-shops",google)
-        self.assertIn("/api/web/map/google/place?place_id=",google)
-        self.assertIn("choisis une fiche",google)
         self.assertIn("google.maps.Map",google)
+        self.assertIn("/api/web/map/registry/city",google)
+        self.assertIn("/api/web/map/no-website/france",google)
+        self.assertNotIn("/api/web/map/google/place",google)
+        self.assertNotIn("places:searchNearby",google)
+        self.assertIn("choisis une fiche",google)
         self.assertIn("maxZoom:19",google)
         self.assertIn("Créer un site pour cette entreprise",html)
+
+    def test_google_map_needs_billing_key_but_places_key_is_not_required(self):
+        from unittest.mock import patch
+        with patch.dict("os.environ",{"LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY":"test-browser",
+                                      "LOCALAIWEB_GOOGLE_PLACES_API_KEY":""}):
+            config=web_google_maps.configuration()
+        self.assertTrue(config["enabled"])
+        self.assertFalse(config["places_enabled"])
+        self.assertTrue(config["requires_billing"])
+        self.assertEqual(config["browser_key"],"test-browser")
+
+    def test_independent_local_shops_include_several_pages(self):
+        from local_app import web_map_no_website
+        with patch.object(web_map_no_website,"_french_registry_near",
+                          return_value={"results":[{"name":"Petite fleuriste"}]}) as client:
+            result=web_map_no_website.registry_city(46.5,4.9,13)
+        self.assertEqual(result["results"][0]["name"],"Petite fleuriste")
+        self.assertEqual(client.call_args.kwargs["pages"],3)
+        with self.assertRaises(ValueError):
+            web_map_no_website.registry_city(46.5,4.9,6)
 
 
 class FreeformDesignTests(TestCase):
