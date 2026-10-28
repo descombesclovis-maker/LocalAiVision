@@ -25,7 +25,7 @@ def main():
     source = Path(sys.argv[1]).resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-    with tempfile.TemporaryDirectory(prefix="localaiweb-update-smoke-") as workspace:
+    with tempfile.TemporaryDirectory(prefix="localaiweb-update-smoke-", ignore_cleanup_errors=True) as workspace:
         root=Path(workspace)
         old=root/"LocalVisionAI.exe"
         shutil.copy2(source,old)
@@ -86,10 +86,24 @@ def main():
                                capture_output=True,check=False)
             if helper_proc and helper_proc.poll() is None:
                 helper_proc.kill()
-            # Stop only the process listening on port 3000 of this isolated VM.
-            subprocess.run(["powershell.exe","-NoProfile","-Command",
-                "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"],
-                capture_output=True,check=False,timeout=20)
+            # The restarted PyInstaller executable has a bootloader parent
+            # that can retain a file handle even after its HTTP child dies.
+            # Stop ONLY processes whose executable is this temporary test EXE.
+            command=(
+                "$target='" + str(old).replace("'", "''") + "'; "
+                "Get-CimInstance Win32_Process | Where-Object { "
+                "$_.ExecutablePath -eq $target } | ForEach-Object { "
+                "& taskkill.exe /PID $_.ProcessId /T /F 2>$null | Out-Null }"
+            )
+            subprocess.run(["powershell.exe","-NoProfile","-Command",command],
+                           capture_output=True,check=False,timeout=30)
+            for _ in range(30):
+                try:
+                    with old.open("rb+") as handle:
+                        handle.read(2)
+                    break
+                except PermissionError:
+                    time.sleep(0.5)
 
 
 if __name__=="__main__":
