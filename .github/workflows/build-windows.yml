@@ -62,6 +62,7 @@ jobs:
             --hidden-import local_app.web_briefing ^
             --hidden-import local_app.web_hybrid ^
             --hidden-import local_app.web_business_map ^
+            --hidden-import local_app.web_map_no_website ^
             --hidden-import local_app.web_sales_invoice ^
             --hidden-import local_app.web_business_categories ^
             --hidden-import local_app.web_business_registry ^

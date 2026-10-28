@@ -21,16 +21,18 @@ class MobileStudiosTests(unittest.TestCase):
         self.assertIn("lva_conversations_v2",app)
         self.assertIn("lva_nsfw_gate",app)
 
-    def test_map_shortcut_and_provider_switch_are_accessible(self):
+    def test_map_shortcut_opens_france_focused_map_without_search(self):
         editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")
         page=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
         js=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
         self.assertIn('id="lawMapShortcut"',editor)
         self.assertIn('href="/localaiweb/map"',editor)
-        self.assertIn('id="mapProvider"',page)
-        self.assertIn('id="googleBusinessMap"',page)
-        self.assertIn("google.maps.Map",js)
-        self.assertIn("/api/web/map/google/place",js)
+        self.assertIn('id="businessMap"',page)
+        self.assertNotIn('id="mapProvider"',page)
+        self.assertNotIn('id="mapQuery"',page)
+        self.assertIn("setView([46.60,2.28],6)",js)
+        self.assertIn("/api/web/map/no-website/france",js)
+        self.assertIn('id="companyWebsite"',page)
 
     def test_private_pwa_cache_excludes_api_and_projects(self):
         sw=(WEB/"service-worker.js").read_text(encoding="utf-8")
