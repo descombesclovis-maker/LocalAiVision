@@ -20,8 +20,9 @@ def configuration():
     """Expose only the browser key (public by design), never the Places REST secret."""
     browser=os.environ.get("LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY","").strip()
     private=os.environ.get("LOCALAIWEB_GOOGLE_PLACES_API_KEY","").strip()
-    return {"enabled":bool(browser and private),
-            "browser_key":browser if browser and private else "",
+    return {"enabled":bool(browser),
+            "browser_key":browser,
+            "places_enabled":bool(private),
             "requires_billing":True}
 
 def _request(endpoint, *, data=None, field_mask):
@@ -77,62 +78,3 @@ def place_details(place_id):
     if not result:raise ValueError("Impossible de sélectionner cette entreprise Google Maps.")
     return {"business":result}
 
-# Nearby Search (New) is explicitly billable and capped to only the active
-# Google Maps viewport. Split by local-business categories so huge chains do
-# not consume every result slot. Google caps one response at 20 places.
-SMALL_BUSINESS_TYPES = (
-    ("hair_salon","barber_shop","beauty_salon","nail_salon","pet_care"),
-    ("bakery","florist","clothing_store","convenience_store","book_store","shoe_store"),
-    ("plumber","electrician","car_repair","tailor","locksmith","roofing_contractor"),
-)
-_NEARBY_LOCK=threading.RLock()
-_NEARBY_RATE={}
-_NEARBY_CACHE={}
-_NEARBY_MAX_CACHE=80
-_NEARBY_MASK="places.id,places.displayName,places.formattedAddress,places.location,places.primaryTypeDisplayName"
-
-def nearby_small_businesses(lat,lon,zoom,segment=0):
-    """One controlled sector query per request (max 20, not an all-France crawl).
-
-    Each user-directed map move may request at most three segments. Never
-    automatically fan out requests across France or use Google API results as
-    a permanent extracted directory. Cache in volatile memory for 90 seconds.
-    """
-    import math
-    from local_app import web_business_map
-    latitude,longitude=web_business_map._position(lat,lon)
-    z=int(zoom)
-    index=int(segment)
-    if not (41.1<=latitude<=51.7 and -5.8<=longitude<=9.9):
-        raise ValueError("Cette prospection Google est configurée pour la France.")
-    if z<9 or z>20:
-        raise ValueError("Rapproche la carte d'une ville pour interroger Google Places.")
-    if index not in range(len(SMALL_BUSINESS_TYPES)):
-        raise ValueError("Groupe d'entreprises inconnu.")
-    radius=2400 if z<=10 else 1600 if z<=12 else 950 if z<=14 else 420
-    cell=(round(latitude,3),round(longitude,3),radius,index)
-    now=time.monotonic()
-    with _NEARBY_LOCK:
-        old=_NEARBY_CACHE.get(cell)
-        if old and now-old[0]<90:
-            return {"results":list(old[1]),"source":"Google Places (New)",
-                    "cached":True,"partial":True,"max_per_segment":20}
-        last=_NEARBY_RATE.get("global",0)
-        if now-last<.7:
-            raise ValueError("Recherche Google trop rapide : réduis les déplacements de la carte.")
-        _NEARBY_RATE["global"]=now
-    result=_request("places:searchNearby",data={
-        "includedPrimaryTypes":list(SMALL_BUSINESS_TYPES[index]),
-        "maxResultCount":20,"rankPreference":"DISTANCE","languageCode":"fr",
-        "locationRestriction":{"circle":{"center":{
-          "latitude":latitude,"longitude":longitude},"radius":radius}}},
-        field_mask=_NEARBY_MASK)
-    rows=[]
-    for place in (result.get("places") or [])[:20]:
-        item=_convert(place)
-        if item:rows.append(item)
-    with _NEARBY_LOCK:
-        if len(_NEARBY_CACHE)>_NEARBY_MAX_CACHE:_NEARBY_CACHE.clear()
-        _NEARBY_CACHE[cell]=(now,rows)
-    return {"results":rows,"source":"Google Places (New)","cached":False,
-            "partial":True,"max_per_segment":20}
