@@ -14,12 +14,16 @@ import sqlite3
 import threading
 import time
 
+from local_app import web_prospect_filter
+
 _LOCK=threading.RLock()
 _LIMIT=35000
 _FIELDS=("id","name","lat","lon","address","city","postcode","country",
          "siret","category","osm_category","phone","email","website",
          "opening_hours","description","operator","source","image_url",
-         "image_credit","establishment_created","website_status","website_recorded")
+         "image_credit","wikidata","brand","network","company_size",
+         "workforce_band","establishment_count","naf_code","establishment_created",
+         "website_status","website_recorded","prospect_eligible")
 
 def database_path():
     root=Path(os.environ.get("LOCALVISIONAI_DATA",
@@ -42,7 +46,8 @@ def save(rows):
     payload=[]
     now=time.time()
     for row in rows or []:
-        if not isinstance(row,dict) or not row.get("id") or not row.get("name"):
+        if (not isinstance(row,dict) or not row.get("id") or
+                not web_prospect_filter.eligible(row)):
             continue
         try:
             lat,lon=float(row["lat"]),float(row["lon"])
@@ -78,12 +83,15 @@ def browse(limit=12000, south=40.8,west=-6.2,north=52,east=10.3):
     with _LOCK,closing(_db()) as con:
         records=con.execute("select payload from companies "
            "where lat between ? and ? and lon between ? and ? "
-           "order by updated desc limit ?",(south,north,west,east,limit)).fetchall()
-        total=con.execute("select count(*) from companies").fetchone()[0]
-    # Do not issue 12,000 short-lived selection tokens: issue a fresh token
-    # only when a specific point is clicked.
-    results=[json.loads(raw) for (raw,) in records]
-    return {"results":results,"count":total,"partial":total>limit,
+           "order by updated desc",(south,north,west,east)).fetchall()
+        all_records=con.execute("select payload from companies").fetchall()
+    # Old local databases can still include chains / sites: filter at read
+    # time, too, instead of requiring users to delete their saved leads.
+    results=[row for (raw,) in records if (row:=json.loads(raw))
+             and web_prospect_filter.eligible(row)]
+    total=sum(1 for (raw,) in all_records if
+              web_prospect_filter.eligible(json.loads(raw)))
+    return {"results":results[:limit],"count":total,"partial":len(results)>limit,
             "source":"Annuaire français + OpenStreetMap, index local",
             "website_verified":False}
 
@@ -97,6 +105,8 @@ def find(identifier):
     if not value:
         raise ValueError("Cette entreprise n'est plus dans l'index local.")
     source=json.loads(value[0])
+    if not web_prospect_filter.eligible(source):
+        raise ValueError("Cette entreprise ne correspond plus aux critères de prospection.")
     from local_app import web_business_map
     provider=("french_registry" if "data.gouv" in str(source.get("source",""))
               else "overpass")
@@ -139,7 +149,7 @@ def daily(today=None,limit=5):
     for (value,) in values:
         try:r=json.loads(value)
         except ValueError:continue
-        if not r.get("name") or not r.get("id"):continue
+        if not r.get("id") or not web_prospect_filter.eligible(r):continue
         candidates.append((_score(r,day),r))
     candidates.sort(key=lambda pair:(-pair[0],pair[1]["id"]))
     selected=[]

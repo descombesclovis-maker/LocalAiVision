@@ -14,7 +14,7 @@ from pathlib import Path
 import json
 import os
 
-from local_app import web_business_map
+from local_app import web_business_map, web_prospect_filter
 
 # Representative centers only; never invent names or locations of businesses.
 FRANCE_POINTS = (
@@ -126,6 +126,12 @@ def _normalize(row):
         return None
     category=next((tags[t] for t in ("shop","craft","office","amenity","leisure","tourism")
                    if tags.get(t)), "entreprise")
+    if not web_prospect_filter.eligible({
+        "name":tags["name"],"website_recorded":bool(website_raw),
+        "osm_category":category,"brand":tags.get("brand"),
+        "operator":tags.get("operator"),"network":tags.get("network")
+    }):
+        return None
     street=" ".join(str(x) for x in (
         tags.get("addr:housenumber"),tags.get("addr:street")) if x)
     address=", ".join(str(x) for x in (
@@ -141,6 +147,8 @@ def _normalize(row):
         "opening_hours":tags.get("opening_hours"),
         "description":tags.get("description"),
         "operator":tags.get("operator"),
+        "brand":tags.get("brand"),"network":tags.get("network"),
+        "wikidata":tags.get("wikidata"),
         "website":safe_website(website_raw),
         "image_url":web_business_map._commons_photo(tags),
         "image_credit":"Photo Wikimedia Commons — licence à vérifier" if web_business_map._commons_photo(tags) else "",
@@ -150,6 +158,7 @@ def _normalize(row):
         info["website_status"]=("renseigne_osm" if website_raw else "non_renseigne_osm")
         info["website_recorded"]=bool(website_raw)
         info["website_link_available"]=bool(info.get("website"))
+        info["prospect_eligible"]=True
     return info
 
 
@@ -208,9 +217,9 @@ def _load(key, query, mode):
         seen.add(business["id"])
         items.append(business)
     result={"results":items,"mode":mode,"partial":True,
-            "website_status":"mixte_osm",
+            "website_status":"non_renseigne_osm",
             "website_verified":False,
-            "notice":"Vert : site non renseigné OSM, absence non confirmée. Rouge : site renseigné OSM. Données partielles.",
+            "notice":"Petits commerces sans site renseigné dans OSM (absence non confirmée). Enseignes nationales écartées ; données partielles.",
             "source":"OpenStreetMap / Overpass","cached":False,"offline":source_offline}
     with LOCK:
         if len(CACHE)>70:CACHE.clear()
@@ -310,8 +319,15 @@ def _french_registry_near(lat,lon,radius=2.5,pages=1):
                 "address":location.get("adresse") or "",
                 "city":location.get("libelle_commune") or "",
                 "postcode":location.get("code_postal") or "",
-                "source":"french_registry"})
-            if not item:continue
+                "source":"french_registry",
+                "company_size":company.get("categorie_entreprise") or "",
+                "workforce_band":(location.get("tranche_effectif_salarie") or
+                                  company.get("tranche_effectif_salarie") or ""),
+                "establishment_count":company.get("nombre_etablissements") or 0,
+                "naf_code":location.get("activite_principale") or "",
+                "brand":location.get("enseigne_1") or ""})
+            if not item or not web_prospect_filter.eligible(item):continue
+            item["prospect_eligible"]=True
             item["website_recorded"]=False
             item["website_status"]="inconnu_registre"
             item["website_link_available"]=False
@@ -374,7 +390,7 @@ def france_overview(batch=0):
         result={"results":unique,"partial":True,"mode":"official_french_registry",
                 "source":"API Recherche d'entreprises / data.gouv.fr",
                 "website_verified":False,"website_status":"inconnu_registre",
-                "notice":"Données publiques géocodées, échantillonnage national progressif. "
+                "notice":"Petites entreprises présumées indépendantes, sans site répertorié (à confirmer). Échantillonnage progressif. "
                          "Ce chargement ne contient pas tous les établissements français.",
                 "cached":False,"fallback":True,"offline":False}
     result["batch"]=number

@@ -119,7 +119,8 @@ window.LocalAiWebGoogleMap={
    }
    function add(items){
      for(const item of items||[]){
-       if(!item?.name||!item.id||!Number.isFinite(item.lat)||!Number.isFinite(item.lon))
+       if(!item?.name||!item.id||item.website||item.website_recorded||
+          item.prospect_eligible===false||!Number.isFinite(item.lat)||!Number.isFinite(item.lon))
          continue;
        if(businesses.size>=30000)break;
        businesses.set(item.id,item);
