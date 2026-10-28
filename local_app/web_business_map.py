@@ -254,7 +254,7 @@ def first_draft_prompt(business):
             f"activité NAF {_plain(registry.get('naf'),20)}, "
             f"date de création {_plain(registry.get('created'),22)}. "
             "Les éventuelles personnes citées sont des DIRIGEANTS déclarés, "
-            "et non nécessairement les propriétaires. "
+            "qui ne sont pas nécessairement les propriétaires. "
             "Ne pas ajouter de données personnelles ni attribuer à ces personnes "
             "des compétences ou une histoire non vérifiées. "
         )
