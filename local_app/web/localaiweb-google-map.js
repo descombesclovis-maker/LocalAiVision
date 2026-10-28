@@ -1,6 +1,6 @@
-/* Google Maps Platform map mode. Uses the official JS Maps API and billable
-   Places (New) requests ONLY if the user provided both API credentials.
-   Not a scraper and not an unrestricted extraction of all Google businesses. */
+/* Google Maps Platform map mode. Uses the official JS Maps API as a map background; commercial
+   records come only from independent French registry/OSM datasets.
+   Never scrape, harvest or build prospecting dossiers from Google listings. */
 window.LocalAiWebGoogleMap={
  async start(config, showCompany, setStatus, api) {
    if(!config?.enabled||!config.browser_key) return false;
@@ -36,7 +36,7 @@ window.LocalAiWebGoogleMap={
        {featureType:'transit.station',stylers:[{visibility:'off'}]}
      ]
    });
-   let selected=[],rendered=[],infoWindow=null,loading=false,lastKey='',lastAt=0,refreshTimer;
+   let infoWindow=null,loading=false,lastKey='',lastAt=0,refreshTimer;
    const businesses=new Map();
    const markers=new Map();
    const GREEN='#35c774';
@@ -50,17 +50,10 @@ window.LocalAiWebGoogleMap={
    };
    const launch=(item)=>showCompany(item);
    async function selectItem(item){
-     if(item.google_place_id){
-       setStatus('Récupération de la fiche officielle de '+item.name+'…');
-       try{
-         const data=await api('/api/web/map/google/place?place_id='+
-           encodeURIComponent(item.google_place_id));
-         launch(data.business);
-       }catch(e){
-         setStatus('Détails Google indisponibles : '+e.message);
-         launch(item);
-       }
-     }else launch(item);
+     // Prospection, CRM and Codex use only independently licensed
+     // public French registry / OpenStreetMap records. Google supplies the
+     // base map, not extracted commercial leads.
+     launch(item);
    }
    function clear(){
      for(const marker of markers.values())marker.setMap(null);
@@ -144,36 +137,36 @@ window.LocalAiWebGoogleMap={
    }
    async function localBusinesses(){
      const zoom=map.getZoom()||6,center=map.getCenter();
-     if(zoom<9){
-       setStatus('Carte Google Maps · rapproche une ville pour afficher ses commerces.');
+     if(zoom<8){
+       setStatus('Carte Google Maps · zoome sur une ville pour afficher davantage de petits commerces publics.');
        return;
      }
      const lat=center.lat(),lon=center.lng(),key=[
        lat.toFixed(3),lon.toFixed(3),zoom].join(':');
      if(key===lastKey||loading)return;
-     if(Date.now()-lastAt<2500){
+     if(Date.now()-lastAt<2700){
        clearTimeout(refreshTimer);
-       refreshTimer=setTimeout(localBusinesses,2700);
+       refreshTimer=setTimeout(localBusinesses,2800);
        return;
      }
      lastKey=key;lastAt=Date.now();loading=true;
-     let fetched=0,errors=[];
      try{
-       // Three distinct local-shop categories, not just the most popular
-       // twenty chains. Each official request can incur a Google Places charge.
-       for(let segment=0;segment<3;segment++){
-         if(segment)await new Promise(resolve=>setTimeout(resolve,850));
-         try{
-           const query=new URLSearchParams({
-             lat:String(lat),lon:String(lon),zoom:String(zoom),segment:String(segment)});
-           const data=await api('/api/web/map/google/local-shops?'+query);
-           fetched+=data.results?.length||0;
-           add(data.results);
-         }catch(e){errors.push(e.message)}
-       }
-       setStatus(fetched+' commerces locaux trouvés via Google Places · '+
-         businesses.size+' entreprises visibles dans cette session.'+
-         (errors.length?' Requêtes limitées : '+errors[0]:''));
+       const bounds=map.getBounds();
+       const sw=bounds?.getSouthWest(),ne=bounds?.getNorthEast();
+       const narrow=zoom>=13&&sw&&ne&&ne.lat()-sw.lat()<.1&&ne.lng()-sw.lng()<.1;
+       const args=narrow?new URLSearchParams({
+         south:String(sw.lat()),west:String(sw.lng()),
+         north:String(ne.lat()),east:String(ne.lng()),zoom:String(zoom)
+       }):new URLSearchParams({lat:String(lat),lon:String(lon),zoom:String(zoom)});
+       const route=narrow?'/api/web/map/no-website/viewport':'/api/web/map/no-website/nearby';
+       const data=await api(route+'?'+args);
+       const before=businesses.size;
+       add(data.results);
+       setStatus((businesses.size-before)+' petits commerces et établissements ajoutés · '+
+         businesses.size+' fiches professionnelles publiques, fond Google Maps.');
+     }catch(error){
+       lastKey='';
+       setStatus('Entreprises publiques momentanément indisponibles : '+error.message);
      }finally{loading=false}
    }
    map.addListener('idle',()=>{
@@ -185,7 +178,7 @@ window.LocalAiWebGoogleMap={
    document.getElementById('mapReload')?.addEventListener('click',()=>{
      lastKey='';lastAt=0;void localBusinesses();
    });
-   setStatus('Carte Google Maps activée · données professionnelles chargées depuis Google Places.');
+   setStatus('Fond Google Maps activé · établissements issus de l’annuaire français et d’OpenStreetMap.');
    void nationalOverview();
    return true;
  }
