@@ -23,21 +23,15 @@
         <a href="/localaiweb/clients" class="update-action" aria-label="Gestion commerciale, clients, devis et factures">Clients &amp; devis ↗</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
-      <div id="lawChat" class="chat-history" role="log" aria-live="polite" aria-relevant="additions text">
-        <div class="message assistant">
-          <div class="message-author">LocalAiWeb</div>
-          <p>Bonjour ! Quel site veux-tu créer ? Tu peux demander un site très simple, une boutique, une application ou une expérience 3D spectaculaire. Je le construis dans l’aperçu et je te pose ensuite des questions précises pour l’affiner.</p>
-          <p>Tu peux aussi écrire « nouveau site », « mes projets », « publier le site » ou « télécharger le site ».</p>
-        </div>
-      </div>
+      <div id="lawChat" class="chat-history" role="log" aria-live="polite" aria-relevant="additions text"></div>
       <form id="lawComposer" class="chat-composer">
         <label class="sr-only" for="lawPrompt">Décrivez votre site ou la modification souhaitée</label>
-        <textarea id="lawPrompt" rows="3" placeholder="Ex. : Crée un site premium pour ma marque de parfum, avec une présentation 3D et des animations au défilement…" aria-label="Message pour créer ou modifier le site"></textarea>
+        <textarea id="lawPrompt" rows="3" placeholder="Décris librement le site ou les modifications souhaitées…" aria-label="Message pour créer ou modifier le site"></textarea>
         <div class="composer-bottom">
           <a id="lawMapShortcut" class="globe-tool" href="/localaiweb/map" title="Sélectionner une entreprise sur la carte" aria-label="Ouvrir la carte et sélectionner une entreprise">
             <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-4 5-4 13 0 18M12 3c4 5 4 13 0 18"/></svg>
           </a>
-          <button id="lawCinemaMode" class="cinema-toggle" type="button" aria-pressed="false" title="Activer une direction artistique immersive et une véritable 3D si le site le justifie">✦ Signature 3D</button>
+
            <span id="lawChatStatus" role="status" aria-live="polite">Prêt à créer ton site</span>
           <button id="lawGenerate" type="submit" aria-label="Envoyer mon message">Envoyer <span aria-hidden="true">↑</span></button>
         </div>
@@ -86,6 +80,70 @@
       </div>
     </section>
   </main>
+  <dialog id="lawDesignDialog" class="design-dialog" aria-labelledby="designTitle" aria-describedby="designIntro">
+    <form id="lawDesignForm" class="design-form">
+      <div class="design-heading"><span class="design-eyebrow">DIRECTION CRÉATIVE · PROJET D'ENTREPRISE</span>
+        <h2 id="designTitle">L'identité de votre prochain site</h2>
+        <p id="designIntro">Définis l'univers visuel, les mouvements et les effets. Tous les choix sont facultatifs : tu peux laisser les valeurs proposées et préciser ton idée dans le chat.</p>
+      </div>
+      <div class="design-fields">
+        <label>Univers esthétique<select name="style">
+          <option value="auto">Liberté artistique à Codex</option><option value="minimal">Minimalisme architectural</option><option value="luxury">Luxe éditorial</option>
+          <option value="boutique">Boutique chaleureuse</option><option value="editorial">Éditorial expérimental</option>
+          <option value="futurist">Futurisme raffiné</option><option value="artisanal">Authenticité artisanale</option>
+          <option value="cinematic">Cinématique immersive</option>
+        </select></label>
+        <label>Palette<select name="colors">
+          <option value="auto">Palette décidée par Codex</option><option value="mono">Monochrome contrasté</option><option value="ink">Noir &amp; ivoire</option>
+          <option value="cream">Crème &amp; sable</option><option value="copper">Noir &amp; cuivre</option><option value="forest">Vert profond</option>
+          <option value="marine">Bleu nuit</option><option value="pastel">Pastels</option><option value="bold">Couleurs vives</option>
+        </select></label>
+        <label>Typographie<select name="typography">
+          <option value="auto">Selon l'identité</option><option value="serif">Serif expressive</option><option value="sans">Sans-serif premium</option>
+          <option value="display">Typographie graphique</option><option value="humanist">Humaniste</option>
+        </select></label>
+        <label>Composition des pages<select name="layout">
+          <option value="auto">Composition libre</option><option value="editorial">Grille éditoriale</option><option value="gallery">Galerie immersive</option>
+          <option value="asymmetric">Asymétrie soignée</option><option value="fullbleed">Grand écran cinématique</option>
+          <option value="ecommerce">Boutique détaillée</option>
+        </select></label>
+        <label>Animations<select name="motion">
+          <option value="subtle">Micro-animations légères</option><option value="none">Sans mouvements décoratifs</option>
+          <option value="smooth">Animations fluides</option><option value="expressive">Transitions expressives</option>
+        </select></label>
+        <label>Mise en scène cinématique<select name="cinema">
+          <option value="none">Pas de cinématique</option><option value="scroll">Scènes au défilement</option>
+          <option value="camera">Mouvements de caméra</option><option value="reveal">Révélations de contenus</option>
+        </select></label>
+        <label>Profondeur / 3D<select name="dimension">
+          <option value="none">2D élégante</option><option value="depth">Profondeur 2,5D</option>
+          <option value="interactive">Objets 3D interactifs</option><option value="immersive">Environnement WebGL immersif</option>
+        </select></label>
+        <label>Interactions<select name="interaction">
+          <option value="standard">Navigation classique</option><option value="parallax">Parallaxe tactile</option>
+          <option value="magnetic">Interactions magnétiques</option><option value="gesture">Gestes et micro-interactions</option>
+        </select></label>
+        <label>Visuels<select name="visuals">
+          <option value="verified">Ressources professionnelles disponibles</option><option value="illustrative">Illustrations originales</option>
+          <option value="generated">Visuels IA illustratifs</option><option value="licensed">Photos sous licence adaptée</option>
+        </select></label>
+        <label>Matières / textures<select name="surfaces">
+          <option value="plain">Surfaces sobres</option><option value="glass">Verre &amp; transparence</option>
+          <option value="paper">Papier &amp; grain organique</option><option value="material">Matières réalistes</option>
+        </select></label>
+        <label>Priorité d'affichage<select name="mobile">
+          <option value="balanced">Équilibre tous supports</option><option value="mobilefirst">Mobile d'abord</option>
+          <option value="performance">Performance avant tout</option>
+        </select></label>
+        <label class="design-wide">Précisions libres<textarea name="notes" maxlength="1200" rows="3" placeholder="Décris librement une ambiance, une animation, un parcours… (facultatif)"></textarea></label>
+      </div>
+      <div id="lawDesignError" class="design-error" role="alert" aria-live="polite"></div>
+      <footer class="design-actions">
+        <button type="button" id="lawDesignCancel" class="design-secondary">Choisir plus tard</button>
+        <button type="submit" id="lawDesignCreate" class="design-primary">Créer la première maquette ↗</button>
+      </footer>
+    </form>
+  </dialog>
   <script src="/assets/localaiweb.js"></script>
   <script src="/assets/localaiweb-inspector.js"></script>
   <script src="/assets/localaiweb-update.js"></script>
