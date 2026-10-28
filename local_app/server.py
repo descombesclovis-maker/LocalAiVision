@@ -1761,6 +1761,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":"Service OpenStreetMap indisponible : "+str(exc)}, 503)
             return
+        if u.path == "/api/web/map/registry/city":
+            try:
+                from local_app import web_map_no_website
+                params=parse_qs(u.query)
+                self.send_json(web_map_no_website.registry_city(
+                    params.get("lat",[""])[0],params.get("lon",[""])[0],
+                    params.get("zoom",[""])[0]))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},503)
+            return
         if u.path == "/api/web/map/no-website/nearby":
             try:
                 from local_app import web_map_no_website
