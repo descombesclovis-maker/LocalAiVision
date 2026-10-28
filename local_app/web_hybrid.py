@@ -24,21 +24,19 @@ def select_coding_agent(provider, status, *, allow_local_fallback=False):
         raise ValueError('Moteur de création inconnu.')
     if requested == 'local':
         return 'local'
-    # Claude Code is the default creative engine for LocalAiWeb. Do not
-    # silently substitute Codex or the local chat generator if it is offline.
-    # Explicit project settings can still request a different provider.
-    agents = ('claude',) if requested == 'auto' else (requested,)
+    # Codex is the user-selected default, authenticated with ChatGPT Plus.
+    # Never fall back silently to an unapproved agent, a paid API or a
+    # low-quality local HTML template. Claude remains an explicit alternative.
+    agents = ('codex',) if requested == 'auto' else (requested,)
     for candidate in agents:
         if bool((status.get(candidate) or {}).get('ready')):
             return candidate
-    # Legacy opt-in fallback is intentionally disabled for auto: requesting
-    # premium Claude must never silently generate a generic local HTML page.
-    target = 'Claude Code' if requested in ('auto', 'claude') else 'Codex'
+    target = 'Codex (ChatGPT Plus)' if requested in ('auto','codex') else 'Claude Code'
     raise RuntimeError(
-        'Aucun agent professionnel connecté. Pour éviter de générer une ancienne '
-        'maquette HTML, connecte ' + target +
-        ' sur ce PC, puis réessaie. Installation : Claude Code (claude auth login) '
-        'ou Codex (codex login). Ton projet reste intact.'
+        'Agent de création non connecté : ' + target +
+        '. Ouvre la connexion dans LocalAiWeb puis authentifie-toi : '
+        'codex login pour ChatGPT Plus ou claude auth login pour Claude. '
+        'Tes projets et fichiers sont conservés. Aucun accès API payant n’est activé automatiquement.'
     )
 
 
@@ -336,6 +334,12 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     instruction += '\n' + asset_manifest(visuals)
     instruction += '\n' + web_site_architecture.instructions(full_brief)
     instruction += '\n' + web_creative_direction.instructions(full_brief, spec_name)
+    # Studio quality is project-specific and persisted, not a cosmetic button.
+    # This is fed to BOTH Codex and Claude so a selected cinematic/3D art
+    # direction actually influences the site's real source files.
+    from local_app import web_builder
+    instruction += '\n' + web_builder.generation_direction(
+        store.meta(project_id).get('settings'), full_brief)
     instruction += (
         '\nAGENT PROCESS: Plan the visual structure and design system first. '
         'Build real pages and their actual interactions. Install required dependencies, '
@@ -343,7 +347,12 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         'A premium website is not a short HTML forum or a generic template. '
         'Use original art direction and real product assets. Prefer React/Vite for '
         'interactive sites and React Three Fiber for demanding real 3D work. '
-        'A simple brochure site may remain semantic HTML/CSS if that is more appropriate.'
+        'A simple brochure site may remain semantic HTML/CSS if that is more appropriate. '
+        'For immersive creative briefs, implement substantial original visual craftsmanship '
+        '(real depth, material, lighting, layered parallax, smooth purposeful scroll choreography '
+        'and convincing responsive transitions). Use procedural geometry if no authorized GLB is '
+        'provided; never invent a branded product model or fake WebGL with a static PNG. '
+        'Be deliberate about performance budgets and accessible fallbacks.'
     )
     store.append_chat(project_id, 'user', user_prompt)
     store.snapshot(project_id, 'Avant : génération hybride')
