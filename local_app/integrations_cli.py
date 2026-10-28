@@ -108,6 +108,27 @@ def _claude_cmd():
     return None
 
 
+def coding_agent_status(provider):
+    """Check only the requested site-generation CLI, not unrelated cloud apps.
+
+    The old generic status() probes many services sequentially and could cost
+    over a minute before the first Codex token was even requested.
+    """
+    selected=str(provider or "codex").lower()
+    if selected not in ("codex","claude"):
+        return {}
+    cmd=_codex_cmd() if selected=="codex" else _claude_cmd()
+    found=bool(cmd)
+    ready=False
+    if cmd:
+        try:
+            args=(["login","status"] if selected=="codex" else ["auth","status"])
+            ready=_run(cmd+args,timeout=12).returncode==0
+        except (OSError, subprocess.TimeoutExpired):
+            ready=False
+    return {selected:{"installed":found,"ready":ready}}
+
+
 def status(deep=False):
     gh = _which("gh", "gh.exe")
     git = _which("git", "git.exe")
@@ -454,7 +475,7 @@ def supabase_db_push(site_dir):
         raise RuntimeError((result.stderr or result.stdout or "migration Supabase impossible").strip())
     return {"ok": True, "output": (result.stdout or "")[-2000:]}
 
-def codex_apply(site_dir, prompt):
+def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True):
     """Apply verified Codex edits; recover safely if native Windows sandbox is read-only."""
     import tempfile
     from local_app import web_codex_writeback as writeback
@@ -498,7 +519,7 @@ def codex_apply(site_dir, prompt):
     before = writeback.snapshot(site)
     # Codex may exit 0 while its Windows workspace is effectively read-only.
     result = _run(cmd + ["exec", "--sandbox", "workspace-write",
-                         "--skip-git-repo-check", "-"], cwd=site, timeout=900,
+                         "--skip-git-repo-check", "-"], cwd=site, timeout=timeout,
                   input_text=instruction)
     after = writeback.snapshot(site)
     if writeback.changed_app(before, after) and not writeback.placeholder(site):
@@ -507,6 +528,13 @@ def codex_apply(site_dir, prompt):
                                (result.stderr or result.stdout or "")[-1500:])
         return {"ok": True, "summary": "Codex a enregistré les fichiers du site.",
                 "files_written": writeback.changed(before, after), "method": "workspace-write"}
+
+    if not allow_retry:
+        detail=(result.stderr or result.stdout or "").strip()[-650:]
+        raise RuntimeError(
+            "Codex n'a pas créé de fichier utilisable pendant la première maquette. "
+            "Vérifie la connexion Codex et les journaux, puis relance. "
+            + detail)
 
     # No actual website was created. Ask for bounded JSON source only, and
     # write it ourselves after validating every destination. Never lift sandbox.
