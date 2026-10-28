@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#120d1b"><link rel="icon" href="/assets/brand-web.svg" type="image/svg+xml">
+<title>LocalAiWeb Pro — Clients et activité</title>
+<link rel="stylesheet" href="/assets/localaiweb-clients.css">
+</head>
+<body>
+<div class="shell">
+  <header class="header">
+    <a href="/localaiweb" class="brand" aria-label="Retour aux projets"><img src="/assets/brand-web.svg" alt=""><span><strong>LocalAiWeb Pro</strong><small>Gestion commerciale privée</small></span></a>
+    <nav class="actions" aria-label="Navigation"><a href="/localaiweb/map">Carte de prospection ↗</a><a href="/localaiweb">Projets ↗</a></nav>
+  </header>
+  <main>
+    <section class="intro">
+      <div><span class="kicker">CENTRE D'ACTIVITÉ</span><h1>Chaque client.<br><em>Chaque projet.</em></h1>
+        <p>Prospection, sites, devis et factures réunis au même endroit. Les données restent sur cet ordinateur.</p>
+      </div>
+      <button id="newClient" class="primary" type="button"><span aria-hidden="true">＋</span> Ajouter un client</button>
+    </section>
+    <div id="crmFeedback" class="feedback" role="status" aria-live="polite">Chargement du registre commercial…</div>
+    <section id="metrics" class="metrics" aria-label="Indicateurs de l'activité">
+      <div class="metric"><span>Clients suivis</span><strong id="metricClients">—</strong></div>
+      <div class="metric"><span>Propositions enregistrées</span><strong id="metricQuotes">—</strong></div>
+      <div class="metric"><span>Factures émises</span><strong id="metricInvoices">—</strong></div>
+      <div class="metric"><span>Projets web</span><strong id="metricProjects">—</strong></div>
+    </section>
+    <section class="panel" aria-labelledby="clientsHeading">
+      <div class="panel-head">
+        <div><span class="kicker">RELATION CLIENT</span><h2 id="clientsHeading">Portefeuille</h2></div>
+        <label class="filter">Rechercher un client<input type="search" id="clientSearch" placeholder="Nom, ville, SIRET…" autocomplete="off"></label>
+      </div>
+      <div id="clientGrid" class="client-grid" aria-label="Clients enregistrés"></div>
+    </section>
+    <section class="panel" aria-labelledby="unlinkedHeading">
+      <div class="panel-head"><div><span class="kicker">À ORGANISER</span><h2 id="unlinkedHeading">Projets Pro à rattacher</h2></div></div>
+      <p class="help">Les projets créés avant cette version restent intacts. Tu peux les rattacher à une fiche client en un clic.</p>
+      <div id="unlinkedGrid" class="unlinked-grid"></div>
+    </section>
+    <div class="columns">
+      <section class="panel" aria-labelledby="quotesHeading"><div class="panel-head"><div><span class="kicker">PROPOSITIONS</span><h2 id="quotesHeading">Devis</h2></div></div><div id="quoteRows" class="document-list"></div></section>
+      <section class="panel" aria-labelledby="invoicesHeading"><div class="panel-head"><div><span class="kicker">DOCUMENTS ÉMIS</span><h2 id="invoicesHeading">Factures</h2></div></div><div id="invoiceRows" class="document-list"></div></section>
+    </div>
+    <p class="legal">Données locales privées, sans démarchage automatique. Vérifie les coordonnées et les obligations de conservation et de facturation applicables avant toute utilisation commerciale.</p>
+  </main>
+</div>
+<dialog id="clientDialog" aria-labelledby="clientDialogTitle">
+ <form id="clientForm" method="dialog" novalidate>
+  <div class="dialog-head"><div><span class="kicker">DOSSIER COMMERCIAL</span><h2 id="clientDialogTitle">Fiche client</h2></div><button id="closeClientDialog" type="button" aria-label="Fermer">×</button></div>
+  <div class="fields">
+    <label class="wide">Entreprise / client *<input id="crmName" maxlength="120" required autocomplete="organization" placeholder="Nom exact de l’entreprise"></label>
+    <label>Contact professionnel<input id="crmContact" maxlength="120" placeholder="Personne de contact (facultatif)"></label>
+    <label>Étape du projet<select id="crmStage"><option value="prospect">Prospect</option><option value="contacted">Contacté</option><option value="proposal">Devis envoyé</option><option value="accepted">Devis accepté</option><option value="in_progress">En production</option><option value="delivered">Livré</option><option value="won">Client actif</option><option value="lost">Sans suite</option></select></label>
+    <label>Courriel professionnel<input id="crmEmail" type="email" maxlength="150" placeholder="contact@entreprise.fr"></label>
+    <label>Téléphone professionnel<input id="crmPhone" maxlength="35" type="tel"></label>
+    <label class="wide">Adresse de facturation / établissement<input id="crmAddress" maxlength="250"></label>
+    <label>SIRET (si connu)<input id="crmSiret" inputmode="numeric" maxlength="14"></label>
+    <label>Projet LocalAiWeb<select id="crmProject"><option value="">Aucun projet associé</option></select></label>
+    <label class="wide">Notes internes<textarea id="crmNotes" maxlength="1300" rows="4" placeholder="Besoin client, prochaines étapes, points à vérifier…"></textarea></label>
+  </div>
+  <div id="clientError" role="alert"></div>
+  <div class="dialog-actions"><button id="cancelClient" class="secondary" type="button">Annuler</button><button id="saveClient" class="primary" type="submit">Enregistrer la fiche</button></div>
+ </form>
+</dialog>
+<script src="/assets/localaiweb-clients.js"></script>
+</body></html>
