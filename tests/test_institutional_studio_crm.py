@@ -64,7 +64,7 @@ class CommercialWorkflowTests(unittest.TestCase):
         output=comfy/"output"
         output.mkdir(parents=True)
         source=output/"generated.png"
-        source.write_bytes(bytes.fromhex("89504e470d0a1a0a")+"image-data-bytes")
+        source.write_bytes(bytes.fromhex("89504e470d0a1a0a")+b"image-data-bytes")
         result=web_assets_bridge.import_generation(
             self.store,comfy,self.project_id,"generated.png")
         target=self.store.project_dir(self.project_id)/"site"/result["path"]
