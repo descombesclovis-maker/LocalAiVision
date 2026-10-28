@@ -50,7 +50,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertTrue(result["selection_token"])
         self.assertFalse(result["verified"])
 
-    def test_france_overview_uses_one_distributed_bounded_request(self):
+    def test_france_overview_uses_distributed_bounded_fallback_request(self):
         response={"elements":[
             {"type":"node","id":5,"lat":48.856,"lon":2.35,
              "tags":{"name":"Café Eiffel","amenity":"cafe"}},
@@ -68,7 +68,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertIn('nwr(around:850,45.764,4.8357)',query)
         for tag in mapdata.WEBSITE_KEYS:
             self.assertNotIn(f'[!"{tag}"]',query)
-        self.assertEqual(query.count("out center 18;"),10)
+        self.assertEqual(query.count("out center 18;"),5)
         self.assertNotIn("41.9192,8.7386",query)  # Corsica is loaded in a later batch.
         self.assertEqual([a["name"] for a in result["results"]],
                          ["Café Eiffel","La Librairie","Salon Web"])
@@ -142,6 +142,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         self.assertFalse(result["results"][0]["website_recorded"])
         self.assertEqual(result["results"][0]["source"],"API Recherche d'entreprises / data.gouv.fr")
         self.assertTrue(result["results"][0]["selection_token"])
+        self.assertEqual(result["results"][0]["siret"],"12345678900012")
 
     def test_safe_website_links_reject_executable_or_internal_targets(self):
         self.assertEqual(mapdata.safe_website("www.coiffeur.fr"),"https://www.coiffeur.fr")
@@ -208,29 +209,29 @@ class WebsiteProspectMapTests(unittest.TestCase):
                      'id="industrySearch"','id="mapNearby"','id="mapProvider"'):
             self.assertNotIn(item,html)
         self.assertIn("setView([46.60,2.28],6)",script)
-        self.assertIn("radius:3.0",script)
-        self.assertIn("'#36d77f'",script)
-        self.assertIn("'#ef535e'",script)
+        self.assertIn("company-marker-single",script)
+        self.assertIn("company-marker-group",script)
+        self.assertNotIn("'#ef535e'",script)
         self.assertIn("website_recorded",script)
-        self.assertIn("stroke:false",script)
+        self.assertIn("groupedPopup(entries)",script)
         self.assertIn("map.on('moveend',scheduleNearby)",script)
         self.assertIn("overview();",script)
         self.assertIn("fitBounds(franceBounds",script)
         self.assertIn("map.invalidateSize",script)
-        self.assertIn("overview(next)",script)
+        self.assertIn("overview(response.next_batch)",script)
         self.assertIn("mapFeedbackText",script)
         self.assertIn('id="mapReload"',html)
-        self.assertIn("statut inconnu",html)
-        self.assertIn("Vert",html)
-        self.assertIn("Rouge",html)
-        self.assertIn("vérification externe est nécessaire",html)
-        self.assertIn("Absence NON confirmée",script)
-        self.assertIn('id="companyWebsite"',html)
-        self.assertIn('id="verifyWebPresence"',html)
+        self.assertNotIn("legend-red",html)
+        self.assertIn('id="selectionWebsite"',html)
+        self.assertIn('id="selectionHours"',html)
+        self.assertIn("absence non vérifiée",script)
+        self.assertIn("Non renseigné",script)
+        self.assertNotIn('id="companyWebsite"',html)
+        self.assertNotIn('id="verifyWebPresence"',html)
         self.assertIn("/api/web/map/no-website/viewport",script)
-        self.assertIn("function pruneOffscreen()",script)
-        self.assertIn("target=\"_blank\"",html)
-        self.assertIn("rel=\"noopener noreferrer nofollow\"",html)
+        self.assertIn("function compactOnMove()",script)
+        self.assertIn("link.target='_blank'",script)
+        self.assertIn("nofollow",script)
         self.assertIn('id="mapSelection"',html)
         self.assertIn('/api/web/project/create-from-map',script)
 
