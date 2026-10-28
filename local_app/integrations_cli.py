@@ -40,11 +40,25 @@ def _supabase_cmd():
     return [npx, "--yes", "supabase"] if npx else None
 
 def _codex_cmd():
+    """Use an installed Codex CLI, never quietly npm-install it via npx.
+
+    Windows desktop apps may inherit an old PATH from Explorer. Resolve
+    the normal user-scoped npm binary and native installer locations too.
+    """
     direct = _which("codex", "codex.cmd", "codex.exe")
     if direct:
         return [direct]
-    npx = _which("npx", "npx.cmd")
-    return [npx, "--yes", "@openai/codex"] if npx else None
+    roots = (
+        Path(os.environ.get("APPDATA", str(Path.home()/"AppData"/"Roaming")))/"npm",
+        Path(os.environ.get("LOCALAPPDATA", str(Path.home()/"AppData"/"Local")))/"Programs"/"Codex",
+        Path.home()/".local"/"bin",
+    )
+    for root in roots:
+        for filename in ("codex.exe", "codex.cmd", "codex"):
+            candidate = root/filename
+            if candidate.is_file():
+                return [str(candidate)]
+    return None
 
 
 def _claude_cmd():
@@ -69,7 +83,7 @@ def status(deep=False):
     npx = _which("npx", "npx.cmd")
     vercel_direct = _which("vercel", "vercel.cmd")
     supabase_direct = _which("supabase", "supabase.exe")
-    codex_direct = _which("codex", "codex.cmd", "codex.exe")
+    codex_cmd = _codex_cmd()
     claude_direct = _claude_cmd()
     stripe_direct = _which("stripe", "stripe.exe")
     out = {
@@ -79,7 +93,7 @@ def status(deep=False):
         "npm": {"installed": bool(npm), "ready": bool(npm)},
         "vercel": {"installed": bool(vercel_direct or npx), "ready": False, "via_npx": bool(not vercel_direct and npx)},
         "supabase": {"installed": bool(supabase_direct or npx), "ready": False, "via_npx": bool(not supabase_direct and npx)},
-        "codex": {"installed": bool(codex_direct or npx), "ready": False, "via_npx": bool(not codex_direct and npx)},
+        "codex": {"installed": bool(codex_cmd), "ready": False, "via_npx": False},
         "claude": {"installed": bool(claude_direct), "ready": False},
         "stripe": {"installed": bool(stripe_direct), "ready": False},
     }
@@ -88,7 +102,8 @@ def status(deep=False):
 
     vercel_cmd = [vercel_direct] if vercel_direct else (_vercel_cmd() if deep else None)
     supabase_cmd = [supabase_direct] if supabase_direct else (_supabase_cmd() if deep else None)
-    codex_cmd = [codex_direct] if codex_direct else (_codex_cmd() if deep else None)
+    # Already-installed Codex can check login without downloading npm packages.
+    codex_cmd = _codex_cmd()
     if vercel_cmd:
         try:
             out["vercel"]["ready"] = _run(vercel_cmd + ["whoami"], timeout=60 if deep else 20).returncode == 0
@@ -216,8 +231,8 @@ def connect(provider, cwd=None):
     elif provider == "codex":
         cmd = _codex_cmd()
         if not cmd:
-            raise RuntimeError("Codex CLI n'est pas disponible.")
-        args = cmd
+            raise RuntimeError("Installe d’abord Codex CLI (npm install -g @openai/codex), puis réessaie. Un abonnement ChatGPT Plus suffit sous réserve des quotas.")
+        args = cmd + ["login"]
     elif provider == "stripe":
         stripe = _which("stripe", "stripe.exe")
         if not stripe:
