@@ -12,6 +12,9 @@ import subprocess
 import sys
 import tempfile
 import time
+# A script started as `python scripts/foo.py` has scripts/ on sys.path,
+# not necessarily the repository root. Resolve imports independent of CWD.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from unittest.mock import patch
 from urllib.request import urlopen
 
