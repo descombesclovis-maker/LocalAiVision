@@ -14,7 +14,7 @@
  <div id="lineItems" role="group" aria-label="Prestations détectées"></div><div class="quote-total"><span>Total estimé HT</span><strong id="estimatedTotal">—</strong></div>
  <p id="quoteNotice" class="hint"></p><div class="ref-links"><span>Références tarifaires indicatives :</span><a href="https://onweb24.com/fr/guide/prix-site-internet" target="_blank" rel="noopener">Comparatif 2026 ↗</a><a href="https://dgtl.fr/tarif-creation-site-internet-professionnel/" target="_blank" rel="noopener">Grille tarifs ↗</a></div></section>
  <section class="card identity"><div class="heading"><div><p class="eyebrow">02 / FACTURATION</p><h2>Facture FORMA</h2></div><span class="label">PDF</span></div>
- <p class="hint">Le projet génère automatiquement un chiffrage. Une facture définitive numérotée ne peut être émise qu'après validation de l'identité du client, de ton statut juridique, de la TVA et de la prestation. Une facture émise est conservée.</p>
+ <p class="hint">Le projet génère automatiquement un chiffrage. Une facture définitive numérotée ne peut être émise qu'après validation de l'identité du client, de ton statut juridique, de la TVA et de la prestation. Une facture émise est conservée. En 2026, le PDF ne remplace pas la facturation électronique structurée lorsque celle-ci est légalement exigée ; utilise une plateforme agréée si nécessaire.</p>
  <form id="invoiceForm">
  <h3>Prestataire · FORMA</h3>
  <div class="fields"><label>Nom légal<input id="sellerName" value="Lilian Descombes" required></label><label>SIRET<input id="sellerSiret" value="53784237900027" required maxlength="14"></label>
@@ -23,7 +23,8 @@
  <label>Capital social (si société)<input id="sellerCapital" placeholder="Ex. 1 000 €"></label>
  <label>Régime TVA<select id="vatMode" required><option value="">Choisir la situation fiscale réelle</option><option value="franchise">Franchise en base · article 293 B</option><option value="standard">TVA facturée · 20 % (à vérifier)</option></select></label>
  <label>N° de TVA (si assujetti)<input id="sellerVat" placeholder="FR…"></label>
- <label class="wide">Modalités de paiement<input id="paymentDetails" required placeholder="IBAN professionnel, virement ou instructions de paiement"></label></div>
+ <label class="wide">Modalités de paiement<input id="paymentDetails" required placeholder="IBAN professionnel, virement ou instructions de paiement"></label>
+ <label class="wide">Pénalités de retard B2B (taux réellement convenu)<input id="latePenaltyRate" placeholder="Ex. : taux BCE + 10 points, selon CGV"></label></div>
  <h3>Client</h3><div class="fields"><label>Raison sociale ou nom<input id="customerName" required></label>
  <label>Type de client<select id="customerType"><option value="business">Entreprise</option><option value="consumer">Particulier</option></select></label>
  <label class="wide">Adresse de facturation vérifiée<input id="customerAddress" required placeholder="Adresse postale complète"></label>
