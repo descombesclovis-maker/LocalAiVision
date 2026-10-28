@@ -17,6 +17,13 @@ class WebsiteProspectMapTests(unittest.TestCase):
         mapdata.LAST_REQUEST=0.
         shared._selected.clear()
         shared._rate["overpass"]=0.
+        # Default-France API is intentionally independent of Overpass.
+        # Mock its outage for tests that specifically exercise OSM queries.
+        self.real_french_registry=mapdata._french_registry_near
+        self.registry_patcher=patch.object(
+            mapdata,"_french_registry_near",side_effect=RuntimeError("Simulation annuaire indisponible"))
+        self.registry_patcher.start()
+        self.addCleanup(self.registry_patcher.stop)
 
     def test_no_recorded_website_and_only_credible_business_tags(self):
         hotel={"type":"node","id":1,"lat":47.2,"lon":5.1,
@@ -114,6 +121,27 @@ class WebsiteProspectMapTests(unittest.TestCase):
                     cached=mapdata.france_overview()
                 self.assertTrue(cached["offline"])
                 self.assertEqual([x["name"] for x in cached["results"]],["Boulangerie cached"])
+
+    def test_official_french_api_produces_real_businesses_if_overpass_unavailable(self):
+        from io import BytesIO
+        from json import dumps
+        company={"nom_complet":"SALON D'EXEMPLE","siren":"123456789",
+                 "matching_etablissements":[{
+                    "siret":"12345678900012","latitude":"48.8568","longitude":"2.3524",
+                    "nom_commercial":"Salon Exemple","adresse":"10 rue des tests 75001 PARIS",
+                    "activite_principale":"96.02A","etat_administratif":"A"}]}
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(mapdata,"CACHE_DIR",Path(folder)):
+                with patch.object(mapdata,"_french_registry_near",self.real_french_registry):
+                    with patch("urllib.request.urlopen",return_value=BytesIO(
+                         dumps({"results":[company]}).encode("utf-8"))):
+                        result=mapdata.france_overview()
+        self.assertEqual(result["source"],"API Recherche d'entreprises / data.gouv.fr")
+        self.assertEqual(result["results"][0]["name"],"Salon Exemple")
+        self.assertEqual(result["results"][0]["website_status"],"inconnu_registre")
+        self.assertFalse(result["results"][0]["website_recorded"])
+        self.assertEqual(result["results"][0]["source"],"API Recherche d'entreprises / data.gouv.fr")
+        self.assertTrue(result["results"][0]["selection_token"])
 
     def test_safe_website_links_reject_executable_or_internal_targets(self):
         self.assertEqual(mapdata.safe_website("www.coiffeur.fr"),"https://www.coiffeur.fr")
