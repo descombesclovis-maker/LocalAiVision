@@ -354,6 +354,6 @@ function setup(){
  // v2.1: remove the old reserved red theme and clear a stale style once so a
  // previous watercolor preset cannot silently alter a new prompt.
  document.body.classList.remove('reserved-theme');localStorage.removeItem('lva_reserved_profile');if(!localStorage.getItem('lva_v21_prompt_fidelity')){graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));localStorage.setItem('lva_v21_prompt_fidelity','1')}
- for(const c of Object.values(conversations)){normalizeConversation(c);c.messages=c.messages.filter(m=>!m.loading)}save();refresh();setInterval(pollHealth,6000);
+ for(const c of Object.values(conversations)){normalizeConversation(c);c.messages=c.messages.filter(m=>!m.loading)}save();window.localAiVisionInitialRefresh=refresh();setInterval(pollHealth,6000);
 }
 setup();
