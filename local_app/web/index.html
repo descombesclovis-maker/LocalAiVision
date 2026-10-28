@@ -66,6 +66,7 @@
       <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
       <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
       <div class="topbar-actions">
+        <button class="topbar-action" id="historyBtn" type="button" title="Reprendre une conversation enregistrée" aria-label="Historique des conversations">◷ <span>Historique</span></button>
         <button class="topbar-action" id="newConversation" type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation">＋ <span>Nouvelle discussion</span></button>
         <button id="updateBtn" class="topbar-action update-button" type="button" title="Vérifier la mise à jour et afficher le résultat" aria-label="Mettre à jour l'application">↻ <span>Mise à jour</span></button>
       </div>
@@ -218,6 +219,11 @@
   </div>
 </div>
 
+<dialog id="historyDialog" class="history-dialog" aria-labelledby="historyTitle">
+  <div class="history-head"><h2 id="historyTitle">Conversations enregistrées</h2><button id="historyClose" type="button" aria-label="Fermer">×</button></div>
+  <label for="historySearch">Rechercher dans l'historique</label><input id="historySearch" type="search" placeholder="Nom de la conversation…" autocomplete="off">
+  <div id="historyList" class="history-list"></div>
+</dialog>
 <div id="toast" role="status"></div>
 <script src="/assets/intent.js"></script>
 <script src="/assets/mask.js"></script>
