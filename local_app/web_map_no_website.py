@@ -36,7 +36,8 @@ THROTTLE_SECONDS=27
 def safe_website(raw):
     """Allow an ordinary public HTTP(S) URL only, never arbitrary HTML/JS."""
     candidate=str(raw or "").strip()
-    if not candidate or any(ch.isspace() for ch in candidate):
+    if (not candidate or any(ch.isspace() for ch in candidate) or
+            any(ch in candidate for ch in ("\\", "<", ">", "\"", "'"))):
         return ""
     if not candidate.startswith(("http://","https://")):
         if "://" in candidate or candidate.startswith(("/", "#")):
