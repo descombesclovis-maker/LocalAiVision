@@ -71,3 +71,5 @@
 .shop-photo-box img[hidden]{display:none}
 .shop-photo-box figcaption{font-size:10px;line-height:1.55;color:#c8bcd7;padding:10px 14px;text-align:center}
 @media(max-width:700px){.daily-prospects{top:51px;padding:9px 10px;width:calc(100% - 12px)}.daily-prospects-intro{gap:3px}.daily-prospects-intro strong{font-size:11px}.daily-prospects-intro span{font-size:9px}.daily-prospect{flex:0 0 155px}.shop-photo-box img{height:145px}}
+
+.shop-photo-box .photo-source-link{color:#e1c8ff;text-decoration:underline;text-underline-offset:2px}
