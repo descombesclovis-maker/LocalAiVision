@@ -101,7 +101,9 @@ class CommercialWorkflowTests(unittest.TestCase):
         sidebar=html.split('<aside class="sidebar closed" id="sidebar"')[1].split("</aside>")[0]
         for label in ("navCreations","navPhoto","navVideo","navNsfw"):
             self.assertIn('id="'+label+'"',sidebar)
-        self.assertEqual(sidebar.count('class="studio-nav-entry"'),4)
+        self.assertEqual(sidebar.count('class="studio-nav-entry"'),6)
+        self.assertIn('id="studioAdOpen"',sidebar)
+        self.assertIn('id="visionAdvancedToggle"',sidebar)
         self.assertNotIn("Que veux tu créer ?",html)
         self.assertIn('id="historyDialog"',html)
         script=(ROOT/"local_app/web/studio-redesign.js").read_text(encoding="utf-8")
