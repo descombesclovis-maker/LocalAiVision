@@ -1918,7 +1918,7 @@ def queue_prompt(api):
 def studio_media_jobs():
     from local_app import comfy_progress
     records=comfy_progress.statuses()
-    if not records:
+    if not records and not _media_request_pending():
         return {"jobs":[],"count":0}
     try:
         queue=comfy_get("/queue")
