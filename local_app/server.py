@@ -140,6 +140,68 @@ def _web_active_generations():
     return {"count":len(jobs), "jobs":sorted(results,key=lambda x:x["started_at"],reverse=True)}
 
 
+_media_request_lock=threading.RLock()
+_media_requests={}
+
+def _media_request_get(ticket):
+    with _media_request_lock:
+        row=_media_requests.get(str(ticket or ""))
+        return dict(row) if row else None
+
+def _media_request_pending():
+    with _media_request_lock:
+        now=time.time()
+        for key,row in list(_media_requests.items()):
+            if row.get("finished_at") and now-row["finished_at"]>3600:
+                _media_requests.pop(key,None)
+        return [dict(row) for row in _media_requests.values() if row["state"]=="preparing"]
+
+def _media_request_worker(ticket,body):
+    try:
+        body["_studio_request_ticket"]=ticket
+        answer=run_generation(body)
+        ids=answer.get("prompt_ids") or []
+        with _media_request_lock:
+            record=_media_requests.get(ticket)
+            cancelled=bool(record and record.get("cancel_requested"))
+            if record:
+                record.update(state="cancelled" if cancelled else "queued",
+                              prompt_ids=ids,warnings=answer.get("warnings",[]),
+                              finished_at=time.time())
+        if cancelled:
+            for pid in ids:
+                try: cancel_studio_media(pid)
+                except (OSError,RuntimeError,ValueError): pass
+    except Exception as exc:
+        with _media_request_lock:
+            record=_media_requests.get(ticket)
+            if record:
+                record.update(state="cancelled" if record.get("cancel_requested") else "error",
+                              error=str(exc)[:650],finished_at=time.time())
+
+def _media_request_start(body):
+    if not isinstance(body,dict) or not body.get("workflow") or not str(body.get("prompt") or "").strip():
+        raise ValueError("Choisis un modèle et décris la création.")
+    ticket="prep-"+uuid.uuid4().hex
+    profile=str(body.get("workflow") or "").lower()
+    kind="video" if any(t in profile for t in ("video","wan","weaving","t2v","i2v")) else "image"
+    with _media_request_lock:
+        _media_requests[ticket]={"ticket":ticket,"state":"preparing",
+                                 "kind":kind,"phase":"Préparation du moteur et du modèle…",
+                                 "started_at":time.time(),"cancel_requested":False}
+    threading.Thread(target=_media_request_worker,args=(ticket,body),
+                     name="LocalAiVisionPrepare-"+ticket[-8:],daemon=True).start()
+    return {"ok":True,"ticket":ticket,"state":"preparing"}
+
+def cancel_media_preparation(ticket):
+    with _media_request_lock:
+        record=_media_requests.get(str(ticket or ""))
+        if not record or record["state"]!="preparing":
+            raise ValueError("Préparation terminée ou introuvable.")
+        record["cancel_requested"]=True
+        record.update(state="cancelled",finished_at=time.time())
+    return {"ok":True,"cancelled":str(ticket),"message":"Annulation demandée. La préparation déjà lancée peut se terminer sans créer de vidéo."}
+
 _studio_media_status_cache={"at":0.0,"value":{"count":0,"running":0,"queued":0}}
 _studio_media_status_lock=threading.Lock()
 
@@ -155,9 +217,13 @@ def _studio_media_status():
         queue=http_json(COMFY+"/queue",timeout=2)
         active=len(queue.get("queue_running") or [])
         waiting=len(queue.get("queue_pending") or [])
-        value={"count":active+waiting,"running":active,"queued":waiting}
+        preparing=len(_media_request_pending())
+        value={"count":active+waiting+preparing,"running":active,
+               "queued":waiting,"preparing":preparing}
     except (OSError,ValueError,TypeError,TimeoutError):
-        value={"count":0,"running":0,"queued":0,"unavailable":True}
+        preparing=len(_media_request_pending())
+        value={"count":preparing,"running":0,"queued":0,
+               "preparing":preparing,"unavailable":True}
     with _studio_media_status_lock:
         _studio_media_status_cache.update(at=now,value=value)
     return value
@@ -1653,6 +1719,11 @@ def run_generation(body):
     # still running. Wait for it instead of failing and forcing a second click.
     _wait_for_setup()
     with _engine_lock:
+        ticket=body.get("_studio_request_ticket")
+        if ticket:
+            record=_media_request_get(ticket)
+            if not record or record.get("cancel_requested"):
+                raise RuntimeError("Préparation annulée. Aucun nouveau rendu envoyé à ComfyUI.")
         if not ensure_comfyui(timeout=180):
             raise RuntimeError("ComfyUI n’est pas prêt. Consulte l’état d’installation et le journal comfy.log, puis utilise Réessayer.")
         wf = load_workflow(body.get("workflow"))
@@ -1719,6 +1790,10 @@ def run_generation(body):
             warnings.append("Un serveur texte externe reste actif ; sa mémoire GPU ne peut pas être libérée par cette application.")
         for current in prepared:
             try:
+                if ticket:
+                    record=_media_request_get(ticket)
+                    if not record or record.get("cancel_requested"):
+                        raise RuntimeError("Génération annulée avant son lancement.")
                 result = queue_prompt(current)
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
@@ -1852,6 +1927,12 @@ def studio_media_jobs():
     except (OSError,ValueError,TypeError):
         running=pending=None
     results=[]
+    for task in _media_request_pending():
+        results.append({"request_ticket":task["ticket"],"prompt_id":None,
+                        "kind":task["kind"],"state":"preparing",
+                        "phase":task.get("phase","Préparation du modèle"),
+                        "started_at":task["started_at"],"preview_ready":False,
+                        "percent":None,"max_steps":0,"step":0})
     for item in records:
         pid=item["prompt_id"]
         if item["state"] in ("done","cancelled","error"):
@@ -2221,6 +2302,12 @@ class Handler(BaseHTTPRequestHandler):
             try: self.send_json(studio_media_jobs())
             except Exception as exc: self.send_json({"error":str(exc)},503)
             return
+        if u.path == "/api/studio/media/request/status":
+            ticket=parse_qs(u.query).get("ticket",[""])[0]
+            record=_media_request_get(ticket)
+            if record: self.send_json({"request":record})
+            else: self.send_json({"error":"Préparation inconnue ou expirée."},404)
+            return
         if u.path == "/api/studio/media/job":
             from local_app import comfy_progress
             pid=parse_qs(u.query).get("id",[""])[0]
@@ -2511,7 +2598,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/update/draft" and not self._authorized_update_request():
             return
-        if u.path == "/api/studio/media/cancel" and not self._authorized_media_request():
+        if u.path in ("/api/studio/media/cancel","/api/studio/media/start") and not self._authorized_media_request():
             return
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and not self._authorized_brand_request():
@@ -2520,6 +2607,9 @@ class Handler(BaseHTTPRequestHandler):
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and (length<0 or length>6_000_000):
             self.send_json({"error":"Requête de marque trop volumineuse."},413)
+            return
+        if u.path == "/api/studio/media/start" and (length<0 or length>35_000_000):
+            self.send_json({"error":"Image de référence trop volumineuse."},413)
             return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
@@ -3181,10 +3271,20 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error":str(e)},400)
             return
+        if u.path == "/api/studio/media/start":
+            if not self._authorized_media_request():
+                return
+            try: self.send_json(_media_request_start(body))
+            except ValueError as exc: self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/studio/media/cancel":
             if not self._authorized_media_request():
                 return
-            try: self.send_json(cancel_studio_media(body.get("prompt_id")))
+            try:
+                if body.get("request_ticket"):
+                    self.send_json(cancel_media_preparation(body.get("request_ticket")))
+                else:
+                    self.send_json(cancel_studio_media(body.get("prompt_id")))
             except ValueError as exc: self.send_json({"error":str(exc)},400)
             except Exception as exc: self.send_json({"error":str(exc)},502)
             return
