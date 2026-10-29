@@ -4,7 +4,7 @@
  'use strict';
  const nav=document.getElementById('lawMobileTabs');
  if(!nav)return;
- const mobile=window.matchMedia('(max-width:700px)');
+ const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)');
  const buttons=[...nav.querySelectorAll('[data-mobile-panel]')];
  const menu=document.getElementById('lawMobileTools');
  const toggle=document.getElementById('lawMobileMenuToggle');
