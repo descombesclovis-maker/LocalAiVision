@@ -113,6 +113,33 @@ def _web_generation_status(project_id):
         result["preview_ready"] = False
     return result
 
+def _web_active_generations():
+    """Small, accurate cross-workspace generation summary.
+
+    Jobs continue in server worker threads after navigation. No private prompt,
+    source code or asset path is included in this lightweight status endpoint.
+    """
+    with _web_generation_lock:
+        jobs=[(pid, dict(job)) for pid,job in _web_generation_jobs.items()
+              if job.get("state")=="running"]
+    with _web_progress_lock:
+        phases={pid:dict(_web_progress_rows.get(pid) or {}) for pid,_ in jobs}
+    results=[]
+    store=_web_store()
+    for pid,job in jobs[:24]:
+        try:
+            meta=store.meta(pid)
+        except (OSError,ValueError,KeyError,TypeError):
+            continue
+        progress=phases.get(pid,{})
+        started=float(job.get("started_at") or time.time())
+        results.append({"id":pid, "name":str(meta.get("name") or "Site sans nom")[:80],
+                        "state":"running", "phase":str(progress.get("phase") or job.get("phase") or "building")[:36],
+                        "detail":str(progress.get("detail") or "Création du site en cours…")[:140],
+                        "started_at":started, "elapsed_seconds":max(0,int(time.time()-started))})
+    return {"count":len(jobs), "jobs":sorted(results,key=lambda x:x["started_at"],reverse=True)}
+
+
 def _web_start_generation(project_id, prompt):
     store = _web_store()
     meta = store.meta(project_id)
@@ -1821,24 +1848,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
-        if u.path == "/":
-            # Mobile root launches LocalAiWeb even if an existing home-screen
-            # shortcut was installed from the older LocalAiVision landing.
-            # Offer explicit opt-in for users who still need the original
-            # LocalAiVision workspace on their phone: /?studio=vision.
-            # Never redirect desktop/WebView localhost traffic.
-            ua = self.headers.get("User-Agent", "").lower()
-            wants_vision = parse_qs(u.query).get("studio", [""])[0] == "vision"
-            if not wants_vision and any(
-                token in ua for token in ("iphone", "ipad", "ipod", "android")
-            ):
-                self.send_response(302)
-                self.send_header("Location", "/localaiweb")
-                self.send_header("Cache-Control", "no-store, max-age=0")
-                self.send_header("Vary", "User-Agent")
-                self.send_header("Content-Length", "0")
-                self.end_headers()
-                return
+        # The same clear universe selector is served on PC and phone.
+        # Keep the original LocalAiVision engine at a dedicated, stable URL.
+        if u.path in ("/", "/studio") and parse_qs(u.query).get("studio", [""])[0] != "vision":
+            self.send_bytes((WEB/"localai-studio.html").read_bytes(),"text/html; charset=utf-8")
+            return
+        if u.path == "/localaivision":
+            self.send_bytes((WEB/"index.html").read_bytes(),"text/html; charset=utf-8")
+            return
         if u.path == "/api/ping":
             self.send_json({"app": "LocalVisionAI", "version": VERSION,
                             "build_tag": build_info().get("build_tag")})
@@ -2083,6 +2100,9 @@ class Handler(BaseHTTPRequestHandler):
                     industry=args.get("industry",["all"])[0]))
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
+            return
+        if u.path == "/api/web/generations/active":
+            self.send_json(_web_active_generations())
             return
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
