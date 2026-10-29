@@ -238,3 +238,21 @@
  .law-mobile-tools-links{grid-template-columns:1fr 1fr;}
  .map-brand small{display:none;}
 }
+
+/* Map failure should not cover the prospect suggestions or selected business. */
+#dailyProspectsToggle{display:none;}
+.map-unavailable{z-index:400;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;}
+.map-unavailable p{max-width:330px;line-height:1.6;color:#eee5fa;font-size:14px;}
+#mapRetryLibrary{display:inline-flex;min-height:48px;align-items:center;justify-content:center;
+ background:#6a42ae;color:#fff;border-radius:12px;border:1px solid #ba92e9;
+ padding:12px 20px;font:700 14px system-ui;cursor:pointer;}
+@media(max-width:700px){
+ .map-unavailable{padding:100px 20px 20px;}
+ .map-feedback{pointer-events:auto!important;z-index:450;max-width:min(330px,calc(100% - 30px));}
+ .map-feedback .map-reload{min-height:44px;min-width:44px;}
+ .daily-prospects{z-index:650;}
+ .map-selection{z-index:750;}
+ #dailyProspectsToggle{display:inline-flex!important;}
+ .map-counter{font-size:10px;line-height:1.4;}
+ .map-unavailable:not([hidden])~.map-attribution{display:none;}
+}
