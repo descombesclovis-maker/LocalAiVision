@@ -160,7 +160,8 @@ class SettingsUi(unittest.TestCase):
     def test_settings_visibility_hides_incompatible_controls(self):
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
-        self.assertIn("accordionLoras')?.classList.toggle('hidden',!(isolated&&isolatedTaskMode==='video'))", source)
+        self.assertIn("accordionLoras')?.classList.toggle('hidden',!visual)", source)
+        self.assertIn("settings.loras=c.profile==='nsfw'&&task==='video'?selectedLoras:[]",source)
         self.assertIn("chooseIsolatedCreationMode('i2v')", source)
 
 
