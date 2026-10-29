@@ -2311,7 +2311,8 @@ class Handler(BaseHTTPRequestHandler):
                       "/api/studio/advert/delete") and not self._authorized_brand_request():
             return
         length=int(self.headers.get("Content-Length","0"))
-        if length<0 or length>6_000_000:
+        if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
+                      "/api/studio/advert/delete") and (length<0 or length>6_000_000):
             self.send_json({"error":"Requête de marque trop volumineuse."},413)
             return
         raw=self.rfile.read(length)
