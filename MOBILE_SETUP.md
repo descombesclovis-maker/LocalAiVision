@@ -1,5 +1,9 @@
 # LocalAiWeb sur iPhone — installation unique et mises à jour automatiques
 
+## Accueil LocalAI Studio
+
+L'adresse HTTPS Tailscale du PC sans chemin ouvre désormais **LocalAI Studio**, avec deux cartes : **LocalAiWeb** et **LocalAiVision**. L'icône PWA LocalAiWeb peut continuer à utiliser directement `/localaiweb` ; les deux espaces restent isolés dans la sauvegarde. Le PC doit rester allumé.
+
 ## Fonctionnement
 
 LocalAiWeb est une application web installable (PWA), avec sa propre icône et sa page d'accueil. Les projets, le CRM et les données restent sur le PC. Les interfaces web affichées sur le téléphone se rafraîchissent automatiquement à la réouverture, sans installer d'autre application iPhone. Le moteur de génération (Codex, ComfyUI, GPU) continue de tourner sur le PC Windows : le téléphone ne fait qu'afficher l'interface et envoyer les commandes.
