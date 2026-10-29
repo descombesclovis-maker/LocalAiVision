@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/assets/localaiweb.webmanifest"><meta name="apple-mobile-web-app-title" content="LocalAiWeb"><link rel="icon" href="/assets/brand-web.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/localaiweb.css"><link rel="stylesheet" href="/assets/studio-suite.css">
 <link rel="stylesheet" href="/assets/localaiweb-mobile.css">
+<link rel="stylesheet" href="/assets/studio-activity.css">
 </head>
 <body>
   <main class="studio" aria-label="Studio LocalAiWeb">
@@ -22,7 +23,7 @@
           <select id="lawAgentSelect" class="agent-select" aria-label="Choisir l'agent de création"><option value="codex">Codex · ChatGPT Plus</option><option value="claude">Claude Code · option</option></select>
           <button id="connectAgent" class="agent-control" type="button" title="Vérifier et connecter l'agent sélectionné" aria-live="polite">◌ Connexion…</button>
         </div>
-        <a href="/localaiweb/clients" class="update-action" aria-label="Gestion commerciale, clients, devis et factures">Clients &amp; devis ↗</a>
+        <a href="/studio" class="update-action studio-universe-link" title="Choisir un univers">◈ Studio</a><a href="/localaiweb/clients" class="update-action" aria-label="Gestion commerciale, clients, devis et factures">Clients &amp; devis ↗</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
       <nav id="lawMobileTools" class="law-mobile-tools" aria-label="Outils du studio mobile" hidden>
@@ -193,5 +194,6 @@
 <script src="/assets/localaiweb-agent.js"></script>
   <script src="/assets/pwa-install.js" defer></script>
 <script src="/assets/localaiweb-mobile.js"></script>
+<script src="/assets/studio-activity.js" defer></script>
 </body>
 </html>
