@@ -1,7 +1,7 @@
 import base64, hashlib, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, quote
+from urllib.parse import urlparse, parse_qs, quote, unquote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 try:
@@ -2441,9 +2441,68 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _upload_existing_lora(self):
+        """Stream a user-selected safetensors into active ComfyUI; never buffer
+        multi-GB files in Python RAM, overwrite another LoRA or interrupt jobs."""
+        if not self._authorized_media_request():
+            return
+        raw_name=unquote(self.headers.get("X-LocalAI-LoRA-Name",""))
+        if (not raw_name or len(raw_name)>180 or "/" in raw_name or
+                "\\\\" in raw_name or Path(raw_name).name!=raw_name or
+                not raw_name.lower().endswith(".safetensors")):
+            self.send_json({"error":"Sélectionne un fichier .safetensors valide."},400)
+            return
+        try:
+            size=int(self.headers.get("Content-Length","0"))
+        except (TypeError,ValueError):
+            size=0
+        if size<16 or size>5*1024**3:
+            self.send_json({"error":"Fichier LoRA invalide ou trop volumineux (maximum 5 Go)."},413)
+            return
+        cwd=_comfy_working_dir()
+        if cwd is None:
+            self.send_json({"error":"ComfyUI local introuvable."},503)
+            return
+        folder=cwd/"models"/"loras"/"LocalAIStudio_imports"
+        folder.mkdir(parents=True,exist_ok=True)
+        name=Path(raw_name).stem
+        clean=re.sub(r"[^a-zA-Z0-9_. -]","_",name).strip(" .") or "LoRA"
+        clean=clean[:90]
+        dest=folder/(clean+".safetensors")
+        if dest.exists():
+            dest=folder/(clean+"-"+uuid.uuid4().hex[:7]+".safetensors")
+        temp=folder/("."+uuid.uuid4().hex+".part")
+        try:
+            remaining=size
+            with temp.open("xb") as stream:
+                while remaining:
+                    chunk=self.rfile.read(min(1024*1024,remaining))
+                    if not chunk:
+                        raise ConnectionError("Téléversement du LoRA interrompu.")
+                    stream.write(chunk)
+                    remaining-=len(chunk)
+            with temp.open("rb") as stream:
+                count=int.from_bytes(stream.read(8),"little")
+                if count<=2 or count>10*1024*1024 or count>size-8:
+                    raise ValueError("En-tête safetensors invalide.")
+                header=json.loads(stream.read(count).decode("utf-8"))
+                if not isinstance(header,dict) or not header:
+                    raise ValueError("Métadonnées safetensors absentes.")
+            os.replace(temp,dest)
+            relative=dest.relative_to(cwd/"models"/"loras").as_posix()
+            self.send_json({"ok":True,"path":relative,"restart_required":True,
+                "message":"LoRA ajouté. Actualise les modèles ComfyUI si nécessaire avant de l’activer."})
+        except (OSError,ValueError,UnicodeError,ConnectionError) as exc:
+            self.send_json({"error":str(exc)},400)
+        finally:
+            temp.unlink(missing_ok=True)
+
     def do_POST(self):
         u=urlparse(self.path)
         global _auto_update_draft_seen, _auto_update_last_action
+        if u.path == "/api/loras/upload":
+            self._upload_existing_lora()
+            return
         if u.path == "/api/update/draft" and not self._authorized_update_request():
             return
         if u.path == "/api/studio/media/cancel" and not self._authorized_media_request():
