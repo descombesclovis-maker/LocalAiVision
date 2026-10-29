@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/vision-generation.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/vision-generation.css"><link rel="stylesheet" href="/assets/studio-natural-vision.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-ui-polish.css">
 </head>
 <body class="is-landing">
@@ -15,6 +15,8 @@
       <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Photo</span></button>
       <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="14" height="16" rx="3"/><path d="m17 9 4-3v12l-4-3"/><path d="m9 9 5 3-5 3z"/></svg></span><span>Vidéo</span></button>
       <button type="button" id="navNsfw" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v5c0 5.3 3.6 8 8 9 4.4-1 8-3.7 8-9V7z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 0 1 4 0v2"/></svg></span><span>NSFW</span></button>
+      <button type="button" id="studioAdOpen" class="studio-nav-entry" aria-label="Créer une publicité pour une marque"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 10 11-5v14L3 14z"/><path d="M14 8h4a3 3 0 0 1 0 6h-4M6 15l2 5h4l-2-5"/></svg></span><span>Publicité</span></button>
+      <button type="button" id="visionAdvancedToggle" class="studio-nav-entry" aria-label="Gérer les LoRA et modèles locaux"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14M5 12h14M5 19h14"/><circle cx="9" cy="5" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="11" cy="19" r="2"/></svg></span><span>LoRA et modèles</span></button>
     </nav>
   </aside>
   <!-- Compatibility controls preserved for the existing model, library,
@@ -68,7 +70,7 @@
       <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
       <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
       <div class="topbar-actions"><a href="/studio" class="topbar-action studio-universe-link" title="Changer d’univers">◈ <span>Univers</span></a>
-        <button id="studioAdOpen" class="topbar-action studio-ad-entry" type="button" title="Créer une publicité avec l’identité d’une marque">✦ <span>Publicité</span></button>
+
         <button class="topbar-action" id="historyBtn" type="button" title="Reprendre une conversation enregistrée" aria-label="Historique des conversations">◷ <span>Historique</span></button>
         <button class="topbar-action" id="newConversation" type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation">＋ <span>Nouvelle discussion</span></button>
         <button id="updateBtn" class="topbar-action update-button" type="button" title="Vérifier la mise à jour et afficher le résultat" aria-label="Mettre à jour l'application">↻ <span>Mise à jour</span></button>
@@ -77,7 +79,7 @@
     <section class="content">
       <div id="chat" class="chat">
         <div id="welcome" class="welcome" aria-label="Accueil LocalAiVision">
-          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-identity.svg" alt="LocalAiVision — Créations visuelles"></div>
+          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-vision.svg" alt="" width="66" height="66"><h1>LocalAiVision</h1><p>Décris ton image, ta vidéo ou ta publicité. Je choisis le moteur et les paramètres adaptés.</p></div>
           <div class="welcome-actions"><a id="localAiWebEntry" class="localaiweb-entry" href="/localaiweb"><img src="/assets/brand-web.svg" alt=""><span>Accéder à LocalAiWeb</span><span aria-hidden="true">↗</span></a></div>
         </div>
         <div id="messages" class="messages"></div>
