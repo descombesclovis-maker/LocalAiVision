@@ -27,24 +27,29 @@ def _valid_magic(path):
     return False
 
 
-def import_generation(store,comfy_root,project_id,filename,subfolder="",kind="output"):
-    if kind!="output":
+def import_generation(store,comfy_root,project_id,filename,subfolder="",kind="output",advert_root=None):
+    if kind not in ("output","advert"):
         raise ValueError("Seules les générations finales peuvent être transférées.")
     meta=store.meta(project_id)
-    if not comfy_root:
-        raise RuntimeError("Le dossier ComfyUI n'a pas été trouvé sur ce PC.")
-    base=(Path(comfy_root)/"output").resolve()
-    if not base.is_dir():
-        raise FileNotFoundError("Le dossier de sorties ComfyUI est introuvable.")
     if not isinstance(filename,str) or not filename or len(filename)>160 or Path(filename).name!=filename:
         raise ValueError("Nom de génération invalide.")
     if Path(filename).suffix.lower() not in ALLOWED:
         raise ValueError("Format non pris en charge pour le site web.")
-    if not isinstance(subfolder,str) or len(subfolder)>170 or "\x00" in subfolder:
-        raise ValueError("Sous-dossier invalide.")
-    target=(base/subfolder/filename).resolve()
-    if not target.is_relative_to(base) or not target.is_file():
-        raise ValueError("Le fichier sélectionné est absent ou en dehors des sorties ComfyUI.")
+    if kind=="advert":
+        from local_app import brand_catalog
+        if advert_root is None:raise ValueError("Export publicitaire indisponible.")
+        target=brand_catalog.advert_file(advert_root,filename)
+    else:
+        if not comfy_root:
+            raise RuntimeError("Le dossier ComfyUI n'a pas été trouvé sur ce PC.")
+        base=(Path(comfy_root)/"output").resolve()
+        if not base.is_dir():
+            raise FileNotFoundError("Le dossier de sorties ComfyUI est introuvable.")
+        if not isinstance(subfolder,str) or len(subfolder)>170 or "\x00" in subfolder:
+            raise ValueError("Sous-dossier invalide.")
+        target=(base/subfolder/filename).resolve()
+        if not target.is_relative_to(base) or not target.is_file():
+            raise ValueError("Le fichier sélectionné est absent ou en dehors des sorties ComfyUI.")
     size=target.stat().st_size
     if size<8 or size>MAX_SIZE or not _valid_magic(target):
         raise ValueError("Fichier multimédia incorrect, trop volumineux ou format non reconnu.")
@@ -60,7 +65,7 @@ def import_generation(store,comfy_root,project_id,filename,subfolder="",kind="ou
     # Keep the source untouched and record an asset that can be referenced
     # by Claude Code or directly in the editor using its relative path.
     imports=list(meta.get("asset_imports") or [])
-    imports.append({"path":rel,"source":"LocalAiVision","size":size,"created_at":time.time()})
+    imports.append({"path":rel,"source":"LocalAiVision — publicité" if kind=="advert" else "LocalAiVision","size":size,"created_at":time.time()})
     meta["asset_imports"]=imports[-200:]
     meta["updated_at"]=time.time()
     store.write_meta(project_id,meta)
