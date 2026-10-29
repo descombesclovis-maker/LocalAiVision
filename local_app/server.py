@@ -140,6 +140,36 @@ def _web_active_generations():
     return {"count":len(jobs), "jobs":sorted(results,key=lambda x:x["started_at"],reverse=True)}
 
 
+_studio_media_status_cache={"at":0.0,"value":{"count":0,"running":0,"queued":0}}
+_studio_media_status_lock=threading.Lock()
+
+
+def _studio_media_status():
+    # ComfyUI owns the real image/video queue. Never mark a media render
+    # complete, or invent a percentage, until ComfyUI reports its state.
+    now=time.time()
+    with _studio_media_status_lock:
+        if now-_studio_media_status_cache["at"]<3:
+            return dict(_studio_media_status_cache["value"])
+    try:
+        queue=http_json(COMFY+"/queue",timeout=2)
+        active=len(queue.get("queue_running") or [])
+        waiting=len(queue.get("queue_pending") or [])
+        value={"count":active+waiting,"running":active,"queued":waiting}
+    except (OSError,ValueError,TypeError,TimeoutError):
+        value={"count":0,"running":0,"queued":0,"unavailable":True}
+    with _studio_media_status_lock:
+        _studio_media_status_cache.update(at=now,value=value)
+    return value
+
+
+def _studio_activity_status():
+    web=_web_active_generations()
+    media=_studio_media_status()
+    return {"count":int(web["count"])+int(media["count"]),
+            "jobs":web["jobs"],"media":media}
+
+
 def _web_start_generation(project_id, prompt):
     store = _web_store()
     meta = store.meta(project_id)
@@ -2103,6 +2133,9 @@ class Handler(BaseHTTPRequestHandler):
                     industry=args.get("industry",["all"])[0]))
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
+            return
+        if u.path == "/api/studio/activity":
+            self.send_json(_studio_activity_status())
             return
         if u.path == "/api/studio/brands":
             try:
