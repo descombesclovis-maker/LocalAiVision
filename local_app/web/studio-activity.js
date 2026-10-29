@@ -28,15 +28,18 @@
  }
  function paint(data){
    const jobs=Array.isArray(data?.jobs)?data.jobs.filter(x=>safeId(x.id)):[],
+      media=data?.media||{},mediaCount=Number(media.count)||0,
       toggle=chip.querySelector('#studioActivityToggle'),copy=chip.querySelector('.studio-activity-copy'),
       count=chip.querySelector('.studio-activity-count');
-   if(!jobs.length){
+   chip.classList.toggle('has-media',mediaCount>0);
+   if(!jobs.length&&!mediaCount){
      if(previous.size){
-       copy.textContent='Création terminée · Voir les projets';
+       copy.textContent=media.unavailable?'État du moteur indisponible':previous.has('vision')?'Génération terminée':'Création terminée · Voir le projet';
        count.textContent='✓';
        chip.hidden=false;
        const first=Array.from(previous.values())[0];
        if(safeId(first?.id))toggle.onclick=()=>{window.location.assign(dest(first.id));};
+       else if(first?.id==='vision')toggle.onclick=()=>{window.location.assign('/localaivision')};
        setTimeout(()=>{if(!previous.size)chip.hidden=true;toggle.onclick=null},9000);
      }else chip.hidden=true;
      previous.clear();panel.replaceChildren();expanded=false;panel.hidden=true;
@@ -46,8 +49,11 @@
    toggle.onclick=null;
    chip.hidden=false;
    previous=new Map(jobs.map(job=>[job.id,job]));
-   copy.textContent=jobs.length===1?'Création du site « '+jobs[0].name+' »…':jobs.length+' sites en création…';
-   count.textContent=jobs.length>1?String(jobs.length):'';
+   if(mediaCount)previous.set('vision',{id:'vision'});
+   copy.textContent=mediaCount&&!jobs.length?'Génération photo / vidéo en cours…':
+     jobs.length===1&&!mediaCount?'Création du site « '+jobs[0].name+' »…':
+     (jobs.length+mediaCount)+' créations en cours…';
+   count.textContent=jobs.length+mediaCount>1?String(jobs.length+mediaCount):'';
    panel.replaceChildren();
    const title=document.createElement('strong');title.textContent='Créations en cours';
    panel.append(title);
@@ -57,6 +63,14 @@
      const detail=document.createElement('span');detail.textContent=(job.detail||'Création du site…')+' · '+duration(job.elapsed_seconds);
      link.append(name,detail);panel.append(link);
    }
+   if(mediaCount){
+     const link=document.createElement('a');link.href='/localaivision';
+     const title=document.createElement('b');title.textContent='LocalAiVision · Photo / Vidéo';
+     const detail=document.createElement('span');
+     detail.textContent=media.running?'Rendu ComfyUI en cours'+(media.queued?' · '+media.queued+' en attente':''):
+       media.queued+' rendu(s) en attente';
+     link.append(title,detail);panel.append(link);
+   }
  }
  async function update(){
    if(document.hidden||requesting)return;
@@ -64,7 +78,7 @@
    try{
      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
      try{
-       const response=await fetch('/api/web/generations/active',{cache:'no-store',signal:controller.signal});
+       const response=await fetch('/api/studio/activity',{cache:'no-store',signal:controller.signal});
        if(response.ok)paint(await response.json());
      }finally{clearTimeout(timeout)}
    }catch{}finally{requesting=false}
