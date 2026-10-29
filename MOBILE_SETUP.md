@@ -1,25 +1,35 @@
-# LocalAiVision sur iPhone et Android — première version PWA
+# LocalAiWeb sur iPhone — installation unique et mises à jour automatiques
 
-Cette version fournit un manifeste web, une icône, un service worker **pour les assets statiques seulement**, des interfaces adaptées aux écrans étroits et un bouton **Installer**. Elle n'est pas encore une application native App Store/Play Store.
+## Fonctionnement
 
-## Où s'exécutent les générations ?
+LocalAiWeb est une application web installable (PWA), avec sa propre icône et sa page d'accueil. Les projets, le CRM et les données restent sur le PC. Les interfaces web affichées sur le téléphone se rafraîchissent automatiquement à la réouverture, sans installer d'autre application iPhone. Le moteur de génération (Codex, ComfyUI, GPU) continue de tourner sur le PC Windows : le téléphone ne fait qu'afficher l'interface et envoyer les commandes.
 
-Le PC Windows reste le serveur LocalAiVision et exécute ComfyUI, Qwen et les agents de code. Le téléphone ne lance pas les modèles de plusieurs gigaoctets. Les dossiers de projets restent sur le PC.
+**Conditions :** PC allumé, sortie de veille désactivée, connexion Internet, LocalVisionAI.exe en fonctionnement, tunnel Tailscale privé sur les deux appareils. Pas de connexion avec le PC éteint. Ne pas confondre mise à jour de l'interface web et mise à jour du programme Windows : les nouveautés GitHub ne sont visibles sur iPhone qu'une fois la version Windows mise à jour sur le PC.
 
-## Important : accès réseau et sécurité
+## Installation une seule fois
 
-Le serveur écoute actuellement seulement sur `127.0.0.1:3000` **par sécurité**. Une URL `http://127.0.0.1:3000` ouverte sur l'iPhone désigne l'iPhone, **pas** le PC : elle ne peut pas fonctionner telle quelle.
+1. Sur le PC, installer la version Windows récente à partir de https://github.com/descombesclovis-maker/LocalAiVision/releases/latest. Extraire l'archive ZIP : elle inclut LocalVisionAI.exe, ACTIVER_ACCES_TELEPHONE.bat et MOBILE_SETUP.md.
+2. Démarrer **LocalVisionAI.exe**, laisser sa fenêtre ouverte et vérifier sur Windows : http://127.0.0.1:3000/localaiweb
+3. Installer Tailscale pour Windows : https://tailscale.com/download/windows ; ouvrir l'application et se connecter avec un compte privé.
+4. Installer Tailscale sur l'iPhone via l'App Store ; se connecter avec le même réseau privé (tailnet), puis activer Tailscale dans l'application.
+5. Sur le PC, double-cliquer **ACTIVER_ACCES_TELEPHONE.bat**, confirmer l'activation. Il appelle `tailscale serve --bg 3000`, **jamais** `tailscale funnel`. Si Tailscale demande d'activer HTTPS, suivre le lien de configuration officiel affiché.
+6. Lire l'adresse HTTPS privée indiquée par `tailscale serve status`, en forme `https://nom-du-pc.nom-du-tailnet.ts.net`. Depuis **Safari sur l'iPhone**, ouvrir **cette adresse suivie de `/localaiweb`**. L'URL http://127.0.0.1:3000 ne fonctionne que sur le PC.
+7. Safari → **Partager** → **Sur l'écran d'accueil** → activer « Ouvrir comme app web » si cette option est proposée → **Ajouter**. Ouvrir ensuite l'icône LocalAiWeb.
 
-Pour accéder au PC depuis l'extérieur, utiliser un tunnel privé avec authentification et HTTPS (ex. Tailscale Serve), qui pointe vers le serveur local. Le dépôt contient maintenant **ACTIVER_ACCES_TELEPHONE.bat** (dans l’archive Windows). Le script vérifie que LocalAiVision et Tailscale sont actifs, demande ton autorisation et lance uniquement `tailscale serve --bg 3000`, accessible dans ton réseau privé en HTTPS. Il faut d'abord installer et connecter Tailscale sur le PC et le téléphone et autoriser HTTPS dans les paramètres Tailscale. Ne jamais remplacer `HOST = "127.0.0.1"` par `0.0.0.0` ni ouvrir le port 3000 vers Internet sans authentification.
+## Mises à jour
 
-Sur iPhone, ouvrir l'adresse HTTPS privée dans **Safari → Partager → Sur l'écran d'accueil**. Sur Android Chrome, ouvrir l'adresse HTTPS privée et choisir **Installer l'application**. La possibilité d'installation dépend du navigateur et du contexte sécurisé.
+L'icône reste installée : chaque ouverture de l'app va chercher les pages et scripts récents sur le PC. Les caches obsolètes sont retirés, les informations de projets ne sont jamais mises dans le cache hors ligne. En cas de nouvelle version du serveur pendant une session, l'application recharge à la réouverture/au retour au premier plan ; si un champ de saisie est actif, elle propose d'actualiser après la saisie.
 
-Cette branche n'a pas accès à ton téléphone ou à tes réseaux privés : l'installation et la connexion du tunnel doivent être vérifiées sur tes appareils. L'utilisation réelle de la GPU requiert que le PC reste allumé.
+Pour bénéficier des changements que nous publions sur GitHub, **mettre à jour LocalAiVision sur le PC** avec son mécanisme existant. Le téléphone charge ensuite la nouvelle version sans réinstallation. Il n'y a pas d'app native ni de synchronisation indépendante des fichiers depuis un serveur cloud.
 
-## Confidentialité
+## Fluidité et limites honnêtes
 
-Ne pas activer le cache des endpoints `/api/`, `/web-preview/` ou des documents privés. Un PWA installé sur un appareil partagé doit être protégé par un verrouillage de l'appareil. Le cadenas NSFW dans l'interface est une séparation UX, pas une authentification robuste pour un accès public.
+L'interface mobile propose un affichage plein écran basculant entre chat et aperçu, afin d'éviter deux panneaux minuscules superposés. La génération utilise la GPU du PC, pas celle du téléphone. Une scène WebGL/3D dans l'aperçu peut cependant utiliser le processeur graphique de l'iPhone : ses performances dépendront du site généré, de la qualité du réseau et du modèle d'iPhone. Les prévisualisations restent les vraies pages générées et ne sont pas remplacées par des captures.
 
-## Si l'icône ne s'affiche pas
+Une connexion privée Tailscale ne doit être partagée qu'avec des appareils de confiance : LocalAiVision possède des opérations de gestion de projets et de fichiers sensibles. En cas de perte de l'iPhone ou de partage du compte Tailscale, révoquer l'accès dans l'administration Tailscale. Pour fermer l'accès, sur le PC exécuter `tailscale serve reset`.
 
-Le manifeste utilise une icône SVG. Selon Safari/iOS, une icône PNG dédiée pourrait être nécessaire pour obtenir une vignette système optimale.
+## Dépannage rapide
+
+- L'adresse ne fonctionne pas : vérifier que LocalVisionAI.exe est ouvert, que `/api/ping` fonctionne depuis le PC, que Tailscale indique « connecté » sur les deux appareils, et que le PC n'est pas en veille.
+- La PWA reste ancienne : mettre à jour le logiciel PC, fermer puis rouvrir l'icône sur iPhone ; vérifier l'identifiant build retourné par `/api/ping`.
+- Une page 3D saccade : réduire les effets/chargements **dans le site généré**, sans affecter la résolution des fichiers ou les réglages de génération PC.
