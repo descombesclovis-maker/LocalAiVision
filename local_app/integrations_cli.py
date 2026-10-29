@@ -265,24 +265,68 @@ def build_project(site_dir):
     return {"ok": True, "kind": "static-build", "output_dir": str(output),
             "message": "Build terminé.", "output": (built.stdout or built.stderr or "")[-4000:]}
 
+_node_syntax_cache = {}
+_node_syntax_lock = None
+
+
 def validate_site(site_dir):
+    """Validate project source in parallel, without re-checking unchanged files.
+
+    Build output is generated, not authorable source. Re-running node --check
+    on dist/build/.localaiweb-qa after each Codex repair can add dozens of
+    unnecessary Windows process launches. Cache by source content fingerprint
+    so even same-size rewrites invalidate the corresponding check.
+    """
+    import hashlib
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    global _node_syntax_lock
+    if _node_syntax_lock is None:
+        _node_syntax_lock = threading.RLock()
     site = Path(site_dir)
     node = _which("node", "node.exe")
-    issues = []
-    checked = 0
+    ignored = {"node_modules", ".git", ".next", ".cache", ".localaiweb-qa",
+               "dist", "build", "out", "coverage", ".vercel"}
+    paths = []
     if node:
         for path in sorted(site.rglob("*")):
-            if checked >= 80:
+            if len(paths) >= 80:
                 break
-            if any(part in ("node_modules", ".git", ".next", ".cache") for part in path.relative_to(site).parts):
+            if any(part in ignored for part in path.relative_to(site).parts):
                 continue
             if path.is_file() and path.suffix.lower() in (".js", ".mjs", ".cjs"):
-                checked += 1
-                result = _run([node, "--check", str(path)], cwd=site, timeout=30)
-                if result.returncode != 0:
-                    issues.append({"file": path.relative_to(site).as_posix(),
-                                   "message": (result.stderr or result.stdout or "JavaScript invalide").strip()[:1200]})
-    return {"ok": not issues, "checked": checked, "issues": issues, "node_available": bool(node)}
+                paths.append(path)
+
+    def check(path):
+        rel = path.relative_to(site).as_posix()
+        try:
+            fingerprint = hashlib.sha256(path.read_bytes()).digest()
+        except OSError as exc:
+            return {"file":rel,"message":"Fichier JavaScript inaccessible : "+str(exc)[:200]},False
+        key = (str(node), str(path.resolve()), fingerprint)
+        with _node_syntax_lock:
+            previous = _node_syntax_cache.get(key)
+        if previous is not None:
+            return previous,True
+        result = _run([node, "--check", str(path)], cwd=site, timeout=30)
+        issue = None if result.returncode == 0 else {
+            "file": rel,
+            "message": (result.stderr or result.stdout or "JavaScript invalide").strip()[:1200],
+        }
+        with _node_syntax_lock:
+            if len(_node_syntax_cache)>512:
+                _node_syntax_cache.clear()
+            _node_syntax_cache[key] = issue
+        return issue,False
+
+    if not paths:
+        return {"ok":True,"checked":0,"issues":[],"node_available":bool(node),
+                "cached":0}
+    with ThreadPoolExecutor(max_workers=min(4,len(paths))) as pool:
+        checked = list(pool.map(check,paths))
+    issues = [item for item,_ in checked if item]
+    return {"ok":not issues,"checked":len(paths),"issues":issues,
+            "node_available":True,"cached":sum(int(reused) for _,reused in checked)}
 
 def connect(provider, cwd=None):
     if provider == "github":
