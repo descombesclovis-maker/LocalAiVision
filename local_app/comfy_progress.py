@@ -87,6 +87,13 @@ def _read_exact(stream,count):
         data.extend(chunk)
     return bytes(data)
 
+def _send_pong(stream, payload):
+    # RFC 6455: client-to-server control frames MUST use a masking key.
+    mask=os.urandom(4)
+    stream.sendall(bytes((0x8A,0x80|len(payload)))+mask+
+                   bytes(value^mask[index%4] for index,value in enumerate(payload)))
+
+
 def _receive(stream):
     while True:
         head=_read_exact(stream,2)
@@ -104,6 +111,10 @@ def _receive(stream):
             data=bytes(x^mask[i%4] for i,x in enumerate(data))
         if opcode==8:
             return
+        if opcode==9:
+            if len(data)<=125:
+                _send_pong(stream,data)
+            continue
         if opcode==1:
             try:
                 event=json.loads(data.decode("utf-8"))
@@ -148,7 +159,7 @@ def _listen(endpoint):
             sock=socket.create_connection((host,port),timeout=5)
             if uri.scheme=="https":
                 sock=ssl.create_default_context().wrap_socket(sock,server_hostname=host)
-            sock.settimeout(35)
+            sock.settimeout(65)
             key=base64.b64encode(os.urandom(16)).decode()
             handshake=(f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\n"
                        "Upgrade: websocket\r\nConnection: Upgrade\r\n"
@@ -180,6 +191,8 @@ class BufferedSocket:
             result,self.buffer=self.buffer[:count],self.buffer[count:]
             return result
         return self.stream.recv(count)
+    def sendall(self, payload):
+        self.stream.sendall(payload)
     def close(self):
         self.stream.close()
 
