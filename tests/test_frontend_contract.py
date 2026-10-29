@@ -53,7 +53,8 @@ class InterfaceContract(unittest.TestCase):
         self.assertNotIn("LAB Video - Wan 2.2 TI2V 5B.json", js)
         self.assertNotIn('value="motion"', html)
         self.assertNotIn('value="retouch"', html)
-        self.assertIn("exact_prompt:isIsolated", js)
+        self.assertIn("reserved_profile:isIsolated?'nsfw':null",js)
+        self.assertIn("exact_prompt:false",js)
 
     def test_chat_contract(self):
         root = Path(__file__).resolve().parents[1] / 'local_app/web'

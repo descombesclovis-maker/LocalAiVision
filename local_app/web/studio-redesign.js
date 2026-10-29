@@ -243,6 +243,18 @@
  byId('navPhoto')?.addEventListener('click',()=>startMode('image'));
  byId('navVideo')?.addEventListener('click',()=>startMode('video'));
  byId('navNsfw')?.addEventListener('click',()=>startMode('nsfw'));
+ byId('visionAdvancedToggle')?.addEventListener('click',()=>{
+   // Preserve historical LoRA controls without exposing a maze of settings
+   // for each new generation: the natural-language prompt is authoritative.
+   const panel=byId('generationSettings');
+   panel?.classList.toggle('hidden');
+   document.body.classList.toggle('vision-expert',!!panel&&!panel.classList.contains('hidden'));
+   byId('accordionLoras')?.setAttribute('open','');
+   if(!byId('generationSettings')?.classList.contains('hidden'))
+     byId('generationSettings')?.scrollIntoView({block:'nearest',behavior:'instant'});
+   hideSidebar();
+ });
+ byId('studioAdOpen')?.addEventListener('click',()=>activeNav('studioAdOpen'));
  byId('homeBtn')?.addEventListener('click',home);
  byId('newConversation')?.addEventListener('click',()=>{
    // Legacy handler creates the conversation; do not register a second one.

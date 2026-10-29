@@ -1751,6 +1751,11 @@ def run_generation(body):
             video_ref = store_comfy_input(Path(body.get('video_name') or 'reference.mp4').name, data)
         settings = body.get('settings') or {}
         source_prompt = (body.get('prompt') or '').strip()
+        # Choose speed/quality from the creative brief and actual loaded
+        # workflow; never silently generate a 3-second low-res draft from a
+        # 10-second request. User-specified values take priority over defaults.
+        from local_app import media_director
+        settings = media_director.plan(source_prompt, workflows.profile(api), settings)
         source_negative = body.get('negative')
         if settings.get('prompt_translation'):
             _ensure_chat_components()
@@ -1769,6 +1774,9 @@ def run_generation(body):
         else:
             prompt, negative, effective_style = prepare_visual_request(
                 prepared_prompt, settings.get('style'), prepared_negative, settings.get('reserved_profile'), settings.get('technical_quality', True))
+        prompt, negative = media_director.enhance_video_continuity(
+            prompt, negative, workflows.profile(api),
+            settings.get('technical_quality', True) and not settings.get('exact_prompt', False))
         count = max(1, min(int(settings.get('count') or 1), 4))
         base_seed = settings.get('seed')
         prepared = []

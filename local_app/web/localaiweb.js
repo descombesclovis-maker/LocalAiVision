@@ -11,6 +11,55 @@ const api = async(url,body) => {
 };
 let project=null,busy=false,viewport='desktop',stage='welcome';
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
+const publishButton=$('#lawPublishBtn');
+const afterPublish=$('#lawAfterPublish');
+const editOverlay=$('#lawEditOverlay');
+function publishedUrl(){return project?.project?.deployment?.production_url||project?.project?.production_url||''}
+function refreshPublishing(){
+ const url=publishedUrl();
+ if(publishButton){
+  publishButton.disabled=busy||stage!=='ready';
+  publishButton.textContent=url?'Republier ↗':'Publier ↗';
+ }
+ if(afterPublish){
+  afterPublish.hidden=!url;
+  if(url){
+   $('#lawPublishedAddress').textContent='En ligne : '+url;
+   $('#lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+   $('#lawCreateCampaign').href='/localaivision?campaign_project='+encodeURIComponent(project.project.id);
+  }
+ }
+}
+function showSiteEditing(on){
+ if(!editOverlay)return;
+ editOverlay.hidden=!on;
+ if(on){
+  $('#lawEditPhase').textContent='Codex prépare les modifications…';
+  $('#lawEditPercent').textContent='Étapes vérifiées : 0 %';
+  $('#lawEditTrack').style.width='0%';
+ }
+}
+function updateEditMilestones(status){
+ if(!editOverlay||editOverlay.hidden)return;
+ const milestones={planning:0,images:0,building:0,verification:25,repair:25,
+                   localization:40,preview:55,visual:65,design:75,done:100};
+ const complete=milestones[String(status.phase||'').toLowerCase()];
+ $('#lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
+ if(Number.isFinite(complete)){
+  $('#lawEditTrack').style.width=complete+'%';
+  $('#lawEditPercent').textContent='Jalons validés : '+complete+' % (pas une estimation du temps restant)';
+ }
+}
+function codexRecovery(error){
+ const raw=String(error?.message||error||'');
+ if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
+ const node=$('#lawChatStatus');
+ if(node)node.textContent=/authentif|login|401|token/i.test(raw)
+  ?'Codex demande une reconnexion. Ouvre « Connexion IA » pour te reconnecter.'
+  :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Connexion IA ».';
+ $('#lawMobileMenuToggle')?.classList.add('needs-attention');
+}
+
 function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
 // Action menu is attached only to messages written by the user.
 // Last means the most recently SENT user message (not the last assistant reply).
@@ -96,7 +145,7 @@ function message(text,role='assistant'){
  if(role==='user')sentMessageActions(item,String(text||''));
  chat.appendChild(item);scrollBottom();return item;
 }
-function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';}
+function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';refreshPublishing();}
 let previewCheck=0;
 async function preview(){
  if(!project)return;
@@ -190,7 +239,7 @@ function generationFeedback(result){
  message((result.summary||'Le site a été enregistré.')+mediaNote+durationNote+
   '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
   (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
-  '\\nLes devis sont disponibles depuis le dossier commercial et doivent être vérifiés avant émission.',
+  '\\nAprès validation, clique sur « Publier » pour accéder aux publicités et devis.',
   'assistant');
 }
 async function watchGeneration(id){
@@ -210,6 +259,7 @@ async function watchGeneration(id){
          const elapsed=Math.floor((Date.now()-started)/1000);
          const time=elapsed>=60?' · '+Math.floor(elapsed/60)+' min écoulée(s)':'';
          $('#lawChatStatus').textContent=(status.detail||'Codex prépare le site…')+time;
+          updateEditMilestones(status);
        }else if(status.state==='done'){
          project=await api('/api/web/project?id='+encodeURIComponent(id));
          preview();
@@ -218,15 +268,16 @@ async function watchGeneration(id){
          const salesLink=document.getElementById('lawSalesBtn');
          if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
          generationFeedback(status);
+         showSiteEditing(false);refreshPublishing();
          stop();
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
           '\\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
           'assistant');
-         stage='ready';stop();
+         showSiteEditing(false);codexRecovery(status.error||status.detail);stage='ready';refreshPublishing();stop();
        }else{
          message('Aucune génération active. Après un redémarrage du logiciel, relance la maquette pour terminer le travail.');
-         stage='ready';stop();
+         showSiteEditing(false);stage='ready';refreshPublishing();stop();
        }
      }catch(error){
        // Transient localhost error does not mean Codex failed. Warn after
@@ -246,6 +297,7 @@ async function generate(text){
  if(activeGeneration){message('Une création est déjà en cours pour ce site. Son avancement apparaît sous le champ de saisie.');return}
  setBusy(true,'Vérification de la connexion Codex et préparation du site…');
  const id=project.project.id;
+ try{const current=await api('/api/web/preview/status?id='+encodeURIComponent(id));if(current.ready)showSiteEditing(true)}catch{}
  const existingBrief=projectBrief();
  const instructions=existingBrief
   ?'BRIEF UTILISATEUR :\\n'+existingBrief+'\\n\\nDERNIÈRE DEMANDE :\\n'+text
@@ -288,8 +340,9 @@ async function publish(){
   const result=await api('/api/web/vercel/publish',{id:project.project.id,production:true});
   project=result;
   const deployed=result.deployment_result?.url||result.project?.deployment?.production_url;
-  if(deployed)message('Site publié : '+deployed+'\nTu peux ouvrir ce lien dans ton navigateur.');
-  else message('La commande de publication est terminée, mais aucune URL publique n’a été confirmée. Vérifie la connexion Vercel.');
+  if(deployed)message('Site publié : '+deployed+'\nLes devis et publicités associés sont maintenant disponibles.');
+  else message('Publication non confirmée : Vercel n’a renvoyé aucune URL publique.');
+   refreshPublishing();
  }catch(error){message('Publication non effectuée : '+error.message+'\nTon site local reste disponible dans la prévisualisation.');}
  finally{setBusy(false);}
 }
@@ -346,14 +399,15 @@ async function sendText(value,{preserveDraft=false}={}){
  finally{setBusy(false);}
 }
 $('#lawComposer').addEventListener('submit',event=>{event.preventDefault();sendText(prompt.value);});
+publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
+publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
 prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText(prompt.value);}});
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
 async function initialize(){
  try{
   await ensureProject();
   const id=project.project.id;
-  const salesLink=document.getElementById('lawSalesBtn');
-  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
+  refreshPublishing();
   chat.replaceChildren();
   for(const row of project.chat||[]){
    if(row.role==='user')message(row.text,'user');
@@ -361,6 +415,7 @@ async function initialize(){
   stage='ready';
   const generation=await api('/api/web/generation/status?id='+encodeURIComponent(id));
   if(generation.state==='running'){
+   if(generation.preview_ready)showSiteEditing(true);
    updateLivePreview(generation,id);
    await watchGeneration(id);
    return;

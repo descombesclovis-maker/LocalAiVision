@@ -1,0 +1,16 @@
+/* Prompt-first media production: clean public surface, advanced LoRA retained. */
+#settingsBtn{display:none!important}
+body:not(.vision-expert) :is(#accordionStyles,#accordionAdvanced,#accordionSimple,#accordionMode,#diagnosticsAction){display:none!important}
+#visionAdvancedToggle{border-top:1px solid #ffffff17;margin-top:12px}
+body:not(.vision-expert) #generationSettings{max-height:min(380px,44vh);overflow-y:auto}
+.welcome-visual{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;max-width:680px;margin:auto}
+body.is-landing .welcome .vision-identity{width:75px!important;height:75px!important;max-height:75px!important;filter:drop-shadow(0 13px 32px #5b62b665)!important;object-fit:contain}
+.welcome-visual h1{margin:0;font:850 clamp(31px,4vw,56px)/1.1 Inter,system-ui,sans-serif;letter-spacing:-.06em;color:#f9f6ff}
+.welcome-visual p{margin:0;color:#bcb0c9;max-width:500px;font:400 14px/1.7 Inter,system-ui,sans-serif;text-align:center}
+body.is-landing .welcome{padding-top:clamp(45px,10vh,110px)}
+.studio-navigation .studio-nav-entry{gap:13px}
+.studio-navigation .studio-nav-entry .nav-glyph{color:#d4b9f3}
+.studio-navigation #studioAdOpen .nav-glyph{color:#76e4d9}
+.studio-navigation #studioAdOpen.active{background:#214747;border-color:#4b9e98}
+#creationModeGuide{font-size:11px}
+@media(max-width:700px){.welcome-visual p{font-size:12px;padding:0 13px}.welcome-visual h1{font-size:34px}}

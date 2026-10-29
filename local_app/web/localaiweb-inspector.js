@@ -20,7 +20,7 @@
  function choose(elements,append=false){
   if(!append)clear();
   for(const el of elements){if(allowed(el)&&!selected.includes(el)&&selected.length<24){selected.push(el);el.classList.add('law-picked')}}
-  if(selected.length&&active)document.getElementById('lawChatStatus').textContent=selected.length+' élément(s) sélectionné(s) — double-clic pour modifier';
+  if(selected.length&&active)document.getElementById('lawChatStatus').textContent=selected.length+' élément(s) sélectionné(s) — écris la modification dans le champ affiché';
  }
  function cssPath(el){
   const steps=[];for(let e=el;e&&e.tagName&&!['HTML','BODY'].includes(e.tagName)&&steps.length<10;e=e.parentElement){
@@ -34,7 +34,7 @@
   const r=frame.getBoundingClientRect(),outer=stage.getBoundingClientRect();
   pop.style.left=Math.max(8,Math.min(r.left+x-outer.left+12,stage.clientWidth-320))+'px';
   pop.style.top=Math.max(8,Math.min(r.top+y-outer.top+12,stage.clientHeight-180))+'px';
-  input.value='';pop.hidden=false;input.focus();
+  input.value='';pop.hidden=false;input.focus({preventScroll:true});
  }
  function attach(d){
   if(!d||attached===d)return;
@@ -67,16 +67,17 @@
      return r.left<x2&&r.right>x1&&r.top<y2&&r.bottom>y1;
     }).slice(0,24);
     choose(hits,first.shift);
+    if(selected.length)editAt(ev.clientX,ev.clientY);
    }else{
     const item=candidate(ev.target);
     const now=Date.now();
     const doubleTap=ev.pointerType==='touch'&&item&&
       previousTouch.target===item&&now-previousTouch.time<550;
     if(item)choose([item],first.shift);else if(!first.shift)clear();
-    if(doubleTap){
-      previousTouch={time:0,target:null};
-      editAt(ev.clientX,ev.clientY);
-    }else previousTouch={time:now,target:item};
+    // One click is enough. Opening the text area synchronously with the
+    // pointer event also lets touch keyboards appear on supported devices.
+    if(item)editAt(ev.clientX,ev.clientY);
+    previousTouch={time:now,target:item};
    }
    ev.preventDefault();ev.stopImmediatePropagation();
   },true);
@@ -105,9 +106,7 @@
   active=true;toggle.classList.add('active');toggle.setAttribute('aria-pressed','true');
   attach(d);d.documentElement.classList.add('law-select');
   document.getElementById('lawChatStatus').textContent=
-   /iPhone|iPad|Android/i.test(navigator.userAgent)
-    ?'Touche un élément, puis touche-le une deuxième fois pour le modifier.'
-    :'Clique sur les éléments, glisse pour en sélectionner plusieurs, double-clique pour modifier.';
+   'Clique sur un élément ou encadre une zone : le champ de modification apparaît immédiatement.';
  });
  document.getElementById('lawInspectorCancel').addEventListener('click',()=>{pop.hidden=true;input.value=''});
  async function submit(){

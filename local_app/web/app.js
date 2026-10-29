@@ -296,27 +296,52 @@ function addLibrary(result,kind,promptText,profile='auto'){library.unshift({...r
 async function deleteLibraryItem(id){const item=library.find(x=>x._id===id);if(!item)return;if(!confirm('Supprimer ce fichier généré ?'))return;try{if(item.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:item.filename})});else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:item.filename,subfolder:item.subfolder||'',type:item.type||'output'})})}catch(e){toast('Entrée retirée, fichier non supprimé : '+e.message)}library=library.filter(x=>x._id!==id);save();renderLibraryCounts();renderLibrary(item.kind,item.profile==='nsfw'?(item.kind==='image'?'Photos espace isolé':'Vidéos espace isolé'):(item.kind==='image'?'Mes photos générées':item.kind==='video'?'Mes vidéos générées':'Mes retouches générées'),item.profile==='nsfw'?'nsfw':'standard')}
 function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
 
+function studioMediaIntent(text){
+ const plain=String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const video=/\b(?:video|videos|film|clip|animation|sequence|reel|tiktok|court[- ]metrage)\b/.test(plain);
+ const photo=/\b(?:photo|photos|image|images|portrait|affiche|illustration|photographie)\b/.test(plain);
+ // Adult nudity only. Never infer NSFW solely from the presence of a woman.
+ const adult=/\b(?:femme|homme|adulte|danseur|danseuse|personne|mannequin)\b.{0,85}\b(?:nu|nue|nus|nues|nudite|naked)\b|\b(?:nu|nue|nudite|naked)\b.{0,85}\b(?:femme|homme|adulte|personne|mannequin)\b/.test(plain);
+ return {task:video?'video':photo?'image':null,adult};
+}
 async function sendMessage(){
  if($('#send').disabled)return;
  const text=$('#prompt').value.trim();if(!text)return;
  if(!activeConversationId)createBlankConversation();
  const conv=conversationFor(activeConversationId);
+ const intent=studioMediaIntent(text);
  addMessage(activeConversationId,{role:'user',text});
  $('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();
  const mode=$('#taskMode').value;
- let task=mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode;
+ let task=intent.task||(mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode);
  let model=null;
+ // Adult briefs should use the appropriate existing isolated workflows, not
+ // the weak regular Wan preset or an unrelated stale Photo tab.
+ if(intent.adult&&conv.profile!=='nsfw'){
+   if(!loadJSON('lva_nsfw_gate',false)){
+     addMessage(activeConversationId,{role:'assistant',text:'Pour créer dans l’espace adulte, ouvre NSFW dans le menu latéral et active-le une fois sur cet appareil. Ta demande reste enregistrée ; tu peux la renvoyer après activation.'});
+     return;
+   }
+   applyProfileSettings(conv,'nsfw');save();renderProfileLabels();
+ }
  if(conv.profile==='nsfw'){
-   task=isolatedTaskMode;
+   task=intent.task||task||isolatedTaskMode;
+   const useImage=task==='video'&&!!imageData&&(isolatedVideoMode==='i2v'||/\b(?:anime|animer|depuis cette image|image vers video)\b/i.test(text));
    if(task==='image')model=workflowById(bestWorkflowId(ISOLATED_IMAGE_WORKFLOW));
-   else if(isolatedVideoMode==='i2v'){
-     if(!imageData){addMessage(activeConversationId,{role:'assistant',text:'Ajoute une image de départ pour utiliser Image → Vidéo.'});return}
-     model=workflowById(bestWorkflowId(ISOLATED_I2V_WORKFLOW));
-   }else model=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
+   else if(useImage)model=workflowById(bestWorkflowId(ISOLATED_I2V_WORKFLOW));
+   else model=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
  }else{
    if(mode==='auto'&&!task&&(conv.profile==='companion-realistic'||!!conv.settings?.image))task=implicitVisualGenerationRequest(text);
-   if(task==='image')model=workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
-   if(task==='video')model=workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW));
+   if(task==='image'){
+     const premium=workflowById(bestWorkflowId(ISOLATED_IMAGE_WORKFLOW));
+     // Use installed production-quality engine, not the old SDXL baseline,
+     // but never trigger a heavyweight install just by entering normal chat.
+     model=premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
+   }
+   if(task==='video'){
+     const premium=workflowById(bestWorkflowId(ISOLATED_VIDEO_WORKFLOW));
+     model=premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW));
+   }
  }
  if(task){conv.messages[conv.messages.length-1].mediaRequest=true;save()}
  if(!task){await startChat(conv,text);return}
@@ -325,7 +350,7 @@ async function sendMessage(){
  await startGeneration(task,model,text)
 }
 function numberSetting(id){const e=$(id);if(!e)return null;const raw=e.value.trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null}
-function readGenerationSettings(task){const isVideo=task==='video',conv=activeConversationId?conversationFor(activeConversationId):null,isIsolated=conv?.profile==='nsfw';return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),keepSeed:$('#settingKeep').checked,style:isIsolated?'none':graphicStyle,technical_quality:isIsolated?false:$('#settingTechnicalQuality')?.checked!==false,prompt_translation:$('#settingPromptTranslation')?.checked===true,reserved_profile:null,exact_prompt:isIsolated}}
+function readGenerationSettings(task){const isVideo=task==='video',conv=activeConversationId?conversationFor(activeConversationId):null,isIsolated=conv?.profile==='nsfw';return {quality:$('#settingQuality').value,steps:numberSetting('#settingSteps'),aspect:$('#settingAspect').value,seed:numberSetting('#settingSeed'),count:Number($('#settingCount').value)||1,duration:isVideo?numberSetting('#settingDuration'):null,fps:isVideo?numberSetting('#settingFps'):null,width:numberSetting('#settingWidth'),height:numberSetting('#settingHeight'),keepSeed:$('#settingKeep').checked,style:isIsolated?'none':graphicStyle,technical_quality:$('#settingTechnicalQuality')?.checked!==false,prompt_translation:$('#settingPromptTranslation')?.checked===true,reserved_profile:isIsolated?'nsfw':null,exact_prompt:false}}
 function readChatSettings(){return {temperature:Math.min(2,Math.max(0,numberSetting('#settingTemperature')??0.7)),max_tokens:Math.min(8192,Math.max(128,numberSetting('#settingMaxTokens')??2048)),system:$('#settingSystem').value.trim()}}
 async function startChat(c,text){
  const id=activeConversationId,history=c.messages.filter(m=>m.text&&!m.loading&&!m.error).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text})),settings=readChatSettings(),messages=[];if(settings.system)messages.push({role:'system',content:settings.system});messages.push(...history);$('#send').disabled=true;dismissKeyboard();setChatAnswering(true);const loading={role:'assistant',loading:true,chatLoading:true,status:'LocalAiVision vous répond'};c.messages.push(loading);c.updatedAt=new Date().toISOString();save();const loadingEl=renderMessage(loading);scrollBottom();let live=null,liveEl=null,answer='';activeChatController=new AbortController();activeChatConversationId=id;activeChatStopRequested=false;
@@ -357,7 +382,14 @@ async function waitForMediaPreparation(ticket){
 }
 async function startGeneration(task,model,promptText,previewStyle=null){
  const id=activeConversationId,c=conversationFor(id);c.messages.push({role:'assistant',loading:true,mediaType:task});c.updatedAt=new Date().toISOString();save();if(id===activeConversationId){renderMessage(c.messages[c.messages.length-1]);scrollBottom()}$('#send').disabled=true;
- try{const useReference=model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW)&&!!imageData;const settings=readGenerationSettings(task);settings.loras=c.profile==='nsfw'&&task==='video'?selectedLoras:[];const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:creativePrompt,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{$('#send').disabled=false}
+ try{const useReference=model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW)&&!!imageData;const settings=readGenerationSettings(task);
+  if(!document.body.classList.contains('vision-expert')){
+    // Hidden legacy drafts must never force 512x288 on a new premium brief.
+    Object.assign(settings,{quality:'workflow',steps:null,width:null,height:null,
+      fps:null,duration:null,aspect:'auto',count:1,technical_quality:true,
+      prompt_translation:false});
+  }
+  settings.loras=task==='video'&&model.id===bestWorkflowId(ISOLATED_VIDEO_WORKFLOW)?selectedLoras:[];const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:creativePrompt,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{$('#send').disabled=false}
 }
 function outputFiles(h){const files=[];for(const o of Object.values(h.outputs||{}))for(const key of ['videos','gifs','images'])for(const file of o[key]||[]){if(file?.filename&&!files.some(x=>x.filename===file.filename&&x.subfolder===file.subfolder))files.push(file)}return files}
 async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed&&!files.length)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){addMessage(id,{role:'assistant',result:file});addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
