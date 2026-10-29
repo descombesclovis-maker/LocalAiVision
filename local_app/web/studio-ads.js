@@ -4,7 +4,7 @@
  const $=id=>document.getElementById(id);
  const dialog=$('studioAdDialog'),select=$('studioAdBrand');
  if(!dialog||!select)return;
- let brands=[],campaign=null,working=false;
+ let brands=[],campaign=null,exportQueue=Promise.resolve();
  const headers={'Content-Type':'application/json','X-LocalAI-Brand':'1'};
  async function getBrands(){
    const response=await fetch('/api/studio/brands',{cache:'no-store'});
@@ -73,24 +73,25 @@
      'les textes sont ajoutés précisément au moment de l’export.'
    ].join(' ');
  }
- async function finishMedia(file,model,task,id,originalPrompt){
-   if(!campaign||task!==campaign.type||!file?.filename||working)return;
+ function finishMedia(file,model,task,id,originalPrompt){
+   if(!campaign||task!==campaign.type||!file?.filename)return Promise.resolve();
    const selected={...campaign};
-   // The model output remains visible immediately. Branded post-processing
-   // runs separately, without hiding or rewriting the original creation.
-   working=true;
-   try{
-     const result=await request('/api/studio/advert/render',{
-       brand_id:selected.brand_id,format:selected.format,
-       filename:file.filename,subfolder:file.subfolder||'',type:file.type||'output'
-     });
-     if(result.url&&window.StudioAds?.onAdvert)
-       window.StudioAds.onAdvert(result,id,originalPrompt);
-   }catch(error){
-     if(window.StudioAds?.onError)window.StudioAds.onError(
-       'La création originale est prête, mais l’export publicitaire a échoué : '+error.message,id);
-   }finally{working=false}
+   // Queue multiple images/videos without dropping results. Original outputs
+   // appear immediately; only their derivative ads are rendered in sequence.
+   exportQueue=exportQueue.catch(()=>{}).then(async()=>{
+     try{
+       const result=await request('/api/studio/advert/render',{
+         brand_id:selected.brand_id,format:selected.format,
+         filename:file.filename,subfolder:file.subfolder||'',type:file.type||'output'
+       });
+       if(result.url&&window.onStudioAdvert)
+         window.onStudioAdvert(result,id,originalPrompt);
+     }catch(error){
+       if(window.onStudioAdvertError)window.onStudioAdvertError(
+         'Création originale prête, export avec logo indisponible : '+error.message,id);
+     }
+   });
+   return exportQueue;
  }
- window.StudioAds={enhancePrompt,finishMedia,getBrands,
-   onAdvert:null,onError:null};
+ window.StudioAds={enhancePrompt,finishMedia,getBrands};
 })();
