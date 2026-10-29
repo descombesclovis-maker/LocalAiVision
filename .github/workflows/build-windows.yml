@@ -166,7 +166,7 @@ jobs:
           Copy-Item dist\LocalVisionAI.exe release\LocalVisionAI.exe
           Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
           Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
-          Compress-Archive -Path release\LocalVisionAI.exe -DestinationPath LocalVisionAI-Windows.zip -Force
+          Compress-Archive -Path release\* -DestinationPath LocalVisionAI-Windows.zip -Force
           $hash=(Get-FileHash -Algorithm SHA256 LocalVisionAI-Windows.zip).Hash.ToLowerInvariant()
           "$hash  LocalVisionAI-Windows.zip" | Set-Content -Encoding ascii LocalVisionAI-Windows.sha256
 

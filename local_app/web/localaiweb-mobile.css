@@ -1,0 +1,118 @@
+/* Mobile interface: full-size controls, one focused task per screen, iOS safe areas. */
+@media (max-width:700px) {
+  html { -webkit-text-size-adjust:100%; }
+  button, a, input, select, textarea { -webkit-tap-highlight-color:transparent; }
+  button, [role="button"], a { touch-action:manipulation; }
+  input, textarea, select { font-size:16px !important; }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible,
+  select:focus-visible { outline:2px solid #cfa9ff;outline-offset:2px; }
+  .workspace { padding-left:16px!important;padding-right:16px!important;padding-bottom:max(38px,env(safe-area-inset-bottom))!important; }
+  .workspace .topbar {flex-wrap:wrap!important;gap:12px!important;padding:12px 0!important;align-items:center!important;}
+  .workspace .branding {min-width:0;}
+  .workspace .top-actions {width:100%;display:flex;gap:7px!important;flex-wrap:wrap;justify-content:flex-start;}
+  .workspace .top-actions a,.workspace .top-actions button {min-height:44px;border-radius:12px;padding:11px 12px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;}
+  .workspace .intro {padding:28px 0 30px!important;}
+  .workspace .intro h1 {font-size:clamp(30px,8vw,41px)!important;line-height:1.13!important;}
+  .workspace .intro .studio-identity {max-height:110px;max-width:220px;margin-bottom:14px;}
+  .workspace .primary-action,.workspace .map-action {min-height:50px;font-size:14px;justify-content:center;}
+  .workspace .map-entry {margin-bottom:28px;}
+  .workspace .grid {grid-template-columns:minmax(0,1fr)!important;}
+  .workspace .card {border-radius:17px;}
+  .workspace .search {width:100%;}
+  .workspace .search input {min-height:46px;}
+  dialog {max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 36px);overflow:auto;}
+  dialog button,dialog input,dialog select {min-height:44px;}
+  /* Editor: chat and preview are separate full-height screens, never two
+     unreadable panels squeezed into a 390px wide iPhone. */
+  body:has(.studio) {height:100dvh;overflow:hidden;}
+  .studio {display:block!important;height:100dvh!important;min-height:0!important;overflow:hidden;position:relative;}
+  .studio .chat-pane,.studio .preview-pane {
+    position:absolute;top:0;right:0;left:0;
+    bottom:calc(64px + env(safe-area-inset-bottom));
+    min-height:0;display:flex;flex-direction:column;
+  }
+  body[data-law-panel="chat"] .studio .preview-pane {display:none;}
+  body[data-law-panel="preview"] .studio .chat-pane {display:none;}
+  .studio .chat-pane {border-right:0;border-bottom:0;}
+  .studio .chat-header {display:grid;grid-template-columns:44px minmax(0,1fr) auto;
+    align-items:center;gap:9px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;
+    min-height:114px;}
+  .studio .brand-symbol {width:44px;height:44px;border-radius:13px;box-shadow:none;}
+  .studio .chat-brand {min-width:0;}
+  .studio .web-logo-heading {gap:7px;}
+  .studio .web-logo-heading>img {height:33px;width:33px;border-radius:9px;}
+  .studio .chat-header h1 {font-size:17px;}
+  .studio .chat-header .agent-workspace {
+    grid-column:1/-1;display:flex;align-items:center;gap:7px;min-width:0;width:100%;padding:0;
+  }
+  .studio .agent-select {flex:1;max-width:none!important;min-width:0;min-height:44px;font-size:13px!important;}
+  .studio .agent-control {min-height:44px;min-width:108px;font-size:12px!important;padding:7px 10px;}
+  .studio .chat-header > a[href="/localaiweb/clients"] {grid-column:3;grid-row:1;white-space:nowrap;
+    min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:8px 10px;}
+  .studio .chat-header #lawUpdateBtn {display:none!important;}
+  .studio .chat-history {padding:16px 14px;gap:12px;font-size:14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  .studio .message {font-size:14px;line-height:1.5;}
+  .studio .message.user,.studio .message.assistant {padding:12px 14px;}
+  .studio .message-action,.studio .choices button {min-height:44px;padding:10px 13px;font-size:13px;}
+  .studio .chat-composer {flex:none;margin:0 11px 11px;padding:10px 12px;border-radius:17px;}
+  .studio #lawPrompt {min-height:55px;max-height:min(27dvh,170px);font-size:16px!important;resize:none;padding:5px 2px;}
+  .studio #lawGenerate {min-height:44px;padding:11px 17px;border-radius:12px;font-size:14px;}
+  .studio #lawChatStatus {font-size:12px;line-height:1.4;}
+  .studio .globe-tool {min-width:44px;min-height:44px;width:44px;height:44px;}
+  .law-mobile-tabs {position:fixed;z-index:1000;bottom:0;left:0;right:0;
+    display:grid!important;grid-template-columns:1fr 1fr 1fr;
+    gap:6px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+    min-height:calc(64px + env(safe-area-inset-bottom));
+    background:#171222f8;border-top:1px solid #71568d;
+    backdrop-filter:blur(16px);}
+  .law-mobile-tabs button,.law-mobile-tabs a {min-height:47px;border-radius:12px;
+    border:1px solid transparent;background:#281e35;color:#cbb9e4;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    font:700 13px system-ui;text-decoration:none;}
+  .law-mobile-tabs button[aria-selected="true"] {background:linear-gradient(130deg,#6846b4,#8e64d1);
+    border-color:#b597f4;color:#fff;box-shadow:0 2px 12px #7658b74d;}
+  .studio .preview-header {height:auto;min-height:166px;padding:calc(12px + env(safe-area-inset-top)) 12px 11px;
+    gap:9px;display:grid;grid-template-columns:1fr;align-content:center;}
+  .studio .preview-heading {max-width:100%!important;font-size:14px;}
+  .studio .preview-controls {width:100%;justify-content:flex-start;gap:8px;margin:0;flex-wrap:wrap;}
+  .studio .view-modes {flex:1 1 100%;min-width:0;display:flex;}
+  .studio .view-modes button {min-height:43px;min-width:0;flex:1;font-size:11px;padding:6px;}
+  .studio .site-tools {gap:7px;}
+  .studio .site-tools button,.studio .site-tools a {width:44px!important;height:44px!important;min-width:44px;min-height:44px;}
+  .studio .site-tools svg {width:19px;height:19px;}
+  .studio .preview-stage {padding:0;min-height:0;}
+  .studio .preview-stage iframe {max-width:100%;height:100%;transition:none;}
+  .studio .inspector-popover {max-height:calc(100% - 25px);overflow:auto;}
+  .studio .inspector-popover textarea {font-size:16px!important;}
+  /* Map pins remain accurate; interactive surfaces are large enough for fingers. */
+  .map-topbar {padding-left:12px!important;padding-right:12px!important;}
+  .map-return,.close-selection,.map-reload {min-height:44px;min-width:44px;}
+  .map-counter {top:8px!important;left:auto!important;right:9px!important;
+    transform:none!important;max-width:calc(100% - 170px)!important;font-size:10px!important;}
+  .daily-prospects {top:55px!important;max-height:124px;overflow:hidden;}
+  .daily-prospect {min-width:160px!important;min-height:54px;}
+  .map-selection {top:auto!important;bottom:calc(9px + env(safe-area-inset-bottom))!important;
+    max-height:min(77dvh,680px)!important;left:8px!important;right:8px!important;width:auto!important;
+    display:flex;flex-direction:column;overflow:hidden!important;padding:0!important;
+    border-radius:19px!important;}
+  .map-selection .place-card-scroll {-webkit-overflow-scrolling:touch;}
+  .map-selection .close-selection {min-width:44px;min-height:44px;}
+  .map-selection .place-card-footer .create-site {min-height:52px;font-size:14px;}
+  .map-feedback {max-height:60px;overflow:auto;bottom:16px!important;}
+  .map-selection:not([hidden]) ~ .map-feedback {display:none;}
+  /* Forms/CRM: readable without iOS auto-zoom or horizontal overflow. */
+  .metrics,.fields,.audit-checks {grid-template-columns:repeat(1,minmax(0,1fr))!important;}
+  .client-toolbar {flex-wrap:wrap;}
+  .client-toolbar button,.actions a,.quote-actions button,
+  .card button,.checkgrid label {min-height:44px;}
+  .fields input,.fields select,.client-toolbar input {min-height:44px;}
+}
+@media (max-width:375px) {
+ .studio .chat-header {gap:6px;padding-left:10px;padding-right:10px;}
+ .studio .chat-header > a[href="/localaiweb/clients"] {font-size:10px;padding:5px 7px;}
+ .studio .preview-controls {flex-wrap:wrap;}
+ .studio .view-modes {flex-basis:100%;}
+ .studio .preview-header {min-height:156px;}
+ .law-mobile-tabs button,.law-mobile-tabs a {font-size:12px;}
+}
+@media (min-width:701px) {.law-mobile-tabs {display:none!important;}}
