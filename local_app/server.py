@@ -1671,6 +1671,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
+        if u.path == "/":
+            # The remote phone is the LocalAiWeb client. Route it to the
+            # actual mobile project hub even if a stale Safari home-screen
+            # icon still points to the desktop LocalAiVision root.
+            # Desktop/WebView and local Windows browser keep their home page.
+            ua = self.headers.get("User-Agent", "").lower()
+            if any(token in ua for token in ("iphone", "ipad", "ipod", "android")):
+                self.send_response(302)
+                self.send_header("Location", "/localaiweb")
+                self.send_header("Cache-Control", "no-store, max-age=0")
+                self.send_header("Vary", "User-Agent")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
         if u.path == "/api/ping":
             self.send_json({"app": "LocalVisionAI", "version": VERSION,
                             "build_tag": build_info().get("build_tag")})
