@@ -8,7 +8,7 @@
  const info=$('mapFeedbackText'),reload=$('mapReload'),panel=$('mapSelection'),btn=$('mapCreate');
  let map,selected=null,creating=false,loading=false;
  let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
- const mobile=window.matchMedia('(max-width:700px)');
+ const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)');
  const businesses=new Map(),pins=new Map(),MAX_STORED=mobile.matches?12000:30000;
  const prospectDrawer=$('dailyProspects'),prospectToggle=$('dailyProspectsToggle');
  function setProspectsOpen(open){
