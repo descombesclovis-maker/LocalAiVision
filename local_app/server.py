@@ -2440,7 +2440,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(web_assets_bridge.import_generation(
                     _web_store(),_comfy_working_dir(),body.get("project_id"),
                     body.get("filename"),body.get("subfolder",""),
-                    body.get("type","output")))
+                    body.get("type","output"),advert_root=DATA))
             except Exception as exc:
                 self.send_json({"error":str(exc)},400)
             return
