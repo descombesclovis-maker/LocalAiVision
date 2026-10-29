@@ -15,7 +15,7 @@ class BrandMapAgentTests(unittest.TestCase):
         web=(WEB/"brand-web-identity.svg").read_text(encoding="utf-8")
         self.assertIn("CRÉATIONS VISUELLES",vision)
         self.assertNotIn("CRÉATION DE SITES WEB",vision)
-        self.assertIn("CRÉATIONS DE SITES WEBS",web)
+        self.assertIn("SITES &amp; IDENTITÉS",web)
         self.assertNotIn("CRÉATIONS VISUELLES",web)
         for value in (vision,web):
             self.assertNotIn("data:image/webp;base64",value)
