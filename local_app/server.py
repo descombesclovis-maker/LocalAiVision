@@ -1751,6 +1751,11 @@ def run_generation(body):
             video_ref = store_comfy_input(Path(body.get('video_name') or 'reference.mp4').name, data)
         settings = body.get('settings') or {}
         source_prompt = (body.get('prompt') or '').strip()
+        # Choose speed/quality from the creative brief and actual loaded
+        # workflow; never silently generate a 3-second low-res draft from a
+        # 10-second request. User-specified values take priority over defaults.
+        from local_app import media_director
+        settings = media_director.plan(source_prompt, workflows.profile(api), settings)
         source_negative = body.get('negative')
         if settings.get('prompt_translation'):
             _ensure_chat_components()
