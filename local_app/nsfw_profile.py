@@ -1,53 +1,36 @@
+"""Isolated adult-oriented visual profile; prompt fidelity over generic tags.
+
+The previous default prefixed every prompt with generic sexualized descriptors,
+unrequested appearance, and conflicting camera cues. This made ordinary
+adult scenes incoherent and frequently impaired animation consistency.
+"""
 IMAGE_WORKFLOW = "NSFW Image.json"
 VIDEO_WORKFLOW = "NSFW Video.json"
 
-
-
-
-PROFILE_PREFIX = (
-    "NSFW, nudity, sexual content, pornographic content, explicit content, sexualized content, erotic content, adult content"   
-    "realistic, trending girls, sexy, erotic, provocative"
-    "high realism body, high realism private parts, high realism, tan lines, latina  "
-) 
-
-
 TECHNICAL_QUALITY = (
-   "high detail, coherent anatomy, accurate hands, clean edges, sharp focus, "
-    "consistent shapes, realistic texture, natural lighting, low artifacts, "
-    "good body shape, realistic proportions"
+    "Natural coherent anatomy, anatomically correct hands and feet, precise "
+    "proportions, consistent identity, realistic skin texture, realistic "
+    "lighting, natural shadows, optical detail, no flicker or deformation."
 )
-
-
-
 DEFAULT_NEGATIVE = (
     "lowres, blurry, compression artifacts, watermark, unwanted text, "
-    "malformed hands, fused fingers, extra fingers, missing fingers, extra limbs, "
-    "duplicate limbs, broken anatomy, rendering artifacts, "
-    "weird body shape, deformed vulva,unrealistic proportions, unnatural poses, bad angles, bad perspective"
+    "malformed hands, fused fingers, extra limbs, duplicate limbs, "
+    "warped anatomy, jitter, temporal flicker, inconsistent identity, "
+    "unnatural poses, over-smoothed skin, artificial plastic textures"
 )
-
 
 def prepare_visual_request(
     prompt,
     selected_style="none",
     negative=None,
-    technical_quality=True
+    technical_quality=True,
 ):
-    raw = (prompt or "").strip()
-    prepared = raw
-
-   
-    if PROFILE_PREFIX.strip():
-        prepared = PROFILE_PREFIX.strip() + "\n\n" + prepared
-
-    
+    """Keep the original user's composition and clothing instructions intact."""
+    raw=str(prompt or "").strip()
+    prepared=raw
     if technical_quality:
-        prepared += "\n\nTechnical quality only: " + TECHNICAL_QUALITY + "."
-
-    neg = negative
-
-   
-    if technical_quality and not (negative or "").strip():
-        neg = DEFAULT_NEGATIVE
-
-    return prepared, neg, None
+        prepared+="\n\nRendering quality only: "+TECHNICAL_QUALITY
+    neg=negative
+    if technical_quality and not str(negative or "").strip():
+        neg=DEFAULT_NEGATIVE
+    return prepared,neg,None
