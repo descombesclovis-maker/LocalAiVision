@@ -20,7 +20,7 @@
   <section class="map-area" aria-label="Carte interactive des commerces et entreprises françaises">
     <aside class="daily-prospects" id="dailyProspects" aria-labelledby="dailyProspectsTitle">
       <div class="daily-prospects-intro"><strong id="dailyProspectsTitle">✦ 5 commerces à découvrir aujourd'hui</strong>
-        <span id="dailyProspectsStatus">Sélection sur les établissements publics disponibles · opportunités à vérifier</span></div>
+        <span id="dailyProspectsStatus">Sélection sur les établissements publics disponibles · opportunités à vérifier</span><button id="dailyProspectsToggle" type="button" aria-expanded="true" aria-controls="dailyProspectsList">Masquer</button></div>
       <div id="dailyProspectsList" class="daily-prospects-list" aria-live="polite"></div>
     </aside>
     <div id="businessMap" role="application" aria-label="Carte OpenStreetMap, initialement centrée sur la France"></div>
@@ -31,7 +31,7 @@
     </div>
     <div class="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap — ODbL</a></div>
     <div id="mapUnavailable" class="map-unavailable" hidden>
-      Impossible de charger la carte. Vérifie la connexion Internet.
+      <p>Impossible de charger la carte. Les commerces sélectionnables restent accessibles dans « 5 commerces à découvrir ».</p><button type="button" id="mapRetryLibrary">Réessayer la carte</button>
     </div>
   </section>
   <aside id="mapSelection" class="map-selection" hidden aria-labelledby="selectionTitle">
@@ -65,7 +65,7 @@
   </aside>
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script>if(!window.L){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"><\/script>')}</script>
+<!-- La bibliothèque Leaflet possède deux replis chargés dynamiquement par localaiweb-map.js. -->
 <script src="/assets/localaiweb-google-map.js"></script>
 <script src="/assets/localaiweb-map.js"></script>
 <script src="/assets/pwa-install.js" defer></script>
