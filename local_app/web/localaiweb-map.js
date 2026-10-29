@@ -8,7 +8,53 @@
  const info=$('mapFeedbackText'),reload=$('mapReload'),panel=$('mapSelection'),btn=$('mapCreate');
  let map,selected=null,creating=false,loading=false;
  let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
- const businesses=new Map(),pins=new Map(),MAX_STORED=30000;
+ const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)');
+ const businesses=new Map(),pins=new Map(),MAX_STORED=mobile.matches?12000:30000;
+ const prospectDrawer=$('dailyProspects'),prospectToggle=$('dailyProspectsToggle');
+ function setProspectsOpen(open){
+   if(!prospectDrawer||!prospectToggle)return;
+   prospectDrawer.dataset.collapsed=String(!open);
+   prospectToggle.setAttribute('aria-expanded',String(open));
+   prospectToggle.textContent=open?'Masquer':'5 commerces ✦';
+ }
+ if(prospectToggle){
+   setProspectsOpen(!mobile.matches);
+   prospectToggle.addEventListener('click',()=>setProspectsOpen(prospectDrawer.dataset.collapsed==='true'));
+ }
+ $('mapRetryLibrary')?.addEventListener('click',()=>location.reload());
+ // Pinned Leaflet release from two trusted independent CDNs.
+ let leafletLoad=null;
+ async function ensureLeaflet(){
+   if(window.L?.map)return true;
+   if(leafletLoad)return leafletLoad;
+   leafletLoad=(async()=>{
+     for(const url of [
+       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
+       'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'
+     ]){
+       const loaded=await new Promise(resolve=>{
+         const script=document.createElement('script');
+         script.src=url;script.async=true;script.crossOrigin='anonymous';
+         script.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+         let done=false;
+         const finish=ok=>{
+           if(done)return;
+           done=true;clearTimeout(timer);
+           script.onload=null;script.onerror=null;
+           if(!ok)script.remove();
+           resolve(ok);
+         };
+         const timer=setTimeout(()=>finish(false),6500);
+         script.onload=()=>finish(Boolean(window.L?.map));
+         script.onerror=()=>finish(false);
+         document.head.appendChild(script);
+       });
+       if(loaded&&window.L?.map)return true;
+     }
+     return Boolean(window.L?.map);
+   })();
+   return leafletLoad;
+ }
  const setStatus=message=>{info.textContent=message};
  const element=(tag,cls,value)=>{
    const item=document.createElement(tag);
@@ -17,11 +63,19 @@
    return item;
  };
  async function api(url,body){
-   const response=await fetch(url,body===undefined?{cache:'no-store'}:{
-     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-   let data={};try{data=await response.json()}catch{}
-   if(!response.ok||data.error)throw Error(data.error||('Erreur HTTP '+response.status));
-   return data;
+   const controller=new AbortController();
+   const timeout=setTimeout(()=>controller.abort(),28000);
+   try{
+     const options=body===undefined?{cache:'no-store'}:{
+       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
+     const response=await fetch(url,{...options,signal:controller.signal});
+     let data={};try{data=await response.json()}catch{}
+     if(!response.ok||data.error)throw Error(data.error||('Erreur HTTP '+response.status));
+     return data;
+   }catch(error){
+     if(error.name==='AbortError')throw Error('Délai de connexion dépassé. Réessaie.');
+     throw error;
+   }finally{clearTimeout(timeout)}
  }
  function setValue(id,value){
    const target=$(id);
@@ -227,12 +281,13 @@
  function markerFor(entry){
    const representative=entry[0];
    const count=entry.length;
-   // 30px transparent hit region for every 6px visible dot.
+   // Finger-sized 44px hit region around each small business dot.
+   const hit=mobile.matches?44:32;
    const html=count===1
      ?'<span class="company-marker-single" aria-hidden="true"></span>'
      :'<span class="company-marker-group" aria-hidden="true">'+count+'</span>';
    const icon=L.divIcon({html,className:'company-marker-hit',
-     iconSize:[32,32],iconAnchor:[16,16]});
+     iconSize:[hit,hit],iconAnchor:[hit/2,hit/2]});
    const pin=L.marker([representative.lat,representative.lon],{icon,keyboard:true}).addTo(map);
    if(count===1){
      pin.bindTooltip(element('span','',representative.name),{direction:'top',opacity:.96});
@@ -253,7 +308,8 @@
    if(!map||rendering)return;
    rendering=true;
    // Projection grid avoids stacking unclickable points at France-level zoom.
-   const cell=map.getZoom()<=7?38:map.getZoom()<=10?33:25;
+   const cell=mobile.matches?(map.getZoom()<=7?58:map.getZoom()<=10?52:46):
+      (map.getZoom()<=7?38:map.getZoom()<=10?33:25);
    const groups=new Map();
    const bounds=map.getBounds().pad(.12);
    for(const item of businesses.values()){
@@ -303,6 +359,9 @@
  }
  async function overview(batch=0){
    clearTimeout(overviewTimer);
+   if(mobile.matches&&document.hidden){
+     overviewTimer=setTimeout(()=>overview(batch),12000);return;
+   }
    if(loading){overviewTimer=setTimeout(()=>overview(batch),700);return}
    loading=true;reload.hidden=true;nextOverviewBatch=batch;
    setStatus('Chargement de la France · zone '+(batch+1)+' · '+countLabel());
@@ -325,7 +384,7 @@
        err.message+'. Tu peux réessayer ou consulter les points déjà chargés.');
    }finally{
      loading=false;lastLoad=Date.now();
-     if(map.getZoom()>=8)scheduleNearby();
+     if(map?.getZoom()>=8)scheduleNearby();
    }
  }
  async function nearby(){
@@ -377,6 +436,7 @@
    if(map.getZoom()>=8)pending=setTimeout(nearby,750);
  }
  reload.addEventListener('click',()=>{
+   if(!map){location.reload();return}
    if(!loading)overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0)
  });
  $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null});
@@ -402,7 +462,10 @@
  });
  async function startMap(){
    try{
-     const config=await api('/api/web/map/config');
+     const config=await Promise.race([
+       api('/api/web/map/config'),
+       new Promise((_,reject)=>setTimeout(()=>reject(Error('Configuration de carte trop lente')),6000))
+     ]);
      if(config.enabled && window.LocalAiWebGoogleMap){
        const started=await window.LocalAiWebGoogleMap.start(config,details,setStatus,api);
        if(started){void loadDailyProspects();return;}
@@ -415,13 +478,20 @@
    }catch(error){
      setStatus('Google Maps indisponible : '+error.message+'. Carte publique de secours chargée.');
    }
-   startPublicMap();
+   try{
+     await startPublicMap();
+   }catch(error){
+     $('mapUnavailable').hidden=false;
+     reload.hidden=false;
+     setStatus('Impossible d’initialiser la carte : '+error.message);
+   }
    void loadIndexed();
  }
- function startPublicMap(){
- if(typeof L==='undefined'){
+ async function startPublicMap(){
+ if(!(await ensureLeaflet())){
    $('mapUnavailable').hidden=false;
-   setStatus('Impossible de charger la carte. Une connexion Internet est nécessaire.');
+   reload.hidden=false;
+   setStatus('Bibliothèque de carte indisponible. Les suggestions commerciales restent accessibles.');
    return;
  }
  map=L.map('businessMap',{zoomControl:true,worldCopyJump:true,preferCanvas:true})
@@ -433,6 +503,11 @@
  };
  setTimeout(showFrance,300);
  window.addEventListener('resize',()=>{map.invalidateSize({pan:false});scheduleRedraw()});
+ document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden&&map){
+     setTimeout(()=>{map.invalidateSize({pan:false});scheduleRedraw()},150);
+   }
+ });
  // Independent base-tile fallback, separate from the company directory.
  // If the standard OSM tile endpoint is unreachable, public CARTO tiles
  // can still show roads while official French directory pins load.

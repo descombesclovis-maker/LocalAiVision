@@ -16,6 +16,7 @@
       <header class="chat-header">
         <a href="/localaiweb" class="brand-symbol" title="Retour à mes projets" aria-label="Retour à mes projets">←</a>
         <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/brand-web.svg" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
+        <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Afficher les outils et les réglages">☰ <span>Outils</span></button>
         <div class="agent-workspace" role="group" aria-label="Agent de création de sites">
           <label class="sr-only" for="lawAgentSelect">Agent de création</label>
           <select id="lawAgentSelect" class="agent-select" aria-label="Choisir l'agent de création"><option value="codex">Codex · ChatGPT Plus</option><option value="claude">Claude Code · option</option></select>
@@ -24,6 +25,17 @@
         <a href="/localaiweb/clients" class="update-action" aria-label="Gestion commerciale, clients, devis et factures">Clients &amp; devis ↗</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
+      <nav id="lawMobileTools" class="law-mobile-tools" aria-label="Outils du studio mobile" hidden>
+        <div class="law-mobile-tools-title">Outils et connexion IA</div>
+        <div id="lawMobileAgentSlot"></div>
+        <div class="law-mobile-tools-links">
+          <a href="/localaiweb">Mes projets</a>
+          <a href="/localaiweb/clients">Clients et devis</a>
+          <a href="/localaiweb/vente">Facturation</a>
+          <a href="/localaiweb/map">Carte des entreprises</a>
+        </div>
+        <div id="lawMobileVersionSlot"></div>
+      </nav>
       <div id="lawChat" class="chat-history" role="log" aria-live="polite" aria-relevant="additions text"></div>
       <form id="lawComposer" class="chat-composer">
         <label class="sr-only" for="lawPrompt">Décrivez votre site ou la modification souhaitée</label>
@@ -85,6 +97,7 @@
     <button type="button" data-mobile-panel="chat" aria-selected="true" aria-controls="lawChat">✎ <span>Discussion</span></button>
     <button type="button" data-mobile-panel="preview" aria-selected="false" aria-controls="lawPreviewStage">◈ <span>Aperçu</span></button>
     <a href="/localaiweb/map" aria-label="Ouvrir la carte de prospection">⌖ <span>Carte</span></a>
+    <button type="button" id="lawMobileToolsTab" aria-label="Accéder aux outils et à la connexion IA">☰ <span>Outils</span></button>
   </nav>
   <dialog id="lawDesignDialog" class="design-dialog" aria-labelledby="designTitle" aria-describedby="designIntro">
     <form id="lawDesignForm" class="design-form">

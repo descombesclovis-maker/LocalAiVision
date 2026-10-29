@@ -4,6 +4,7 @@
  const toolbar=document.getElementById('lawSiteTools'),toggle=document.getElementById('lawInspectBtn');
  const pop=document.getElementById('lawInspectorPopover'),input=document.getElementById('lawInspectorPrompt');
  let active=false,selected=[],attached=null,start=null;
+ let previousTouch={time:0,target:null};
  const q='h1,h2,h3,h4,p,a,button,img,video,input,textarea,select,label,li,article,section,[role="button"],div';
  function doc(){try{const d=frame.contentDocument;return d&&frame.contentWindow.location.origin===location.origin?d:null}catch{return null}}
  function allowed(el){
@@ -67,7 +68,15 @@
     }).slice(0,24);
     choose(hits,first.shift);
    }else{
-    const item=candidate(ev.target);if(item)choose([item],first.shift);else if(!first.shift)clear();
+    const item=candidate(ev.target);
+    const now=Date.now();
+    const doubleTap=ev.pointerType==='touch'&&item&&
+      previousTouch.target===item&&now-previousTouch.time<550;
+    if(item)choose([item],first.shift);else if(!first.shift)clear();
+    if(doubleTap){
+      previousTouch={time:0,target:null};
+      editAt(ev.clientX,ev.clientY);
+    }else previousTouch={time:now,target:item};
    }
    ev.preventDefault();ev.stopImmediatePropagation();
   },true);
@@ -85,7 +94,7 @@
   d.addEventListener('keydown',ev=>{if(active&&ev.key==='Escape'){disable();ev.preventDefault()}},true);
  }
  function disable(){
-  active=false;start=null;clear();toggle.classList.remove('active');toggle.setAttribute('aria-pressed','false');
+  active=false;start=null;previousTouch={time:0,target:null};clear();toggle.classList.remove('active');toggle.setAttribute('aria-pressed','false');
   const d=doc();if(d)d.documentElement.classList.remove('law-select');
   if(!busy)document.getElementById('lawChatStatus').textContent='Prêt à créer ton site';
  }
@@ -95,7 +104,10 @@
   const d=doc();if(!d){alert('Prévisualisation locale indisponible.');return}
   active=true;toggle.classList.add('active');toggle.setAttribute('aria-pressed','true');
   attach(d);d.documentElement.classList.add('law-select');
-  document.getElementById('lawChatStatus').textContent='Clique sur les éléments, glisse pour sélectionner plusieurs, double-clique pour modifier.';
+  document.getElementById('lawChatStatus').textContent=
+   /iPhone|iPad|Android/i.test(navigator.userAgent)
+    ?'Touche un élément, puis touche-le une deuxième fois pour le modifier.'
+    :'Clique sur les éléments, glisse pour en sélectionner plusieurs, double-clique pour modifier.';
  });
  document.getElementById('lawInspectorCancel').addEventListener('click',()=>{pop.hidden=true;input.value=''});
  async function submit(){
@@ -119,6 +131,13 @@
   if(ev.key==='Escape'){pop.hidden=true;input.value=''}
  });
  document.getElementById('lawBrowserBtn').addEventListener('click',async()=>{
+  if(!project?.project?.id)return;
+  if(/iPhone|iPad|Android/i.test(navigator.userAgent)){
+   // Open the generated site on this phone, not in the PC's browser.
+   window.open('/web-preview/'+encodeURIComponent(project.project.id)+'/index.html',
+      '_blank','noopener,noreferrer');
+   return;
+  }
   try{await api('/api/web/open-browser',{id:project.project.id})}
   catch(err){alert('Impossible d’ouvrir le navigateur : '+err.message)}
  });

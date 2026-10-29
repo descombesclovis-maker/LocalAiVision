@@ -4,8 +4,36 @@
  'use strict';
  const nav=document.getElementById('lawMobileTabs');
  if(!nav)return;
- const mobile=window.matchMedia('(max-width:700px)');
+ const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)');
  const buttons=[...nav.querySelectorAll('[data-mobile-panel]')];
+ const menu=document.getElementById('lawMobileTools');
+ const toggle=document.getElementById('lawMobileMenuToggle');
+ const header=document.querySelector('.studio .chat-header');
+ const agent=header?.querySelector('.agent-workspace');
+ const version=header?.querySelector('#lawUpdateBtn');
+ const slot=document.getElementById('lawMobileAgentSlot');
+ const versionSlot=document.getElementById('lawMobileVersionSlot');
+ const agentAnchor=document.createComment('restore agent controls');
+ const versionAnchor=document.createComment('restore update indicator');
+ if(agent)agent.before(agentAnchor);
+ if(version)version.before(versionAnchor);
+ const closeMenu=()=>{
+   if(!menu||!toggle)return;
+   menu.hidden=true;toggle.setAttribute('aria-expanded','false');
+ };
+ if(toggle&&menu){
+   toggle.addEventListener('click',()=>{
+     const open=menu.hidden;
+     menu.hidden=!open;
+     toggle.setAttribute('aria-expanded',String(open));
+   });
+   document.addEventListener('pointerdown',event=>{
+     if(!menu.hidden&&!menu.contains(event.target)&&!toggle.contains(event.target))
+       closeMenu();
+   });
+   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu()});
+ }
+
  let active='chat';
  const show=next=>{
    if(!['chat','preview'].includes(next))return;
@@ -24,9 +52,17 @@
  for(const button of buttons){
    button.addEventListener('click',()=>show(button.dataset.mobilePanel));
  }
+ document.getElementById('lawMobileToolsTab')?.addEventListener('click',()=>{
+   show('chat');
+   if(menu.hidden)toggle.click();
+   toggle.focus({preventScroll:true});
+ });
  function resize(){
    nav.hidden=!mobile.matches;
+   closeMenu();
    if(mobile.matches){
+     if(agent&&slot&&agent.parentElement!==slot)slot.append(agent);
+     if(version&&versionSlot&&version.parentElement!==versionSlot)versionSlot.append(version);
      show(active);
      // Show the genuine responsive phone rendering first. Desktop/tablet
      // preview modes remain one tap away and do not alter generated files.
@@ -34,7 +70,11 @@
        document.body.dataset.lawMobileInitialized='1';
        document.querySelector('[data-view="mobile"]')?.click();
      }
-   }else delete document.body.dataset.lawPanel;
+   }else{
+     delete document.body.dataset.lawPanel;
+     if(agent&&agentAnchor.parentNode)agentAnchor.after(agent);
+     if(version&&versionAnchor.parentNode)versionAnchor.after(version);
+   }
  }
  mobile.addEventListener?.('change',resize);
  resize();
