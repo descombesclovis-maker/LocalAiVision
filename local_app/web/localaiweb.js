@@ -274,10 +274,10 @@ async function watchGeneration(id){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
           '\\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
           'assistant');
-         stage='ready';stop();
+         showSiteEditing(false);codexRecovery(status.error||status.detail);stage='ready';refreshPublishing();stop();
        }else{
          message('Aucune génération active. Après un redémarrage du logiciel, relance la maquette pour terminer le travail.');
-         stage='ready';stop();
+         showSiteEditing(false);stage='ready';refreshPublishing();stop();
        }
      }catch(error){
        // Transient localhost error does not mean Codex failed. Warn after
@@ -340,8 +340,9 @@ async function publish(){
   const result=await api('/api/web/vercel/publish',{id:project.project.id,production:true});
   project=result;
   const deployed=result.deployment_result?.url||result.project?.deployment?.production_url;
-  if(deployed)message('Site publié : '+deployed+'\nTu peux ouvrir ce lien dans ton navigateur.');
-  else message('La commande de publication est terminée, mais aucune URL publique n’a été confirmée. Vérifie la connexion Vercel.');
+  if(deployed)message('Site publié : '+deployed+'\nLes devis et publicités associés sont maintenant disponibles.');
+  else message('Publication non confirmée : Vercel n’a renvoyé aucune URL publique.');
+   refreshPublishing();
  }catch(error){message('Publication non effectuée : '+error.message+'\nTon site local reste disponible dans la prévisualisation.');}
  finally{setBusy(false);}
 }
@@ -399,6 +400,7 @@ async function sendText(value,{preserveDraft=false}={}){
 }
 $('#lawComposer').addEventListener('submit',event=>{event.preventDefault();sendText(prompt.value);});
 publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
+publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
 prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText(prompt.value);}});
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
 async function initialize(){
@@ -413,6 +415,7 @@ async function initialize(){
   stage='ready';
   const generation=await api('/api/web/generation/status?id='+encodeURIComponent(id));
   if(generation.state==='running'){
+   if(generation.preview_ready)showSiteEditing(true);
    updateLivePreview(generation,id);
    await watchGeneration(id);
    return;
