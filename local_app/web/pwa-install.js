@@ -9,7 +9,7 @@
  let worker=null,knownBuild=null,checking=false,lastCheck=0,refreshQueued=false;
  let controllerExisted=Boolean(navigator.serviceWorker?.controller);
  const mobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
- let pcUpdateChecking=false,lastPcUpdateCheck=0,pcUpdatePolling=false;
+ let pcUpdateChecking=false,lastPcUpdateCheck=0,pcUpdatePolling=false,lastDraftNotice=0;
  let pcUpdateNote=null;
  const updateHeaders={'Content-Type':'application/json','X-LocalAiVision-Update':'1'};
  function showPcUpdate(text){
@@ -74,7 +74,7 @@
    }finally{pcUpdateChecking=false}
  }
  async function sendDraftHeartbeat(){
-   if(!mobile||document.hidden)return;
+   if(!mobile||document.hidden||Date.now()-lastDraftNotice<12000)return;
    const active=document.activeElement;
    const typed=Boolean(active?.matches?.('textarea,input:not([type=checkbox]):not([type=radio]):not([type=hidden])') &&
                        typeof active.value==='string' && active.value.trim());
@@ -82,6 +82,7 @@
      '#lawPrompt, #prompt, #lawInspectorPrompt, #projectName'
    )).some(el=>Boolean(el.value?.trim()));
    if(!typed&&!pending)return;
+   lastDraftNotice=Date.now();
    try{
      await fetch('/api/update/draft',{method:'POST',
        headers:updateHeaders,body:JSON.stringify({active:true}),
