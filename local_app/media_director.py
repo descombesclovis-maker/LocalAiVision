@@ -61,12 +61,16 @@ def plan(prompt: str, workflow_kind: str, current: dict[str,Any] | None = None)-
         if settings.get("steps") is None:
             # Distilled models have far lower optimal steps; preserve their
             # workflow sampler steps instead of forcing 16-24 slow steps.
-            if workflow_kind!="hunyuan15-i2v-step":
+            if workflow_kind not in ("hunyuan15-i2v-step", "hunyuan15"):
                 settings["steps"]=12 if quality=="draft" else 24 if quality=="quality" else 18
         if not settings.get("width") and not settings.get("height") and settings.get("aspect") in ("auto",None,""):
             settings["aspect"]="16:9"
         if not settings.get("width") and not settings.get("height"):
-            size=(512,288) if quality=="draft" else (832,480) if quality=="quality" else (640,360)
+            if workflow_kind in ("hunyuan15", "hunyuan15-i2v-step") and quality!="draft":
+                # Keep native 480p on HunyuanVideo 1.5, not a hidden 360p fallback.
+                size=(832,480)
+            else:
+                size=(512,288) if quality=="draft" else (832,480) if quality=="quality" else (640,360)
             # Orientation is handled below; the workflow adapter will preserve
             # a model-specific aspect where supported.
             if settings.get("aspect")=="9:16":
