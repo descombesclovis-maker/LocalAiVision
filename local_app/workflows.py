@@ -264,7 +264,8 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
     presets = {
         'sdxl': (16, 25, 35),
         'wan': (12, 20, 30),
-        'hunyuan15': (12, 20, 28),
+        # CFG-distilled HunyuanVideo 1.5 is not step-distilled: 50 real steps.
+        'hunyuan15': (50, 50, 50),
         'hunyuan15-i2v-step': (4, 8, 12),
         'omniweaving-t2v': (16, 20, 28),
         'omniweaving-i2v': (16, 20, 28),
