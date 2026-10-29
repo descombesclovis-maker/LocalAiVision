@@ -80,7 +80,7 @@ def main():
                 time.sleep(0.25)
         try:
             import webview
-            webview.create_window('LocalVisionAI', URL, width=1440, height=920,
+            webview.create_window('LocalAI Studio', URL, width=1440, height=920,
                                   min_size=(900, 650), background_color='#090909')
             webview.start(debug=False, private_mode=False, storage_path=str(DATA / 'webview'))
         except Exception:
@@ -91,7 +91,7 @@ def main():
                 print('Interface ouverte dans le navigateur. Fermer ce processus pour arrêter le serveur.', flush=True)
                 if os.name == 'nt':
                     import ctypes
-                    ctypes.windll.user32.MessageBoxW(0, 'L’interface est ouverte dans ton navigateur.\n\nGarde cette boîte ouverte pendant l’utilisation. Clique sur OK pour arrêter LocalVisionAI.', 'LocalVisionAI — mode navigateur', 0x40)
+                    ctypes.windll.user32.MessageBoxW(0, 'L’interface est ouverte dans ton navigateur.\n\nGarde cette boîte ouverte pendant l’utilisation. Clique sur OK pour arrêter LocalVisionAI.', 'LocalAI Studio — mode navigateur', 0x40)
                 else:
                     while True:
                         time.sleep(1)
