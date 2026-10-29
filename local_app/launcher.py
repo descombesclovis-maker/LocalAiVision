@@ -69,6 +69,9 @@ def main():
             threading.Thread(target=httpd.serve_forever, daemon=True).start()
             if os.environ.get('LOCALVISIONAI_SKIP_SETUP') != '1':
                 server.start_setup()
+            # In packaged Windows versions the PC can update itself while
+            # this server stays running, with no desktop interaction.
+            server.start_auto_updates()
         # CI health probe exercises the packaged PyInstaller binary (including
         # extraction/loading of python311.dll) without opening a GUI window.
         if os.environ.get('LOCALVISIONAI_UPDATE_SMOKE') == '1':
