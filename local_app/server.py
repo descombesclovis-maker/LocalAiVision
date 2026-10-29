@@ -40,7 +40,7 @@ def _web_persist_generation(project_id, record):
         temporary=path.with_suffix(".pending")
         # Only nonsecret status: never persist the Codex prompt or auth.
         fields=("ticket","state","started_at","finished_at","phase",
-                "summary","error","provider")
+                "summary","error","provider","generation_metrics")
         safe={key:record[key] for key in fields if key in record}
         temporary.write_text(json.dumps(safe,ensure_ascii=False),encoding="utf-8")
         os.replace(temporary,path)
@@ -61,6 +61,7 @@ def _web_async_generate(project_id, prompt, ticket):
             "state": "done", "summary": str(result.get("summary") or "")[:2500],
             "quality": result.get("quality", {}),
             "visuals": result.get("visuals", {}),
+            "generation_metrics": result.get("generation_metrics", {}),
             "provider": result.get("provider", ""),
         }
     except HTTPError as exc:
