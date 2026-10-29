@@ -11,6 +11,55 @@ const api = async(url,body) => {
 };
 let project=null,busy=false,viewport='desktop',stage='welcome';
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
+const publishButton=document.getElementById('lawPublishBtn');
+const afterPublish=document.getElementById('lawAfterPublish');
+const editOverlay=document.getElementById('lawEditOverlay');
+function publishedUrl(){return project?.project?.deployment?.production_url||project?.project?.production_url||''}
+function refreshPublishing(){
+ const url=publishedUrl();
+ if(publishButton){
+  publishButton.disabled=busy||stage!=='ready';
+  publishButton.textContent=url?'Republier ↗':'Publier ↗';
+ }
+ if(afterPublish){
+  afterPublish.hidden=!url;
+  if(url){
+   document.getElementById('lawPublishedAddress').textContent='En ligne : '+url;
+   document.getElementById('lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+   document.getElementById('lawCreateCampaign').href='/localaivision?campaign_project='+encodeURIComponent(project.project.id);
+  }
+ }
+}
+function showSiteEditing(on){
+ if(!editOverlay)return;
+ editOverlay.hidden=!on;
+ if(on){
+  document.getElementById('lawEditPhase').textContent='Codex prépare les modifications…';
+  document.getElementById('lawEditPercent').textContent='Étapes vérifiées : 0 %';
+  document.getElementById('lawEditTrack').style.width='0%';
+ }
+}
+function updateEditMilestones(status){
+ if(!editOverlay||editOverlay.hidden)return;
+ const milestones={planning:0,images:0,building:0,verification:25,repair:25,
+                   localization:40,preview:55,visual:65,design:75,done:100};
+ const complete=milestones[String(status.phase||'').toLowerCase()];
+ document.getElementById('lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
+ if(Number.isFinite(complete)){
+  document.getElementById('lawEditTrack').style.width=complete+'%';
+  document.getElementById('lawEditPercent').textContent='Jalons validés : '+complete+' % (pas une estimation du temps restant)';
+ }
+}
+function codexRecovery(error){
+ const raw=String(error?.message||error||'');
+ if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
+ const node=document.getElementById('lawChatStatus');
+ if(node)node.textContent=/authentif|login|401|token/i.test(raw)
+  ?'Codex demande une reconnexion. Ouvre « Connexion IA » pour te reconnecter.'
+  :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Connexion IA ».';
+ document.getElementById('lawMobileMenuToggle')?.classList.add('needs-attention');
+}
+
 function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
 // Action menu is attached only to messages written by the user.
 // Last means the most recently SENT user message (not the last assistant reply).
@@ -96,7 +145,7 @@ function message(text,role='assistant'){
  if(role==='user')sentMessageActions(item,String(text||''));
  chat.appendChild(item);scrollBottom();return item;
 }
-function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';}
+function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';refreshPublishing();}
 let previewCheck=0;
 async function preview(){
  if(!project)return;
@@ -190,7 +239,7 @@ function generationFeedback(result){
  message((result.summary||'Le site a été enregistré.')+mediaNote+durationNote+
   '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
   (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
-  '\\nLes devis sont disponibles depuis le dossier commercial et doivent être vérifiés avant émission.',
+  '\\nAprès validation, clique sur « Publier » pour accéder aux publicités et devis.',
   'assistant');
 }
 async function watchGeneration(id){
