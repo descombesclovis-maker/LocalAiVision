@@ -1856,6 +1856,9 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/localaivision":
             self.send_bytes((WEB/"index.html").read_bytes(),"text/html; charset=utf-8")
             return
+        if u.path == "/studio/brands":
+            self.send_bytes((WEB/"studio-brands.html").read_bytes(),"text/html; charset=utf-8")
+            return
         if u.path == "/api/ping":
             self.send_json({"app": "LocalVisionAI", "version": VERSION,
                             "build_tag": build_info().get("build_tag")})
@@ -2328,6 +2331,38 @@ class Handler(BaseHTTPRequestHandler):
         if u.path != "/api/update/install":
             with _auto_update_active_lock:
                 _auto_update_last_action = time.time()
+        if u.path == "/api/web/project/brand":
+            try:
+                from local_app import brand_catalog
+                store=_web_store()
+                project_id=body.get("id")
+                meta=store.meta(project_id)
+                brand_id=body.get("brand_id")
+                if brand_id:
+                    profile=brand_catalog.get_brand(DATA,brand_id)
+                    meta["brand_id"]=profile["id"]
+                    meta["brand_name"]=profile["name"]
+                else:
+                    meta.pop("brand_id",None)
+                    meta.pop("brand_name",None)
+                site=store.project_dir(project_id)/"site"
+                for dest in (site/"assets"/"brand-logo.png",
+                             site/"public"/"brand-logo.png"):
+                    # Files with this reserved name are managed by the brand
+                    # selector. All unrelated project assets are preserved.
+                    dest.unlink(missing_ok=True)
+                if brand_id and profile.get("logo_url"):
+                    logo=brand_catalog.logo_bytes(DATA,brand_id)
+                    for dest in (site/"assets"/"brand-logo.png",
+                                 site/"public"/"brand-logo.png"):
+                        dest.parent.mkdir(parents=True,exist_ok=True)
+                        dest.write_bytes(logo)
+                meta["updated_at"]=time.time()
+                store.write_meta(project_id,meta)
+                self.send_json(store.payload(project_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/studio/brand/save":
             try:
                 from local_app import brand_catalog
