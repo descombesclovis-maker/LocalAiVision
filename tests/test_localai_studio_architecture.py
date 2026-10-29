@@ -52,8 +52,20 @@ class StudioArchitectureTests(unittest.TestCase):
             self.assertGreaterEqual(result["jobs"][0]["elapsed_seconds"],89)
             self.assertEqual(result["jobs"][0]["detail"],"Création des pages…")
         activity=(WEB/"studio-activity.js").read_text(encoding="utf-8")
-        self.assertIn("/api/web/generations/active",activity)
+        self.assertIn("/api/studio/activity",activity)
         self.assertIn("window.location.assign(dest(first.id))",activity)
+
+    def test_real_comfyui_queue_in_cross_universe_progress(self):
+        with patch.object(server,"http_json",return_value={
+                "queue_running":[["1","prompt1",{}]],"queue_pending":[["2","prompt2",{}]]
+            }),patch.object(server,"_studio_media_status_cache",{
+                "at":0.0,"value":{"count":0,"running":0,"queued":0}}):
+            media=server._studio_media_status()
+            self.assertEqual(media["count"],2)
+            self.assertEqual(media["running"],1)
+            self.assertEqual(media["queued"],1)
+        js=(WEB/"studio-activity.js").read_text(encoding="utf-8")
+        self.assertIn("LocalAiVision · Photo / Vidéo",js)
 
     def test_logo_brand_round_trip_and_separate_projects(self):
         with tempfile.TemporaryDirectory() as temp:
