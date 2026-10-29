@@ -8,11 +8,19 @@
  if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
    // Refreshing the phone fetches *the currently installed PC build*.
    // It does not update a frozen Windows executable from GitHub.
-   btn.textContent='↻ Rafraîchir';
-   btn.title='Récupérer la version actuellement installée sur le PC';
-   btn.setAttribute('aria-label','Rafraîchir LocalAiWeb depuis le PC');
+   btn.textContent='↻ Mettre à jour le PC';
+   btn.title='Demander la mise à jour sécurisée du programme Windows depuis cet iPhone';
+   btn.setAttribute('aria-label','Mettre à jour LocalAiVision sur le PC depuis le téléphone');
    btn.disabled=false;
-   btn.addEventListener('click',()=>window.location.reload());
+   btn.addEventListener('click',async()=>{
+     btn.disabled=true;btn.textContent='Vérification du PC…';
+     try{
+       const result=await window.localAiWebPcUpdate?.check();
+       btn.textContent=result?.deferred?'Reportée · création active':
+         result?.updated?'Redémarrage du PC…':'✓ Vérification terminée';
+     }catch(error){btn.textContent='Erreur : '+error.message}
+     finally{window.setTimeout(()=>{btn.disabled=false;btn.textContent='↻ Mettre à jour le PC'},6500)}
+   });
    const status=document.getElementById('lawMobileBuildStatus');
    if(status){
      status.hidden=false;
@@ -25,11 +33,14 @@
          const response=await fetch('/api/update/check',{cache:'no-store'});
          if(!response.ok)return;
          const release=await response.json();
+         const state=release.automatic||{};
+         const suffix=state.enabled?' · Surveillance automatique active':
+           ' · Surveillance automatique désactivée sur ce PC';
          if(release.available){
            status.textContent='PC : '+current+' · Nouvelle version : '+
              (release.latest_build||'disponible')+
-             '. Mets à jour LocalAiVision sur le PC pour recevoir les corrections sur iPhone.';
-         }else status.textContent='PC : '+current+' · version publiée actuelle.';
+             '. Mise à jour du PC en préparation'+suffix+'.';
+         }else status.textContent='PC : '+current+' · version publiée actuelle'+suffix+'.';
        }catch{
          // Still report the exact server build if GitHub is unreachable.
        }
@@ -65,9 +76,13 @@
    }
    btn.textContent='Téléchargement…';
    const installed=await request('/api/update/install',{
-     method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+     method:'POST',headers:{'Content-Type':'application/json','X-LocalAiVision-Update':'1'},body:'{}'
    });
-   if(installed.updated){
+   if(installed.deferred){
+    btn.textContent='Mise à jour différée';
+    window.alert(installed.message||'Une génération en cours doit se terminer avant la mise à jour.');
+    window.setTimeout(()=>{btn.disabled=false;btn.textContent=label},3500);
+   }else if(installed.updated){
     btn.textContent='Redémarrage…';
     btn.title='La mise à jour a été téléchargée. Le logiciel va redémarrer.';
    }else{

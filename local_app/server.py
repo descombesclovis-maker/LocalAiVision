@@ -161,6 +161,16 @@ _engine_lock = threading.RLock()
 _comfy_lock = threading.Lock()
 _setup_lock = threading.Lock()
 _update_lock = threading.Lock()
+_auto_update_state_lock = threading.Lock()
+_auto_update_state = {
+    "enabled": False, "state": "inactive", "last_checked": None,
+    "next_check": None, "latest_build": None, "message": "",
+}
+_auto_update_started = False
+_auto_update_draft_seen = 0.0
+_auto_update_last_action = time.time()
+_auto_update_active_jobs = 0
+_auto_update_active_lock = threading.Lock()
 _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
@@ -227,12 +237,142 @@ def _update_asset_from_release(release):
     raise RuntimeError('Le dernier build ne contient pas le paquet Windows de mise à jour.')
 
 
+def _is_newer_update(latest_tag, current_tag):
+    """Only install increasing numeric CI release tags, never an older build."""
+    latest = re.fullmatch(r"build-(\d+)", str(latest_tag or ""))
+    current = re.fullmatch(r"build-(\d+)", str(current_tag or ""))
+    return bool(latest and current and int(latest.group(1)) > int(current.group(1)))
+
+
+def automatic_update_status():
+    with _auto_update_state_lock:
+        return dict(_auto_update_state)
+
+
+def _auto_update_set(**changes):
+    with _auto_update_state_lock:
+        _auto_update_state.update(changes)
+
+
+def _work_guard(fn, *args):
+    """Prevent updater restart while synchronous chat/media requests are active."""
+    global _auto_update_active_jobs, _auto_update_last_action
+    with _auto_update_active_lock:
+        _auto_update_active_jobs += 1
+        _auto_update_last_action = time.time()
+    try:
+        return fn(*args)
+    finally:
+        with _auto_update_active_lock:
+            _auto_update_active_jobs -= 1
+            _auto_update_last_action = time.time()
+
+
+def _work_guard_stream(chunks):
+    global _auto_update_active_jobs, _auto_update_last_action
+    with _auto_update_active_lock:
+        _auto_update_active_jobs += 1
+        _auto_update_last_action = time.time()
+    try:
+        yield from chunks
+    finally:
+        with _auto_update_active_lock:
+            _auto_update_active_jobs -= 1
+            _auto_update_last_action = time.time()
+
+
+def _update_busy_reason(include_grace=True):
+    """Avoid closing the program during a saved/unsaved generation or chat."""
+    if _setup_lock.locked() or STARTUP.get("state") == "running":
+        return "Installation des moteurs en cours."
+    with _web_generation_lock:
+        if any(job.get("state") == "running" for job in _web_generation_jobs.values()):
+            return "Création de site en cours."
+    with _auto_update_active_lock:
+        if _auto_update_active_jobs:
+            return "Discussion ou génération en cours."
+        if time.time() - _auto_update_draft_seen < 55:
+            return "Saisie non envoyée dans le navigateur."
+        if include_grace and time.time() - _auto_update_last_action < 80:
+            return "Activité récente : mise à jour différée."
+    if _comfy_lock.locked():
+        return "Génération ComfyUI en cours."
+    online, _detail = comfy_online()
+    if online:
+        try:
+            queue = http_json(COMFY + "/queue", timeout=3)
+            if queue.get("queue_running") or queue.get("queue_pending"):
+                return "Image ou vidéo en cours de génération."
+        except (OSError, ValueError, TypeError):
+            return "État du moteur de génération inconnu : report de sécurité."
+    elif _comfy_proc is not None and _comfy_proc.poll() is None:
+        return "Moteur ComfyUI en cours de démarrage."
+    return ""
+
+
+def _auto_update_monitor(stop_event, initial_delay=40, interval=240):
+    if stop_event.wait(initial_delay):
+        return
+    while not stop_event.is_set():
+        try:
+            reason = _update_busy_reason()
+            if reason:
+                _auto_update_set(state="deferred", message=reason)
+            else:
+                release = _latest_update_release()
+                latest = str(release.get("tag_name") or "")
+                _auto_update_set(last_checked=time.time(), latest_build=latest)
+                if _is_newer_update(latest, build_info()["build_tag"]):
+                    # Check a second time after network I/O to prevent
+                    # terminating active sessions that began during the check.
+                    reason = _update_busy_reason()
+                    if reason:
+                        _auto_update_set(state="deferred", message=reason)
+                    else:
+                        _auto_update_set(state="installing", message="Téléchargement automatique de " + latest)
+                        outcome = install_latest_update()
+                        if outcome.get("updated"):
+                            # PowerShell restarts the frozen executable; the
+                            # current process will exit after hand-off.
+                            return
+                        if outcome.get("deferred"):
+                            _auto_update_set(state="deferred",
+                                             message=outcome.get("message", "Travail en cours."))
+                        else:
+                            _auto_update_set(state="current", message="Application à jour.")
+                else:
+                    _auto_update_set(state="current", message="Application à jour.")
+        except Exception as exc:
+            _auto_update_set(state="error", message=str(exc)[:200])
+        _auto_update_set(next_check=time.time()+interval)
+        if stop_event.wait(interval):
+            return
+
+
+def start_auto_updates():
+    """One-time, per-running Windows EXE monitor; never touches source/dev/CI."""
+    global _auto_update_started
+    if (os.name != "nt" or not getattr(sys, "frozen", False)
+            or os.environ.get("LOCALVISIONAI_DISABLE_AUTO_UPDATE") == "1"
+            or os.environ.get("LOCALVISIONAI_UPDATE_SMOKE") == "1"):
+        return False
+    with _auto_update_state_lock:
+        if _auto_update_started:
+            return False
+        _auto_update_started = True
+        _auto_update_state.update(enabled=True, state="waiting", message="Surveillance des mises à jour activée.")
+    threading.Thread(target=_auto_update_monitor,
+                     args=(threading.Event(),), name="LocalAiVisionAutoUpdate",
+                     daemon=True).start()
+    return True
+
+
 def update_status():
     current = build_info()
     release = _latest_update_release()
     asset = _update_asset_from_release(release)
     latest_tag = str(release.get('tag_name') or '')
-    available = bool(latest_tag and latest_tag != current.get('build_tag'))
+    available = _is_newer_update(latest_tag, current.get('build_tag'))
     return {
         'ok': True,
         'available': available,
@@ -242,6 +382,7 @@ def update_status():
         'latest_build': latest_tag,
         'published_at': release.get('published_at'),
         'size': int(asset.get('size') or 0),
+        'automatic': automatic_update_status(),
     }
 
 
@@ -573,7 +714,11 @@ def _exit_for_update():
     os._exit(0)
 
 
-def install_latest_update():
+def install_latest_update(manual=False):
+    reason = _update_busy_reason(include_grace=not manual)
+    if reason:
+        return {'ok': True, 'updated': False, 'deferred': True,
+                'message': reason}
     if not _update_lock.acquire(blocking=False):
         raise RuntimeError('Une mise à jour est déjà en cours.')
     try:
@@ -581,9 +726,13 @@ def install_latest_update():
         release = _latest_update_release()
         asset = _update_asset_from_release(release)
         latest_tag = str(release.get('tag_name') or '')
-        if latest_tag == current.get('build_tag'):
+        if not _is_newer_update(latest_tag, current.get('build_tag')):
             return {'ok': True, 'updated': False, 'message': 'LocalVisionAI est déjà à jour.'}
         staged = _download_update_exe(release, asset)
+        # A generation may start during the multi-megabyte download.
+        reason = _update_busy_reason(include_grace=not manual)
+        if reason:
+            return {'ok': True, 'updated': False, 'deferred': True, 'message': reason}
         script, current_exe, log = _write_update_helper(staged)
         subprocess.Popen(
             [
@@ -1710,6 +1859,10 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             self.send_json({"online":online,"detail":detail,"url":COMFY,"llm":llm.status(), "startup": dict(STARTUP), "media": media, "version": VERSION})
             return
+        if u.path == "/api/update/automatic":
+            self.send_json({"ok": True, "automatic": automatic_update_status(),
+                            "build_tag": build_info().get("build_tag")})
+            return
         if u.path == "/api/update/check":
             try:
                 self.send_json(update_status())
@@ -2081,13 +2234,37 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_response(404); self.end_headers()
 
+    def _authorized_update_request(self):
+        """Require a same-origin application action, not a cross-site form."""
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "")
+        if (self.headers.get("X-LocalAiVision-Update") != "1"
+                or (origin and (
+                    urlparse(origin).scheme not in ("https", "http")
+                    or urlparse(origin).netloc.lower() != host.lower()))):
+            self.send_json({"error": "Action de mise à jour non autorisée."}, 403)
+            return False
+        return True
+
     def do_POST(self):
         u=urlparse(self.path)
+        global _auto_update_draft_seen, _auto_update_last_action
+        if u.path == "/api/update/draft" and not self._authorized_update_request():
+            return
         length=int(self.headers.get("Content-Length","0"))
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == "/api/update/draft":
+            if body.get("active") is True:
+                with _auto_update_active_lock:
+                    _auto_update_draft_seen = time.time()
+            self.send_json({"ok": True})
+            return
+        if u.path != "/api/update/install":
+            with _auto_update_active_lock:
+                _auto_update_last_action = time.time()
         if u.path == "/api/web/open-browser":
             try:
                 import webbrowser
@@ -2604,8 +2781,10 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e: self.send_json({"error":str(e)},400)
             return
         if u.path == "/api/update/install":
+            if not self._authorized_update_request():
+                return
             try:
-                self.send_json(install_latest_update())
+                self.send_json(install_latest_update(manual=True))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
@@ -2643,7 +2822,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self.wfile.write(b'{"ready":true}\n')
                 self.wfile.flush()
-                for chunk in run_chat_stream(body):
+                for chunk in _work_guard_stream(run_chat_stream(body)):
                     self.wfile.write((json.dumps({"delta": chunk}, ensure_ascii=False) + "\n").encode("utf-8"))
                     self.wfile.flush()
                 self.wfile.write(b'{"done":true}\n')
@@ -2657,7 +2836,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/chat":
             try:
-                answer = run_chat(body)
+                answer = _work_guard(run_chat, body)
                 self.send_json({"ok":True,"message":answer})
             except HTTPError as e:
                 try: detail=e.read().decode()
@@ -2667,7 +2846,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/generate":
             try:
-                self.send_json(run_generation(body))
+                self.send_json(_work_guard(run_generation, body))
             except HTTPError as e:
                 try: detail=e.read().decode()
                 except: detail=str(e)

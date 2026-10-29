@@ -373,7 +373,7 @@ function setup(){
      toast('Téléchargement sécurisé de '+title+' en cours…');
      updateVisual('Téléchargement et vérification de '+title+'…',true);
      const result=await api('/api/update/install',{
-       method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+       method:'POST',headers:{'Content-Type':'application/json','X-LocalAiVision-Update':'1'},body:'{}'});
      if(result.updated){
        updateVisual('La mise à jour '+title+' est téléchargée. Redémarrage en cours…',true);
        toast('Mise à jour '+title+' prête. Redémarrage de LocalAiVision…');

@@ -20,7 +20,11 @@ LocalAiWeb est une application web installable (PWA), avec sa propre icône et s
 
 L'icône reste installée : chaque ouverture de l'app va chercher les pages et scripts récents sur le PC. Les caches obsolètes sont retirés, les informations de projets ne sont jamais mises dans le cache hors ligne. En cas de nouvelle version du serveur pendant une session, l'application recharge à la réouverture/au retour au premier plan ; si un champ de saisie est actif, elle propose d'actualiser après la saisie.
 
-Pour bénéficier des changements que nous publions sur GitHub, **mettre à jour LocalAiVision sur le PC** avec son mécanisme existant. Le téléphone charge ensuite la nouvelle version sans réinstallation. Il n'y a pas d'app native ni de synchronisation indépendante des fichiers depuis un serveur cloud.
+À partir du **premier lancement d'une version Windows équipée de la surveillance automatique**, le PC vérifie les nouvelles versions publiées régulièrement (environ toutes les 4 minutes après la période initiale), puis télécharge, vérifie et installe le nouveau programme sans intervention devant le PC, quand il n'y a pas de création ni de saisie en cours. Un redémarrage de l'application Windows est nécessaire pour remplacer l'exécutable. Le script de mise à jour vérifie ensuite le nouveau build et revient à la version précédente si le lancement échoue.
+
+Sur iPhone, la vérification au lancement peut aussi déclencher cette mise à jour, et le bouton « Mettre à jour le PC » permet de la demander à distance. Pendant le remplacement, le site peut être momentanément inaccessible ; il se reconnecte dès que le PC sert le nouveau build.
+
+**Amorçage unique indispensable :** un PC qui utilise encore un ancien exécutable ne peut pas bénéficier du code de mise à jour automatique avant l'installation du premier build contenant cette fonctionnalité. Par la suite, aucune réinstallation manuelle de l'application iPhone ni intervention sur le PC ne sont nécessaires pour les prochaines versions publiées, tant que le PC reste allumé, le serveur actif, Tailscale connecté et le téléchargement GitHub accessible. Si Windows refuse le remplacement, le journal local `%LOCALAPPDATA%\\LocalVisionAI\\logs\\update.log` explique l'échec. Définir `LOCALVISIONAI_DISABLE_AUTO_UPDATE=1` avant le lancement du programme désactive la surveillance si souhaité.
 
 ## Fluidité et limites honnêtes
 
@@ -31,5 +35,5 @@ Une connexion privée Tailscale ne doit être partagée qu'avec des appareils de
 ## Dépannage rapide
 
 - L'adresse ne fonctionne pas : vérifier que LocalVisionAI.exe est ouvert, que `/api/ping` fonctionne depuis le PC, que Tailscale indique « connecté » sur les deux appareils, et que le PC n'est pas en veille.
-- La PWA reste ancienne : mettre à jour le logiciel PC, fermer puis rouvrir l'icône sur iPhone ; vérifier l'identifiant build retourné par `/api/ping`.
+- La PWA reste ancienne : consulter `/api/ping` sur l'adresse Tailscale. Si le `build_tag` reste ancien, ouvrir le bouton « Mettre à jour le PC » depuis LocalAiWeb ou consulter `/api/update/automatic` et `/api/update/diagnostics`. Si le PC est arrêté ou si son ancienne version ne connaît pas le nouveau mécanisme, un rafraîchissement Safari ne peut pas mettre à jour l'exécutable Windows.
 - Une page 3D saccade : réduire les effets/chargements **dans le site généré**, sans affecter la résolution des fichiers ou les réglages de génération PC.

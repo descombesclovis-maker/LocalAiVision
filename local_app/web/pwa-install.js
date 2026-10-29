@@ -9,6 +9,95 @@
  let worker=null,knownBuild=null,checking=false,lastCheck=0,refreshQueued=false;
  let controllerExisted=Boolean(navigator.serviceWorker?.controller);
  const mobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+ let pcUpdateChecking=false,lastPcUpdateCheck=0,pcUpdatePolling=false,lastDraftNotice=0;
+ let pcUpdateNote=null;
+ const updateHeaders={'Content-Type':'application/json','X-LocalAiVision-Update':'1'};
+ function showPcUpdate(text){
+   if(!mobile)return;
+   if(!pcUpdateNote){
+     pcUpdateNote=document.createElement('div');
+     pcUpdateNote.id='localaiPcUpdateStatus';
+     pcUpdateNote.setAttribute('role','status');
+     pcUpdateNote.style.cssText='position:fixed;z-index:2147483600;left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom));max-width:470px;margin:auto;padding:13px 15px;background:#281a39;color:#fff;border:1px solid #ad88df;border-radius:13px;box-shadow:0 10px 38px #000a;font:13px/1.5 system-ui';
+     document.body.appendChild(pcUpdateNote);
+   }
+   pcUpdateNote.textContent=text;
+ }
+ async function waitForPcBuild(target){
+   if(pcUpdatePolling)return;
+   pcUpdatePolling=true;
+   showPcUpdate('Le PC installe '+target+'. Reconnexion automatique après redémarrage…');
+   for(let i=0;i<55;i++){
+     await new Promise(resolve=>setTimeout(resolve,4000));
+     try{
+       const response=await fetch('/api/ping',{cache:'no-store'});
+       if(!response.ok)continue;
+       const info=await response.json();
+       if(info.app==='LocalVisionAI'&&info.build_tag===target){
+         location.reload();return;
+       }
+     }catch{}
+   }
+   pcUpdatePolling=false;
+   showPcUpdate('Le PC n’a pas encore confirmé la nouvelle version. Tu peux fermer puis rouvrir LocalAiWeb.');
+ }
+ async function updatePcFromPhone(force=false){
+   if(!mobile||pcUpdateChecking||pcUpdatePolling||document.hidden)return null;
+   if(!force && Date.now()-lastPcUpdateCheck<180000)return null;
+   pcUpdateChecking=true;lastPcUpdateCheck=Date.now();
+   try{
+     if(isEditing()){
+       void sendDraftHeartbeat();
+       return {deferred:true,message:'Une saisie en cours est préservée.'};
+     }
+     const response=await fetch('/api/update/check',{cache:'no-store'});
+     if(!response.ok)throw Error('Vérification GitHub indisponible.');
+     const status=await response.json();
+     if(!status.available)return status;
+     const result=await fetch('/api/update/install',{
+       method:'POST',headers:updateHeaders,body:'{}',
+       credentials:'same-origin',cache:'no-store'
+     });
+     const data=await result.json();
+     if(!result.ok||data.error)throw Error(data.error||'Installation refusée.');
+     if(data.updated && data.latest_build){
+       void waitForPcBuild(data.latest_build);
+     }else if(data.deferred){
+       showPcUpdate('Mise à jour '+(status.latest_build||'')+
+         ' différée pour protéger ton travail : '+(data.message||'activité en cours')+
+         '. Elle sera retentée automatiquement.');
+     }
+     return data;
+   }catch(error){
+     if(force)showPcUpdate('Mise à jour du PC : '+error.message);
+     return {error:error.message};
+   }finally{pcUpdateChecking=false}
+ }
+ async function sendDraftHeartbeat(){
+   if(!mobile||document.hidden||Date.now()-lastDraftNotice<12000)return;
+   const active=document.activeElement;
+   const typed=Boolean(active?.matches?.('textarea,input:not([type=checkbox]):not([type=radio]):not([type=hidden])') &&
+                       typeof active.value==='string' && active.value.trim());
+   const pending=Array.from(document.querySelectorAll(
+     '#lawPrompt, #prompt, #lawInspectorPrompt, #projectName'
+   )).some(el=>Boolean(el.value?.trim()));
+   if(!typed&&!pending)return;
+   lastDraftNotice=Date.now();
+   try{
+     await fetch('/api/update/draft',{method:'POST',
+       headers:updateHeaders,body:JSON.stringify({active:true}),
+       credentials:'same-origin',keepalive:true
+     });
+   }catch{}
+ }
+ window.localAiWebPcUpdate={check:()=>updatePcFromPhone(true)};
+ if(mobile){
+   document.addEventListener('input',()=>{void sendDraftHeartbeat()},{passive:true});
+   window.setInterval(()=>{void sendDraftHeartbeat()},18000);
+   // A phone launch checks for a newer *Windows release* and can trigger the
+   // existing verified updater, not merely an HTML refresh.
+   window.setTimeout(()=>{void updatePcFromPhone()},2800);
+ }
  const isEditing=()=>Boolean(
     document.activeElement && (
       (document.activeElement.matches?.('textarea') &&
@@ -60,6 +149,8 @@
    if(document.hidden)return;
    try{await worker?.update()}catch{}
    void checkLatest();
+   void sendDraftHeartbeat();
+   void updatePcFromPhone();
  }
  if('serviceWorker' in navigator){
    navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -79,6 +170,6 @@
  });
  window.addEventListener('focus',()=>{void onForeground()});
  // Also catches a build that completes while the mobile page stays open.
- window.setInterval(()=>{if(!document.hidden)void checkLatest()},120000);
+ window.setInterval(()=>{if(!document.hidden){void checkLatest();void updatePcFromPhone()}},120000);
  void checkLatest();
 })();
