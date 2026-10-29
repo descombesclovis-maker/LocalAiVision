@@ -1,26 +1,22 @@
-/* Application shell only. Never cache APIs, generated files, uploaded media or project content. */
-const CACHE='localai-shell-20261028-google-pro-chat-v1';
-const STATIC=new Set(['/assets/style.css','/assets/app.js','/assets/intent.js','/assets/styles.js',
- '/assets/localaiweb.css','/assets/localaiweb.js','/assets/localaiweb-map.css',
- '/assets/localaiweb-map.js','/assets/localaiweb-google-map.js','/assets/studio-redesign.css','/assets/studio-redesign.js',
- '/assets/studio-suite.css','/assets/localaiweb-clients.css','/assets/localaiweb-clients.js',
- '/assets/localaiweb-projects.css','/assets/localaiweb-projects.js',
- '/assets/app-icon.svg','/assets/brand-vision.svg','/assets/brand-web.svg',
- '/assets/brand-identity.svg','/assets/brand-web-identity.svg',
- '/assets/localaiweb-agent.js','/assets/manifest.webmanifest','/assets/pwa-install.js']);
+/* Online-only PWA: always fetch the newest application from the trusted PC.
+   Older app-shell caches are deleted; private projects, APIs and previews
+   must never be retained by a service worker on the phone. */
+const VERSION='localai-pwa-online-20261029-v2';
 self.addEventListener('install',event=>{
- event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll([...STATIC])).then(()=>self.skipWaiting()));
+  event.waitUntil(self.skipWaiting());
 });
 self.addEventListener('activate',event=>{
- event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('localai-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(k=>k.startsWith('localai-shell-'))
+        .map(k=>caches.delete(k))))
+      .then(()=>self.clients.claim())
+  );
 });
 self.addEventListener('fetch',event=>{
- const req=event.request;
- if(req.method!=='GET'||new URL(req.url).origin!==self.location.origin)return;
- const url=new URL(req.url);
- if(!STATIC.has(url.pathname))return; // intentionally network-only for projects and user information
- event.respondWith(fetch(req).then(response=>{
-   if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(req,copy)));}
-   return response;
- }).catch(()=>caches.match(req)));
+  const request=event.request;
+  if(request.method!=='GET'||new URL(request.url).origin!==self.location.origin)return;
+  // Browser uses network for all routes. There is no stale offline screen that
+  // pretends generation, CRM or media are usable without the desktop server.
+  event.respondWith(fetch(request));
 });
