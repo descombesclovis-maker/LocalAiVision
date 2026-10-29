@@ -239,8 +239,8 @@ def _update_asset_from_release(release):
 
 def _is_newer_update(latest_tag, current_tag):
     """Only install increasing numeric CI release tags, never an older build."""
-    latest = re.fullmatch(r"build-(\\d+)", str(latest_tag or ""))
-    current = re.fullmatch(r"build-(\\d+)", str(current_tag or ""))
+    latest = re.fullmatch(r"build-(\d+)", str(latest_tag or ""))
+    current = re.fullmatch(r"build-(\d+)", str(current_tag or ""))
     return bool(latest and current and int(latest.group(1)) > int(current.group(1)))
 
 
@@ -254,7 +254,7 @@ def _auto_update_set(**changes):
         _auto_update_state.update(changes)
 
 
-def _update_busy_reason():
+def _update_busy_reason(include_grace=True):
     """Avoid closing the program during a saved/unsaved generation or chat."""
     if _setup_lock.locked() or STARTUP.get("state") == "running":
         return "Installation des moteurs en cours."
@@ -266,7 +266,7 @@ def _update_busy_reason():
             return "Discussion ou génération en cours."
         if time.time() - _auto_update_draft_seen < 55:
             return "Saisie non envoyée dans le navigateur."
-        if time.time() - _auto_update_last_action < 80:
+        if include_grace and time.time() - _auto_update_last_action < 80:
             return "Activité récente : mise à jour différée."
     if _comfy_lock.locked():
         return "Génération ComfyUI en cours."
@@ -679,8 +679,8 @@ def _exit_for_update():
     os._exit(0)
 
 
-def install_latest_update():
-    reason = _update_busy_reason()
+def install_latest_update(manual=False):
+    reason = _update_busy_reason(include_grace=not manual)
     if reason:
         return {'ok': True, 'updated': False, 'deferred': True,
                 'message': reason}
@@ -695,7 +695,7 @@ def install_latest_update():
             return {'ok': True, 'updated': False, 'message': 'LocalVisionAI est déjà à jour.'}
         staged = _download_update_exe(release, asset)
         # A generation may start during the multi-megabyte download.
-        reason = _update_busy_reason()
+        reason = _update_busy_reason(include_grace=not manual)
         if reason:
             return {'ok': True, 'updated': False, 'deferred': True, 'message': reason}
         script, current_exe, log = _write_update_helper(staged)
@@ -2195,13 +2195,37 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_response(404); self.end_headers()
 
+    def _authorized_update_request(self):
+        """Require a same-origin application action, not a cross-site form."""
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "")
+        if (self.headers.get("X-LocalAiVision-Update") != "1"
+                or (origin and (
+                    urlparse(origin).scheme not in ("https", "http")
+                    or urlparse(origin).netloc.lower() != host.lower()))):
+            self.send_json({"error": "Action de mise à jour non autorisée."}, 403)
+            return False
+        return True
+
     def do_POST(self):
         u=urlparse(self.path)
+        global _auto_update_draft_seen, _auto_update_last_action
+        if u.path == "/api/update/draft" and not self._authorized_update_request():
+            return
         length=int(self.headers.get("Content-Length","0"))
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == "/api/update/draft":
+            if body.get("active") is True:
+                with _auto_update_active_lock:
+                    _auto_update_draft_seen = time.time()
+            self.send_json({"ok": True})
+            return
+        if u.path != "/api/update/install":
+            with _auto_update_active_lock:
+                _auto_update_last_action = time.time()
         if u.path == "/api/web/open-browser":
             try:
                 import webbrowser
@@ -2718,8 +2742,10 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e: self.send_json({"error":str(e)},400)
             return
         if u.path == "/api/update/install":
+            if not self._authorized_update_request():
+                return
             try:
-                self.send_json(install_latest_update())
+                self.send_json(install_latest_update(manual=True))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
