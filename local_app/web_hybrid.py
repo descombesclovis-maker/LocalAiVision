@@ -320,6 +320,10 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     """
     import time
     from local_app import web_browser_qa, web_content_contract, web_site_architecture, web_creative_direction
+    generation_start=time.monotonic()
+    agent_seconds=0.0
+    quality_seconds=0.0
+    visual_seconds=0.0
     def update(phase, message):
         if progress:
             progress(phase, message)
@@ -369,9 +373,13 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     store.append_chat(project_id, 'user', user_prompt)
     store.snapshot(project_id, 'Avant : génération hybride')
     update("building", "L'agent construit le site et ses fonctionnalités…")
+    stage_started=time.monotonic()
     result = agent(site, instruction)
+    agent_seconds += time.monotonic()-stage_started
     update("verification", "Compilation et contrôles du site produit…")
+    stage_started=time.monotonic()
     report = code_quality_report(store, project_id, full_brief, integrations)
+    quality_seconds += time.monotonic()-stage_started
     repair_count = 0
 
     if not report['ok']:
@@ -380,10 +388,14 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         findings.extend({'fix': row.get('label', 'Qualité insuffisante')}
                         for row in report['preflight'].get('blockers', []))
         update("repair", "L'agent corrige les défauts de code ou de mise en page détectés…")
+        stage_started=time.monotonic()
         agent(site, contract_repair_prompt(full_brief, findings) + '\n' + contract_text +
               '\n' + web_creative_direction.instructions(full_brief, spec_name))
+        agent_seconds += time.monotonic()-stage_started
         repair_count += 1
+        stage_started=time.monotonic()
         report = code_quality_report(store, project_id, full_brief, integrations)
+        quality_seconds += time.monotonic()-stage_started
 
     # An otherwise complete site should not be discarded because one or two
     # visible English labels survived the general-purpose repair pass. Run one
@@ -391,6 +403,7 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     remaining = report.get('findings', [])
     if remaining and all(item.get('id') == 'english_ui' for item in remaining) and report.get('syntax', {}).get('ok'):
         update("localization", "Traduction des derniers libellés visibles encore en anglais…")
+        stage_started=time.monotonic()
         agent(site,
               "CORRECTION CIBLÉE : le site fonctionne, mais des textes visibles restent en anglais. "
               "Modifie UNIQUEMENT les libellés de l'interface et leurs traductions. "
@@ -398,24 +411,38 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
               "Ne crée pas de site différent. Contrôle navigation, boutons, formulaires, galeries et titres.\n" +
               "\n".join("- "+item.get('fix','') for item in remaining) +
               "\n" + contract_text)
+        agent_seconds += time.monotonic()-stage_started
         repair_count += 1
+        stage_started=time.monotonic()
         report = code_quality_report(store, project_id, full_brief, integrations)
+        quality_seconds += time.monotonic()-stage_started
+
+    if first_preview and report["ok"]:
+        update("preview", "Première prévisualisation compilée et contrôlée : site visible.")
 
     visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
               'screenshots': []}
     if report['ok'] and not first_preview:
         update("visual", "Analyse du site dans un navigateur sur ordinateur, tablette et téléphone…")
+        stage_started=time.monotonic()
         visual = web_browser_qa.review(site, build=report.get('build'))
+        visual_seconds += time.monotonic()-stage_started
         # Later refinements still get the full creative screenshot review.
         if visual.get('reviewed') and visual.get('screenshots'):
             update("design", "L'agent examine les captures et améliore la direction artistique…")
+            stage_started=time.monotonic()
             agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
                   '\n' + contract_text +
                   '\n' + web_creative_direction.instructions(full_brief, spec_name))
+            agent_seconds += time.monotonic()-stage_started
             repair_count += 1
+            stage_started=time.monotonic()
             report = code_quality_report(store, project_id, full_brief, integrations)
+            quality_seconds += time.monotonic()-stage_started
             if report['ok']:
+                stage_started=time.monotonic()
                 visual = web_browser_qa.review(site, build=report.get('build'))
+                visual_seconds += time.monotonic()-stage_started
             else:
                 visual = {'status': 'failed', 'reviewed': False,
                           'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
@@ -451,6 +478,16 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     meta['updated_at'] = time.time()
     meta['last_summary'] = str(result.get('summary') or 'Site créé par un agent de développement')[-400:]
     meta['last_quality_score'] = report['preflight'].get('score')
+    generation_metrics = {
+        'total_seconds': round(time.monotonic()-generation_start,2),
+        'agent_seconds': round(agent_seconds,2),
+        'quality_seconds': round(quality_seconds,2),
+        'visual_seconds': round(visual_seconds,2),
+        'repairs': repair_count,
+        'first_preview': bool(first_preview),
+        'visual_review': visual.get('status'),
+    }
+    meta['last_generation_metrics'] = generation_metrics
     meta['last_agent_quality'] = {
         'ok': report['ok'], 'visual': visual.get('status'),
         'issues': [f['id'] for f in report['findings']],
@@ -476,4 +513,5 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     payload['hybrid_validation'] = {**report, 'visual': visual,
                                     'repairs': repair_count}
     payload['visuals'] = visuals
+    payload['generation_metrics'] = generation_metrics
     return payload
