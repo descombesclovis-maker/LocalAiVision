@@ -113,6 +113,63 @@ def _web_generation_status(project_id):
         result["preview_ready"] = False
     return result
 
+def _web_active_generations():
+    """Small, accurate cross-workspace generation summary.
+
+    Jobs continue in server worker threads after navigation. No private prompt,
+    source code or asset path is included in this lightweight status endpoint.
+    """
+    with _web_generation_lock:
+        jobs=[(pid, dict(job)) for pid,job in _web_generation_jobs.items()
+              if job.get("state")=="running"]
+    with _web_progress_lock:
+        phases={pid:dict(_web_progress_rows.get(pid) or {}) for pid,_ in jobs}
+    results=[]
+    store=_web_store()
+    for pid,job in jobs[:24]:
+        try:
+            meta=store.meta(pid)
+        except (OSError,ValueError,KeyError,TypeError):
+            continue
+        progress=phases.get(pid,{})
+        started=float(job.get("started_at") or time.time())
+        results.append({"id":pid, "name":str(meta.get("name") or "Site sans nom")[:80],
+                        "state":"running", "phase":str(progress.get("phase") or job.get("phase") or "building")[:36],
+                        "detail":str(progress.get("detail") or "Création du site en cours…")[:140],
+                        "started_at":started, "elapsed_seconds":max(0,int(time.time()-started))})
+    return {"count":len(jobs), "jobs":sorted(results,key=lambda x:x["started_at"],reverse=True)}
+
+
+_studio_media_status_cache={"at":0.0,"value":{"count":0,"running":0,"queued":0}}
+_studio_media_status_lock=threading.Lock()
+
+
+def _studio_media_status():
+    # ComfyUI owns the real image/video queue. Never mark a media render
+    # complete, or invent a percentage, until ComfyUI reports its state.
+    now=time.time()
+    with _studio_media_status_lock:
+        if now-_studio_media_status_cache["at"]<3:
+            return dict(_studio_media_status_cache["value"])
+    try:
+        queue=http_json(COMFY+"/queue",timeout=2)
+        active=len(queue.get("queue_running") or [])
+        waiting=len(queue.get("queue_pending") or [])
+        value={"count":active+waiting,"running":active,"queued":waiting}
+    except (OSError,ValueError,TypeError,TimeoutError):
+        value={"count":0,"running":0,"queued":0,"unavailable":True}
+    with _studio_media_status_lock:
+        _studio_media_status_cache.update(at=now,value=value)
+    return value
+
+
+def _studio_activity_status():
+    web=_web_active_generations()
+    media=_studio_media_status()
+    return {"count":int(web["count"])+int(media["count"]),
+            "jobs":web["jobs"],"media":media}
+
+
 def _web_start_generation(project_id, prompt):
     store = _web_store()
     meta = store.meta(project_id)
@@ -1821,24 +1878,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
-        if u.path == "/":
-            # Mobile root launches LocalAiWeb even if an existing home-screen
-            # shortcut was installed from the older LocalAiVision landing.
-            # Offer explicit opt-in for users who still need the original
-            # LocalAiVision workspace on their phone: /?studio=vision.
-            # Never redirect desktop/WebView localhost traffic.
-            ua = self.headers.get("User-Agent", "").lower()
-            wants_vision = parse_qs(u.query).get("studio", [""])[0] == "vision"
-            if not wants_vision and any(
-                token in ua for token in ("iphone", "ipad", "ipod", "android")
-            ):
-                self.send_response(302)
-                self.send_header("Location", "/localaiweb")
-                self.send_header("Cache-Control", "no-store, max-age=0")
-                self.send_header("Vary", "User-Agent")
-                self.send_header("Content-Length", "0")
-                self.end_headers()
-                return
+        # The same clear universe selector is served on PC and phone.
+        # Keep the original LocalAiVision engine at a dedicated, stable URL.
+        if u.path in ("/", "/studio") and parse_qs(u.query).get("studio", [""])[0] != "vision":
+            self.send_bytes((WEB/"localai-studio.html").read_bytes(),"text/html; charset=utf-8")
+            return
+        if u.path == "/localaivision":
+            self.send_bytes((WEB/"index.html").read_bytes(),"text/html; charset=utf-8")
+            return
+        if u.path == "/studio/brands":
+            self.send_bytes((WEB/"studio-brands.html").read_bytes(),"text/html; charset=utf-8")
+            return
         if u.path == "/api/ping":
             self.send_json({"app": "LocalVisionAI", "version": VERSION,
                             "build_tag": build_info().get("build_tag")})
@@ -2084,6 +2134,36 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
+        if u.path == "/api/studio/activity":
+            self.send_json(_studio_activity_status())
+            return
+        if u.path == "/api/studio/brands":
+            try:
+                from local_app import brand_catalog
+                self.send_json(brand_catalog.list_brands(DATA))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},500)
+            return
+        if u.path == "/api/studio/brand/logo":
+            try:
+                from local_app import brand_catalog
+                brand_id=parse_qs(u.query).get("id",[""])[0]
+                self.send_bytes(brand_catalog.logo_bytes(DATA,brand_id),"image/png")
+            except (ValueError,FileNotFoundError):
+                self.send_json({"error":"Logo introuvable."},404)
+            return
+        if u.path == "/api/studio/advert/file":
+            try:
+                from local_app import brand_catalog
+                name=parse_qs(u.query).get("name",[""])[0]
+                file=brand_catalog.advert_file(DATA,name)
+                self.send_bytes(file.read_bytes(),"video/mp4" if file.suffix==".mp4" else "image/png")
+            except (ValueError,FileNotFoundError):
+                self.send_json({"error":"Publicité introuvable."},404)
+            return
+        if u.path == "/api/web/generations/active":
+            self.send_json(_web_active_generations())
+            return
         if u.path == "/api/web/projects":
             self.send_json({"projects": _web_store().list_projects()})
             return
@@ -2247,12 +2327,30 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _authorized_brand_request(self):
+        origin=self.headers.get("Origin","")
+        host=self.headers.get("Host","")
+        if (self.headers.get("X-LocalAI-Brand")!="1"
+                or (origin and (
+                    urlparse(origin).scheme not in ("https","http")
+                    or urlparse(origin).netloc.lower()!=host.lower()))):
+            self.send_json({"error":"Modification de marque non autorisée."},403)
+            return False
+        return True
+
     def do_POST(self):
         u=urlparse(self.path)
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/update/draft" and not self._authorized_update_request():
             return
+        if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
+                      "/api/studio/advert/delete","/api/web/project/brand") and not self._authorized_brand_request():
+            return
         length=int(self.headers.get("Content-Length","0"))
+        if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
+                      "/api/studio/advert/delete","/api/web/project/brand") and (length<0 or length>6_000_000):
+            self.send_json({"error":"Requête de marque trop volumineuse."},413)
+            return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
@@ -2266,6 +2364,59 @@ class Handler(BaseHTTPRequestHandler):
         if u.path != "/api/update/install":
             with _auto_update_active_lock:
                 _auto_update_last_action = time.time()
+        if u.path == "/api/web/project/brand":
+            try:
+                from local_app import brand_catalog
+                store=_web_store()
+                project_id=body.get("id")
+                meta=store.meta(project_id)
+                brand_id=body.get("brand_id")
+                if brand_id:
+                    profile=brand_catalog.get_brand(DATA,brand_id)
+                    meta["brand_id"]=profile["id"]
+                    meta["brand_name"]=profile["name"]
+                else:
+                    meta.pop("brand_id",None)
+                    meta.pop("brand_name",None)
+                site=store.project_dir(project_id)/"site"
+                for dest in (site/"assets"/"brand-logo.png",
+                             site/"public"/"brand-logo.png"):
+                    # Files with this reserved name are managed by the brand
+                    # selector. All unrelated project assets are preserved.
+                    dest.unlink(missing_ok=True)
+                if brand_id and profile.get("logo_url"):
+                    logo=brand_catalog.logo_bytes(DATA,brand_id)
+                    for dest in (site/"assets"/"brand-logo.png",
+                                 site/"public"/"brand-logo.png"):
+                        dest.parent.mkdir(parents=True,exist_ok=True)
+                        dest.write_bytes(logo)
+                meta["updated_at"]=time.time()
+                store.write_meta(project_id,meta)
+                self.send_json(store.payload(project_id))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/studio/brand/save":
+            try:
+                from local_app import brand_catalog
+                self.send_json({"ok":True,"brand":brand_catalog.save_brand(DATA,body)})
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/studio/advert/render":
+            try:
+                from local_app import brand_catalog
+                self.send_json(brand_catalog.render_advert(DATA,COMFY,body))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/studio/advert/delete":
+            try:
+                from local_app import brand_catalog
+                self.send_json(brand_catalog.delete_advert(DATA,body.get("filename","")))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/open-browser":
             try:
                 import webbrowser
@@ -2322,7 +2473,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(web_assets_bridge.import_generation(
                     _web_store(),_comfy_working_dir(),body.get("project_id"),
                     body.get("filename"),body.get("subfolder",""),
-                    body.get("type","output")))
+                    body.get("type","output"),advert_root=DATA))
             except Exception as exc:
                 self.send_json({"error":str(exc)},400)
             return

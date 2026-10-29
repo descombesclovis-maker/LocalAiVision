@@ -134,7 +134,7 @@
        method:'POST',headers:{'Content-Type':'application/json'},
        body:JSON.stringify({
          project_id:selection.value,filename:pendingAsset.filename,
-         subfolder:pendingAsset.subfolder||'',type:pendingAsset.type||'output'
+         subfolder:pendingAsset.subfolder||'',type:pendingAsset.ad_url?'advert':(pendingAsset.type||'output')
        })
      });
      feedback.replaceChildren();

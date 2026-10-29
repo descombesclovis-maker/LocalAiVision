@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalVisionAI</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
+<link rel="stylesheet" href="/assets/studio-ui-polish.css">
+</head>
 <body class="is-landing">
 <div class="app">
   <aside class="sidebar closed" id="sidebar" aria-label="Navigation LocalAiVision">
@@ -65,7 +67,8 @@
       <button class="open-sidebar" id="openSidebar" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
       <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
       <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
-      <div class="topbar-actions">
+      <div class="topbar-actions"><a href="/studio" class="topbar-action studio-universe-link" title="Changer d’univers">◈ <span>Univers</span></a>
+        <button id="studioAdOpen" class="topbar-action studio-ad-entry" type="button" title="Créer une publicité avec l’identité d’une marque">✦ <span>Publicité</span></button>
         <button class="topbar-action" id="historyBtn" type="button" title="Reprendre une conversation enregistrée" aria-label="Historique des conversations">◷ <span>Historique</span></button>
         <button class="topbar-action" id="newConversation" type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation">＋ <span>Nouvelle discussion</span></button>
         <button id="updateBtn" class="topbar-action update-button" type="button" title="Vérifier la mise à jour et afficher le résultat" aria-label="Mettre à jour l'application">↻ <span>Mise à jour</span></button>
@@ -201,6 +204,22 @@
   </main>
 </div>
 
+<dialog id="studioAdDialog" class="studio-ad-dialog" aria-labelledby="studioAdTitle">
+ <form id="studioAdForm">
+ <header class="studio-ad-header"><div><span>LOCALAI STUDIO · PUBLICITÉ</span><h2 id="studioAdTitle">Créer une publicité</h2></div><button id="studioAdClose" type="button" aria-label="Fermer">×</button></header>
+ <p class="studio-ad-intro">Utilise la véritable identité de ton client pour générer une photo ou une vidéo publicitaire. Son logo sera ajouté précisément après la génération.</p>
+ <div class="studio-ad-fields">
+ <label class="studio-ad-wide">Identité de l’entreprise <select id="studioAdBrand" required><option value="">Choisir une marque enregistrée…</option></select></label>
+ <a class="studio-ad-manage" href="/studio/brands">Gérer les marques et importer un logo ↗</a>
+ <label>Type de création<select id="studioAdType"><option value="image">Image publicitaire</option><option value="video">Vidéo publicitaire</option></select></label>
+ <label>Format<select id="studioAdFormat"><option value="portrait">9:16 · Reels / Stories</option><option value="square">1:1 · Publication</option><option value="landscape">16:9 · Site / YouTube</option></select></label>
+ <label>Objectif<select id="studioAdGoal"><option value="presentation">Présenter l’entreprise</option><option value="product">Mettre en valeur un produit</option><option value="booking">Obtenir des réservations</option><option value="offer">Présenter une offre</option></select></label>
+ <label class="studio-ad-wide">Idée de publicité<textarea id="studioAdIdea" rows="3" required placeholder="Ex. : un salon de coiffure élégant, plans cinématographiques, clients souriants…"></textarea></label>
+ </div>
+ <div class="studio-ad-foot"><p id="studioAdError" role="status"></p><button type="button" id="studioAdCancel">Annuler</button><button type="submit" id="studioAdCreate">Créer la publicité ↗</button></div>
+ </form>
+</dialog>
+
 <div class="modal-backdrop hidden" id="modelModal">
   <div class="model-modal step-modal" role="dialog" aria-modal="true">
     <div class="modal-head">
@@ -241,6 +260,8 @@
 <script src="/assets/mask.js"></script>
 <script src="/assets/styles.js"></script>
 <script src="/assets/app.js"></script>
+<script src="/assets/studio-ads.js" defer></script>
 <script src="/assets/studio-redesign.js" defer></script>
 <script src="/assets/pwa-install.js" defer></script>
+<script src="/assets/studio-activity.js" defer></script>
 </body></html>

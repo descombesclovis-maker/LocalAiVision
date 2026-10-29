@@ -58,12 +58,14 @@ jobs:
             --version-file "build\branding\version_info.txt" ^
             --collect-all webview ^
             --collect-all reportlab ^
+            --collect-all PIL ^
             --hidden-import local_app ^
             --hidden-import local_app.bootstrap_windows ^
             --hidden-import local_app.server ^
             --hidden-import local_app.llm ^
             --hidden-import local_app.workflows ^
             --hidden-import local_app.web_builder ^
+            --hidden-import local_app.brand_catalog ^
             --hidden-import local_app.web_briefing ^
             --hidden-import local_app.web_hybrid ^
             --hidden-import local_app.web_business_map ^

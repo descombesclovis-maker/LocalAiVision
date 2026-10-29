@@ -1,0 +1,36 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#11101a">
+<title>Identités de marque · LocalAI Studio</title>
+<link rel="icon" href="/assets/brand-studio.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/studio-brands.css">
+<link rel="stylesheet" href="/assets/studio-activity.css">
+<link rel="stylesheet" href="/assets/studio-ui-polish.css">
+</head><body>
+<main class="brands-shell">
+ <header class="brands-header"><a class="brands-brand" href="/studio"><img src="/assets/brand-studio.svg" alt="" width="43" height="43"><span>LocalAI <b>Studio</b></span></a><nav aria-label="Navigation"><a href="/localaiweb">LocalAiWeb</a><a href="/localaivision">LocalAiVision</a></nav></header>
+ <section class="brands-heading"><span class="brands-kicker">IDENTITÉ PARTAGÉE</span><h1>Les marques de vos clients.</h1><p>Un logo authentique, des couleurs et un message cohérent pour leurs sites, visuels et publicités. Les fichiers d'origine ne sont jamais modifiés.</p>
+ <button class="brands-primary" id="newBrand" type="button">+ Ajouter une marque</button></section>
+ <div class="brands-section"><div><h2>Bibliothèque de marques</h2><p>Choisissez une fiche pour retrouver ou modifier son identité.</p></div><span id="brandsCount" aria-live="polite"></span></div>
+ <div id="brandList" class="brands-grid" aria-live="polite"></div><p id="brandError" role="status"></p>
+</main>
+<dialog id="brandDialog" aria-labelledby="brandDialogTitle">
+ <form id="brandForm">
+ <header class="brand-modal-header"><div><span class="brands-kicker">FICHE CLIENT</span><h2 id="brandDialogTitle">Identité de marque</h2></div><button type="button" id="brandClose" class="brand-close" aria-label="Fermer">×</button></header>
+ <div class="brands-form-grid">
+ <label class="span2">Nom de l’entreprise *<input id="brandName" maxlength="100" required placeholder="Ex. : PawMood"></label>
+ <label>Secteur d’activité<input id="brandSector" maxlength="90" placeholder="Ex. : Salon de toilettage"></label>
+ <label>Public cible<input id="brandAudience" maxlength="180" placeholder="Ex. : Propriétaires de chiens et chats"></label>
+ <label class="span2">Slogan / promesse<input id="brandSlogan" maxlength="180" placeholder="Ex. : Des animaux heureux, un soin attentionné"></label>
+ <label class="span2">Description des services<textarea id="brandDescription" maxlength="360" rows="2" placeholder="Services réels, ambiance, points forts..."></textarea></label>
+ <label>Couleur principale<input id="brandPrimaryColor" type="color" value="#9b71e8"></label>
+ <label>Couleur secondaire<input id="brandSecondaryColor" type="color" value="#15202e"></label>
+ <label class="span2">Message d’action<input id="brandCTA" maxlength="100" placeholder="Ex. : Réservez votre rendez-vous"></label>
+ <label class="span2">Site officiel (facultatif)<input id="brandWebsite" maxlength="160" placeholder="https://exemple.fr"></label>
+ <label class="span2 brand-logo-row">Logo officiel (PNG, JPG ou WebP, 3 Mo maximum)<input id="brandLogo" type="file" accept="image/png,image/jpeg,image/webp"><span class="brand-logo-preview"><img id="brandLogoPreview" alt="Logo sélectionné" hidden><small id="brandLogoHint">Ne pas utiliser de logo inventé ou appartenant à une autre entreprise.</small></span></label>
+ </div>
+ <div class="brands-form-footer"><p id="brandSaveStatus" role="status" aria-live="polite"></p><button type="button" id="brandCancel" class="brands-secondary">Annuler</button><button type="submit" id="brandSave" class="brands-primary">Enregistrer la marque</button></div>
+ </form>
+</dialog>
+<script src="/assets/studio-brands.js"></script><script src="/assets/studio-activity.js" defer></script>
+</body></html>

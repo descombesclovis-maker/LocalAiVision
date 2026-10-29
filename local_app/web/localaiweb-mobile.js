@@ -10,12 +10,16 @@
  const toggle=document.getElementById('lawMobileMenuToggle');
  const header=document.querySelector('.studio .chat-header');
  const agent=header?.querySelector('.agent-workspace');
+ const brand=header?.querySelector('.law-brand-workspace');
  const version=header?.querySelector('#lawUpdateBtn');
  const slot=document.getElementById('lawMobileAgentSlot');
+ const brandSlot=document.getElementById('lawMobileBrandSlot');
  const versionSlot=document.getElementById('lawMobileVersionSlot');
  const agentAnchor=document.createComment('restore agent controls');
+ const brandAnchor=document.createComment('restore brand controls');
  const versionAnchor=document.createComment('restore update indicator');
  if(agent)agent.before(agentAnchor);
+ if(brand)brand.before(brandAnchor);
  if(version)version.before(versionAnchor);
  const closeMenu=()=>{
    if(!menu||!toggle)return;
@@ -60,21 +64,18 @@
  function resize(){
    nav.hidden=!mobile.matches;
    closeMenu();
+   // A single tool drawer on every screen eliminates header overflow, while
+   // moving the SAME live controls preserves connected-agent state and edits.
+   if(agent&&slot&&agent.parentElement!==slot)slot.append(agent);
+   if(brand&&brandSlot&&brand.parentElement!==brandSlot)brandSlot.append(brand);
+   if(version&&versionSlot&&version.parentElement!==versionSlot)versionSlot.append(version);
    if(mobile.matches){
-     if(agent&&slot&&agent.parentElement!==slot)slot.append(agent);
-     if(version&&versionSlot&&version.parentElement!==versionSlot)versionSlot.append(version);
      show(active);
-     // Show the genuine responsive phone rendering first. Desktop/tablet
-     // preview modes remain one tap away and do not alter generated files.
      if(!document.body.dataset.lawMobileInitialized){
        document.body.dataset.lawMobileInitialized='1';
        document.querySelector('[data-view="mobile"]')?.click();
      }
-   }else{
-     delete document.body.dataset.lawPanel;
-     if(agent&&agentAnchor.parentNode)agentAnchor.after(agent);
-     if(version&&versionAnchor.parentNode)versionAnchor.after(version);
-   }
+   }else delete document.body.dataset.lawPanel;
  }
  mobile.addEventListener?.('change',resize);
  resize();

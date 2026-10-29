@@ -354,6 +354,31 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     from local_app import web_design_profile
     instruction += '\n' + web_design_profile.prompt(
         store.meta(project_id).get('design_profile'))
+    brand_id=store.meta(project_id).get("brand_id")
+    if brand_id:
+        try:
+            from local_app import brand_catalog, server as studio_server
+            brand=brand_catalog.get_brand(studio_server.DATA,brand_id)
+            instruction += (
+                "\nCLIENT BRAND KIT (verified information provided by the user; do not invent claims):\n"
+                + json.dumps({
+                    "name":brand.get("name",""), "sector":brand.get("sector",""),
+                    "slogan":brand.get("slogan",""),"audience":brand.get("audience",""),
+                    "description":brand.get("description",""),"cta":brand.get("cta",""),
+                    "primary_color":brand.get("primary_color",""),
+                    "secondary_color":brand.get("secondary_color",""),
+                    "official_website":brand.get("website","")
+                },ensure_ascii=False)
+                + "\nUse these true brand colors and messages in the design. "
+                + ("Use the actual client-provided logo at assets/brand-logo.png "
+                   "for vanilla HTML or /brand-logo.png via public/brand-logo.png "
+                   "for Vite, preserving its original aspect ratio and shape. "
+                   if brand.get("logo_url") else
+                   "No official logo supplied: do not invent an official logo. ")
+                + "Do not represent sample images as confirmed client photographs.\n"
+            )
+        except (FileNotFoundError,ValueError,OSError):
+            pass
     instruction += (
         '\nAGENT PROCESS: Choose an original art direction and immediately write '
         'the real pages, responsive styling and working interactions. Do not spend '

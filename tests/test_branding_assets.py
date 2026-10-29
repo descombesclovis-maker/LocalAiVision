@@ -16,7 +16,7 @@ WEB=BASE/"local_app"/"web"
 
 class BrandTests(unittest.TestCase):
     def test_crisp_vector_branding_and_separate_slogans(self):
-        for name in ("brand-vision.svg","brand-identity.svg","brand-web.svg","brand-web-identity.svg"):
+        for name in ("brand-studio.svg","brand-vision.svg","brand-identity.svg","brand-web.svg","brand-web-identity.svg"):
             with self.subTest(name=name):
                 content=(WEB/name).read_text(encoding="utf-8")
                 root=ET.fromstring(content)
@@ -27,7 +27,7 @@ class BrandTests(unittest.TestCase):
         web=(WEB/"brand-web-identity.svg").read_text(encoding="utf-8")
         self.assertIn("CRÉATIONS VISUELLES",vision)
         self.assertNotIn("CRÉATION DE SITES WEB",vision)
-        self.assertIn("CRÉATIONS DE SITES WEBS",web)
+        self.assertIn("SITES &amp; IDENTITÉS",web)
         self.assertNotIn("CRÉATIONS VISUELLES",web)
 
     def test_studios_use_the_correct_symbols_and_master_identity(self):
@@ -43,7 +43,7 @@ class BrandTests(unittest.TestCase):
         for web_ui in (projects,editor,map_html):
             self.assertIn('src="/assets/brand-web.svg"',web_ui)
         self.assertIn("/assets/app-icon.svg",manifest)
-        self.assertIn("brand-identity.svg",
+        self.assertIn("brand-studio.svg",
                       (BASE/"scripts/prepare_windows_brand.py").read_text(encoding="utf-8"))
 
     def test_windows_embeds_icon_and_only_signs_with_real_certificate(self):
