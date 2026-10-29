@@ -436,6 +436,7 @@
    if(map.getZoom()>=8)pending=setTimeout(nearby,750);
  }
  reload.addEventListener('click',()=>{
+   if(!map){location.reload();return}
    if(!loading)overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0)
  });
  $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null});
