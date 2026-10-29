@@ -259,6 +259,7 @@ async function watchGeneration(id){
          const elapsed=Math.floor((Date.now()-started)/1000);
          const time=elapsed>=60?' · '+Math.floor(elapsed/60)+' min écoulée(s)':'';
          $('#lawChatStatus').textContent=(status.detail||'Codex prépare le site…')+time;
+          updateEditMilestones(status);
        }else if(status.state==='done'){
          project=await api('/api/web/project?id='+encodeURIComponent(id));
          preview();
@@ -267,6 +268,7 @@ async function watchGeneration(id){
          const salesLink=document.getElementById('lawSalesBtn');
          if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
          generationFeedback(status);
+         showSiteEditing(false);refreshPublishing();
          stop();
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
@@ -295,6 +297,7 @@ async function generate(text){
  if(activeGeneration){message('Une création est déjà en cours pour ce site. Son avancement apparaît sous le champ de saisie.');return}
  setBusy(true,'Vérification de la connexion Codex et préparation du site…');
  const id=project.project.id;
+ try{const current=await api('/api/web/preview/status?id='+encodeURIComponent(id));if(current.ready)showSiteEditing(true)}catch{}
  const existingBrief=projectBrief();
  const instructions=existingBrief
   ?'BRIEF UTILISATEUR :\\n'+existingBrief+'\\n\\nDERNIÈRE DEMANDE :\\n'+text
@@ -395,14 +398,14 @@ async function sendText(value,{preserveDraft=false}={}){
  finally{setBusy(false);}
 }
 $('#lawComposer').addEventListener('submit',event=>{event.preventDefault();sendText(prompt.value);});
+publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
 prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText(prompt.value);}});
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
 async function initialize(){
  try{
   await ensureProject();
   const id=project.project.id;
-  const salesLink=document.getElementById('lawSalesBtn');
-  if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
+  refreshPublishing();
   chat.replaceChildren();
   for(const row of project.chat||[]){
    if(row.role==='user')message(row.text,'user');
