@@ -95,6 +95,9 @@ def _send_pong(stream, payload):
 
 
 def _receive(stream):
+    # WebSocket events identify the prompt being executed. A preview binary
+    # frame has no prompt ID of its own; associate it with the latest event.
+    active_prompt_id = None
     while True:
         head=_read_exact(stream,2)
         opcode=head[0]&0x0f
@@ -124,13 +127,22 @@ def _receive(stream):
             payload=event.get("data") or {}
             pid=str(payload.get("prompt_id") or "")
             if typ=="executing" and pid:
+                if payload.get("node") is None:
+                    active_prompt_id = None
+                else:
+                    active_prompt_id = pid
                 update(pid,node=payload.get("node"),state="running")
             elif typ=="progress" and pid:
+                active_prompt_id = pid
                 update(pid,value=payload.get("value"),maximum=payload.get("max"),
                        node=payload.get("node"),state="running")
             elif typ=="execution_error" and pid:
+                if active_prompt_id == pid:
+                    active_prompt_id = None
                 mark(pid,"error")
             elif typ=="execution_interrupted" and pid:
+                if active_prompt_id == pid:
+                    active_prompt_id = None
                 mark(pid,"cancelled")
         elif opcode==2 and len(data)>8:
             # ComfyUI preview_image: uint32 message type, uint32 image type,
@@ -143,9 +155,13 @@ def _receive(stream):
             else:
                 continue
             with _lock:
-                current=[j for j in _jobs.values() if j["state"]=="running"]
-                if len(current)==1:
-                    _preview[current[0]["prompt_id"]]=(mime,raw[:3_000_000])
+                target = _jobs.get(active_prompt_id) if active_prompt_id else None
+                if target and target["state"] == "running":
+                    _preview[active_prompt_id] = (mime, raw[:3_000_000])
+                elif not active_prompt_id:
+                    current=[j for j in _jobs.values() if j["state"]=="running"]
+                    if len(current)==1:
+                        _preview[current[0]["prompt_id"]]=(mime,raw[:3_000_000])
 
 def _listen(endpoint):
     uri=urlparse(endpoint)
