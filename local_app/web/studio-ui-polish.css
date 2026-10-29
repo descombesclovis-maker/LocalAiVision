@@ -1,0 +1,40 @@
+/* One coherent micro-interaction and typography system across the studios.
+   Deliberately scoped so advanced engine controls and generated sites are unchanged. */
+:root{--studio-motion:cubic-bezier(.22,.7,.24,1);--studio-weight:760}
+button{font-weight:var(--studio-weight);text-align:center}
+button:not(:disabled){transition:background-color .2s var(--studio-motion),border-color .2s var(--studio-motion),box-shadow .2s var(--studio-motion),transform .22s var(--studio-motion)}
+:is(button,a):focus-visible{outline:3px solid #c7a3fc!important;outline-offset:3px!important}
+:is(button,a):not(:disabled):active{transform:scale(.984)}
+.studio-universe-link{display:inline-flex!important;align-items:center;justify-content:center;gap:7px;text-decoration:none;font-weight:800;white-space:nowrap}
+.studio-universe-link:hover{border-color:#b795e6;box-shadow:0 9px 22px #a076cd28}
+.law-brand-workspace{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;flex:0 1 270px}
+#lawBrandPicker{min-width:120px;max-width:185px;flex:1;height:41px;border:1px solid #715c90;background:#2b213a;color:#f8f1ff;border-radius:10px;padding:8px 10px;font:760 12px Inter,system-ui;outline:none}
+.law-brand-workspace>a{min-height:41px;padding:7px 12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #745393;border-radius:10px;background:#39284c;color:#f5eaff;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap}
+.law-brand-workspace>a:hover{background:#583779}
+.chat-header{gap:10px}
+.chat-header .update-action,.topbar-action,.composer .send-modern,.top-actions .back-link,
+:is(.primary-action,.secondary-action,.map-action,#lawGenerate,#studioAdCreate,#lawInspectorSubmit){
+  font-weight:800!important;text-align:center!important;align-items:center!important;
+  justify-content:center!important;line-height:1.35
+}
+.chat-header .update-action{white-space:nowrap}
+.web-logo-heading>img{background:transparent!important;border-radius:12px!important;padding:0!important;box-shadow:0 10px 26px #8b63cd20}
+.branding .logo{background:transparent!important;border-radius:15px!important;padding:0!important}
+.intro .studio-identity{box-shadow:none!important;border-radius:0!important;max-height:180px!important;margin-bottom:12px!important}
+body.is-landing .welcome .vision-identity{width:min(650px,82vw);max-height:min(44vh,340px);filter:drop-shadow(0 16px 35px #4d336721)}
+body.is-landing .welcome .localaiweb-entry{text-decoration:none;font-weight:820!important}
+.card{transform-origin:center bottom}
+.card.opening{opacity:.74;pointer-events:none;border-color:#c6a1ff!important}
+.card.opening .card-art:before{content:"";position:absolute;left:50%;top:50%;z-index:4;width:29px;height:29px;margin:-15px;border:3px solid #ffffff35;border-top-color:white;border-radius:50%;animation:studioSpin 1s linear infinite}
+.card .card-state.is-generating{color:#e9cbff;font-weight:850}
+.card .card-state.is-generating:before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;background:#cba6ff;border-radius:50%;box-shadow:0 0 0 4px #bc80f026;animation:studioPulse 2.2s ease-in-out infinite}
+#libraryStatus #retryProjects{margin-left:8px;min-height:38px;padding:7px 12px;color:#fff;background:#5b4381;border:1px solid #a681d7;border-radius:9px}
+#refreshProjects{min-height:43px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:820;padding:8px 15px;border:1px solid #725b97;border-radius:11px;color:#eadcf7;background:#282035;cursor:pointer}
+#refreshProjects:hover{background:#49335d}
+.brand-access{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 13px;font-size:12px;font-weight:820;color:#e8d5ff;background:#342448;border:1px solid #7658a0;border-radius:11px;text-decoration:none}
+.brand-access:hover{background:#573771}
+@keyframes studioPulse{50%{opacity:.4;transform:scale(.8)}}
+@keyframes studioSpin{to{transform:rotate(360deg)}}
+@media(max-width:1180px){.chat-header{flex-wrap:wrap;height:auto;min-height:70px;padding:10px 13px}.chat-header .agent-workspace,.law-brand-workspace{flex:1 1 210px}.law-brand-workspace{justify-content:flex-start}}
+@media(max-width:700px){.law-brand-workspace{width:100%;max-width:100%;flex:1 1 100%;justify-content:stretch;padding:8px 0}.law-brand-workspace select{max-width:none!important;flex:1;min-height:46px;font-size:16px!important}.law-brand-workspace a{min-height:46px}.studio-activity{max-width:calc(100vw - 26px)}.topbar-actions{flex-wrap:wrap}.studio-universe-link{min-height:40px}.intro .studio-identity{max-height:130px!important;width:min(340px,80vw)!important}}
+@media(prefers-reduced-motion:reduce){.card.opening .card-art:before,.card .card-state.is-generating:before{animation:none}.card,button,a{transition:none!important}}
