@@ -116,3 +116,125 @@
  .law-mobile-tabs button,.law-mobile-tabs a {font-size:12px;}
 }
 @media (min-width:701px) {.law-mobile-tabs {display:none!important;}}
+
+
+/* Second mobile pass: actions must remain reachable, including on an iPhone
+   with a notch, the virtual keyboard and a short landscape viewport. */
+.law-mobile-menu-toggle,.law-mobile-tools{display:none;}
+@media(max-width:700px){
+ html,body{width:100%;max-width:100%;overflow-x:hidden;}
+ body:has(.studio){height:100dvh;overflow:hidden;}
+ .studio .chat-pane,.studio .preview-pane{top:0;overflow:hidden;}
+ .studio .chat-header{
+   position:relative;z-index:20;flex:none;
+   display:grid!important;grid-template-columns:44px minmax(0,1fr) auto!important;
+   min-height:calc(70px + env(safe-area-inset-top))!important;
+   height:auto!important;max-height:none!important;
+   align-items:end;align-content:end;padding:calc(10px + env(safe-area-inset-top)) 12px 11px!important;
+   gap:9px!important;
+ }
+ .studio .chat-header .chat-brand{grid-column:2;grid-row:1;min-width:0;}
+ .studio .chat-header .brand-symbol{grid-column:1;grid-row:1;}
+ .studio .chat-header .agent-workspace,
+ .studio .chat-header > a[href="/localaiweb/clients"],
+ .studio .chat-header #lawUpdateBtn{display:none!important;}
+ .law-mobile-menu-toggle{
+   grid-column:3;grid-row:1;display:inline-flex!important;align-items:center;
+   justify-content:center;gap:7px;min-width:87px;min-height:44px;
+   padding:9px 12px;border:1px solid #8765aa;border-radius:12px;
+   background:#30213e;color:#f7eaff;font:700 13px system-ui;
+   cursor:pointer;white-space:nowrap;
+ }
+ .law-mobile-menu-toggle[aria-expanded="true"]{background:#7449ba;border-color:#b991ed;}
+ .law-mobile-tools{
+   position:absolute;z-index:120;display:block!important;
+   top:calc(70px + env(safe-area-inset-top));left:10px;right:10px;
+   max-height:min(calc(100dvh - 165px - env(safe-area-inset-top)),600px);
+   padding:16px;border-radius:16px;overflow-y:auto;
+   background:#21162ef9;border:1px solid #8e66b5;
+   box-shadow:0 18px 60px #000c;
+   -webkit-overflow-scrolling:touch;
+ }
+ .law-mobile-tools[hidden]{display:none!important;}
+ .law-mobile-tools-title{font-size:12px;letter-spacing:.04em;font-weight:800;
+   color:#e7caff;margin-bottom:12px;}
+ .law-mobile-tools .agent-workspace{display:flex!important;flex-wrap:wrap;gap:8px;
+   width:100%;align-items:center;}
+ .law-mobile-tools .agent-select{font-size:16px!important;flex:1 1 160px;
+   min-width:0;max-width:100%;height:46px;}
+ .law-mobile-tools .agent-control{min-height:46px!important;flex:1 1 120px;
+   font-size:13px!important;}
+ .law-mobile-tools-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+   gap:9px;margin-top:15px;}
+ .law-mobile-tools-links a{display:flex;align-items:center;justify-content:center;
+   min-height:48px;line-height:1.3;text-align:center;text-decoration:none;
+   padding:10px 6px;border-radius:12px;border:1px solid #73508b;
+   background:#382348;color:#f8eaff;font:700 13px system-ui;}
+ .law-mobile-tools-links a:active{background:#6745a0;}
+ .law-mobile-tools #lawUpdateBtn{display:inline-flex!important;
+   margin-top:13px;min-height:44px;width:100%;justify-content:center;font-size:12px!important;}
+ .studio .preview-header{
+   min-height:0!important;max-height:50dvh;
+   flex:none;overflow-y:auto;align-content:start;
+   padding:calc(12px + env(safe-area-inset-top)) 12px 12px!important;
+   -webkit-overflow-scrolling:touch;
+ }
+ .studio .preview-controls{flex-wrap:wrap;overflow:visible;max-width:100%;}
+ .studio .view-modes{flex:1 1 100%;}
+ .studio .view-modes button{min-height:44px;}
+ .studio .site-tools button,.studio .site-tools a{flex:none;}
+ .studio .chat-history{flex:1 1 auto;min-height:0;}
+ .studio .chat-composer{flex:none;}
+ .studio .preview-stage{flex:1 1 auto;min-height:0;}
+ .map-topbar{height:auto!important;min-height:calc(62px + env(safe-area-inset-top));
+   padding:calc(7px + env(safe-area-inset-top)) 12px 7px!important;
+   gap:9px;justify-content:flex-start;}
+ .map-brand{min-width:0;}
+ .map-counter{z-index:550;top:8px!important;right:8px!important;
+   left:auto!important;max-width:min(230px,55vw)!important;}
+ .daily-prospects{top:49px!important;max-height:none!important;
+   padding:9px 10px!important;overflow:visible;}
+ .daily-prospects[data-collapsed="true"]{width:auto!important;
+   right:9px;left:auto!important;transform:none!important;
+   max-width:calc(100% - 18px);}
+ .daily-prospects[data-collapsed="true"] .daily-prospects-list,
+ .daily-prospects[data-collapsed="true"] #dailyProspectsStatus{display:none!important;}
+ .daily-prospects .daily-prospects-intro{align-items:center;justify-content:space-between;gap:8px;margin:0;}
+ #dailyProspectsToggle{display:inline-flex!important;align-items:center;justify-content:center;
+   min-height:44px;min-width:44px;padding:8px 10px;border-radius:10px;
+   border:1px solid #9b78bc;background:#463061;color:white;font:700 12px system-ui;}
+ .daily-prospects:not([data-collapsed="true"]) .daily-prospects-list{
+   max-height:min(24dvh,190px);overflow:auto;overscroll-behavior:contain;
+   margin-top:9px;-webkit-overflow-scrolling:touch;}
+ .map-selection{max-height:min(78dvh,650px)!important;}
+ .place-picker-option{min-height:46px;font-size:14px;padding:11px 12px;}
+ .leaflet-touch .leaflet-bar a{width:44px!important;height:44px!important;line-height:44px!important;}
+ .leaflet-top.leaflet-left{top:6px;}
+ .leaflet-popup-content-wrapper{max-width:calc(100vw - 38px)!important;}
+ .leaflet-popup-content{max-width:calc(100vw - 74px)!important;}
+ .shell{padding-left:15px;padding-right:15px;}
+ .shell .header{height:auto;min-height:calc(75px + env(safe-area-inset-top));
+   padding-top:calc(10px + env(safe-area-inset-top));
+   padding-bottom:12px;flex-wrap:wrap;gap:12px;}
+ .shell .header .actions{width:100%;display:flex;gap:9px;}
+ .shell .header .actions a{min-height:44px;flex:1;}
+ .shell .intro{display:flex;align-items:stretch;flex-direction:column;padding:28px 0;}
+ .shell .intro h1{font-size:clamp(29px,8vw,42px);}
+ .top:has(.back){height:auto;min-height:70px;padding:calc(10px + env(safe-area-inset-top)) 12px 12px;
+   gap:10px;display:flex;flex-wrap:wrap;justify-content:flex-start;}
+ .top .back{min-height:44px;display:flex;align-items:center;}
+ .top .brand{font-size:20px;}
+ .top .badge{font-size:9px;}
+ .layout{padding-left:14px!important;padding-right:14px!important;
+   padding-top:24px!important;}
+ .layout .card{padding:16px;}
+ .workspace .topbar{padding-top:calc(12px + env(safe-area-inset-top))!important;}
+ .map-selection .place-card-scroll{touch-action:pan-y;overscroll-behavior:contain;}
+}
+@media(max-width:390px){
+ .studio .web-logo-heading>img{width:30px;height:30px;}
+ .studio .chat-header h1{font-size:16px;}
+ .law-mobile-menu-toggle{min-width:76px;padding:9px 8px;}
+ .law-mobile-tools-links{grid-template-columns:1fr 1fr;}
+ .map-brand small{display:none;}
+}
