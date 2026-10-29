@@ -157,7 +157,15 @@ function generationFeedback(result){
   ?'\\nVisuels créés : '+visuals.generated.length+' photo(s).'
   :visuals.notes?.length?'\\nVisuels : '+visuals.notes[0]:'';
  const checked=report && report.ok;
- message((result.summary||'Le site a été enregistré.')+mediaNote+
+ const metrics=result.generation_metrics||{};
+ const duration=Number(metrics.total_seconds);
+ const durationNote=Number.isFinite(duration)&&duration>=0
+  ?'\\nGénération : '+(duration<60?duration.toFixed(1)+' s':
+       Math.floor(duration/60)+' min '+Math.round(duration%60)+' s')+
+    ' · contrôle : '+Number(metrics.quality_seconds||0).toFixed(1)+' s'+
+    ' · corrections : '+Number(metrics.repairs||0)
+  :'';
+ message((result.summary||'Le site a été enregistré.')+mediaNote+durationNote+
   '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
   (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
   '\\nLes devis sont disponibles depuis le dossier commercial et doivent être vérifiés avant émission.',
