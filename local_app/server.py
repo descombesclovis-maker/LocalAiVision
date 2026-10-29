@@ -944,7 +944,11 @@ def _managed_comfy_vram_args():
                 creationflags=creationflags,
             )
             totals = [int(line.strip()) for line in probe.stdout.splitlines() if line.strip().isdigit()]
-            if totals and totals[0] <= 12288:
+            # --lowvram forces repeated CPU/GPU swapping on 12 GB cards.
+            # Let ComfyUI's automatic VRAM manager handle 12 GB by default;
+            # keep an explicit LOCALVISION_COMFY_VRAM_MODE=low override if a
+            # heavyweight model actually needs it.
+            if totals and totals[0] <= 8192:
                 args = ("--lowvram",)
         except (OSError, subprocess.SubprocessError, ValueError):
             pass
@@ -1823,10 +1827,86 @@ def upload_image(filename, data):
         return json.loads(r.read().decode())
 
 def queue_prompt(api):
-    return comfy_post("/prompt", {"prompt": api, "client_id": str(uuid.uuid4())})
+    from local_app import comfy_progress
+    client=comfy_progress.start(COMFY)
+    result=comfy_post("/prompt", {"prompt": api, "client_id": client})
+    if result.get("prompt_id"):
+        # Works only for jobs submitted by this app; never assume ownership of
+        # unrelated queues (including third-party ComfyUI windows).
+        video=any("video" in str(n.get("class_type","")).lower() or
+                  "wan" in str(n.get("class_type","")).lower() or
+                  "omni" in str(n.get("class_type","")).lower()
+                  for n in api.values())
+        comfy_progress.register(result["prompt_id"],"video" if video else "image")
+    return result
+
+def studio_media_jobs():
+    from local_app import comfy_progress
+    records=comfy_progress.statuses()
+    if not records:
+        return {"jobs":[],"count":0}
+    try:
+        queue=comfy_get("/queue")
+        running={str(row[1]) for row in queue.get("queue_running",[]) if len(row)>1}
+        pending={str(row[1]) for row in queue.get("queue_pending",[]) if len(row)>1}
+    except (OSError,ValueError,TypeError):
+        running=pending=None
+    results=[]
+    for item in records:
+        pid=item["prompt_id"]
+        if item["state"] in ("done","cancelled","error"):
+            continue
+        if running is None:
+            item["phase"]="Connexion ComfyUI indisponible"
+        elif pid in running:
+            item["phase"]="Génération en cours"
+            if item["state"]=="queued":
+                comfy_progress.update(pid,state="running")
+        elif pid in pending:
+            item["phase"]="En attente dans ComfyUI"
+            item["percent"]=None
+        else:
+            try:
+                result=comfy_get("/history/"+quote(pid))
+                if pid in result:
+                    is_error=result[pid].get("status",{}).get("status_str") in ("error","failed")
+                    comfy_progress.mark(pid,"error" if is_error else "done")
+                    continue
+            except (OSError,ValueError,TypeError):
+                pass
+            item["phase"]="État du rendu non confirmé"
+        item["preview_ready"]=comfy_progress.get_preview(pid) is not None
+        results.append(item)
+    return {"jobs":results,"count":len(results)}
+
+
+def cancel_studio_media(prompt_id):
+    from local_app import comfy_progress
+    pid=str(prompt_id or "")
+    item=comfy_progress.status(pid)
+    if not item or item["state"] in ("done","cancelled","error"):
+        raise ValueError("Aucune génération active connue de LocalAiVision pour cet identifiant.")
+    queue=comfy_get("/queue")
+    running={str(row[1]) for row in queue.get("queue_running",[]) if len(row)>1}
+    pending={str(row[1]) for row in queue.get("queue_pending",[]) if len(row)>1}
+    if pid in pending:
+        comfy_post("/queue",{"delete":[pid]})
+    elif pid in running:
+        comfy_post("/interrupt",{})
+    else:
+        raise ValueError("Tâche non présente dans la file ComfyUI. Son état a peut-être changé.")
+    comfy_progress.mark(pid,"cancelled")
+    _studio_media_status_cache["at"]=0
+    return {"ok":True,"cancelled":pid}
+
 
 def history(prompt_id):
     result = comfy_get("/history/" + quote(prompt_id))
+    if prompt_id in result:
+        from local_app import comfy_progress
+        info=result[prompt_id]
+        failed=info.get("status",{}).get("status_str") in ("error","failed")
+        comfy_progress.mark(prompt_id,"error" if failed else "done")
     if prompt_id not in result:
         queue = comfy_get('/queue')
         active = queue.get('queue_running', []) + queue.get('queue_pending', [])
@@ -2137,6 +2217,19 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/studio/activity":
             self.send_json(_studio_activity_status())
             return
+        if u.path == "/api/studio/media/jobs":
+            try: self.send_json(studio_media_jobs())
+            except Exception as exc: self.send_json({"error":str(exc)},503)
+            return
+        if u.path == "/api/studio/media/preview":
+            from local_app import comfy_progress
+            pid=parse_qs(u.query).get("id",[""])[0]
+            output=comfy_progress.get_preview(pid)
+            if output is None:
+                self.send_response(404);self.end_headers()
+            else:
+                self.send_bytes(output[1],output[0])
+            return
         if u.path == "/api/studio/brands":
             try:
                 from local_app import brand_catalog
@@ -2338,10 +2431,22 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _authorized_media_request(self):
+        origin=self.headers.get("Origin","")
+        host=self.headers.get("Host","")
+        if self.headers.get("X-LocalAI-Media")!="1" or (origin and (
+                urlparse(origin).scheme not in ("http","https") or
+                urlparse(origin).netloc.lower()!=host.lower())):
+            self.send_json({"error":"Action locale non autorisée."},403)
+            return False
+        return True
+
     def do_POST(self):
         u=urlparse(self.path)
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/update/draft" and not self._authorized_update_request():
+            return
+        if u.path == "/api/studio/media/cancel" and not self._authorized_media_request():
             return
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and not self._authorized_brand_request():
@@ -3011,8 +3116,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error":str(e)},400)
             return
+        if u.path == "/api/studio/media/cancel":
+            if not self._authorized_media_request():
+                return
+            try: self.send_json(cancel_studio_media(body.get("prompt_id")))
+            except ValueError as exc: self.send_json({"error":str(exc)},400)
+            except Exception as exc: self.send_json({"error":str(exc)},502)
+            return
         if u.path == "/api/interrupt":
-            try: self.send_json(comfy_post("/interrupt","{}" if False else {}))
+            # Legacy emergency stop retained for the existing controls.
+            try: self.send_json(comfy_post("/interrupt",{}))
             except Exception as e: self.send_json({"error":str(e)},502)
             return
         self.send_response(404); self.end_headers()
