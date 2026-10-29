@@ -100,7 +100,7 @@ class UpdaterButtonTests(unittest.TestCase):
         self.assertIn('window.confirm(',script)
         self.assertIn('btn.disabled=true',script)
         main=(ROOT/'local_app/server.py').read_text(encoding='utf-8')
-        self.assertIn('def install_latest_update()',main)
+        self.assertIn('def install_latest_update(manual=False)',main)
         self.assertIn('if u.path == "/api/update/install":',main)
 
 
