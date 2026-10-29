@@ -347,6 +347,28 @@ if __name__ == "__main__":
 
 
 MEDIA_MODELS = {
+    'hunyuan15-t2v': [
+        ('diffusion_models', 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors'),
+        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
+        ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors')
+    ],
+    'hunyuan15-i2v': [
+        ('diffusion_models', 'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/diffusion_models/hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors'),
+        ('text_encoders', 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors'),
+        ('text_encoders', 'byt5_small_glyphxl_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/byt5_small_glyphxl_fp16.safetensors'),
+        ('vae', 'hunyuanvideo15_vae_fp16.safetensors',
+         'https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/vae/hunyuanvideo15_vae_fp16.safetensors'),
+        ('clip_vision', 'sigclip_vision_patch14_384.safetensors',
+         'https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors')
+    ],
     'image': [
         ('checkpoints', 'RealVisXL_V5.0_fp16.safetensors',
          'https://huggingface.co/SG161222/RealVisXL_V5.0/resolve/main/RealVisXL_V5.0_fp16.safetensors?download=true')
@@ -404,8 +426,6 @@ OBSOLETE_APP_MODELS = {
     },
     'diffusion_models': {
         'wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors',
-        'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors',
-        'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors',
         'wan2.1_vace_1.3B_fp16.safetensors',
         'wan2.2_ti2v_5B_fp16.safetensors',
         'ltx-2.3-22b-dev-fp8.safetensors',
@@ -413,7 +433,6 @@ OBSOLETE_APP_MODELS = {
     },
     'vae': {
         'wan2.2_vae.safetensors',
-        'hunyuanvideo15_vae_fp16.safetensors',
     },
     'clip_vision': {
         'clip_vision_h.safetensors',

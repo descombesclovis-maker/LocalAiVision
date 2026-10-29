@@ -264,7 +264,8 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
     presets = {
         'sdxl': (16, 25, 35),
         'wan': (12, 20, 30),
-        'hunyuan15': (12, 20, 28),
+        # CFG-distilled HunyuanVideo 1.5 is not step-distilled: 50 real steps.
+        'hunyuan15': (50, 50, 50),
         'hunyuan15-i2v-step': (4, 8, 12),
         'omniweaving-t2v': (16, 20, 28),
         'omniweaving-i2v': (16, 20, 28),
@@ -310,7 +311,8 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
             raise ValueError('Renseigne les FPS pour calculer le nombre d’images de la vidéo.')
         frames = max(1, round(float(duration) * float(effective_fps)))
         stride = 4 if kind in ('wan', 'hunyuan15', 'hunyuan15-i2v-step', 'omniweaving-t2v', 'omniweaving-i2v') else 1
-        frames = max(1, round((frames - 1) / stride) * stride + 1)
+        # Never round down and silently shorten the requested clip.
+        frames = max(1, math.ceil((frames - 1) / stride) * stride + 1)
     for node in api.values():
         inp = node['inputs']
         for key, val in [('steps', steps), ('width', width), ('height', height)]:

@@ -64,6 +64,8 @@ jobs:
             --hidden-import local_app.server ^
             --hidden-import local_app.llm ^
             --hidden-import local_app.workflows ^
+            --hidden-import local_app.media_director ^
+            --hidden-import local_app.comfy_progress ^
             --hidden-import local_app.web_builder ^
             --hidden-import local_app.brand_catalog ^
             --hidden-import local_app.web_briefing ^
@@ -100,6 +102,8 @@ jobs:
             --add-data "Isolated HunyuanImage 2.1.json;." ^
             --add-data "Isolated HY-OmniWeaving T2V.json;." ^
             --add-data "Isolated HY-OmniWeaving I2V.json;." ^
+            --add-data "HunyuanVideo 1.5 T2V.json;." ^
+            --add-data "HunyuanVideo 1.5 I2V.json;." ^
             local_app\launcher.py
 
       - name: Smoke test native EXE and extracted Python DLL

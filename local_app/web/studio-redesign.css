@@ -93,7 +93,8 @@ body:not(.show-diagnostics) #enginePanel{display:none!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 /* Hidden app capabilities remain reachable only when applicable. */
-body:not(.nsfw-active) #composerImageBtn{display:none!important}
+/* Source images are also used for the standard I2V pipeline. */
+#composerImageBtn.attached{border-color:#8d72c8!important;background:#3b2c5e!important}
 .welcome{transition:opacity .26s var(--ui-ease),transform .26s var(--ui-ease)}
 .welcome.welcome-exiting{opacity:0;transform:translateY(-7px) scale(.985);pointer-events:none}
 .history-dialog{width:min(670px,calc(100vw - 30px));max-height:calc(100dvh - 50px);overflow:auto;padding:25px;background:#1d142b;border:1px solid #8559ae;color:#f3eafa;border-radius:20px;box-shadow:0 35px 90px #000c}
