@@ -1774,6 +1774,9 @@ def run_generation(body):
         else:
             prompt, negative, effective_style = prepare_visual_request(
                 prepared_prompt, settings.get('style'), prepared_negative, settings.get('reserved_profile'), settings.get('technical_quality', True))
+        prompt, negative = media_director.enhance_video_continuity(
+            prompt, negative, workflows.profile(api),
+            settings.get('technical_quality', True) and not settings.get('exact_prompt', False))
         count = max(1, min(int(settings.get('count') or 1), 4))
         base_seed = settings.get('seed')
         prepared = []
