@@ -6,10 +6,37 @@
  // On the phone only the web interface refreshes. Never remotely install or
  // restart the Windows executable while the user is editing from mobile.
  if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
-   btn.textContent='✓ Mises à jour auto';
-   btn.title='L’application iPhone récupère automatiquement la version du PC à chaque ouverture.';
-   btn.setAttribute('aria-label','Mises à jour automatiques de l’application mobile');
-   btn.disabled=true;
+   // Refreshing the phone fetches *the currently installed PC build*.
+   // It does not update a frozen Windows executable from GitHub.
+   btn.textContent='↻ Rafraîchir';
+   btn.title='Récupérer la version actuellement installée sur le PC';
+   btn.setAttribute('aria-label','Rafraîchir LocalAiWeb depuis le PC');
+   btn.disabled=false;
+   btn.addEventListener('click',()=>window.location.reload());
+   const status=document.getElementById('lawMobileBuildStatus');
+   if(status){
+     status.hidden=false;
+     status.textContent='Vérification de la version installée sur le PC…';
+     fetch('/api/ping',{cache:'no-store'}).then(r=>r.json()).then(async data=>{
+       if(data.app!=='LocalVisionAI')throw Error('Le logiciel PC ne répond pas correctement.');
+       const current=String(data.build_tag||data.version||'inconnue');
+       status.textContent='Version installée sur le PC : '+current+'.';
+       try{
+         const response=await fetch('/api/update/check',{cache:'no-store'});
+         if(!response.ok)return;
+         const release=await response.json();
+         if(release.available){
+           status.textContent='PC : '+current+' · Nouvelle version : '+
+             (release.latest_build||'disponible')+
+             '. Mets à jour LocalAiVision sur le PC pour recevoir les corrections sur iPhone.';
+         }else status.textContent='PC : '+current+' · version publiée actuelle.';
+       }catch{
+         // Still report the exact server build if GitHub is unreachable.
+       }
+     }).catch(error=>{
+       status.textContent='Connexion au logiciel PC indisponible : '+error.message;
+     });
+   }
    return;
  }
  const label='↻ Mettre à jour';
