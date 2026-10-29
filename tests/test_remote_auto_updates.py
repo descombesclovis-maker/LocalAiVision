@@ -75,7 +75,7 @@ class RemoteAutoUpdateTests(unittest.TestCase):
             server,"build_info",return_value={"build_tag":"build-283"}),patch.object(
             server,"install_latest_update",installer):
             server._auto_update_monitor(FakeEvent(),initial_delay=0,interval=1)
-        installer.assert_called_once()
+        self.assertEqual(installer.call_count,2)
         self.assertEqual(server.automatic_update_status()["state"],"deferred")
 
     def test_mobile_can_install_pc_release_without_binary_download(self):
