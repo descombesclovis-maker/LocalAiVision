@@ -33,11 +33,14 @@
          const response=await fetch('/api/update/check',{cache:'no-store'});
          if(!response.ok)return;
          const release=await response.json();
+         const state=release.automatic||{};
+         const suffix=state.enabled?' · Surveillance automatique active':
+           ' · Surveillance automatique désactivée sur ce PC';
          if(release.available){
            status.textContent='PC : '+current+' · Nouvelle version : '+
              (release.latest_build||'disponible')+
-             '. Mise à jour automatique en préparation ; tu peux aussi appuyer sur « Mettre à jour le PC ».';
-         }else status.textContent='PC : '+current+' · version publiée actuelle. Mises à jour Windows automatiques activées.';
+             '. Mise à jour du PC en préparation'+suffix+'.';
+         }else status.textContent='PC : '+current+' · version publiée actuelle'+suffix+'.';
        }catch{
          // Still report the exact server build if GitHub is unreachable.
        }
