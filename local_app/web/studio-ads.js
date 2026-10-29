@@ -117,7 +117,7 @@
        $('studioAdIdea').focus();
      }catch(error){
        // Keep an actionable visible error, do not simulate a linked campaign.
-       $('studioAdOpen').click();
+       if(!dialog.open)$('studioAdOpen').click();
        $('studioAdError').textContent='Liaison avec le site indisponible : '+error.message;
      }
    });
