@@ -310,7 +310,8 @@ def apply_inputs(api, prompt='', negative=None, image_ref=None, settings=None, m
             raise ValueError('Renseigne les FPS pour calculer le nombre d’images de la vidéo.')
         frames = max(1, round(float(duration) * float(effective_fps)))
         stride = 4 if kind in ('wan', 'hunyuan15', 'hunyuan15-i2v-step', 'omniweaving-t2v', 'omniweaving-i2v') else 1
-        frames = max(1, round((frames - 1) / stride) * stride + 1)
+        # Never round down and silently shorten the requested clip.
+        frames = max(1, math.ceil((frames - 1) / stride) * stride + 1)
     for node in api.values():
         inp = node['inputs']
         for key, val in [('steps', steps), ('width', width), ('height', height)]:
