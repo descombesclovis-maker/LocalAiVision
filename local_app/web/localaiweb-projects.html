@@ -5,12 +5,13 @@
 <meta name="theme-color" content="#100f19"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/assets/localaiweb.webmanifest"><meta name="apple-mobile-web-app-title" content="LocalAiWeb"><link rel="icon" href="/assets/brand-web.svg" type="image/svg+xml"><title>LocalAiWeb — Mes projets</title>
 <link rel="stylesheet" href="/assets/localaiweb-projects.css"><link rel="stylesheet" href="/assets/studio-suite.css">
 <link rel="stylesheet" href="/assets/localaiweb-mobile.css">
+<link rel="stylesheet" href="/assets/studio-activity.css">
 </head>
 <body>
 <main class="workspace">
   <header class="topbar">
     <div class="branding"><span class="logo" aria-hidden="true"><img src="/assets/brand-web.svg" alt=""></span><div><strong>LocalAiWeb</strong><small>Votre espace de création</small></div></div>
-    <div class="top-actions"><a class="back-link" href="/localaiweb/clients" aria-label="Ouvrir le portefeuille clients et la facturation">◈ Clients &amp; devis ↗</a><button id="connectAgent" class="agent-control" type="button" title="Connecter Codex avec ChatGPT Plus">◌ Connexion Codex…</button><button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button><a class="back-link" href="/?studio=vision" aria-label="Ouvrir LocalAiVision sur cet appareil">← LocalAiVision</a></div>
+    <div class="top-actions"><a class="back-link" href="/localaiweb/clients" aria-label="Ouvrir le portefeuille clients et la facturation">◈ Clients &amp; devis ↗</a><button id="connectAgent" class="agent-control" type="button" title="Connecter Codex avec ChatGPT Plus">◌ Connexion Codex…</button><button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button><a class="back-link" href="/studio" aria-label="Revenir au choix des univers">◈ LocalAI Studio</a></div>
   </header>
   <div id="lawMobileBuildStatus" class="law-mobile-build-status" role="status" aria-live="polite" hidden></div>
   <section class="intro" aria-labelledby="workspace-title">
@@ -50,5 +51,6 @@
 <script src="/assets/localaiweb-update.js"></script>
 <script src="/assets/localaiweb-agent.js"></script>
 <script src="/assets/pwa-install.js" defer></script>
+<script src="/assets/studio-activity.js" defer></script>
 </body>
 </html>
