@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/assets/localaiweb.css"><link rel="stylesheet" href="/assets/studio-suite.css">
 <link rel="stylesheet" href="/assets/localaiweb-mobile.css">
 <link rel="stylesheet" href="/assets/studio-activity.css">
-<link rel="stylesheet" href="/assets/studio-ui-polish.css">
+<link rel="stylesheet" href="/assets/studio-ui-polish.css"><link rel="stylesheet" href="/assets/studio-production.css">
 </head>
 <body>
   <main class="studio" aria-label="Studio LocalAiWeb">
@@ -18,7 +18,7 @@
       <header class="chat-header">
         <a href="/localaiweb" class="brand-symbol" title="Retour à mes projets" aria-label="Retour à mes projets">←</a>
         <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/brand-web.svg" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
-        <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Afficher les outils et les réglages">☰ <span>Outils</span></button>
+        <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Vérifier et reconnecter Codex">● <span>Connexion IA</span></button>
         <div class="law-brand-workspace" role="group" aria-label="Identité de marque du projet">
           <label class="sr-only" for="lawBrandPicker">Marque cliente associée au site</label>
           <select id="lawBrandPicker" aria-label="Identité de marque pour le site"><option value="">Sans marque associée</option></select>
@@ -29,17 +29,15 @@
           <select id="lawAgentSelect" class="agent-select" aria-label="Choisir l'agent de création"><option value="codex">Codex · ChatGPT Plus</option><option value="claude">Claude Code · option</option></select>
           <button id="connectAgent" class="agent-control" type="button" title="Vérifier et connecter l'agent sélectionné" aria-live="polite">◌ Connexion…</button>
         </div>
-        <a href="/studio" class="update-action studio-universe-link" title="Choisir un univers">◈ Studio</a><a href="/localaiweb/clients" class="update-action" aria-label="Gestion commerciale, clients, devis et factures">Clients &amp; devis ↗</a>
+        <a href="/studio" class="update-action studio-universe-link" title="Choisir un univers">← Studio</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
       <nav id="lawMobileTools" class="law-mobile-tools" aria-label="Outils du studio mobile" hidden>
-        <div class="law-mobile-tools-title">Outils et connexion IA</div>
+        <div class="law-mobile-tools-title">Connexion et identité de marque</div>
         <div id="lawMobileAgentSlot"></div><div id="lawMobileBrandSlot"></div>
         <div class="law-mobile-tools-links">
-          <a href="/localaiweb">Mes projets</a>
-          <a href="/localaiweb/clients">Clients et devis</a>
-          <a href="/localaiweb/vente">Facturation</a>
-          <a href="/localaiweb/map">Carte des entreprises</a>
+          <a href="/localaiweb">Tous mes projets</a>
+          <a href="/studio/brands">Identités de marque</a>
         </div>
         <div id="lawMobileVersionSlot"></div>
       </nav>
@@ -61,6 +59,7 @@
       <header class="preview-header">
         <div class="preview-heading"><span class="preview-dot" aria-hidden="true"></span><span id="lawPreviewTitle">Ton site</span></div>
         <div class="preview-controls">
+        <button id="lawPublishBtn" class="law-publish-btn" type="button" disabled title="Publier le site une fois qu’il est prêt">Publier ↗</button>
         <div class="view-modes" role="group" aria-label="Taille de prévisualisation">
           <button type="button" data-view="desktop" aria-label="Afficher en mode ordinateur" aria-pressed="true" class="active">Ordinateur</button>
           <button type="button" data-view="tablet" aria-label="Afficher en mode tablette" aria-pressed="false">Tablette</button>
@@ -77,17 +76,16 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V4h16v3M5 10v10h14V10M12 8v8m-3-3 3 3 3-3"/><path d="M3 7h18v3H3z"/></svg>
           </button>
         </div>
-        <div class="site-tools law-world-tools">
-          <a id="lawSalesBtn" href="/localaiweb/vente" title="Préparer le devis FORMA, la facture et le domaine" aria-label="Espace commercial FORMA : facture et domaine">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h8l5 5v15H7zM15 2v6h5M10 12h7M10 16h7"/></svg>
-          </a>
-          <a id="lawWorldMapBtn" href="/localaiweb/map?mode=prospection" title="Carte mondiale des entreprises à prospecter" aria-label="Explorer les entreprises sur la carte mondiale">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-4 5-4 13 0 18M12 3c4 5 4 13 0 18"/></svg>
-          </a>
-        </div>
         </div>
       </header>
       <div id="lawPreviewStage" class="preview-stage desktop">
+        <div id="lawEditOverlay" class="law-edit-overlay" hidden role="status" aria-live="polite">
+           <span class="law-edit-orb" aria-hidden="true"></span><strong>Modification du site</strong>
+           <span id="lawEditPhase">Codex travaille sur les fichiers du site…</span>
+           <div class="law-stage-track"><div id="lawEditTrack"></div></div>
+           <small id="lawEditPercent">Étapes vérifiées : 0 %</small>
+           <small>La prévisualisation sera rétablie après vérification des modifications.</small>
+        </div>
         <aside id="lawInspectorPopover" class="inspector-popover" hidden aria-label="Modifier la sélection">
           <label for="lawInspectorPrompt">Modifier les éléments sélectionnés</label>
           <textarea id="lawInspectorPrompt" rows="3" placeholder="Décris la modification à effectuer…"></textarea>
@@ -100,12 +98,17 @@
         <iframe id="lawPreview" hidden title="Site complet créé par l'intelligence artificielle" loading="eager" sandbox="allow-scripts allow-forms allow-modals allow-same-origin allow-popups"></iframe>
       </div>
     </section>
+      <section id="lawAfterPublish" class="law-post-publish" hidden aria-label="Prestations après publication">
+        <div><b>Site publié ✓</b><small id="lawPublishedAddress">Le site est en ligne.</small></div>
+        <a id="lawCreateCampaign" href="/localaivision">Créer une publicité pour ce site ↗</a>
+        <a id="lawCreateQuote" href="/localaiweb/vente">Créer un devis lié au site ↗</a>
+       </section>
   </main>
   <nav class="law-mobile-tabs" id="lawMobileTabs" aria-label="Navigation du studio mobile" hidden>
     <button type="button" data-mobile-panel="chat" aria-selected="true" aria-controls="lawChat">✎ <span>Discussion</span></button>
     <button type="button" data-mobile-panel="preview" aria-selected="false" aria-controls="lawPreviewStage">◈ <span>Aperçu</span></button>
     <a href="/localaiweb/map" aria-label="Ouvrir la carte de prospection">⌖ <span>Carte</span></a>
-    <button type="button" id="lawMobileToolsTab" aria-label="Accéder aux outils et à la connexion IA">☰ <span>Outils</span></button>
+    <button type="button" id="lawMobileToolsTab" aria-label="Connexion et marque">● <span>Connexion</span></button>
   </nav>
   <dialog id="lawDesignDialog" class="design-dialog" aria-labelledby="designTitle" aria-describedby="designIntro">
     <form id="lawDesignForm" class="design-form">
