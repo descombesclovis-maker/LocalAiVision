@@ -1656,6 +1656,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.send_response(status)
             self.send_header("Content-Type",content_type)
+            if content_type.split(";")[0].strip() in (
+                "text/html", "text/css", "text/javascript",
+                "application/javascript", "application/manifest+json"
+            ):
+                # Installed iPhone PWAs must never keep obsolete application
+                # code between desktop releases; no caching of page content.
+                self.send_header("Cache-Control","no-store, max-age=0")
             self.send_header("Content-Length",str(len(data)))
             self.end_headers()
             self._write_response(data)
@@ -2050,7 +2057,8 @@ class Handler(BaseHTTPRequestHandler):
             if not p.is_relative_to(WEB.resolve()) or not p.exists() or not p.is_file():
                 self.send_response(404); self.end_headers(); return
             data=p.read_bytes()
-            c=mimetypes.guess_type(str(p))[0] or "application/octet-stream"
+            c=("application/manifest+json" if p.suffix==".webmanifest"
+               else mimetypes.guess_type(str(p))[0] or "application/octet-stream")
             self.send_bytes(data,c)
             return
         self.send_response(404); self.end_headers()
