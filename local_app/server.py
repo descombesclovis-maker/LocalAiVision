@@ -330,10 +330,16 @@ def _auto_update_monitor(stop_event, initial_delay=40, interval=240):
                         _auto_update_set(state="deferred", message=reason)
                     else:
                         _auto_update_set(state="installing", message="Téléchargement automatique de " + latest)
-                        install_latest_update()
-                        # On successful install the PowerShell helper restarts
-                        # the frozen executable. Never launch a second updater.
-                        return
+                        outcome = install_latest_update()
+                        if outcome.get("updated"):
+                            # PowerShell restarts the frozen executable; the
+                            # current process will exit after hand-off.
+                            return
+                        if outcome.get("deferred"):
+                            _auto_update_set(state="deferred",
+                                             message=outcome.get("message", "Travail en cours."))
+                        else:
+                            _auto_update_set(state="current", message="Application à jour.")
                 else:
                     _auto_update_set(state="current", message="Application à jour.")
         except Exception as exc:
@@ -348,8 +354,7 @@ def start_auto_updates():
     global _auto_update_started
     if (os.name != "nt" or not getattr(sys, "frozen", False)
             or os.environ.get("LOCALVISIONAI_DISABLE_AUTO_UPDATE") == "1"
-            or os.environ.get("LOCALVISIONAI_UPDATE_SMOKE") == "1"
-            or os.environ.get("LOCALVISIONAI_SKIP_SETUP") == "1"):
+            or os.environ.get("LOCALVISIONAI_UPDATE_SMOKE") == "1"):
         return False
     with _auto_update_state_lock:
         if _auto_update_started:
