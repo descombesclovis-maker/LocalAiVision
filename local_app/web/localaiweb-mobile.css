@@ -256,3 +256,14 @@
  .map-counter{font-size:10px;line-height:1.4;}
  .map-unavailable:not([hidden])~.map-attribution{display:none;}
 }
+
+@media (max-width:700px), (max-width:1000px) and (pointer:coarse) {
+ .law-mobile-tabs{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
+ .law-mobile-tabs button,.law-mobile-tabs a{min-width:0;padding:9px 3px;font-size:12px;gap:4px;}
+ body:has(#lawPrompt:focus) .law-mobile-tabs{display:none!important;}
+ body:has(#lawPrompt:focus) .studio .chat-pane{bottom:0!important;}
+ .studio .preview-stage{contain:layout style;}
+}
+@media(max-width:365px){
+ .law-mobile-tabs button,.law-mobile-tabs a{font-size:11px;}
+}
