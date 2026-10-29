@@ -26,8 +26,15 @@
  }
  function resize(){
    nav.hidden=!mobile.matches;
-   if(mobile.matches)show(active);
-   else delete document.body.dataset.lawPanel;
+   if(mobile.matches){
+     show(active);
+     // Show the genuine responsive phone rendering first. Desktop/tablet
+     // preview modes remain one tap away and do not alter generated files.
+     if(!document.body.dataset.lawMobileInitialized){
+       document.body.dataset.lawMobileInitialized='1';
+       document.querySelector('[data-view="mobile"]')?.click();
+     }
+   }else delete document.body.dataset.lawPanel;
  }
  mobile.addEventListener?.('change',resize);
  resize();
