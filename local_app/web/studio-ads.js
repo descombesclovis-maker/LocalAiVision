@@ -94,4 +94,32 @@
    return exportQueue;
  }
  window.StudioAds={enhancePrompt,finishMedia,getBrands};
+ // Publication-first flow: arrive with the *actual* site context and brand,
+ // not a blank ad tool. The operator still explicitly approves generation.
+ const related=new URLSearchParams(window.location.search).get('campaign_project')||'';
+ if(/^web-[a-f0-9]{12}$/.test(related)){
+   queueMicrotask(async()=>{
+     try{
+       const reply=await fetch('/api/web/project?id='+encodeURIComponent(related),{cache:'no-store'});
+       const data=await reply.json();
+       if(!reply.ok||data.error)throw Error(data.error||'Site introuvable.');
+       const project=data.project||{};
+       if(!project.deployment?.production_url)throw Error('Publie d’abord ce site avant de créer sa campagne associée.');
+       $('studioAdOpen').click();
+       await getBrands();
+       if(project.brand_id&&brands.some(brand=>brand.id===project.brand_id)){
+         select.value=project.brand_id;
+       }else{
+         $('studioAdError').textContent='Pour une publicité fidèle, associe d’abord une identité de marque à ce projet depuis la bibliothèque de marques.';
+       }
+       $('studioAdIdea').value='Campagne pour le site '+(project.name||'de l’entreprise')+
+         ' ('+project.deployment.production_url+'). Créer un visuel fidèle aux prestations réellement proposées sur le site, sans inventer de tarifs ni de témoignages.';
+       $('studioAdIdea').focus();
+     }catch(error){
+       // Keep an actionable visible error, do not simulate a linked campaign.
+       $('studioAdOpen').click();
+       $('studioAdError').textContent='Liaison avec le site indisponible : '+error.message;
+     }
+   });
+ }
 })();
