@@ -76,3 +76,17 @@ body.nsfw-active #nsfwGalleryToggle {
 @media (prefers-reduced-motion:reduce) {
  .nsfw-gallery,.nsfw-gallery * {animation:none!important;transition:none!important}
 }
+
+/* Dedicated LoRA gear is immediately left of the message composer tools. */
+#nsfwLoraGear {display:none}
+body.nsfw-active #nsfwLoraGear {
+ display:inline-flex!important;align-items:center;justify-content:center;
+ color:#fae2e6;background:#421924;border:1px solid #a94e627d;border-radius:11px;
+}
+body.nsfw-active #nsfwLoraGear:hover {background:#672737}
+body.nsfw-active.vision-expert #generationSettings .settings-accordions
+  > :not(#accordionLoras) {display:none!important}
+body.nsfw-active.vision-expert #generationSettings {
+ max-height:min(530px,65vh);overflow-y:auto;
+ background:#271118;border:1px solid #9b465b77;
+}
