@@ -38,3 +38,39 @@ body.is-landing .welcome .localaiweb-entry{text-decoration:none;font-weight:820!
 @media(max-width:1180px){.chat-header{flex-wrap:wrap;height:auto;min-height:70px;padding:10px 13px}.chat-header .agent-workspace,.law-brand-workspace{flex:1 1 210px}.law-brand-workspace{justify-content:flex-start}}
 @media(max-width:700px){.law-brand-workspace{width:100%;max-width:100%;flex:1 1 100%;justify-content:stretch;padding:8px 0}.law-brand-workspace select{max-width:none!important;flex:1;min-height:46px;font-size:16px!important}.law-brand-workspace a{min-height:46px}.studio-activity{max-width:calc(100vw - 26px)}.topbar-actions{flex-wrap:wrap}.studio-universe-link{min-height:40px}.intro .studio-identity{max-height:130px!important;width:min(340px,80vw)!important}}
 @media(prefers-reduced-motion:reduce){.card.opening .card-art:before,.card .card-state.is-generating:before{animation:none}.card,button,a{transition:none!important}}
+
+/* The editor header now contains only identity + real Tools drawer.
+   Connected agent/brand/update controls are relocated, not duplicated. */
+.studio .chat-pane{position:relative}
+.law-mobile-tools[hidden]{display:none!important}
+@media(min-width:701px){
+ .studio .chat-header{min-height:72px;height:auto;display:flex;align-items:center;gap:10px;padding:11px 13px;flex-wrap:nowrap}
+ .studio .chat-header .brand-symbol{flex:none;min-width:37px}
+ .studio .chat-header .chat-brand{flex:1;min-width:0}
+ .studio .chat-header .web-logo-heading>img{height:38px;width:38px}
+ .studio .chat-header .web-logo-heading h1{font-size:16px}
+ .studio .chat-header .web-logo-heading p{display:none}
+ .studio .chat-header>a[href="/localaiweb/clients"],
+ .studio .chat-header>.studio-universe-link{display:none!important}
+ .studio .chat-header>.law-brand-workspace,
+ .studio .chat-header>.agent-workspace,
+ .studio .chat-header>#lawUpdateBtn{display:none!important}
+ .law-mobile-menu-toggle{min-height:43px;min-width:90px;padding:9px 12px;display:inline-flex!important;align-items:center;justify-content:center;gap:8px;flex:none;border:1px solid #8866ac;background:#342342;border-radius:11px;color:#fff;font:800 12px Inter,system-ui;cursor:pointer}
+ .law-mobile-menu-toggle[aria-expanded="true"]{background:#654585}
+ .law-mobile-tools{display:block;position:absolute;z-index:145;top:74px;left:10px;right:10px;max-height:min(650px,calc(100dvh - 115px));padding:19px;background:#1b1526f8;border:1px solid #8f6bb5;box-shadow:0 24px 65px #000b;border-radius:16px;overflow-y:auto}
+ .law-mobile-tools-title{font:800 12px Inter,system-ui;color:#ddc9ef;margin-bottom:13px}
+ .law-mobile-tools .agent-workspace{display:flex!important;flex-wrap:wrap;gap:8px;align-items:center;width:100%}
+ .law-mobile-tools .agent-workspace select{min-width:145px;flex:1;min-height:44px;font-size:13px}
+ .law-mobile-tools .agent-control{min-height:44px;flex:1}
+ .law-mobile-tools .law-brand-workspace{display:flex!important;align-items:center;justify-content:stretch;max-width:100%;width:100%;flex:none;margin-top:12px}
+ .law-mobile-tools .law-brand-workspace #lawBrandPicker{flex:1;min-width:100px;max-width:100%}
+ .law-mobile-tools-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px}
+ .law-mobile-tools-links a{min-height:44px;display:flex;align-items:center;justify-content:center;padding:9px 7px;background:#39254c;border:1px solid #73538e;border-radius:10px;color:#fff;font-size:12px;font-weight:800;text-align:center;text-decoration:none}
+ .law-mobile-tools-links a:hover{background:#543873}
+ .law-mobile-tools #lawUpdateBtn{display:flex!important;align-items:center;justify-content:center;min-height:43px;width:100%;margin-top:13px}
+}
+@media(max-width:700px){
+ .studio .chat-header>.studio-universe-link{display:none!important}
+ .law-mobile-tools .law-brand-workspace{display:flex!important;flex:1 1 100%}
+ #lawMobileBrandSlot{width:100%}
+}
