@@ -2101,6 +2101,30 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
+        if u.path == "/api/studio/brands":
+            try:
+                from local_app import brand_catalog
+                self.send_json(brand_catalog.list_brands(DATA))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},500)
+            return
+        if u.path == "/api/studio/brand/logo":
+            try:
+                from local_app import brand_catalog
+                brand_id=parse_qs(u.query).get("id",[""])[0]
+                self.send_bytes(brand_catalog.logo_bytes(DATA,brand_id),"image/png")
+            except (ValueError,FileNotFoundError):
+                self.send_json({"error":"Logo introuvable."},404)
+            return
+        if u.path == "/api/studio/advert/file":
+            try:
+                from local_app import brand_catalog
+                name=parse_qs(u.query).get("name",[""])[0]
+                file=brand_catalog.advert_file(DATA,name)
+                self.send_bytes(file.read_bytes(),"video/mp4" if file.suffix==".mp4" else "image/png")
+            except (ValueError,FileNotFoundError):
+                self.send_json({"error":"Publicité introuvable."},404)
+            return
         if u.path == "/api/web/generations/active":
             self.send_json(_web_active_generations())
             return
@@ -2267,12 +2291,29 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _authorized_brand_request(self):
+        origin=self.headers.get("Origin","")
+        host=self.headers.get("Host","")
+        if (self.headers.get("X-LocalAI-Brand")!="1"
+                or (origin and (
+                    urlparse(origin).scheme not in ("https","http")
+                    or urlparse(origin).netloc.lower()!=host.lower()))):
+            self.send_json({"error":"Modification de marque non autorisée."},403)
+            return False
+        return True
+
     def do_POST(self):
         u=urlparse(self.path)
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/update/draft" and not self._authorized_update_request():
             return
+        if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
+                      "/api/studio/advert/delete") and not self._authorized_brand_request():
+            return
         length=int(self.headers.get("Content-Length","0"))
+        if length<0 or length>6_000_000:
+            self.send_json({"error":"Requête de marque trop volumineuse."},413)
+            return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
@@ -2286,6 +2327,27 @@ class Handler(BaseHTTPRequestHandler):
         if u.path != "/api/update/install":
             with _auto_update_active_lock:
                 _auto_update_last_action = time.time()
+        if u.path == "/api/studio/brand/save":
+            try:
+                from local_app import brand_catalog
+                self.send_json({"ok":True,"brand":brand_catalog.save_brand(DATA,body)})
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/studio/advert/render":
+            try:
+                from local_app import brand_catalog
+                self.send_json(brand_catalog.render_advert(DATA,COMFY,body))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/studio/advert/delete":
+            try:
+                from local_app import brand_catalog
+                self.send_json(brand_catalog.delete_advert(DATA,body.get("filename","")))
+            except Exception as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == "/api/web/open-browser":
             try:
                 import webbrowser
