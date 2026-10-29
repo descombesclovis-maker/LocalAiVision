@@ -161,7 +161,7 @@ class SettingsUi(unittest.TestCase):
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
         self.assertIn("accordionLoras')?.classList.toggle('hidden',!visual)", source)
-        self.assertIn("settings.loras=task==='video'&&model.id===bestWorkflowId(ISOLATED_VIDEO_WORKFLOW)?selectedLoras:[]",source)
+        self.assertIn("settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW)",source)
         self.assertIn("chooseIsolatedCreationMode('i2v')", source)
 
 
@@ -302,7 +302,7 @@ class PromptTranslation(unittest.TestCase):
 
 class MediaModels(unittest.TestCase):
     def test_only_minimal_media_components_remain(self):
-        self.assertEqual(set(boot.MEDIA_MODELS), {'image', 'video', 'isolated-image', 'isolated-video', 'isolated-video-i2v'})
+        self.assertEqual(set(boot.MEDIA_MODELS), {'image', 'video', 'isolated-image', 'isolated-video', 'isolated-video-i2v', 'hunyuan15-t2v', 'hunyuan15-i2v'})
         self.assertIn('RealVisXL_V5.0_fp16.safetensors',
                       [n for _f, n, _u in boot.MEDIA_MODELS['image']])
         self.assertIn('wan2.1_t2v_1.3B_fp16.safetensors',
