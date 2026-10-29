@@ -161,6 +161,16 @@ _engine_lock = threading.RLock()
 _comfy_lock = threading.Lock()
 _setup_lock = threading.Lock()
 _update_lock = threading.Lock()
+_auto_update_state_lock = threading.Lock()
+_auto_update_state = {
+    "enabled": False, "state": "inactive", "last_checked": None,
+    "next_check": None, "latest_build": None, "message": "",
+}
+_auto_update_started = False
+_auto_update_draft_seen = 0.0
+_auto_update_last_action = time.time()
+_auto_update_active_jobs = 0
+_auto_update_active_lock = threading.Lock()
 _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
@@ -227,12 +237,107 @@ def _update_asset_from_release(release):
     raise RuntimeError('Le dernier build ne contient pas le paquet Windows de mise à jour.')
 
 
+def _is_newer_update(latest_tag, current_tag):
+    """Only install increasing numeric CI release tags, never an older build."""
+    latest = re.fullmatch(r"build-(\\d+)", str(latest_tag or ""))
+    current = re.fullmatch(r"build-(\\d+)", str(current_tag or ""))
+    return bool(latest and current and int(latest.group(1)) > int(current.group(1)))
+
+
+def automatic_update_status():
+    with _auto_update_state_lock:
+        return dict(_auto_update_state)
+
+
+def _auto_update_set(**changes):
+    with _auto_update_state_lock:
+        _auto_update_state.update(changes)
+
+
+def _update_busy_reason():
+    """Avoid closing the program during a saved/unsaved generation or chat."""
+    if _setup_lock.locked() or STARTUP.get("state") == "running":
+        return "Installation des moteurs en cours."
+    with _web_generation_lock:
+        if any(job.get("state") == "running" for job in _web_generation_jobs.values()):
+            return "Création de site en cours."
+    with _auto_update_active_lock:
+        if _auto_update_active_jobs:
+            return "Discussion ou génération en cours."
+        if time.time() - _auto_update_draft_seen < 55:
+            return "Saisie non envoyée dans le navigateur."
+        if time.time() - _auto_update_last_action < 80:
+            return "Activité récente : mise à jour différée."
+    if _comfy_lock.locked():
+        return "Génération ComfyUI en cours."
+    if _comfy_proc is not None and _comfy_proc.poll() is None:
+        try:
+            queue = http_json(COMFY + "/queue", timeout=3)
+            if queue.get("queue_running") or queue.get("queue_pending"):
+                return "Image ou vidéo en cours de génération."
+        except (OSError, ValueError, TypeError):
+            return "État du moteur de génération inconnu : report de sécurité."
+    return ""
+
+
+def _auto_update_monitor(stop_event, initial_delay=40, interval=240):
+    if stop_event.wait(initial_delay):
+        return
+    while not stop_event.is_set():
+        try:
+            reason = _update_busy_reason()
+            if reason:
+                _auto_update_set(state="deferred", message=reason)
+            else:
+                release = _latest_update_release()
+                latest = str(release.get("tag_name") or "")
+                _auto_update_set(last_checked=time.time(), latest_build=latest)
+                if _is_newer_update(latest, build_info()["build_tag"]):
+                    # Check a second time after network I/O to prevent
+                    # terminating active sessions that began during the check.
+                    reason = _update_busy_reason()
+                    if reason:
+                        _auto_update_set(state="deferred", message=reason)
+                    else:
+                        _auto_update_set(state="installing", message="Téléchargement automatique de " + latest)
+                        install_latest_update()
+                        # On successful install the PowerShell helper restarts
+                        # the frozen executable. Never launch a second updater.
+                        return
+                else:
+                    _auto_update_set(state="current", message="Application à jour.")
+        except Exception as exc:
+            _auto_update_set(state="error", message=str(exc)[:200])
+        _auto_update_set(next_check=time.time()+interval)
+        if stop_event.wait(interval):
+            return
+
+
+def start_auto_updates():
+    """One-time, per-running Windows EXE monitor; never touches source/dev/CI."""
+    global _auto_update_started
+    if (os.name != "nt" or not getattr(sys, "frozen", False)
+            or os.environ.get("LOCALVISIONAI_DISABLE_AUTO_UPDATE") == "1"
+            or os.environ.get("LOCALVISIONAI_UPDATE_SMOKE") == "1"
+            or os.environ.get("LOCALVISIONAI_SKIP_SETUP") == "1"):
+        return False
+    with _auto_update_state_lock:
+        if _auto_update_started:
+            return False
+        _auto_update_started = True
+        _auto_update_state.update(enabled=True, state="waiting", message="Surveillance des mises à jour activée.")
+    threading.Thread(target=_auto_update_monitor,
+                     args=(threading.Event(),), name="LocalAiVisionAutoUpdate",
+                     daemon=True).start()
+    return True
+
+
 def update_status():
     current = build_info()
     release = _latest_update_release()
     asset = _update_asset_from_release(release)
     latest_tag = str(release.get('tag_name') or '')
-    available = bool(latest_tag and latest_tag != current.get('build_tag'))
+    available = _is_newer_update(latest_tag, current.get('build_tag'))
     return {
         'ok': True,
         'available': available,
@@ -242,6 +347,7 @@ def update_status():
         'latest_build': latest_tag,
         'published_at': release.get('published_at'),
         'size': int(asset.get('size') or 0),
+        'automatic': automatic_update_status(),
     }
 
 
@@ -574,6 +680,10 @@ def _exit_for_update():
 
 
 def install_latest_update():
+    reason = _update_busy_reason()
+    if reason:
+        return {'ok': True, 'updated': False, 'deferred': True,
+                'message': reason}
     if not _update_lock.acquire(blocking=False):
         raise RuntimeError('Une mise à jour est déjà en cours.')
     try:
@@ -581,9 +691,13 @@ def install_latest_update():
         release = _latest_update_release()
         asset = _update_asset_from_release(release)
         latest_tag = str(release.get('tag_name') or '')
-        if latest_tag == current.get('build_tag'):
+        if not _is_newer_update(latest_tag, current.get('build_tag')):
             return {'ok': True, 'updated': False, 'message': 'LocalVisionAI est déjà à jour.'}
         staged = _download_update_exe(release, asset)
+        # A generation may start during the multi-megabyte download.
+        reason = _update_busy_reason()
+        if reason:
+            return {'ok': True, 'updated': False, 'deferred': True, 'message': reason}
         script, current_exe, log = _write_update_helper(staged)
         subprocess.Popen(
             [
