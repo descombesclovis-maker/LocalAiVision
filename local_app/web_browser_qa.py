@@ -89,7 +89,14 @@ def review(site_dir, *, build=None):
                                 .slice(0,28),
                             emptyButtons: [...document.querySelectorAll('button')]
                                 .filter(b => !b.innerText.trim() && !b.getAttribute('aria-label')
-                                             && !b.getAttribute('title')).length
+                                             && !b.getAttribute('title')).length,
+                            brokenLocalImages: [...document.images].filter(img => {
+                                if(!img.complete || img.naturalWidth>0)return false;
+                                const url=img.currentSrc||img.src;
+                                if(!url)return false;
+                                try{return new URL(url,location.href).origin===location.origin}
+                                catch{return false}
+                            }).slice(0,8).map(img=>img.getAttribute('src')||'image sans source')
                         })""")
                         screenshot = folder / (label + ".png")
                         page.screenshot(path=str(screenshot), full_page=True, animations="disabled", timeout=20000)
@@ -105,6 +112,9 @@ def review(site_dir, *, build=None):
                         if dimensions.get("emptyButtons"):
                             issues.append(label + ": boutons sans texte ni libellé accessible : " +
                                           str(dimensions["emptyButtons"]) + ".")
+                        if dimensions.get("brokenLocalImages"):
+                            issues.append(label + ": images locales introuvables : " +
+                                          "; ".join(dimensions["brokenLocalImages"][:4]) + ".")
                         if label == "ordinateur":
                             # Real HTTP verification of up to 14 local navigational
                             # destinations catches links to pages that do not exist.
