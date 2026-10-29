@@ -1660,9 +1660,11 @@ def _media_component_for_workflow(current):
         return 'video'
     if profile == 'hunyuanimage21':
         return 'isolated-image'
-    if profile == 'hunyuan15-i2v-step':
-        return 'isolated-video-i2v'
-    return 'isolated-video' if profile == 'hunyuan15' else None
+    if profile == 'hunyuan15-i2v-step' and 'hunyuanvideo1.5_480p_i2v_step_distilled_fp8_scaled.safetensors' in values:
+        return 'hunyuan15-i2v'
+    if profile == 'hunyuan15' and 'hunyuanvideo1.5_480p_t2v_cfg_distilled_fp8_scaled.safetensors' in values:
+        return 'hunyuan15-t2v'
+    return None
 
 
 def _preflight_with_media_repair(current):
@@ -1691,6 +1693,8 @@ def _preflight_with_media_repair(current):
             'isolated-image':'HunyuanImage 2.1 distilled FP8 (espace isolé)',
             'isolated-video':'HY-OmniWeaving T2V (espace isolé)',
             'isolated-video-i2v':'HY-OmniWeaving I2V (espace isolé)',
+            'hunyuan15-t2v':'HunyuanVideo 1.5 T2V 480p',
+            'hunyuan15-i2v':'HunyuanVideo 1.5 I2V 480p',
         }
         label = labels.get(component, component)
         STARTUP.update(state='running', message='Préparation automatique : ' + label, error=None, started_at=time.time())
@@ -2065,7 +2069,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/health":
             online, detail = comfy_online()
             media = {'image': {'ready': False}, 'video': {'ready': False}, 'isolated-image': {'ready': False},
-                     'isolated-video': {'ready': False}, 'isolated-video-i2v': {'ready': False}}
+                     'isolated-video': {'ready': False}, 'isolated-video-i2v': {'ready': False},
+                     'hunyuan15-t2v': {'ready': False}, 'hunyuan15-i2v': {'ready': False}}
             try:
                 from local_app import bootstrap_windows
                 media = {
@@ -2073,7 +2078,9 @@ class Handler(BaseHTTPRequestHandler):
                     'video': bootstrap_windows.media_status('video'),
                     'isolated-image': bootstrap_windows.media_status('isolated-image'),
                     'isolated-video': bootstrap_windows.media_status('isolated-video'),
-                    'isolated-video-i2v': bootstrap_windows.media_status('isolated-video-i2v')
+                    'isolated-video-i2v': bootstrap_windows.media_status('isolated-video-i2v'),
+                    'hunyuan15-t2v': bootstrap_windows.media_status('hunyuan15-t2v'),
+                    'hunyuan15-i2v': bootstrap_windows.media_status('hunyuan15-i2v')
                 }
             except Exception:
                 pass
@@ -2138,7 +2145,7 @@ class Handler(BaseHTTPRequestHandler):
             media = {}
             try:
                 from local_app import bootstrap_windows
-                for component in ("image", "video", "isolated-image", "isolated-video", "isolated-video-i2v"):
+                for component in ("image", "video", "isolated-image", "isolated-video", "isolated-video-i2v", "hunyuan15-t2v", "hunyuan15-i2v"):
                     media[component] = bootstrap_windows.media_status(component)
             except Exception:
                 media = {}
@@ -3188,7 +3195,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 400)
             return
         if u.path == "/api/setup":
-            if body.get("component", "engines") not in ("engines", "image", "video", "isolated-image", "isolated-video", "isolated-video-i2v"):
+            if body.get("component", "engines") not in ("engines", "image", "video", "isolated-image", "isolated-video", "isolated-video-i2v", "hunyuan15-t2v", "hunyuan15-i2v"):
                 self.send_json({"error": "Composant inconnu"}, 400)
                 return
             started = start_setup(body.get("component", "engines"))
