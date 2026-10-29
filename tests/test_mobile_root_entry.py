@@ -40,10 +40,18 @@ class MobileRootEntryTests(unittest.TestCase):
         handler.send_bytes.assert_called_once()
         handler.send_response.assert_not_called()
 
+    def test_mobile_can_explicitly_open_full_localai_vision(self):
+        handler = self.handler("Mozilla/5.0 (iPhone; CPU iPhone OS 26_6)")
+        handler.path = "/?studio=vision"
+        handler.do_GET()
+        handler.send_bytes.assert_called_once()
+        handler.send_response.assert_not_called()
+
     def test_homepage_button_is_real_accessible_link(self):
         html = (WEB / "index.html").read_text(encoding="utf-8")
         self.assertIn('id="localAiWebEntry"', html)
         self.assertIn('class="localaiweb-entry" href="/localaiweb"', html)
+        self.assertIn('src="/assets/pwa-install.js"', html)
 
     def test_mobile_hub_displays_real_pc_build_and_pending_update(self):
         projects=(WEB / "localaiweb-projects.html").read_text(encoding="utf-8")
