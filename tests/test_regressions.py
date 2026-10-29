@@ -161,7 +161,7 @@ class SettingsUi(unittest.TestCase):
         source = (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8')
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
         self.assertIn("accordionLoras')?.classList.toggle('hidden',!visual)", source)
-        self.assertIn("settings.loras=c.profile==='nsfw'&&task==='video'?selectedLoras:[]",source)
+        self.assertIn("settings.loras=task==='video'&&model.id===bestWorkflowId(ISOLATED_VIDEO_WORKFLOW)?selectedLoras:[]",source)
         self.assertIn("chooseIsolatedCreationMode('i2v')", source)
 
 
