@@ -2221,6 +2221,12 @@ class Handler(BaseHTTPRequestHandler):
             try: self.send_json(studio_media_jobs())
             except Exception as exc: self.send_json({"error":str(exc)},503)
             return
+        if u.path == "/api/studio/media/job":
+            from local_app import comfy_progress
+            pid=parse_qs(u.query).get("id",[""])[0]
+            job=comfy_progress.status(pid)
+            self.send_json({"job":job} if job else {"error":"Tâche inconnue."},200 if job else 404)
+            return
         if u.path == "/api/studio/media/preview":
             from local_app import comfy_progress
             pid=parse_qs(u.query).get("id",[""])[0]
