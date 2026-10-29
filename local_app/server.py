@@ -1234,14 +1234,15 @@ def _apply_lora_stack(api, selections):
     first_model_ref = list(model_ref)
     next_id = max([int(x) for x in api if str(x).isdigit()] or [0]) + 1
     omni = api[model_source[0]]['class_type'] == 'HYOmniWeavingUNetLoader'
+    hunyuan15 = workflows.profile(api) in ('hunyuan15', 'hunyuan15-i2v-step')
 
-    if omni:
+    if omni or hunyuan15:
         for path, strength in clean:
             nid = str(next_id); next_id += 1
             api[nid] = {
                 'class_type': 'LoraLoaderModelOnly',
                 'inputs': {'model': list(model_ref), 'lora_name': path, 'strength_model': strength},
-                '_meta': {'title': 'LocalVisionAI OmniWeaving LoRA · ' + Path(path).stem},
+                '_meta': {'title': 'LocalAI Studio Video LoRA · ' + Path(path).stem},
             }
             model_ref = [nid, 0]
         for nid in original_ids:
