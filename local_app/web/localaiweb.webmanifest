@@ -1,0 +1,20 @@
+{
+  "id": "/localaiweb",
+  "name": "LocalAiWeb — Studio de création",
+  "short_name": "LocalAiWeb",
+  "description": "Création de sites, prospection, projets et CRM sur votre PC via une connexion privée",
+  "lang": "fr-FR",
+  "start_url": "/localaiweb",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#100f19",
+  "theme_color": "#100f19",
+  "icons": [
+    {
+      "src": "/assets/brand-web.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
