@@ -11,9 +11,9 @@ const api = async(url,body) => {
 };
 let project=null,busy=false,viewport='desktop',stage='welcome';
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
-const publishButton=document.getElementById('lawPublishBtn');
-const afterPublish=document.getElementById('lawAfterPublish');
-const editOverlay=document.getElementById('lawEditOverlay');
+const publishButton=$('#lawPublishBtn');
+const afterPublish=$('#lawAfterPublish');
+const editOverlay=$('#lawEditOverlay');
 function publishedUrl(){return project?.project?.deployment?.production_url||project?.project?.production_url||''}
 function refreshPublishing(){
  const url=publishedUrl();
@@ -24,9 +24,9 @@ function refreshPublishing(){
  if(afterPublish){
   afterPublish.hidden=!url;
   if(url){
-   document.getElementById('lawPublishedAddress').textContent='En ligne : '+url;
-   document.getElementById('lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
-   document.getElementById('lawCreateCampaign').href='/localaivision?campaign_project='+encodeURIComponent(project.project.id);
+   $('#lawPublishedAddress').textContent='En ligne : '+url;
+   $('#lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+   $('#lawCreateCampaign').href='/localaivision?campaign_project='+encodeURIComponent(project.project.id);
   }
  }
 }
@@ -34,9 +34,9 @@ function showSiteEditing(on){
  if(!editOverlay)return;
  editOverlay.hidden=!on;
  if(on){
-  document.getElementById('lawEditPhase').textContent='Codex prépare les modifications…';
-  document.getElementById('lawEditPercent').textContent='Étapes vérifiées : 0 %';
-  document.getElementById('lawEditTrack').style.width='0%';
+  $('#lawEditPhase').textContent='Codex prépare les modifications…';
+  $('#lawEditPercent').textContent='Étapes vérifiées : 0 %';
+  $('#lawEditTrack').style.width='0%';
  }
 }
 function updateEditMilestones(status){
@@ -44,20 +44,20 @@ function updateEditMilestones(status){
  const milestones={planning:0,images:0,building:0,verification:25,repair:25,
                    localization:40,preview:55,visual:65,design:75,done:100};
  const complete=milestones[String(status.phase||'').toLowerCase()];
- document.getElementById('lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
+ $('#lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
  if(Number.isFinite(complete)){
-  document.getElementById('lawEditTrack').style.width=complete+'%';
-  document.getElementById('lawEditPercent').textContent='Jalons validés : '+complete+' % (pas une estimation du temps restant)';
+  $('#lawEditTrack').style.width=complete+'%';
+  $('#lawEditPercent').textContent='Jalons validés : '+complete+' % (pas une estimation du temps restant)';
  }
 }
 function codexRecovery(error){
  const raw=String(error?.message||error||'');
  if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
- const node=document.getElementById('lawChatStatus');
+ const node=$('#lawChatStatus');
  if(node)node.textContent=/authentif|login|401|token/i.test(raw)
   ?'Codex demande une reconnexion. Ouvre « Connexion IA » pour te reconnecter.'
   :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Connexion IA ».';
- document.getElementById('lawMobileMenuToggle')?.classList.add('needs-attention');
+ $('#lawMobileMenuToggle')?.classList.add('needs-attention');
 }
 
 function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
