@@ -305,9 +305,8 @@ def validate_site(site_dir):
             return {"file":rel,"message":"Fichier JavaScript inaccessible : "+str(exc)[:200]},False
         key = (str(node), str(path.resolve()), fingerprint)
         with _node_syntax_lock:
-            previous = _node_syntax_cache.get(key)
-        if previous is not None:
-            return previous,True
+            if key in _node_syntax_cache:
+                return _node_syntax_cache[key],True
         result = _run([node, "--check", str(path)], cwd=site, timeout=30)
         issue = None if result.returncode == 0 else {
             "file": rel,
