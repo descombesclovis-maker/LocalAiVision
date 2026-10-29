@@ -59,7 +59,7 @@ class MobileRootEntryTests(unittest.TestCase):
         self.assertIn('id="lawMobileBuildStatus"', projects)
         self.assertIn("fetch('/api/ping',{cache:'no-store'})", updates)
         self.assertIn("fetch('/api/update/check',{cache:'no-store'})", updates)
-        self.assertIn("Mets à jour LocalAiVision sur le PC", updates)
+        self.assertIn("↻ Mettre à jour le PC", updates)
         self.assertIn("window.location.reload()", updates)
         self.assertNotIn("✓ Mises à jour auto", updates)
 
