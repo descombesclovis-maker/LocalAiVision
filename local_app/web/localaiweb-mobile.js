@@ -52,6 +52,11 @@
  for(const button of buttons){
    button.addEventListener('click',()=>show(button.dataset.mobilePanel));
  }
+ document.getElementById('lawMobileToolsTab')?.addEventListener('click',()=>{
+   show('chat');
+   if(menu.hidden)toggle.click();
+   toggle.focus({preventScroll:true});
+ });
  function resize(){
    nav.hidden=!mobile.matches;
    closeMenu();
