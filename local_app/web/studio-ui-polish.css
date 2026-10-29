@@ -74,3 +74,20 @@ body.is-landing .welcome .localaiweb-entry{text-decoration:none;font-weight:820!
  .law-mobile-tools .law-brand-workspace{display:flex!important;flex:1 1 100%}
  #lawMobileBrandSlot{width:100%}
 }
+
+/* Real-preview readiness state: a premium, neutral composition, never a fake site. */
+.preview-stage iframe[hidden],.preview-empty[hidden]{display:none!important}
+.preview-empty{min-height:100%;height:100%;width:min(560px,100%);padding:clamp(25px,5vw,55px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#f4effb;gap:10px}
+.preview-empty h2{font-size:clamp(19px,2vw,29px);font-weight:820;letter-spacing:-.04em;margin:20px 0 0}
+.preview-empty p{max-width:375px;color:#a9a0b8;line-height:1.7;font-size:13px;margin:0}
+.preview-empty-art{width:min(320px,75%);height:185px;display:flex;flex-direction:column;position:relative;gap:14px;border:1px solid #8f6bb080;border-radius:14px;padding:17px 20px;background:linear-gradient(155deg,#3b2b54,#1b1725);box-shadow:0 26px 55px #0005;transform:perspective(700px) rotateX(4deg) rotateY(-6deg);animation:studioPreviewFloat 8s ease-in-out infinite}
+.preview-empty-art:before{content:"";width:100%;height:1px;background:#ffffff21;position:absolute;top:39px;left:0}
+.preview-empty-bar{width:48px;height:7px;border-radius:5px;background:#e0c6ff}
+.preview-empty-headline{width:77%;height:22px;margin-top:17px;border-radius:7px;background:#ac8dd1}
+.preview-empty-text{width:88%;height:8px;border-radius:7px;background:#624e7d}
+.preview-empty-grid{display:flex;gap:9px;flex:1;margin-top:3px}
+.preview-empty-grid i{flex:1;border:1px solid #ffffff20;border-radius:9px;background:linear-gradient(140deg,#76569d,#382944)}
+.preview-empty-grid i:nth-child(2){background:linear-gradient(140deg,#6c8799,#364653)}
+.preview-empty-grid i:nth-child(3){background:linear-gradient(140deg,#9a708b,#493047)}
+@keyframes studioPreviewFloat{50%{transform:perspective(700px) rotateX(2deg) rotateY(-3deg) translateY(-6px)}}
+@media(prefers-reduced-motion:reduce){.preview-empty-art{animation:none!important;transform:none}}
