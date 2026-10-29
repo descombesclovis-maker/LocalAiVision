@@ -59,6 +59,10 @@ def _load(base,brand_id):
     return item
 
 
+def get_brand(base,brand_id):
+    return _load(base,brand_id)
+
+
 def list_brands(base):
     brands=[]
     for child in _root(base).iterdir():
