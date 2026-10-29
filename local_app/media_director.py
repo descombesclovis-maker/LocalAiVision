@@ -80,3 +80,24 @@ def plan(prompt: str, workflow_kind: str, current: dict[str,Any] | None = None)-
     if steps and 1<=int(steps.group(1))<=100:
         settings["steps"]=int(steps.group(1))
     return settings
+
+VIDEO_MOTION_HINT = (
+    "Temporal quality only: maintain the same subject identity, face, clothing and "
+    "body proportions across consecutive frames. Smooth physically plausible "
+    "movement, stable lighting and camera, natural motion blur, realistic "
+    "textures and consistent background geometry, avoid jerky camera motion."
+)
+VIDEO_NEGATIVE_HINT = (
+    "temporal flicker, frame jitter, face drift, warped limbs, ghosting, "
+    "melting textures, frame inconsistency, excessive camera shake, "
+    "motion artifacts, blocky compression, artificial plastic skin"
+)
+
+def enhance_video_continuity(prompt: str, negative: str | None, kind: str, technical_quality=True):
+    """Quality-only camera/temporal advice that cannot change the user's scene."""
+    if not technical_quality or kind not in ("wan","hunyuan15","hunyuan15-i2v-step",
+                                            "omniweaving-t2v","omniweaving-i2v"):
+        return prompt,negative
+    result=str(prompt or "").strip()+"\n\n"+VIDEO_MOTION_HINT
+    neg=(str(negative or "").strip()+", "+VIDEO_NEGATIVE_HINT).strip(", ")
+    return result,neg
