@@ -1,7 +1,7 @@
 import base64, hashlib, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, quote
+from urllib.parse import urlparse, parse_qs, quote, unquote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 try:
@@ -140,6 +140,68 @@ def _web_active_generations():
     return {"count":len(jobs), "jobs":sorted(results,key=lambda x:x["started_at"],reverse=True)}
 
 
+_media_request_lock=threading.RLock()
+_media_requests={}
+
+def _media_request_get(ticket):
+    with _media_request_lock:
+        row=_media_requests.get(str(ticket or ""))
+        return dict(row) if row else None
+
+def _media_request_pending():
+    with _media_request_lock:
+        now=time.time()
+        for key,row in list(_media_requests.items()):
+            if row.get("finished_at") and now-row["finished_at"]>3600:
+                _media_requests.pop(key,None)
+        return [dict(row) for row in _media_requests.values() if row["state"]=="preparing"]
+
+def _media_request_worker(ticket,body):
+    try:
+        body["_studio_request_ticket"]=ticket
+        answer=run_generation(body)
+        ids=answer.get("prompt_ids") or []
+        with _media_request_lock:
+            record=_media_requests.get(ticket)
+            cancelled=bool(record and record.get("cancel_requested"))
+            if record:
+                record.update(state="cancelled" if cancelled else "queued",
+                              prompt_ids=ids,warnings=answer.get("warnings",[]),
+                              finished_at=time.time())
+        if cancelled:
+            for pid in ids:
+                try: cancel_studio_media(pid)
+                except (OSError,RuntimeError,ValueError): pass
+    except Exception as exc:
+        with _media_request_lock:
+            record=_media_requests.get(ticket)
+            if record:
+                record.update(state="cancelled" if record.get("cancel_requested") else "error",
+                              error=str(exc)[:650],finished_at=time.time())
+
+def _media_request_start(body):
+    if not isinstance(body,dict) or not body.get("workflow") or not str(body.get("prompt") or "").strip():
+        raise ValueError("Choisis un modèle et décris la création.")
+    ticket="prep-"+uuid.uuid4().hex
+    profile=str(body.get("workflow") or "").lower()
+    kind="video" if any(t in profile for t in ("video","wan","weaving","t2v","i2v")) else "image"
+    with _media_request_lock:
+        _media_requests[ticket]={"ticket":ticket,"state":"preparing",
+                                 "kind":kind,"phase":"Préparation du moteur et du modèle…",
+                                 "started_at":time.time(),"cancel_requested":False}
+    threading.Thread(target=_media_request_worker,args=(ticket,body),
+                     name="LocalAiVisionPrepare-"+ticket[-8:],daemon=True).start()
+    return {"ok":True,"ticket":ticket,"state":"preparing"}
+
+def cancel_media_preparation(ticket):
+    with _media_request_lock:
+        record=_media_requests.get(str(ticket or ""))
+        if not record or record["state"]!="preparing":
+            raise ValueError("Préparation terminée ou introuvable.")
+        record["cancel_requested"]=True
+        record.update(state="cancelled",finished_at=time.time())
+    return {"ok":True,"cancelled":str(ticket),"message":"Annulation demandée. La préparation déjà lancée peut se terminer sans créer de vidéo."}
+
 _studio_media_status_cache={"at":0.0,"value":{"count":0,"running":0,"queued":0}}
 _studio_media_status_lock=threading.Lock()
 
@@ -155,9 +217,13 @@ def _studio_media_status():
         queue=http_json(COMFY+"/queue",timeout=2)
         active=len(queue.get("queue_running") or [])
         waiting=len(queue.get("queue_pending") or [])
-        value={"count":active+waiting,"running":active,"queued":waiting}
+        preparing=len(_media_request_pending())
+        value={"count":active+waiting+preparing,"running":active,
+               "queued":waiting,"preparing":preparing}
     except (OSError,ValueError,TypeError,TimeoutError):
-        value={"count":0,"running":0,"queued":0,"unavailable":True}
+        preparing=len(_media_request_pending())
+        value={"count":preparing,"running":0,"queued":0,
+               "preparing":preparing,"unavailable":True}
     with _studio_media_status_lock:
         _studio_media_status_cache.update(at=now,value=value)
     return value
@@ -944,7 +1010,11 @@ def _managed_comfy_vram_args():
                 creationflags=creationflags,
             )
             totals = [int(line.strip()) for line in probe.stdout.splitlines() if line.strip().isdigit()]
-            if totals and totals[0] <= 12288:
+            # --lowvram forces repeated CPU/GPU swapping on 12 GB cards.
+            # Let ComfyUI's automatic VRAM manager handle 12 GB by default;
+            # keep an explicit LOCALVISION_COMFY_VRAM_MODE=low override if a
+            # heavyweight model actually needs it.
+            if totals and totals[0] <= 8192:
                 args = ("--lowvram",)
         except (OSError, subprocess.SubprocessError, ValueError):
             pass
@@ -1649,6 +1719,11 @@ def run_generation(body):
     # still running. Wait for it instead of failing and forcing a second click.
     _wait_for_setup()
     with _engine_lock:
+        ticket=body.get("_studio_request_ticket")
+        if ticket:
+            record=_media_request_get(ticket)
+            if not record or record.get("cancel_requested"):
+                raise RuntimeError("Préparation annulée. Aucun nouveau rendu envoyé à ComfyUI.")
         if not ensure_comfyui(timeout=180):
             raise RuntimeError("ComfyUI n’est pas prêt. Consulte l’état d’installation et le journal comfy.log, puis utilise Réessayer.")
         wf = load_workflow(body.get("workflow"))
@@ -1715,6 +1790,10 @@ def run_generation(body):
             warnings.append("Un serveur texte externe reste actif ; sa mémoire GPU ne peut pas être libérée par cette application.")
         for current in prepared:
             try:
+                if ticket:
+                    record=_media_request_get(ticket)
+                    if not record or record.get("cancel_requested"):
+                        raise RuntimeError("Génération annulée avant son lancement.")
                 result = queue_prompt(current)
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
@@ -1823,10 +1902,92 @@ def upload_image(filename, data):
         return json.loads(r.read().decode())
 
 def queue_prompt(api):
-    return comfy_post("/prompt", {"prompt": api, "client_id": str(uuid.uuid4())})
+    from local_app import comfy_progress
+    client=comfy_progress.start(COMFY)
+    result=comfy_post("/prompt", {"prompt": api, "client_id": client})
+    if result.get("prompt_id"):
+        # Works only for jobs submitted by this app; never assume ownership of
+        # unrelated queues (including third-party ComfyUI windows).
+        video=any("video" in str(n.get("class_type","")).lower() or
+                  "wan" in str(n.get("class_type","")).lower() or
+                  "omni" in str(n.get("class_type","")).lower()
+                  for n in api.values())
+        comfy_progress.register(result["prompt_id"],"video" if video else "image")
+    return result
+
+def studio_media_jobs():
+    from local_app import comfy_progress
+    records=comfy_progress.statuses()
+    if not records and not _media_request_pending():
+        return {"jobs":[],"count":0}
+    try:
+        queue=comfy_get("/queue")
+        running={str(row[1]) for row in queue.get("queue_running",[]) if len(row)>1}
+        pending={str(row[1]) for row in queue.get("queue_pending",[]) if len(row)>1}
+    except (OSError,ValueError,TypeError):
+        running=pending=None
+    results=[]
+    for task in _media_request_pending():
+        results.append({"request_ticket":task["ticket"],"prompt_id":None,
+                        "kind":task["kind"],"state":"preparing",
+                        "phase":task.get("phase","Préparation du modèle"),
+                        "started_at":task["started_at"],"preview_ready":False,
+                        "percent":None,"max_steps":0,"step":0})
+    for item in records:
+        pid=item["prompt_id"]
+        if item["state"] in ("done","cancelled","error"):
+            continue
+        if running is None:
+            item["phase"]="Connexion ComfyUI indisponible"
+        elif pid in running:
+            item["phase"]="Génération en cours"
+            if item["state"]=="queued":
+                comfy_progress.update(pid,state="running")
+        elif pid in pending:
+            item["phase"]="En attente dans ComfyUI"
+            item["percent"]=None
+        else:
+            try:
+                result=comfy_get("/history/"+quote(pid))
+                if pid in result:
+                    is_error=result[pid].get("status",{}).get("status_str") in ("error","failed")
+                    comfy_progress.mark(pid,"error" if is_error else "done")
+                    continue
+            except (OSError,ValueError,TypeError):
+                pass
+            item["phase"]="État du rendu non confirmé"
+        item["preview_ready"]=comfy_progress.get_preview(pid) is not None
+        results.append(item)
+    return {"jobs":results,"count":len(results)}
+
+
+def cancel_studio_media(prompt_id):
+    from local_app import comfy_progress
+    pid=str(prompt_id or "")
+    item=comfy_progress.status(pid)
+    if not item or item["state"] in ("done","cancelled","error"):
+        raise ValueError("Aucune génération active connue de LocalAiVision pour cet identifiant.")
+    queue=comfy_get("/queue")
+    running={str(row[1]) for row in queue.get("queue_running",[]) if len(row)>1}
+    pending={str(row[1]) for row in queue.get("queue_pending",[]) if len(row)>1}
+    if pid in pending:
+        comfy_post("/queue",{"delete":[pid]})
+    elif pid in running:
+        comfy_post("/interrupt",{})
+    else:
+        raise ValueError("Tâche non présente dans la file ComfyUI. Son état a peut-être changé.")
+    comfy_progress.mark(pid,"cancelled")
+    _studio_media_status_cache["at"]=0
+    return {"ok":True,"cancelled":pid}
+
 
 def history(prompt_id):
     result = comfy_get("/history/" + quote(prompt_id))
+    if prompt_id in result:
+        from local_app import comfy_progress
+        info=result[prompt_id]
+        failed=info.get("status",{}).get("status_str") in ("error","failed")
+        comfy_progress.mark(prompt_id,"error" if failed else "done")
     if prompt_id not in result:
         queue = comfy_get('/queue')
         active = queue.get('queue_running', []) + queue.get('queue_pending', [])
@@ -2137,6 +2298,31 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/studio/activity":
             self.send_json(_studio_activity_status())
             return
+        if u.path == "/api/studio/media/jobs":
+            try: self.send_json(studio_media_jobs())
+            except Exception as exc: self.send_json({"error":str(exc)},503)
+            return
+        if u.path == "/api/studio/media/request/status":
+            ticket=parse_qs(u.query).get("ticket",[""])[0]
+            record=_media_request_get(ticket)
+            if record: self.send_json({"request":record})
+            else: self.send_json({"error":"Préparation inconnue ou expirée."},404)
+            return
+        if u.path == "/api/studio/media/job":
+            from local_app import comfy_progress
+            pid=parse_qs(u.query).get("id",[""])[0]
+            job=comfy_progress.status(pid)
+            self.send_json({"job":job} if job else {"error":"Tâche inconnue."},200 if job else 404)
+            return
+        if u.path == "/api/studio/media/preview":
+            from local_app import comfy_progress
+            pid=parse_qs(u.query).get("id",[""])[0]
+            output=comfy_progress.get_preview(pid)
+            if output is None:
+                self.send_response(404);self.end_headers()
+            else:
+                self.send_bytes(output[1],output[0])
+            return
         if u.path == "/api/studio/brands":
             try:
                 from local_app import brand_catalog
@@ -2338,10 +2524,81 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _authorized_media_request(self):
+        origin=self.headers.get("Origin","")
+        host=self.headers.get("Host","")
+        if self.headers.get("X-LocalAI-Media")!="1" or (origin and (
+                urlparse(origin).scheme not in ("http","https") or
+                urlparse(origin).netloc.lower()!=host.lower())):
+            self.send_json({"error":"Action locale non autorisée."},403)
+            return False
+        return True
+
+    def _upload_existing_lora(self):
+        """Stream a user-selected safetensors into active ComfyUI; never buffer
+        multi-GB files in Python RAM, overwrite another LoRA or interrupt jobs."""
+        if not self._authorized_media_request():
+            return
+        raw_name=unquote(self.headers.get("X-LocalAI-LoRA-Name",""))
+        if (not raw_name or len(raw_name)>180 or "/" in raw_name or
+                "\\\\" in raw_name or Path(raw_name).name!=raw_name or
+                not raw_name.lower().endswith(".safetensors")):
+            self.send_json({"error":"Sélectionne un fichier .safetensors valide."},400)
+            return
+        try:
+            size=int(self.headers.get("Content-Length","0"))
+        except (TypeError,ValueError):
+            size=0
+        if size<16 or size>5*1024**3:
+            self.send_json({"error":"Fichier LoRA invalide ou trop volumineux (maximum 5 Go)."},413)
+            return
+        cwd=_comfy_working_dir()
+        if cwd is None:
+            self.send_json({"error":"ComfyUI local introuvable."},503)
+            return
+        folder=cwd/"models"/"loras"/"LocalAIStudio_imports"
+        folder.mkdir(parents=True,exist_ok=True)
+        name=Path(raw_name).stem
+        clean=re.sub(r"[^a-zA-Z0-9_. -]","_",name).strip(" .") or "LoRA"
+        clean=clean[:90]
+        dest=folder/(clean+".safetensors")
+        if dest.exists():
+            dest=folder/(clean+"-"+uuid.uuid4().hex[:7]+".safetensors")
+        temp=folder/("."+uuid.uuid4().hex+".part")
+        try:
+            remaining=size
+            with temp.open("xb") as stream:
+                while remaining:
+                    chunk=self.rfile.read(min(1024*1024,remaining))
+                    if not chunk:
+                        raise ConnectionError("Téléversement du LoRA interrompu.")
+                    stream.write(chunk)
+                    remaining-=len(chunk)
+            with temp.open("rb") as stream:
+                count=int.from_bytes(stream.read(8),"little")
+                if count<=2 or count>10*1024*1024 or count>size-8:
+                    raise ValueError("En-tête safetensors invalide.")
+                header=json.loads(stream.read(count).decode("utf-8"))
+                if not isinstance(header,dict) or not header:
+                    raise ValueError("Métadonnées safetensors absentes.")
+            os.replace(temp,dest)
+            relative=dest.relative_to(cwd/"models"/"loras").as_posix()
+            self.send_json({"ok":True,"path":relative,"restart_required":True,
+                "message":"LoRA ajouté. Actualise les modèles ComfyUI si nécessaire avant de l’activer."})
+        except (OSError,ValueError,UnicodeError,ConnectionError) as exc:
+            self.send_json({"error":str(exc)},400)
+        finally:
+            temp.unlink(missing_ok=True)
+
     def do_POST(self):
         u=urlparse(self.path)
         global _auto_update_draft_seen, _auto_update_last_action
+        if u.path == "/api/loras/upload":
+            self._upload_existing_lora()
+            return
         if u.path == "/api/update/draft" and not self._authorized_update_request():
+            return
+        if u.path in ("/api/studio/media/cancel","/api/studio/media/start") and not self._authorized_media_request():
             return
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and not self._authorized_brand_request():
@@ -2350,6 +2607,9 @@ class Handler(BaseHTTPRequestHandler):
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and (length<0 or length>6_000_000):
             self.send_json({"error":"Requête de marque trop volumineuse."},413)
+            return
+        if u.path == "/api/studio/media/start" and (length<0 or length>35_000_000):
+            self.send_json({"error":"Image de référence trop volumineuse."},413)
             return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
@@ -3011,8 +3271,26 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error":str(e)},400)
             return
+        if u.path == "/api/studio/media/start":
+            if not self._authorized_media_request():
+                return
+            try: self.send_json(_media_request_start(body))
+            except ValueError as exc: self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/studio/media/cancel":
+            if not self._authorized_media_request():
+                return
+            try:
+                if body.get("request_ticket"):
+                    self.send_json(cancel_media_preparation(body.get("request_ticket")))
+                else:
+                    self.send_json(cancel_studio_media(body.get("prompt_id")))
+            except ValueError as exc: self.send_json({"error":str(exc)},400)
+            except Exception as exc: self.send_json({"error":str(exc)},502)
+            return
         if u.path == "/api/interrupt":
-            try: self.send_json(comfy_post("/interrupt","{}" if False else {}))
+            # Legacy emergency stop retained for the existing controls.
+            try: self.send_json(comfy_post("/interrupt",{}))
             except Exception as e: self.send_json({"error":str(e)},502)
             return
         self.send_response(404); self.end_headers()

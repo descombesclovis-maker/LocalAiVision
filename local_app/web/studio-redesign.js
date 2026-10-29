@@ -5,6 +5,7 @@
  const prompt=byId('prompt'),welcome=byId('welcome'),messages=byId('messages');
  const navEntries=['navCreations','navPhoto','navVideo','navNsfw'];
  let pendingAsset=null;
+ let activeGalleryPoll=null;
  function activeNav(id){
    for(const name of navEntries) {
      const button=byId(name);
@@ -55,6 +56,7 @@
    hideSidebar();prompt.focus();
  }
  function gallery(){
+   if(activeGalleryPoll){window.clearInterval(activeGalleryPoll);activeGalleryPoll=null}
    darkMode();welcome.classList.add('hidden');
    activeNav('navCreations');hideSidebar();
    let type='all';
@@ -75,8 +77,100 @@
    }
    bar.append(heading,controls);
    const grid=document.createElement('div');grid.className='gallery-grid';
-   root.append(bar,grid);
+   const activeBox=document.createElement('section');
+   activeBox.id='visionActiveGenerations';
+   activeBox.className='vision-active-generations';
+   activeBox.hidden=true;
+   root.append(bar,activeBox,grid);
    messages.replaceChildren(root);
+   let refreshing=false;
+   async function refreshActiveMedia(){
+     if(refreshing||!root.isConnected||document.hidden)return;
+     refreshing=true;
+     try{
+       const response=await fetch('/api/studio/media/jobs',{cache:'no-store'});
+       if(!response.ok)throw Error('ComfyUI ne répond pas');
+       const data=await response.json();
+       const jobs=Array.isArray(data.jobs)?data.jobs:[];
+       activeBox.hidden=!jobs.length;
+       activeBox.replaceChildren();
+       if(jobs.length){
+         const title=document.createElement('h3');
+         title.textContent='Créations en cours · '+jobs.length;
+         activeBox.append(title);
+       }
+       for(const job of jobs){
+         const card=document.createElement('article');card.className='vision-active-card';
+         const preview=document.createElement('div');preview.className='vision-active-preview';
+         if(job.preview_ready){
+           const image=document.createElement('img');
+           image.src='/api/studio/media/preview?id='+encodeURIComponent(job.prompt_id)+'&t='+Date.now();
+           image.alt='Première image réellement transmise par ComfyUI';
+           image.loading='lazy';
+           preview.append(image);
+         }else{
+           const spinner=document.createElement('div');spinner.className='vision-preview-wait';
+           spinner.innerHTML='<span class="vision-preview-spinner" aria-hidden="true"></span><strong>Première image en attente</strong><small>Elle apparaîtra si le modèle fournit un aperçu en cours de calcul.</small>';
+           preview.append(spinner);
+         }
+         const details=document.createElement('div');details.className='vision-active-info';
+         const name=document.createElement('strong');
+         name.textContent=job.state==='preparing'?'Préparation '+(job.kind==='video'?'de la vidéo':'de l’image'):job.kind==='video'?'Vidéo en cours':'Image en cours';
+         const state=document.createElement('p');
+         state.textContent=job.phase||'ComfyUI prépare le modèle…';
+         details.append(name,state);
+         if(Number.isFinite(Number(job.started_at))){
+           const elapsed=Math.max(0,Math.floor(Date.now()/1000-Number(job.started_at)));
+           const duration=document.createElement('small');
+           duration.textContent='Temps écoulé : '+Math.floor(elapsed/60)+' min '+String(elapsed%60).padStart(2,'0')+' s';
+           details.append(duration);
+           if(elapsed>300){
+             const hint=document.createElement('small');
+             hint.textContent='Rendu long : vérifie la file et l’usage GPU. Pour le prochain essai, les réglages « Vidéo rapide · 12 Go » réduisent le nombre d’images.';
+             details.append(hint);
+           }
+         }
+         if(Number.isInteger(job.percent)&&job.max_steps>0){
+           const label=document.createElement('label');
+           label.textContent='Étape de calcul : '+job.step+' / '+job.max_steps+' · '+job.percent+' %';
+           const bar=document.createElement('progress');bar.value=job.step;bar.max=job.max_steps;
+           bar.setAttribute('aria-label','Progression réelle de l’étape ComfyUI');
+           details.append(label,bar);
+         }else{
+           const pending=document.createElement('small');
+           pending.textContent='Progression chiffrée disponible dès que ComfyUI transmet ses étapes.';
+           details.append(pending);
+         }
+         const cancel=document.createElement('button');
+         cancel.type='button';cancel.className='vision-cancel-job';cancel.textContent='Annuler la génération';
+         cancel.addEventListener('click',async()=>{
+           cancel.disabled=true;cancel.textContent='Annulation…';
+           try{
+             const result=await fetch('/api/studio/media/cancel',{
+               method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},
+               body:JSON.stringify(job.request_ticket?{request_ticket:job.request_ticket}:{prompt_id:job.prompt_id}),credentials:'same-origin'
+             });
+             const reply=await result.json();
+             if(!result.ok||!reply.ok)throw Error(reply.error||'Arrêt impossible');
+             cancel.textContent='✓ Annulée';
+             void refreshActiveMedia();
+           }catch(error){cancel.disabled=false;cancel.textContent='Réessayer · '+error.message}
+         });
+         details.append(cancel);card.append(preview,details);activeBox.append(card);
+       }
+     }catch(error){
+       // A connection loss is not proof that the generation has stopped.
+       if(activeBox.childElementCount) {
+         const note=document.createElement('p');note.textContent='Suivi temporairement indisponible : '+error.message;
+         activeBox.append(note);
+       }
+     }finally{refreshing=false}
+   }
+   void refreshActiveMedia();
+   activeGalleryPoll=window.setInterval(()=>{
+     if(root.isConnected)void refreshActiveMedia();
+     else{window.clearInterval(activeGalleryPoll);activeGalleryPoll=null}
+   },1800);
    function paint(){
      controls.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.galleryFilter===type));
      grid.replaceChildren();
@@ -221,10 +315,12 @@
  let userInteracted=false;
  document.addEventListener('pointerdown',()=>{userInteracted=true},{once:true});
  document.addEventListener('keydown',()=>{userInteracted=true},{once:true});
+ const requestedCreations=new URLSearchParams(window.location.search).get('view')==='creations';
+ window.LocalAiVisionOpenCreations=gallery;
  window.localAiVisionInitialRefresh?.then(()=>{
-   if(!userInteracted)home();
+   if(!userInteracted){if(requestedCreations)gallery();else home()}
  }).catch(()=>{
-   if(!userInteracted)home();
+   if(!userInteracted){if(requestedCreations)gallery();else home()}
  });
  // Real engine health, no fake 'connected' status. The repair action
  // delegates to the existing resumable engine installer after user consent.

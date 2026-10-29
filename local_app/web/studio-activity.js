@@ -39,7 +39,7 @@
        chip.hidden=false;
        const first=Array.from(previous.values())[0];
        if(safeId(first?.id))toggle.onclick=()=>{window.location.assign(dest(first.id));};
-       else if(first?.id==='vision')toggle.onclick=()=>{window.location.assign('/localaivision')};
+       else if(first?.id==='vision')toggle.onclick=()=>{window.location.assign('/localaivision?view=creations')};
        setTimeout(()=>{if(!previous.size)chip.hidden=true;toggle.onclick=null},9000);
      }else chip.hidden=true;
      previous.clear();panel.replaceChildren();expanded=false;panel.hidden=true;
@@ -64,10 +64,11 @@
      link.append(name,detail);panel.append(link);
    }
    if(mediaCount){
-     const link=document.createElement('a');link.href='/localaivision';
+     const link=document.createElement('a');link.href='/localaivision?view=creations';
      const title=document.createElement('b');title.textContent='LocalAiVision · Photo / Vidéo';
      const detail=document.createElement('span');
      detail.textContent=media.running?'Rendu ComfyUI en cours'+(media.queued?' · '+media.queued+' en attente':''):
+       media.preparing?'Préparation du modèle · '+media.preparing+' création(s) en attente du moteur':
        media.queued+' rendu(s) en attente';
      link.append(title,detail);panel.append(link);
    }

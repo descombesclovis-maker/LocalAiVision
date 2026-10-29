@@ -1,0 +1,36 @@
+/* Dedicated photo/video production UX: simple controls and genuine ComfyUI status. */
+.studio-navigation .nav-glyph{display:inline-flex;align-items:center;justify-content:center;flex:0 0 29px}
+.studio-navigation .nav-glyph svg{display:block;width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.85;stroke-linecap:round;stroke-linejoin:round}
+.studio-nav-entry{font-weight:800!important}
+.studio-nav-entry:hover .nav-glyph svg{transform:scale(1.08)}
+.nav-glyph svg{transition:transform .2s ease}
+.lora-import{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:12px 0 15px;border-bottom:1px solid #ffffff1c;margin-bottom:13px}
+.lora-upload{display:inline-flex;justify-content:center;align-items:center;min-height:42px;padding:10px 16px;border-radius:12px;background:linear-gradient(115deg,#65419a,#8657c8);color:#fff;border:1px solid #b08ae5;cursor:pointer;text-align:center;font-weight:800;font-size:12px}
+.lora-upload:hover{background:linear-gradient(115deg,#8255b8,#a06bea)}
+.lora-upload:focus-within{outline:3px solid #d0b2fc;outline-offset:2px}
+#loraUploadStatus{color:#beaecd;font-size:12px;line-height:1.5;flex:1;min-width:180px}
+.fast-video-preset{min-height:42px;border:1px solid #77a5be!important;border-radius:12px!important;background:linear-gradient(120deg,#175169,#277083)!important;color:#efffff!important;font-weight:850!important;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;text-align:center;padding:10px!important}
+.fast-video-preset:hover{background:#31899c!important}
+.vision-active-generations[hidden]{display:none!important}
+.vision-active-generations{margin:24px 0 31px;padding:16px;border:1px solid #7a5c9d;border-radius:17px;background:linear-gradient(145deg,#231a30,#13101b);display:grid;gap:15px;box-shadow:0 20px 58px #0003}
+.vision-active-generations h3{margin:0 0 1px;color:#e9d8ff;font-size:15px;font-weight:830;letter-spacing:-.025em}
+.vision-active-card{display:grid;grid-template-columns:minmax(190px,33%) 1fr;gap:20px;align-items:center;padding:12px;border:1px solid #ffffff24;border-radius:14px;background:#ffffff05;min-width:0}
+.vision-active-preview{position:relative;min-height:155px;background:radial-gradient(circle at 47% 38%,#584070,#17101f 75%);border:1px solid #ffffff20;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.vision-active-preview img{width:100%;height:100%;max-height:270px;object-fit:contain;display:block;animation:visionReveal .3s ease}
+.vision-preview-wait{display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:8px;padding:20px}
+.vision-preview-wait strong{color:#f6eaff;font-size:12px}
+.vision-preview-wait small{max-width:220px;color:#bfb0ca;font-size:11px;line-height:1.5}
+.vision-preview-spinner{display:block;height:28px;width:28px;border:3px solid #b78bf03d;border-top-color:#c59ff8;border-radius:50%;animation:visionSpin 1.15s linear infinite}
+.vision-active-info{display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0}
+.vision-active-info strong{font-size:16px;font-weight:850;color:#fff}
+.vision-active-info p{margin:0;color:#d5c5e4;font-size:12px}
+.vision-active-info small{color:#a89bb7;font-size:11px}
+.vision-active-info label{font-weight:750;font-size:12px;color:#d5c0e7}
+.vision-active-info progress{width:min(360px,100%);height:12px;accent-color:#ae7cf1;border-radius:9px}
+.vision-cancel-job{min-height:38px;padding:9px 14px;border:1px solid #c789a9!important;border-radius:10px;background:#673148;color:#fff;font-size:12px;font-weight:850;cursor:pointer}
+.vision-cancel-job:hover{background:#93445e}
+.vision-cancel-job:disabled{opacity:.65;cursor:wait}
+@keyframes visionSpin{to{transform:rotate(360deg)}}
+@keyframes visionReveal{from{opacity:0;filter:blur(7px)}to{opacity:1;filter:none}}
+@media(max-width:700px){.vision-active-card{grid-template-columns:1fr;gap:14px}.vision-active-preview{min-height:145px}.vision-active-generations{margin:18px 0;padding:12px}.lora-import{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.vision-preview-spinner,.vision-active-preview img{animation:none!important}.nav-glyph svg{transition:none!important}}

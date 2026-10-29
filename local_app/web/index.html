@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/vision-generation.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-ui-polish.css">
 </head>
 <body class="is-landing">
@@ -11,10 +11,10 @@
       <button class="close-sidebar" id="closeSidebar" type="button" aria-label="Fermer le menu">×</button>
     </div>
     <nav class="studio-navigation" aria-label="Espaces">
-      <button type="button" id="navCreations" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">▦</span><span>Mes créations</span></button>
-      <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">◈</span><span>Photo</span></button>
-      <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">▣</span><span>Vidéo</span></button>
-      <button type="button" id="navNsfw" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true">✧</span><span>NSFW</span></button>
+      <button type="button" id="navCreations" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span><span>Mes créations</span></button>
+      <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Photo</span></button>
+      <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="14" height="16" rx="3"/><path d="m17 9 4-3v12l-4-3"/><path d="m9 9 5 3-5 3z"/></svg></span><span>Vidéo</span></button>
+      <button type="button" id="navNsfw" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v5c0 5.3 3.6 8 8 9 4.4-1 8-3.7 8-9V7z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 0 1 4 0v2"/></svg></span><span>NSFW</span></button>
     </nav>
   </aside>
   <!-- Compatibility controls preserved for the existing model, library,
@@ -118,13 +118,14 @@
                 <summary><span>LoRA</span><small>Bibliothèque locale et catalogue</small></summary>
                 <div class="settings-accordion-body">
                   <div id="loraPanel" class="lora-panel">
-                    <div class="lora-head"><div><b>LoRA locaux</b><span>ComfyUI/models/loras · pile multi-LoRA appliquée à la vidéo NSFW</span><strong id="loraStackCount" class="lora-stack-count">0 / 8 actifs</strong></div><button id="refreshLoras" type="button">Actualiser</button></div>
+                    <div class="lora-head"><div><b>Mes LoRA et anciens modèles</b><span>Retrouve les .safetensors existants, ajoute-en depuis ton PC et active jusqu’à 8 LoRA pour les workflows compatibles.</span><strong id="loraStackCount" class="lora-stack-count">0 / 8 sélectionnés</strong></div><button id="refreshLoras" type="button">↻ Actualiser</button></div>
+                     <div class="lora-import"><label class="lora-upload" for="loraFileInput">＋ Ajouter un LoRA (.safetensors)</label><input id="loraFileInput" type="file" accept=".safetensors" hidden><span id="loraUploadStatus" role="status">Les LoRA déjà présents sur ton PC sont conservés.</span></div>
                     <input id="loraSearch" type="search" placeholder="Rechercher un LoRA, un déclencheur, un modèle de base…">
                     <div class="lora-section-title">INSTALLÉS SUR CET APPAREIL</div>
                     <div id="loraCatalog" class="lora-catalog"></div>
                     <div class="lora-section-title">CATALOGUE LORA · GÉNÉRAL</div>
                     <div id="loraRemoteCatalog" class="lora-catalog remote"></div>
-                    <p class="lora-note">Cette section n’est affichée que pour la vidéo de l’espace isolé, afin de ne pas appliquer un LoRA Hunyuan Video à un moteur incompatible.</p>
+                    <p class="lora-note">Tes LoRA sont conservés dans ComfyUI/models/loras. Les LoRA sélectionnés sont appliqués uniquement aux générations vidéo Hunyuan compatibles ; les autres modèles ne sont pas modifiés automatiquement. Une installation de LoRA peut nécessiter un redémarrage de ComfyUI.</p>
                   </div>
                 </div>
               </details>
@@ -159,6 +160,7 @@
                 <div class="settings-accordion-body">
                   <div class="settings-grid">
                     <label class="visual-only">Qualité<select id="settingQuality"><option value="workflow" selected>Réglages du workflow</option><option value="draft">Rapide</option><option value="balanced">Équilibrée</option><option value="quality">Soignée</option></select></label>
+                     <button id="videoFastPreset" type="button" class="video-only fast-video-preset" title="Préparer une vidéo de 10 secondes avec des paramètres économes en mémoire pour une carte 12 Go">⚡ Vidéo rapide · 12 Go</button>
                     <label class="visual-only">Format<select id="settingAspect"><option value="auto" selected>Workflow</option><option value="1:1">Carré 1:1</option><option value="16:9">Paysage 16:9</option><option value="9:16">Portrait 9:16</option><option value="4:3">4:3</option><option value="3:4">3:4</option></select></label>
                     <label class="visual-only">Nombre de résultats<select id="settingCount"><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></label>
                     <label class="video-only">Durée vidéo (s)<input id="settingDuration" type="number" min="0.1" step="0.1" placeholder="Workflow"></label>
