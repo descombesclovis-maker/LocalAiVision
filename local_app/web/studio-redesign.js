@@ -115,7 +115,7 @@
          }
          const details=document.createElement('div');details.className='vision-active-info';
          const name=document.createElement('strong');
-         name.textContent=job.kind==='video'?'Vidéo en cours':'Image en cours';
+         name.textContent=job.state==='preparing'?'Préparation '+(job.kind==='video'?'de la vidéo':'de l’image'):job.kind==='video'?'Vidéo en cours':'Image en cours';
          const state=document.createElement('p');
          state.textContent=job.phase||'ComfyUI prépare le modèle…';
          details.append(name,state);
@@ -148,7 +148,7 @@
            try{
              const result=await fetch('/api/studio/media/cancel',{
                method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},
-               body:JSON.stringify({prompt_id:job.prompt_id}),credentials:'same-origin'
+               body:JSON.stringify(job.request_ticket?{request_ticket:job.request_ticket}:{prompt_id:job.prompt_id}),credentials:'same-origin'
              });
              const reply=await result.json();
              if(!result.ok||!reply.ok)throw Error(reply.error||'Arrêt impossible');
