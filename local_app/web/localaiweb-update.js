@@ -3,6 +3,15 @@
 (function(){
  const btn=document.getElementById('lawUpdateBtn');
  if(!btn)return;
+ // On the phone only the web interface refreshes. Never remotely install or
+ // restart the Windows executable while the user is editing from mobile.
+ if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
+   btn.textContent='✓ Mises à jour auto';
+   btn.title='L’application iPhone récupère automatiquement la version du PC à chaque ouverture.';
+   btn.setAttribute('aria-label','Mises à jour automatiques de l’application mobile');
+   btn.disabled=true;
+   return;
+ }
  const label='↻ Mettre à jour';
  async function request(url, options){
   const res=await fetch(url,options);
