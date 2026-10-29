@@ -68,6 +68,7 @@
      const title=document.createElement('b');title.textContent='LocalAiVision · Photo / Vidéo';
      const detail=document.createElement('span');
      detail.textContent=media.running?'Rendu ComfyUI en cours'+(media.queued?' · '+media.queued+' en attente':''):
+       media.preparing?'Préparation du modèle · '+media.preparing+' création(s) en attente du moteur':
        media.queued+' rendu(s) en attente';
      link.append(title,detail);panel.append(link);
    }
