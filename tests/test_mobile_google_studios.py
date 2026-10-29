@@ -36,14 +36,24 @@ class MobileStudiosTests(unittest.TestCase):
 
     def test_private_pwa_cache_excludes_api_and_projects(self):
         sw=(WEB/"service-worker.js").read_text(encoding="utf-8")
-        self.assertIn("if(!STATIC.has(url.pathname))return",sw)
-        self.assertNotIn("'/api/",sw)
-        self.assertNotIn("'/web-preview/",sw)
+        self.assertIn("event.respondWith(fetch(request))",sw)
+        self.assertNotIn("caches.open(",sw)
+        self.assertNotIn("cache.put(",sw)
         self.assertEqual(server.HOST,"127.0.0.1")
-        manifest=(WEB/"manifest.webmanifest").read_text(encoding="utf-8")
-        self.assertIn('"display": "standalone"',manifest)
-        for name in ("index.html","localaiweb.html","localaiweb-map.html","localaiweb-projects.html"):
-            self.assertIn('manifest.webmanifest',(WEB/name).read_text(encoding="utf-8"))
+        vision_manifest=(WEB/"manifest.webmanifest").read_text(encoding="utf-8")
+        mobile_manifest=(WEB/"localaiweb.webmanifest").read_text(encoding="utf-8")
+        self.assertIn('"display": "standalone"',vision_manifest)
+        self.assertIn('"start_url": "/localaiweb"',mobile_manifest)
+        self.assertIn('"name": "LocalAiWeb — Studio de création"',mobile_manifest)
+        self.assertIn('manifest.webmanifest',(WEB/"index.html").read_text(encoding="utf-8"))
+        for name in ("localaiweb.html","localaiweb-map.html","localaiweb-projects.html","localaiweb-clients.html","localaiweb-sales.html"):
+            page=(WEB/name).read_text(encoding="utf-8")
+            self.assertIn('localaiweb.webmanifest',page)
+            self.assertIn('localaiweb-mobile.css',page)
+            self.assertIn('pwa-install.js',page)
+        editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")
+        self.assertIn('id="lawMobileTabs"',editor)
+        self.assertIn('localaiweb-mobile.js',editor)
         self.assertTrue((ROOT/"ACTIVER_ACCES_TELEPHONE.bat").exists())
 
     def test_google_is_opt_in_and_secrets_never_sent_to_browser(self):
