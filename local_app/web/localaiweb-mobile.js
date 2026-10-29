@@ -64,23 +64,18 @@
  function resize(){
    nav.hidden=!mobile.matches;
    closeMenu();
+   // A single tool drawer on every screen eliminates header overflow, while
+   // moving the SAME live controls preserves connected-agent state and edits.
+   if(agent&&slot&&agent.parentElement!==slot)slot.append(agent);
+   if(brand&&brandSlot&&brand.parentElement!==brandSlot)brandSlot.append(brand);
+   if(version&&versionSlot&&version.parentElement!==versionSlot)versionSlot.append(version);
    if(mobile.matches){
-     if(agent&&slot&&agent.parentElement!==slot)slot.append(agent);
-     if(brand&&brandSlot&&brand.parentElement!==brandSlot)brandSlot.append(brand);
-     if(version&&versionSlot&&version.parentElement!==versionSlot)versionSlot.append(version);
      show(active);
-     // Show the genuine responsive phone rendering first. Desktop/tablet
-     // preview modes remain one tap away and do not alter generated files.
      if(!document.body.dataset.lawMobileInitialized){
        document.body.dataset.lawMobileInitialized='1';
        document.querySelector('[data-view="mobile"]')?.click();
      }
-   }else{
-     delete document.body.dataset.lawPanel;
-     if(agent&&agentAnchor.parentNode)agentAnchor.after(agent);
-     if(brand&&brandAnchor.parentNode)brandAnchor.after(brand);
-     if(version&&versionAnchor.parentNode)versionAnchor.after(version);
-   }
+   }else delete document.body.dataset.lawPanel;
  }
  mobile.addEventListener?.('change',resize);
  resize();
