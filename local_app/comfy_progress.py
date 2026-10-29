@@ -125,9 +125,9 @@ def _receive(stream):
             # ComfyUI preview_image: uint32 message type, uint32 image type,
             # then JPEG/PNG bytes. It may be disabled by a model/workflow.
             raw=data[8:]
-            if raw.startswith(b"\\xff\\xd8\\xff"):
+            if raw.startswith(b"\xff\xd8\xff"):
                 mime="image/jpeg"
-            elif raw.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+            elif raw.startswith(b"\x89PNG\r\n\x1a\n"):
                 mime="image/png"
             else:
                 continue
@@ -150,17 +150,17 @@ def _listen(endpoint):
                 sock=ssl.create_default_context().wrap_socket(sock,server_hostname=host)
             sock.settimeout(35)
             key=base64.b64encode(os.urandom(16)).decode()
-            handshake=(f"GET {path} HTTP/1.1\\r\\nHost: {host}:{port}\\r\\n"
-                       "Upgrade: websocket\\r\\nConnection: Upgrade\\r\\n"
-                       f"Sec-WebSocket-Key: {key}\\r\\nSec-WebSocket-Version: 13\\r\\n\\r\\n")
+            handshake=(f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\n"
+                       "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+                       f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
             sock.sendall(handshake.encode("ascii"))
             response=bytearray()
-            while b"\\r\\n\\r\\n" not in response and len(response)<10000:
+            while b"\r\n\r\n" not in response and len(response)<10000:
                 response+=sock.recv(1024)
             if not response.startswith(b"HTTP/1.1 101"):
                 raise ConnectionError("ComfyUI WebSocket non disponible")
             # socket.recv may consume the first frame; keep data for parsing.
-            remainder=bytes(response).split(b"\\r\\n\\r\\n",1)[1]
+            remainder=bytes(response).split(b"\r\n\r\n",1)[1]
             if remainder:
                 sock=BufferedSocket(sock,remainder)
             _receive(sock)
