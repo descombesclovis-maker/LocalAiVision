@@ -21,7 +21,7 @@ class MobileRootEntryTests(unittest.TestCase):
         handler.send_bytes = Mock()
         return handler
 
-    def test_mobile_root_opens_actual_web_studio_even_without_js(self):
+    def test_mobile_root_displays_two_real_universes_even_without_js(self):
         for agent in (
             "Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X)",
             "Mozilla/5.0 (iPad; CPU OS 26_6 like Mac OS X)",
@@ -29,10 +29,11 @@ class MobileRootEntryTests(unittest.TestCase):
         ):
             handler = self.handler(agent)
             handler.do_GET()
-            handler.send_response.assert_called_once_with(302)
-            handler.send_header.assert_any_call("Location", "/localaiweb")
-            handler.send_header.assert_any_call("Cache-Control", "no-store, max-age=0")
-            handler.send_bytes.assert_not_called()
+            handler.send_bytes.assert_called_once()
+            data=handler.send_bytes.call_args.args[0].decode("utf-8")
+            self.assertIn('href="/localaiweb"',data)
+            self.assertIn('href="/localaivision"',data)
+            handler.send_response.assert_not_called()
 
     def test_desktop_root_keeps_localai_vision(self):
         handler = self.handler("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
