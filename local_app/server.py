@@ -254,6 +254,33 @@ def _auto_update_set(**changes):
         _auto_update_state.update(changes)
 
 
+def _work_guard(fn, *args):
+    """Prevent updater restart while synchronous chat/media requests are active."""
+    global _auto_update_active_jobs, _auto_update_last_action
+    with _auto_update_active_lock:
+        _auto_update_active_jobs += 1
+        _auto_update_last_action = time.time()
+    try:
+        return fn(*args)
+    finally:
+        with _auto_update_active_lock:
+            _auto_update_active_jobs -= 1
+            _auto_update_last_action = time.time()
+
+
+def _work_guard_stream(chunks):
+    global _auto_update_active_jobs, _auto_update_last_action
+    with _auto_update_active_lock:
+        _auto_update_active_jobs += 1
+        _auto_update_last_action = time.time()
+    try:
+        yield from chunks
+    finally:
+        with _auto_update_active_lock:
+            _auto_update_active_jobs -= 1
+            _auto_update_last_action = time.time()
+
+
 def _update_busy_reason(include_grace=True):
     """Avoid closing the program during a saved/unsaved generation or chat."""
     if _setup_lock.locked() or STARTUP.get("state") == "running":
@@ -270,13 +297,16 @@ def _update_busy_reason(include_grace=True):
             return "Activité récente : mise à jour différée."
     if _comfy_lock.locked():
         return "Génération ComfyUI en cours."
-    if _comfy_proc is not None and _comfy_proc.poll() is None:
+    online, _detail = comfy_online()
+    if online:
         try:
             queue = http_json(COMFY + "/queue", timeout=3)
             if queue.get("queue_running") or queue.get("queue_pending"):
                 return "Image ou vidéo en cours de génération."
         except (OSError, ValueError, TypeError):
             return "État du moteur de génération inconnu : report de sécurité."
+    elif _comfy_proc is not None and _comfy_proc.poll() is None:
+        return "Moteur ComfyUI en cours de démarrage."
     return ""
 
 
@@ -1824,6 +1854,10 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             self.send_json({"online":online,"detail":detail,"url":COMFY,"llm":llm.status(), "startup": dict(STARTUP), "media": media, "version": VERSION})
             return
+        if u.path == "/api/update/automatic":
+            self.send_json({"ok": True, "automatic": automatic_update_status(),
+                            "build_tag": build_info().get("build_tag")})
+            return
         if u.path == "/api/update/check":
             try:
                 self.send_json(update_status())
@@ -2783,7 +2817,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self.wfile.write(b'{"ready":true}\n')
                 self.wfile.flush()
-                for chunk in run_chat_stream(body):
+                for chunk in _work_guard_stream(run_chat_stream(body)):
                     self.wfile.write((json.dumps({"delta": chunk}, ensure_ascii=False) + "\n").encode("utf-8"))
                     self.wfile.flush()
                 self.wfile.write(b'{"done":true}\n')
@@ -2797,7 +2831,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/chat":
             try:
-                answer = run_chat(body)
+                answer = _work_guard(run_chat, body)
                 self.send_json({"ok":True,"message":answer})
             except HTTPError as e:
                 try: detail=e.read().decode()
@@ -2807,7 +2841,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/generate":
             try:
-                self.send_json(run_generation(body))
+                self.send_json(_work_guard(run_generation, body))
             except HTTPError as e:
                 try: detail=e.read().decode()
                 except: detail=str(e)
