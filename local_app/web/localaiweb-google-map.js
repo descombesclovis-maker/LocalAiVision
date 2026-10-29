@@ -36,6 +36,7 @@ window.LocalAiWebGoogleMap={
        {featureType:'transit.station',stylers:[{visibility:'off'}]}
      ]
    });
+   const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)').matches;
    let infoWindow=null,loading=false,lastKey='',lastAt=0,refreshTimer;
    const businesses=new Map();
    const markers=new Map();
@@ -70,7 +71,7 @@ window.LocalAiWebGoogleMap={
      const bounds=map.getBounds();
      if(!bounds)return;
      const zoom=map.getZoom()||6;
-     const cell=zoom<8?44:zoom<12?36:27;
+     const cell=mobile?(zoom<8?58:zoom<12?52:46):(zoom<8?44:zoom<12?36:27);
      const projection=map.getProjection();
      if(!projection)return;
      // Google Maps world coordinates * current pixels per world.
@@ -89,8 +90,8 @@ window.LocalAiWebGoogleMap={
        const marker=new google.maps.Marker({
          map,position:{lat:item.lat,lng:item.lon},
          title:count>1?count+' entreprises à sélectionner':item.name,
-         icon:{url:svg(count),scaledSize:new google.maps.Size(32,32),
-           anchor:new google.maps.Point(16,16)},
+         icon:{url:svg(count),scaledSize:new google.maps.Size(mobile?44:32,mobile?44:32),
+           anchor:new google.maps.Point(mobile?22:16,mobile?22:16)},
          clickable:true,optimized:true,zIndex:count>1?5:1,
        });
        marker.addListener('click',()=>{
@@ -122,7 +123,7 @@ window.LocalAiWebGoogleMap={
        if(!item?.name||!item.id||item.website||item.website_recorded||
           item.prospect_eligible===false||!Number.isFinite(item.lat)||!Number.isFinite(item.lon))
          continue;
-       if(businesses.size>=30000)break;
+       if(businesses.size>=(mobile?12000:30000))break;
        businesses.set(item.id,item);
      }
      draw();
