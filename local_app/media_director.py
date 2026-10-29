@@ -38,6 +38,9 @@ def plan(prompt: str, workflow_kind: str, current: dict[str,Any] | None = None)-
     # Never treat a stale visible dropdown as the user's instruction.
     if settings.get("quality") in (None,"","workflow"):
         settings["quality"]=quality
+    requested_aspect=next((aspect for aspect,matcher in _ASPECTS if matcher.search(text)),None)
+    if requested_aspect:
+        settings["aspect"]=requested_aspect
     if is_video:
         duration=_DURATION.search(text)
         if duration:
@@ -73,17 +76,7 @@ def plan(prompt: str, workflow_kind: str, current: dict[str,Any] | None = None)-
             side=1024 if quality=="draft" else 1536 if quality=="quality" else 1280
             if settings.get("aspect") in ("auto",None,"","1:1"):
                 settings["width"]=settings["height"]=side
-    for aspect,matcher in _ASPECTS:
-        if matcher.search(text):
-            settings["aspect"]=aspect
-            if is_video and not _FPS.search(text) and not settings.get("width") and not settings.get("height"):
-                pass
-            break
     steps=_STEPS.search(text)
     if steps and 1<=int(steps.group(1))<=100:
         settings["steps"]=int(steps.group(1))
-    # If user specified a format, default auto width/height should follow
-    # the new orientation rather than the old editor choice.
-    if is_video and not current or False:
-        pass
     return settings
