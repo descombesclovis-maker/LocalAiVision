@@ -65,7 +65,7 @@ class MediaBuild292Tests(unittest.TestCase):
         event = json.dumps({"type": "executing", "data": {
             "prompt_id": two, "node": "sampler"
         }}).encode("utf-8")
-        image = (1).to_bytes(4, "big") + (1).to_bytes(4, "big") + b"\\xff\\xd8\\xff" + b"sample"
+        image = (1).to_bytes(4, "big") + (1).to_bytes(4, "big") + b"\xff\xd8\xff" + b"sample"
         def frame(opcode, data):
             return bytes((0x80 | opcode, len(data))) + data
         raw = frame(1, event) + frame(2, image) + bytes((0x88, 0))
@@ -76,7 +76,7 @@ class MediaBuild292Tests(unittest.TestCase):
                 part, self.payload = self.payload[:count], self.payload[count:]
                 return part
         comfy_progress._receive(Socket(raw))
-        self.assertEqual(comfy_progress.get_preview(two), ("image/jpeg", b"\\xff\\xd8\\xffsample"))
+        self.assertEqual(comfy_progress.get_preview(two), ("image/jpeg", b"\xff\xd8\xffsample"))
         self.assertIsNone(comfy_progress.get_preview(one))
         comfy_progress.mark(one, "done")
         comfy_progress.mark(two, "done")
