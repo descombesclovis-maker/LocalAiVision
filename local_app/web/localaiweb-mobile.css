@@ -1,5 +1,5 @@
 /* Mobile interface: full-size controls, one focused task per screen, iOS safe areas. */
-@media (max-width:700px) {
+@media (max-width:700px), (max-width:1000px) and (pointer:coarse) {
   html { -webkit-text-size-adjust:100%; }
   button, a, input, select, textarea { -webkit-tap-highlight-color:transparent; }
   button, [role="button"], a { touch-action:manipulation; }
@@ -115,13 +115,13 @@
  .studio .preview-header {min-height:156px;}
  .law-mobile-tabs button,.law-mobile-tabs a {font-size:12px;}
 }
-@media (min-width:701px) {.law-mobile-tabs {display:none!important;}}
+@media (min-width:701px) and (pointer:fine) {.law-mobile-tabs {display:none!important;}}
 
 
 /* Second mobile pass: actions must remain reachable, including on an iPhone
    with a notch, the virtual keyboard and a short landscape viewport. */
 .law-mobile-menu-toggle,.law-mobile-tools{display:none;}
-@media(max-width:700px){
+@media (max-width:700px), (max-width:1000px) and (pointer:coarse){
  html,body{width:100%;max-width:100%;overflow-x:hidden;}
  body:has(.studio){height:100dvh;overflow:hidden;}
  .studio .chat-pane,.studio .preview-pane{top:0;overflow:hidden;}
@@ -246,7 +246,7 @@
 #mapRetryLibrary{display:inline-flex;min-height:48px;align-items:center;justify-content:center;
  background:#6a42ae;color:#fff;border-radius:12px;border:1px solid #ba92e9;
  padding:12px 20px;font:700 14px system-ui;cursor:pointer;}
-@media(max-width:700px){
+@media (max-width:700px), (max-width:1000px) and (pointer:coarse){
  .map-unavailable{padding:100px 20px 20px;}
  .map-feedback{pointer-events:auto!important;z-index:450;max-width:min(330px,calc(100% - 30px));}
  .map-feedback .map-reload{min-height:44px;min-width:44px;}
