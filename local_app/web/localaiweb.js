@@ -97,12 +97,31 @@ function message(text,role='assistant'){
  chat.appendChild(item);scrollBottom();return item;
 }
 function setBusy(flag,text){busy=flag;button.disabled=flag;prompt.disabled=flag;$('#lawChatStatus').textContent=text||(flag?'Je travaille sur ton site…':'Prêt à créer ton site');button.textContent=flag?'Création…':'Envoyer ↑';}
-function preview(){
+let previewCheck=0;
+async function preview(){
  if(!project)return;
- $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
+ const attempt=++previewCheck;
  const id=encodeURIComponent(project.project.id);
- const url='/web-preview/'+id+'/index.html?refresh='+Date.now();
- $('#lawPreview').src=url;
+ const frame=$('#lawPreview'),empty=$('#lawPreviewEmpty');
+ $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
+ try{
+   const status=await api('/api/web/preview/status?id='+id);
+   if(attempt!==previewCheck)return;
+   if(status.ready&&status.url){
+     frame.hidden=false;empty.hidden=true;
+     frame.src=status.url+'?refresh='+Date.now();
+   }else{
+     frame.hidden=true;empty.hidden=false;
+     empty.querySelector('h2').textContent='Votre futur site prend forme ici.';
+     empty.querySelector('p').textContent='Décris ton site dans la discussion pour créer une première version.';
+     $('#lawSiteTools').hidden=true;
+   }
+ }catch(error){
+   if(attempt!==previewCheck)return;
+   frame.hidden=true;empty.hidden=false;
+   empty.querySelector('h2').textContent='Aperçu indisponible';
+   empty.querySelector('p').textContent='Le projet est conservé. Actualise la page ou réessaie après avoir vérifié le logiciel PC.';
+ }
 }
 function view(mode){
  if(!['desktop','tablet','mobile'].includes(mode))return;
@@ -145,7 +164,10 @@ function updateLivePreview(status,id){
  if(!status.preview_ready || !status.preview_version)return;
  if(status.preview_version!==lastLivePreviewVersion){
    lastLivePreviewVersion=status.preview_version;
+   ++previewCheck;
    const url='/web-preview/'+encodeURIComponent(id)+'/index.html?refresh='+encodeURIComponent(status.preview_version);
+   $('#lawPreviewEmpty').hidden=true;
+   $('#lawPreview').hidden=false;
    $('#lawPreview').src=url;
    $('#lawPreviewTitle').textContent=(project?.project?.name||'Ton site')+' · aperçu en cours';
  }
