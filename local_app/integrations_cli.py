@@ -515,8 +515,12 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
         "UX architect, 3D/WebGL artist, frontend lead and ruthless production QA reviewer. "
         "Work ONLY inside this website project. Actually CREATE and MODIFY real files; "
         "do not answer with a design pitch instead of implementing the website. "
-        "Start with an original business-specific visual concept and meaningful site "
-        "architecture; document the visual rationale in DESIGN_INTENT.md. "
+        "Choose a distinctive visual concept and immediately write the real "
+        "index.html and matching styles/scripts BEFORE long research or planning. "
+        "The PC app will perform the final build and quality audit after you exit. "
+        "Do not waste time running redundant npm installs, preview servers, or screenshot "
+        "tests in this pass. Keep the actual pages complete and functioning. "
+        "Document the visual rationale briefly in DESIGN_INTENT.md. "
         "Avoid generic storefronts, repetitive cards, default Tailwind gradients, "
         "unrelated stock photos, fake testimonials, and dead controls. "
         "Honor the client's actual logo, typography, colors and legal identity. "
@@ -534,9 +538,9 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
         "Use local project assets, maintain responsive multi-page navigation where "
         "appropriate, write natural French UI, implement meaningful loading/empty "
         "states, and preserve all existing working site features. "
-        "Build and run tests whenever the environment allows, fix broken links, "
-        "inspect desktop/mobile results when browser tools are available, and "
-        "avoid exposing any secrets or unauthorized network operations. "
+        "Make navigation, responsiveness, forms and interactive controls work; "
+        "the host checks compilation and syntax after file creation. "
+        "Avoid exposing any secrets or unauthorized network operations. "
         "Keep work within the project. ORIGINAL USER REQUEST AND DESIGN CONTRACT:\n" + text
     )
     before = writeback.snapshot(site)
@@ -570,34 +574,57 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
         return {"ok":True,"summary":"Site produit et fichiers vérifiés par LocalAiWeb.",
                 "files_written":written,"method":"validated-writeback"}
 
-    # On Windows, prefer a single bounded no-shell generation. The native
-    # Codex execution policy can block even harmless 'ls'/'cat' operations.
-    # With this mode, Codex never needs filesystem execution permissions.
     if prefer_bundle:
-        return safe_writeback(min(int(timeout),300))
-    # Codex may exit 0 while its Windows workspace is effectively read-only.
-    result = _run(cmd + ["exec", "--sandbox", "workspace-write",
-                         "--skip-git-repo-check", "-"], cwd=site, timeout=timeout,
-                  input_text=instruction)
+        # Compatibility with explicitly requested isolated JSON writeback.
+        return safe_writeback(min(max(int(timeout),60),210))
+    # Prefer the supported, least-privilege workspace-write mode. On Windows
+    # some policy configurations silently return success without touching the
+    # project. Treat unchanged files as FAILURE, not a finished generation.
+    try:
+        result = _run(cmd + ["exec", "--sandbox", "workspace-write",
+                             "--skip-git-repo-check", "-"], cwd=site,
+                      timeout=max(60,int(timeout)), input_text=instruction)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        # Keep any real files written by Codex; recover with a bounded,
+        # explicit no-shell output if nothing usable was created.
+        if writeback.changed_app(before,writeback.snapshot(site)) and not writeback.placeholder(site):
+            return {"ok":True,"summary":"Codex a créé le site. Vérifie les fonctionnalités dans l'aperçu.",
+                    "files_written":writeback.changed(before,writeback.snapshot(site)),
+                    "method":"workspace-write"}
+        result = subprocess.CompletedProcess(
+            cmd, 124, stdout="", stderr=str(exc))
     after = writeback.snapshot(site)
     if writeback.changed_app(before, after) and not writeback.placeholder(site):
-        if result.returncode != 0:
-            raise RuntimeError("Codex a modifié des fichiers mais a signalé une erreur : " +
-                               (result.stderr or result.stdout or "")[-1500:])
-        return {"ok": True, "summary": "Codex a enregistré les fichiers du site.",
-                "files_written": writeback.changed(before, after), "method": "workspace-write"}
-
+        # The site exists. The app performs build/validation next; avoid
+        # erasing working files because the CLI's shell tool exited nonzero.
+        return {"ok":True,"summary":"Codex a écrit les fichiers du site.",
+                "files_written":writeback.changed(before,after),"method":"workspace-write"}
     error=(result.stderr or "")+" "+(result.stdout or "")
+    auth_failure=any(word in error.lower() for word in (
+        "not logged in","login required","authentication required","unauthorized",
+        "sign in to codex","invalid api key","invalid_api_key","401 unauthorized"))
+    if auth_failure:
+        raise RuntimeError("Codex n'est pas authentifié sur ce PC. "
+                           "Exécute « codex login » puis relance la création. "+
+                           error.strip()[-450:])
     blocked=any(word in error.lower() for word in (
         "blocked by policy","permission denied","read-only file system",
         "sandbox","access is denied","rejected:","exec denied"))
     if not allow_retry and not blocked:
+        raise RuntimeError("Codex n'a créé aucun fichier de site. "+
+                           error.strip()[-950:])
+    # Recover a Windows sandbox refusal or a silent no-write response, without
+    # running external commands or giving unrestricted filesystem access.
+    # This is a SECOND path, never the only path for first generation.
+    try:
+        return safe_writeback(min(max(int(timeout),60),180))
+    except (ValueError,RuntimeError,OSError,subprocess.TimeoutExpired) as exc:
         raise RuntimeError(
-            "Codex n'a pas créé de fichier utilisable. Vérifie sa connexion : "
-            + error.strip()[-800:])
-    # A denied sandbox is precisely the case requiring secure writeback, even
-    # on the first mockup, where older code disabled the only working fallback.
-    return safe_writeback(min(int(timeout),240) if not allow_retry else 480)
+            "Codex n'a pas produit de site utilisable. "
+            "Écriture directe impossible, récupération sécurisée également : "+
+            str(exc)[:550]+
+            ((" · Message Codex : "+error.strip()[-350:]) if error.strip() else "")
+        ) from exc
 
 def claude_apply(site_dir, prompt):
     """Claude Code non-interactive authenticated editing, with bounded tool grants."""

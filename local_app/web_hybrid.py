@@ -337,10 +337,10 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     full_brief=web_content_contract.project_request(store,project_id,user_prompt)
     contract_text=web_content_contract.agent_instructions(
         web_content_contract.specification(full_brief,spec_name))
+    # The developer brief already includes architecture and art direction.
+    # Avoid several redundant prompts and spend the budget writing code.
     instruction = developer_brief(full_brief, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
-    instruction += '\n' + web_site_architecture.instructions(full_brief)
-    instruction += '\n' + web_creative_direction.instructions(full_brief, spec_name)
     # Studio quality is project-specific and persisted, not a cosmetic button.
     # This is fed to BOTH Codex and Claude so a selected cinematic/3D art
     # direction actually influences the site's real source files.
@@ -351,9 +351,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     instruction += '\n' + web_design_profile.prompt(
         store.meta(project_id).get('design_profile'))
     instruction += (
-        '\nAGENT PROCESS: Plan the visual structure and design system first. '
-        'Build real pages and their actual interactions. Install required dependencies, '
-        'run the production build, and fix all runtime errors. User brief is authoritative. '
+        '\nAGENT PROCESS: Choose an original art direction and immediately write '
+        'the real pages, responsive styling and working interactions. Do not spend '
+        'this first pass on npm installs, browser screenshots or redundant build '
+        'commands: LocalAiWeb performs production build and quality checks next. '
+        'The user brief is authoritative. '
         'A premium website is not a short HTML forum or a generic template. '
         'Use original art direction and real product assets. Prefer React/Vite for '
         'interactive sites and React Three Fiber for demanding real 3D work. '
@@ -401,14 +403,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
 
     visual = {'status': 'not_run', 'issues': [], 'reviewed': False,
               'screenshots': []}
-    if report['ok']:
+    if report['ok'] and not first_preview:
         update("visual", "Analyse du site dans un navigateur sur ordinateur, tablette et téléphone…")
         visual = web_browser_qa.review(site, build=report.get('build'))
-        # First mockup becomes visible immediately after the first verified
-        # build. Do not force a second full agent + rebuild merely because a
-        # screenshot exists. Serious errors are still repaired in the
-        # structured quality gate above. Later edits retain full visual review.
-        if not first_preview and visual.get('reviewed') and visual.get('screenshots'):
+        # Later refinements still get the full creative screenshot review.
+        if visual.get('reviewed') and visual.get('screenshots'):
             update("design", "L'agent examine les captures et améliore la direction artistique…")
             agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
                   '\n' + contract_text +
@@ -421,6 +420,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
                 visual = {'status': 'failed', 'reviewed': False,
                           'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
                           'screenshots': []}
+    elif report['ok']:
+        # The first compiled site is usable immediately. Browser screenshot QA
+        # stays enabled for later refinements and doesn't block first preview.
+        visual = {'status': 'deferred_first_preview', 'reviewed': False,
+                  'issues': [], 'screenshots': []}
 
     # Never accept a fluent-looking but completely different business website.
     # On a serious client-contract failure, restore the prior source and remove
@@ -463,6 +467,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         feedback += '\nÀ corriger dans le rendu navigateur : ' + '; '.join(visual['issues'][:3])
     elif visual['status'] == 'passed':
         feedback += '\nVérification navigateur : ordinateur, tablette et téléphone contrôlés.'
+    elif visual['status'] == 'deferred_first_preview':
+        feedback += '\nSite compilé et contrôlé. La revue visuelle navigateur sera effectuée lors des améliorations.'
     store.append_chat(project_id, 'assistant', feedback)
     payload = store.payload(project_id)
     payload['summary'] = feedback

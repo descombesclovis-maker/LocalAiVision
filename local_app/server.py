@@ -2512,15 +2512,20 @@ class Handler(BaseHTTPRequestHandler):
                         store, project_id, request, local_generate=_web_generate_image_asset,
                         local_ready=ready_image)
                 if agent_name in ("claude", "codex"):
-                    if agent_name == "codex" and first_draft:
-                        # Single bounded Codex pass. No 15-minute read-only retry
-                        # for the very first screen; tell the user if blocked.
+                    if agent_name == "codex":
+                        # The old Windows first-draft path forced Codex into
+                        # read-only JSON mode, which often returned text but
+                        # never produced a website. Always try real scoped file
+                        # writes first, then the validated JSON writeback only
+                        # if Windows denied them or produced no usable files.
+                        # More complex immersive briefs get a little more time.
+                        immersive = web_briefing.infer(request).get("visual3d", False)
+                        limit = 300 if immersive else 195
                         coder = lambda site, instruction: integrations_cli.codex_apply(
-                            site, instruction, timeout=360, allow_retry=False,
-                            prefer_bundle=(os.name=="nt"))
+                            site, instruction, timeout=limit if first_draft else 300,
+                            allow_retry=True, prefer_bundle=False)
                     else:
-                        coder = (integrations_cli.claude_apply if agent_name == "claude"
-                                 else integrations_cli.codex_apply)
+                        coder = integrations_cli.claude_apply
                     payload = web_hybrid.build_with_agent(
                         store, project_id, request, coder, integrations_cli, visuals,
                         progress=lambda phase, detail: _web_progress(project_id, phase, detail),
