@@ -119,6 +119,17 @@
          const state=document.createElement('p');
          state.textContent=job.phase||'ComfyUI prépare le modèle…';
          details.append(name,state);
+         if(Number.isFinite(Number(job.started_at))){
+           const elapsed=Math.max(0,Math.floor(Date.now()/1000-Number(job.started_at)));
+           const duration=document.createElement('small');
+           duration.textContent='Temps écoulé : '+Math.floor(elapsed/60)+' min '+String(elapsed%60).padStart(2,'0')+' s';
+           details.append(duration);
+           if(elapsed>300){
+             const hint=document.createElement('small');
+             hint.textContent='Rendu long : vérifie la file et l’usage GPU. Pour le prochain essai, les réglages « Vidéo rapide · 12 Go » réduisent le nombre d’images.';
+             details.append(hint);
+           }
+         }
          if(Number.isInteger(job.percent)&&job.max_steps>0){
            const label=document.createElement('label');
            label.textContent='Étape de calcul : '+job.step+' / '+job.max_steps+' · '+job.percent+' %';
