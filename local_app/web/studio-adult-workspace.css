@@ -1,0 +1,78 @@
+/* Session-gated adult workspace. Preserves all existing messages and media. */
+body.nsfw-active .main {
+ background:radial-gradient(ellipse at 52% 5%,#321016 0%,#1a090d 44%,#11080b 100%);
+}
+body.nsfw-active .main-topbar {
+ background:#1a0b0ef0;
+ border-bottom:1px solid #9f515b35;
+}
+body.nsfw-active .chat,
+body.nsfw-active .content {
+ background-color:transparent;
+}
+body.nsfw-active .composer {
+ background:#250e15;
+ border:1px solid #93445169;
+ box-shadow:0 12px 38px #09030665;
+}
+body.nsfw-active .message.assistant .bubble {
+ background:#381720;
+ border:1px solid #a3506338;
+}
+body.nsfw-active .message.user .bubble {
+ background:#692534;
+}
+body.nsfw-active #send {
+ background:linear-gradient(130deg,#9d3c53,#d05d65);
+}
+body.nsfw-active #nsfwGalleryToggle {
+ border-color:#ae586355;
+ background:#3c1721;
+}
+#nsfwGallery[hidden],#nsfwGalleryToggle[hidden] {display:none!important}
+.nsfw-gallery {
+ position:fixed;z-index:35;top:76px;right:14px;bottom:14px;
+ display:flex;flex-direction:column;width:min(325px,31vw);overflow:hidden;
+ background:#210c12f5;color:#f9e8ec;
+ border:1px solid #99425385;border-radius:18px;
+ box-shadow:0 24px 76px #070205a6;
+ backdrop-filter:blur(16px);
+}
+.nsfw-gallery header {
+ display:flex;justify-content:space-between;align-items:center;
+ gap:10px;padding:17px;border-bottom:1px solid #b7647540;
+}
+.nsfw-gallery header div {display:flex;flex-direction:column;gap:4px;min-width:0}
+.nsfw-gallery header b {font:700 16px/1.2 Inter,system-ui,sans-serif}
+.nsfw-gallery header small {font:400 11px/1.4 Inter,system-ui,sans-serif;color:#cfabb5}
+.nsfw-gallery header button {
+ flex:none;width:34px;height:34px;border:1px solid #a65b694d;
+ border-radius:10px;background:#53232e;color:#fff;cursor:pointer;font-size:22px;
+}
+.nsfw-gallery-list {
+ flex:1;overflow-y:auto;display:grid;align-content:start;grid-template-columns:1fr 1fr;
+ gap:10px;padding:12px;
+}
+.nsfw-gallery-item {
+ display:flex;flex-direction:column;gap:5px;min-width:0;padding:5px;
+ color:#f7e5e8;text-decoration:none;border-radius:10px;
+ background:#411924;border:1px solid #9f566537;
+}
+.nsfw-gallery-item img,.nsfw-gallery-item video {
+ display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:7px;background:#14090e;
+}
+.nsfw-gallery-item span {
+ font:400 10px/1.4 Inter,system-ui,sans-serif;overflow:hidden;
+ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.nsfw-gallery-empty {grid-column:1/-1;color:#dcb7c0;font-size:13px;line-height:1.5}
+@media (min-width:1050px) {
+ body.nsfw-active:has(#nsfwGallery:not([hidden])) .main .content {margin-right:340px}
+}
+@media (max-width:1049px) {
+ .nsfw-gallery {top:64px;right:8px;bottom:8px;width:min(380px,calc(100vw - 16px));z-index:80}
+ .nsfw-gallery-list {grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion:reduce) {
+ .nsfw-gallery,.nsfw-gallery * {animation:none!important;transition:none!important}
+}
