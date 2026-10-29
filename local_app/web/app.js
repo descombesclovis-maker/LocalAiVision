@@ -9,8 +9,10 @@ let activeChatController=null,activeChatConversationId=null,activeChatStopReques
 const STANDARD_IMAGE_WORKFLOW='text to image sdxl.json';
 const STANDARD_VIDEO_WORKFLOW='Video Wan texte.json';
 const ISOLATED_IMAGE_WORKFLOW='Isolated HunyuanImage 2.1.json';
-const ISOLATED_VIDEO_WORKFLOW='Isolated HY-OmniWeaving T2V.json';
-const ISOLATED_I2V_WORKFLOW='Isolated HY-OmniWeaving I2V.json';
+const ISOLATED_VIDEO_WORKFLOW='HunyuanVideo 1.5 T2V.json';
+const ISOLATED_I2V_WORKFLOW='HunyuanVideo 1.5 I2V.json';
+const LEGACY_OMNI_T2V_WORKFLOW='Isolated HY-OmniWeaving T2V.json';
+const LEGACY_OMNI_I2V_WORKFLOW='Isolated HY-OmniWeaving I2V.json';
 let isolatedTaskMode=loadJSON('lva_isolated_task_mode','image');
 let isolatedVideoMode=loadJSON('lva_isolated_video_mode','t2v');
 let nsfwGalleryVisible=true;
@@ -30,7 +32,7 @@ const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo
 const PROFILE_DEFAULTS={
  auto:{label:'Automatique',sub:'LocalVision choisit entre photo et vidéo'},
  'companion-realistic':{label:'Standard',sub:'Photo RealVisXL V5 · vidéo Wan 2.1'},
- nsfw:{label:'NSFW',sub:'HunyuanImage 2.1 · HY-OmniWeaving'}
+ nsfw:{label:'NSFW',sub:'HunyuanImage 2.1 · HunyuanVideo 1.5 T2V/I2V'}
 };
 
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f}catch{return f}}
@@ -103,7 +105,7 @@ function updateCreationModeGuide(){
  document.body.classList.toggle('nsfw-active',!!isolated);
  const guide=$('#creationModeGuide'),prompt=$('#prompt');
  if(guide)guide.innerHTML=isolated
-   ?'<b>NSFW · Hunyuan</b> <span>HunyuanImage 2.1 · HY-OmniWeaving T2V/I2V · prompt direct.</span>'
+   ?'<b>NSFW · Hunyuan</b> <span>HunyuanImage 2.1 · HunyuanVideo 1.5 T2V/I2V · prompt direct.</span>'
    :'<b>Création standard</b> <span>RealVisXL V5 · Wan 2.1 · chat local.</span>';
  if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):'Écris ton message…';
  const isolatedLinks=$('#nsfwLibraryLinks');
@@ -115,7 +117,7 @@ function renderProfileLabels(){
  const active=activeConversationId?conversations[activeConversationId]:null;for(const [id,key] of Object.entries(map)){const b=$('#'+id);if(!b)continue;const strong=b.querySelector('b'),small=b.querySelector('small');if(strong)strong.textContent=profileLabel(key);if(small)small.textContent=profileSub(key);b.classList.toggle('active',active?.profile===key)}
  const unlocked=nsfwUnlocked(),entry=$('#modelNsfw'),sub=$('#nsfwEntrySub'),icon=$('#nsfwLockIcon');
  if(entry)entry.classList.toggle('unlocked',unlocked);
- if(sub)sub.textContent=(unlocked?'Déverrouillé':'Verrouillé')+' · HunyuanImage 2.1 · HY-OmniWeaving';
+ if(sub)sub.textContent=(unlocked?'Déverrouillé':'Verrouillé')+' · HunyuanImage 2.1 · HunyuanVideo 1.5';
  if(icon)icon.textContent=unlocked?'◈':'⌑';
  const nsfwActive=active?.profile==='nsfw';
  for(const [id,isActive] of [['studioNsfw',nsfwActive],['studioPhotoVideo',!!active&&!nsfwActive]]) {
@@ -164,7 +166,7 @@ function chooseIsolatedCreationMode(mode){
  localStorage.setItem('lva_isolated_task_mode',JSON.stringify(isolatedTaskMode));
  localStorage.setItem('lva_isolated_video_mode',JSON.stringify(isolatedVideoMode));
  renderProfileLabels();
- const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'isolated-video-i2v':'isolated-video');
+ const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'hunyuan15-i2v':'hunyuan15-t2v');
  if(!lastHealth?.media?.[component]?.ready)installComponent(component);
 }
 function enterNsfwWorkspace(){
@@ -415,14 +417,14 @@ async function waitForMediaPreparation(ticket){
 }
 async function startGeneration(task,model,promptText,previewStyle=null){
  const id=activeConversationId,c=conversationFor(id);c.messages.push({role:'assistant',loading:true,mediaType:task});c.updatedAt=new Date().toISOString();save();if(id===activeConversationId){renderMessage(c.messages[c.messages.length-1]);scrollBottom()}$('#send').disabled=true;
- try{const useReference=model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW)&&!!imageData;const settings=readGenerationSettings(task);
+ try{const useReference=!!imageData&&model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW);const settings=readGenerationSettings(task);
   if(!document.body.classList.contains('vision-expert')){
     // Hidden legacy drafts must never force 512x288 on a new premium brief.
     Object.assign(settings,{quality:'workflow',steps:null,width:null,height:null,
       fps:null,duration:null,aspect:'auto',count:1,technical_quality:true,
       prompt_translation:false});
   }
-  settings.loras=task==='video'&&model.id===bestWorkflowId(ISOLATED_VIDEO_WORKFLOW)?selectedLoras:[];const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:creativePrompt,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{$('#send').disabled=false}
+  settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_T2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_I2V_WORKFLOW)].includes(model.id)?selectedLoras:[];const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:creativePrompt,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{$('#send').disabled=false}
 }
 function outputFiles(h){const files=[];for(const o of Object.values(h.outputs||{}))for(const key of ['videos','gifs','images'])for(const file of o[key]||[]){if(file?.filename&&!files.some(x=>x.filename===file.filename&&x.subfolder===file.subfolder))files.push(file)}return files}
 async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed&&!files.length)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){addMessage(id,{role:'assistant',result:file});addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
@@ -476,6 +478,14 @@ function activateStudio(profile){
  createConversationForProfile(profile==='nsfw'?'nsfw':'companion-realistic');
 }
 function setup(){
+ $('#nsfwLoraGear').onclick=()=>{
+  const panel=$('#generationSettings');
+  if(panel.classList.contains('hidden')){panel.classList.remove('hidden');document.body.classList.add('vision-expert');}
+  else{panel.classList.add('hidden');document.body.classList.remove('vision-expert');return}
+  $('#accordionLoras').open=true;updateSettingsVisibility();
+  $('#accordionLoras').scrollIntoView({block:'nearest',behavior:'instant'});
+  void refreshLoras();
+ };
  $('#nsfwGalleryClose').onclick=()=>{nsfwGalleryVisible=false;renderNsfwGallery()};$('#nsfwGalleryToggle').onclick=()=>{nsfwGalleryVisible=true;renderNsfwGallery()};$('#openSidebar').onclick=showSidebar;$('#localAiWebEntry').onclick=()=>{window.location.href='/localaiweb'};$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
  $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos NSFW','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos NSFW','nsfw');
  $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=enterNsfwWorkspace;$('#studioPhotoVideo').onclick=()=>activateStudio('standard');$('#studioNsfw').onclick=()=>activateStudio('nsfw');$('#websitesWorkspace').onclick=()=>{window.location.href='/localaiweb'};$('#automationsWorkspace').onclick=()=>openFutureWorkspace('automations');$('#composerImageBtn').onclick=composerAddImage;document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
