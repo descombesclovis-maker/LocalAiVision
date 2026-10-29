@@ -104,9 +104,10 @@ class IndustryMapTests(unittest.TestCase):
         page=(BASE/"local_app/web/localaiweb-map.html").read_text(encoding="utf-8")
         script=(BASE/"local_app/web/localaiweb-map.js").read_text(encoding="utf-8")
         updater=(BASE/"local_app/web/localaiweb-update.js").read_text(encoding="utf-8")
-        for name in ("lawInspectBtn","lawBrowserBtn","lawZipBtn","lawWorldMapBtn"):
+        for name in ("lawInspectBtn","lawBrowserBtn","lawZipBtn","lawPublishBtn"):
             self.assertIn('id="'+name+'"',ui)
-        self.assertLess(ui.index('id="lawZipBtn"'),ui.index('id="lawWorldMapBtn"'))
+        self.assertIn('id="lawMapShortcut"',ui)
+        self.assertNotIn('id="lawWorldMapBtn"',ui)
         for field in ("mapSelection","selectionTitle","selectionAddress",
                       "selectionPhone","selectionEmail","selectionHours",
                       "selectionWebsite","mapCreate"):
