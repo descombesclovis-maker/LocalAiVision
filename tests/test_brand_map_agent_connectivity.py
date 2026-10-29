@@ -22,7 +22,7 @@ class BrandMapAgentTests(unittest.TestCase):
             self.assertIn("<svg",value)
         main=(WEB/"index.html").read_text(encoding="utf-8")
         hub=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
-        self.assertIn('src="/assets/brand-identity.svg"',main)
+        self.assertIn('src="/assets/brand-vision.svg"',main)
         self.assertIn('src="/assets/brand-web-identity.svg"',hub)
         self.assertNotIn('src="/assets/brand-identity.svg"',hub)
 
