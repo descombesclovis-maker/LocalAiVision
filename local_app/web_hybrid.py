@@ -406,17 +406,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     if report['ok'] and not first_preview:
         update("visual", "Analyse du site dans un navigateur sur ordinateur, tablette et téléphone…")
         visual = web_browser_qa.review(site, build=report.get('build'))
-    elif report['ok']:
-        # The first *real*, verified and compiled site is immediately usable.
-        # Full desktop/tablet/phone browser screenshot QA happens on later
-        # refinement; don't block the initial working preview on Chromium.
-        visual = {'status': 'deferred_first_preview', 'reviewed': False,
-                  'issues': [], 'screenshots': []}
-        # First mockup becomes visible immediately after the first verified
-        # build. Do not force a second full agent + rebuild merely because a
-        # screenshot exists. Serious errors are still repaired in the
-        # structured quality gate above. Later edits retain full visual review.
-        if not first_preview and visual.get('reviewed') and visual.get('screenshots'):
+        # Later refinements still get the full creative screenshot review.
+        if visual.get('reviewed') and visual.get('screenshots'):
             update("design", "L'agent examine les captures et améliore la direction artistique…")
             agent(site, web_browser_qa.creative_review_prompt(full_brief, visual) +
                   '\n' + contract_text +
@@ -429,6 +420,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
                 visual = {'status': 'failed', 'reviewed': False,
                           'issues': ['Le site a échoué aux contrôles après revue visuelle.'],
                           'screenshots': []}
+    elif report['ok']:
+        # The first compiled site is usable immediately. Browser screenshot QA
+        # stays enabled for later refinements and doesn't block first preview.
+        visual = {'status': 'deferred_first_preview', 'reviewed': False,
+                  'issues': [], 'screenshots': []}
 
     # Never accept a fluent-looking but completely different business website.
     # On a serious client-contract failure, restore the prior source and remove
