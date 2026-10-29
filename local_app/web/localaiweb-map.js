@@ -63,11 +63,19 @@
    return item;
  };
  async function api(url,body){
-   const response=await fetch(url,body===undefined?{cache:'no-store'}:{
-     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-   let data={};try{data=await response.json()}catch{}
-   if(!response.ok||data.error)throw Error(data.error||('Erreur HTTP '+response.status));
-   return data;
+   const controller=new AbortController();
+   const timeout=setTimeout(()=>controller.abort(),28000);
+   try{
+     const options=body===undefined?{cache:'no-store'}:{
+       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
+     const response=await fetch(url,{...options,signal:controller.signal});
+     let data={};try{data=await response.json()}catch{}
+     if(!response.ok||data.error)throw Error(data.error||('Erreur HTTP '+response.status));
+     return data;
+   }catch(error){
+     if(error.name==='AbortError')throw Error('Délai de connexion dépassé. Réessaie.');
+     throw error;
+   }finally{clearTimeout(timeout)}
  }
  function setValue(id,value){
    const target=$(id);
@@ -469,7 +477,13 @@
    }catch(error){
      setStatus('Google Maps indisponible : '+error.message+'. Carte publique de secours chargée.');
    }
-   await startPublicMap();
+   try{
+     await startPublicMap();
+   }catch(error){
+     $('mapUnavailable').hidden=false;
+     reload.hidden=false;
+     setStatus('Impossible d’initialiser la carte : '+error.message);
+   }
    void loadIndexed();
  }
  async function startPublicMap(){
@@ -488,6 +502,11 @@
  };
  setTimeout(showFrance,300);
  window.addEventListener('resize',()=>{map.invalidateSize({pan:false});scheduleRedraw()});
+ document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden&&map){
+     setTimeout(()=>{map.invalidateSize({pan:false});scheduleRedraw()},150);
+   }
+ });
  // Independent base-tile fallback, separate from the company directory.
  // If the standard OSM tile endpoint is unreachable, public CARTO tiles
  // can still show roads while official French directory pins load.
