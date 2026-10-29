@@ -267,3 +267,15 @@
 @media(max-width:365px){
  .law-mobile-tabs button,.law-mobile-tabs a{font-size:11px;}
 }
+
+/* Status from the running PC, not a claim that GitHub updates are already live. */
+.law-mobile-build-status[hidden]{display:none!important;}
+.law-mobile-build-status{
+  margin-top:12px;padding:12px 15px;border:1px solid #72548f;
+  border-radius:12px;background:#241b32;color:#e2caff;
+  line-height:1.5;font:500 12px/1.5 system-ui;
+}
+@media(max-width:700px), (max-width:1000px) and (pointer:coarse){
+  .law-mobile-build-status{margin-top:10px;margin-bottom:8px;font-size:12px;}
+  .workspace #lawUpdateBtn{min-height:44px;}
+}
