@@ -26,7 +26,7 @@ class VisionMediaProgressTests(unittest.TestCase):
         pid="test-real-preview-01"
         comfy_progress.register(pid,"image")
         comfy_progress.update(pid,state="running")
-        sample=b"\\xff\\xd8\\xff"+b"frame-bytes"
+        sample=b"\xff\xd8\xff"+b"frame-bytes"
         frame=(1).to_bytes(4,"big")+(1).to_bytes(4,"big")+sample
         class Socket:
             def __init__(self,buffer):
@@ -35,8 +35,7 @@ class VisionMediaProgressTests(unittest.TestCase):
                 buf,self.buffer=self.buffer[:length],self.buffer[length:]
                 return buf
         encoded=bytes((0x82,len(frame)))+frame+bytes((0x88,0))
-        with self.assertRaises(ConnectionError):
-            comfy_progress._receive(Socket(encoded))
+        comfy_progress._receive(Socket(encoded))
         self.assertEqual(comfy_progress.get_preview(pid),("image/jpeg",sample))
         comfy_progress.mark(pid,"done")
         self.assertIsNone(comfy_progress.get_preview(pid))
