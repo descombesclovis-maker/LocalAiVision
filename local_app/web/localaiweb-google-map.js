@@ -28,14 +28,53 @@ window.LocalAiWebGoogleMap={
      center:{lat:46.60,lng:2.28},zoom:6,
      minZoom:5,maxZoom:19,
      fullscreenControl:false,streetViewControl:false,mapTypeControl:false,
-     clickableIcons:false,gestureHandling:'greedy',
-     // Keep roads and city names but suppress Google POI pins,
-     // allowing our own clickable business-only markers.
+     clickableIcons:true,gestureHandling:'greedy',
+     // Native Google business pins remain clickable, non-commercial POIs hidden.
+     // Roads and map geography remain as context, not selectable prospects.
      styles:[
        {featureType:'poi',stylers:[{visibility:'off'}]},
+       {featureType:'poi.business',elementType:'labels',stylers:[{visibility:'on'}]},
+       {featureType:'poi.business',elementType:'geometry',stylers:[{visibility:'on'}]},
        {featureType:'transit.station',stylers:[{visibility:'off'}]}
      ]
    });
+   // Each native Google business POI opens its original Maps card. A single
+   // user-initiated request also offers the Studio project action; no bulk
+   // Places search, no harvested database, and no hidden geo scraping.
+   let activeGooglePOI=0;
+   map.addListener('click',event=>{
+     if(!event.placeId)return;
+     const selectedPOI=++activeGooglePOI;
+     setStatus('Lecture de la fiche de cette entreprise via Google Places…');
+     const params=new URLSearchParams({place_id:event.placeId});
+     void api('/api/web/map/google/place?'+params).then(data=>{
+       if(selectedPOI!==activeGooglePOI)return;
+       if(!data.business)throw Error('Fiche Google Maps indisponible.');
+       showCompany(data.business);
+       setStatus('Entreprise sélectionnée directement sur Google Maps · fiche fournie par Google Places.');
+     }).catch(error=>{
+       if(selectedPOI===activeGooglePOI)setStatus('Fiche Google Maps : '+error.message);
+     });
+     // Do not call event.stop(): the Google-provided original POI
+     // info window remains available with attribution and native links.
+   });
+   if(config.places_enabled){
+     // A true Google Places-only browsing mode: no French registry pins or
+     // artificial buildings. The original Google listing remains native.
+     this.focus=item=>{
+       if(item&&Number.isFinite(item.lat)&&Number.isFinite(item.lon)){
+         map.setCenter({lat:item.lat,lng:item.lon});
+         map.setZoom(Math.max(map.getZoom()||6,13));
+       }
+     };
+     const counter=document.querySelector('.map-counter');
+     if(counter)counter.textContent='Google Maps · Entreprises natives à sélectionner';
+     setStatus('Google Maps officiel · cliquez directement sur une entreprise pour afficher sa fiche d’origine et préparer un projet.');
+     return true;
+   }
+   // Google basemap-only configuration: retain independently licensed
+   // directory results as an explicitly identified fallback.
+   setStatus('Google Places non configuré : carte Google et entreprises de l’annuaire public en mode de secours.');
    const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)').matches;
    let infoWindow=null,loading=false,lastKey='',lastAt=0,refreshTimer;
    const businesses=new Map();

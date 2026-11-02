@@ -103,6 +103,19 @@
  function details(item){
    selected=item;
    panel.hidden=false;
+   const original=$('googleOriginalPlace');
+   const googlePlace=/^[A-Za-z0-9_-]{8,220}$/.test(String(item.google_place_id||''))
+     ?item.google_place_id:null;
+   if(original){
+     original.hidden=!googlePlace;
+     if(googlePlace){
+       // Official Google Maps deep-link, never an imitation of its full listing.
+       original.href='https://www.google.com/maps/place/?q=place_id:'+
+         encodeURIComponent(googlePlace);
+       original.rel='noopener noreferrer';
+       original.target='_blank';
+     }
+   }
    $('selectionTitle').textContent=item.name||'Établissement';
    $('selectionCategory').textContent=item.category||'Entreprise';
    setValue('selectionAddress',item.address||[item.postcode,item.city].filter(Boolean).join(' '));
@@ -135,10 +148,12 @@
    $('mapCreateError').textContent='';
    // A map containing thousands of businesses cannot retain thousands of
    // expiring selection tokens. Refresh securely only for the clicked card.
-   btn.disabled=true;
+   btn.disabled=!selected?.selection_token;
    btn.textContent='Créer un site pour cette entreprise ↗';
    const clickedId=selected?.id;
-   api('/api/web/map/selection/refresh?id='+encodeURIComponent(clickedId))
+   // Google Places returns a fresh, server-issued selection token. Its own
+   // IDs are not stored in the French registry, so do not refresh via OSM.
+   if(!googlePlace)api('/api/web/map/selection/refresh?id='+encodeURIComponent(clickedId))
      .then(data=>{
        if(selected?.id!==clickedId)return;
        selected={...selected,...data.business};
@@ -150,7 +165,9 @@
      });
    const photo=$('selectionPhoto'),note=$('selectionPhotoNote');
    photo.hidden=true;photo.removeAttribute('src');
-   note.textContent='Photo de la boutique ou du siège : vérification des sources publiques…';
+   note.textContent=googlePlace
+     ?'Photo : consulter la fiche Google Maps officielle (droits et attributions préservés).'
+     :'Photo de la boutique ou du siège : vérification des sources publiques…';
    try{
      const url=new URL(String(item.image_url||''));
      if(url.protocol==='https:'&&['commons.wikimedia.org','upload.wikimedia.org'].includes(url.hostname)){
@@ -160,7 +177,7 @@
        photo.onerror=()=>{photo.hidden=true;note.textContent='Photo indisponible.'};
      }
    }catch{}
-   if(!item.image_url&&clickedId){
+   if(!item.image_url&&clickedId&&!googlePlace){
      api('/api/web/map/photo?id='+encodeURIComponent(clickedId)).then(data=>{
        if(selected?.id!==clickedId)return;
        if(!data.image_url){

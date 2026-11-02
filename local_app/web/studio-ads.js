@@ -93,7 +93,16 @@
    });
    return exportQueue;
  }
+ function activeAspect(task){
+   if(!campaign||campaign.type!==task)return null;
+   return {square:'1:1',portrait:'9:16',landscape:'16:9'}[campaign.format]||null;
+ }
+ function endGeneration(task){
+   if(campaign?.type===task)campaign=null;
+ }
  window.StudioAds={enhancePrompt,finishMedia,getBrands};
+ window.StudioAds.activeAspect=activeAspect;
+ window.StudioAds.endGeneration=endGeneration;
  // Publication-first flow: arrive with the *actual* site context and brand,
  // not a blank ad tool. The operator still explicitly approves generation.
  const related=new URLSearchParams(window.location.search).get('campaign_project')||'';

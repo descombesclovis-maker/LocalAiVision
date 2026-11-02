@@ -73,3 +73,17 @@
 @media(max-width:700px){.daily-prospects{top:51px;padding:9px 10px;width:calc(100% - 12px)}.daily-prospects-intro{gap:3px}.daily-prospects-intro strong{font-size:11px}.daily-prospects-intro span{font-size:9px}.daily-prospect{flex:0 0 155px}.shop-photo-box img{height:145px}}
 
 .shop-photo-box .photo-source-link{color:#e1c8ff;text-decoration:underline;text-underline-offset:2px}
+
+/* The selected business can always be checked against its ORIGINAL Google listing. */
+.google-original-link:not([hidden]){
+ display:flex;align-items:center;justify-content:center;min-height:45px;text-align:center;
+ padding:12px 14px;margin:12px 0 16px;color:#e2f7ff;text-decoration:none;
+ background:linear-gradient(120deg,#1c3b53,#18334b);
+ border:1px solid #4384a7;border-radius:12px;font-size:12px;font-weight:750;
+ transition:border-color .2s,transform .2s,background .2s;
+}
+.google-original-link:hover,.google-original-link:focus-visible{
+ border-color:#b3e6fd;transform:translateY(-2px);background:#26546b;
+}
+.google-original-link[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.google-original-link{transition:none!important}}
