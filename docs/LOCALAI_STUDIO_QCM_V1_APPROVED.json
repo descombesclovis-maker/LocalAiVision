@@ -1,0 +1,391 @@
+{
+  "title": "LocalAI Studio — QCM de conception V1",
+  "source": "Réponses confirmées par l'utilisateur le 3 novembre 2026",
+  "version": 1,
+  "completed": 261,
+  "essential": 83,
+  "policy": {
+    "preserveFeatures": true,
+    "preserveProjects": true,
+    "doNotChangeNsfwUI": true,
+    "onlyShipOperational": true,
+    "noPromptImprovementButton": true
+  },
+  "sections": [
+    {
+      "title": "01 · Identité générale",
+      "note": "",
+      "answers": {
+        "ui_univers": "Mix premium et technologique",
+        "ui_palette": "Noir profond + violet + cyan",
+        "ui_palette_split": "Oui, Web violet et Vision cyan",
+        "ui_theme": "Automatique selon Windows + manuel",
+        "ui_contrast": "Équilibré et lisible",
+        "ui_density": "Équilibrée",
+        "ui_shape": "Mix selon le type de composant",
+        "ui_typography": "Sans-serif géométrique",
+        "ui_type_scale": "Adaptative selon l’écran",
+        "ui_logo": "Marque commune + deux emblèmes spécifiques",
+        "ui_logo_motion": "Rotation ou profondeur 3D",
+        "ui_surfaces": "Métal brossé / mat",
+        "ui_background": "Dégradés atmosphériques animés",
+        "ui_shadows": "Profondeur cinématique",
+        "ui_icons": "Icônes personnalisées par univers",
+        "ui_graphic_library": "Design system strict identique"
+      }
+    },
+    {
+      "title": "02 · Accueil LocalAI Studio",
+      "note": "Accueil intuitif pour les nouveaux utilisateurs, spectaculaire, beaucoup d'animations maîtrisées.",
+      "answers": {
+        "home_macro": "Menu radial / orbites",
+        "home_first": "LocalAiWeb",
+        "home_title": "Centré au-dessus des cartes",
+        "home_card_art": "Mini interface 3D animée",
+        "home_card_size": "Adaptative à l’écran",
+        "home_card_click": "Carte entière cliquable",
+        "home_card_buttons": "Bas centre",
+        "home_card_labels": "Logo et nom en haut",
+        "home_card_animate": "Flottement subtil permanent",
+        "home_entry": "Zoom cinématique",
+        "home_quick_links": "Projets récents seulement",
+        "home_status": "Carte d’activité dédiée",
+        "home_brand": "Menu « Outils »",
+        "home_update": "Menu paramètres global",
+        "home_guidance": "Accueil direct"
+      }
+    },
+    {
+      "title": "03 · Navigation & commandes communes",
+      "note": "",
+      "answers": {
+        "nav_primary": "Barre flottante inférieure",
+        "nav_width": "Toujours ouverte",
+        "nav_home_btn": "Logo en haut gauche",
+        "nav_switch": "Barre latérale",
+        "nav_back": "Flèche en haut à gauche",
+        "nav_search": "Palette de commandes Ctrl+K",
+        "nav_settings": "Menu du profil",
+        "nav_projects": "Barre latérale",
+        "nav_notifications": "Cloche en haut droite",
+        "nav_shortcuts": "Essentiels seulement",
+        "nav_tooltips": "Adaptatif selon l’espace",
+        "nav_undo": "Boutons contextuels uniquement"
+      }
+    },
+    {
+      "title": "04 · LocalAiWeb — création par conversation",
+      "note": "Ne pas ajouter de bouton « Améliorer mon prompt ». Un QCM esthétique est souhaité, aperçu seulement si qualitatif.",
+      "answers": {
+        "web_split": "Chat à gauche / aperçu à droite",
+        "web_chat_width": "Redimensionnable, départ 32 %",
+        "web_prompt": "Fixé en bas à gauche",
+        "web_send": "À droite dans le champ",
+        "web_attach": "+ à gauche de saisie",
+        "web_refine": "Tu proposes le meilleur compromis",
+        "web_project_title": "Titre éditable en haut de l’aperçu",
+        "web_new": "Dans le sélecteur de projets",
+        "web_agent_status": "Un indicateur seulement si problème",
+        "web_coding_state": "Aperçu conservé + progression",
+        "web_source": "Icône </> en haut droit",
+        "web_history": "Choix conversation / actions",
+        "web_message_edit": "Icône crayon au survol",
+        "web_sections": "Panneau ouvrable « Processus »",
+        "web_creation_options": "QCM dédié avec aperçu visuel"
+      }
+    },
+    {
+      "title": "05 · LocalAiWeb — carte de prospection",
+      "note": "Google Maps sombre et épuré, légendes utiles, aucun champ de recherche, points avec trois états et bouton Cibler animé sous la fiche officielle ; animations ludiques.",
+      "answers": {
+        "map_canvas": "Carte plein écran",
+        "map_provider": "Carte Google simplifiée avec légendes utiles",
+        "map_camera": "France entière",
+        "map_controls": "Contrôles Google natifs",
+        "map_pins": "Icônes natives Google",
+        "map_pins_size": "Moyens",
+        "map_clustering": "Affichage progressif par zoom",
+        "map_filter": "Aucun filtre",
+        "map_trade": "Tu proposes le meilleur compromis",
+        "map_search": "Pas de recherche, déplacement carte",
+        "map_no_website": "Filtre à trois états",
+        "map_click": "Fiche Google puis action « Cibler »",
+        "map_hover": "Nom + métier",
+        "map_recommend": "5 cartes dans un tiroir inférieur",
+        "map_coverage": "Nombre d’entreprises affichées",
+        "map_loading": "Animation de points",
+        "map_actions": "Zoom + recentrer + filtres",
+        "map_mobile": "Plein écran + fiche bottom sheet"
+      }
+    },
+    {
+      "title": "06 · Fiche entreprise & prospection",
+      "note": "Après création, expliquer dans le chat les choix de conception et les éléments qui les fondent ; prévisualiser les pages pertinentes.",
+      "answers": {
+        "business_sheet": "Fiche Google native + bouton Studio",
+        "business_header": "Nom très visible + métier",
+        "business_photo": "Selon disponibilité et droits",
+        "business_info": "Structure Google officielle",
+        "business_website": "Badge Oui / Non / Inconnu",
+        "business_primary": "Bas de fiche collé",
+        "business_secondary": "Icône favori",
+        "business_original": "Sous l’adresse",
+        "business_score": "Niveau faible/moyen/fort explicable",
+        "business_actions": "Ajouter au CRM + notes",
+        "business_plan": "Choix projet Pro + style",
+        "business_close": "Croix + Échap",
+        "business_mobile": "Bottom sheet coulissante"
+      }
+    },
+    {
+      "title": "07 · LocalAiWeb — éditeur & prévisualisation",
+      "note": "",
+      "answers": {
+        "editor_main": "Panneaux redimensionnables",
+        "editor_top": "Toujours visible",
+        "editor_device": "3 icônes côte à côte en haut",
+        "editor_eye": "Près des formats",
+        "editor_cursor": "Barre flottante sur site",
+        "editor_select": "Sélection type Figma",
+        "editor_double": "Texte directement éditable",
+        "editor_history": "Timeline de versions",
+        "editor_save": "Snapshots automatiques + bouton version",
+        "editor_zip": "Menu ⋯",
+        "editor_publish": "Haut droite très visible",
+        "editor_3d": "Aucun outil 3D visible sans objet",
+        "editor_assets": "Onglet Médias dans le rail",
+        "editor_colors": "Panneau Design à droite",
+        "editor_elements": "Panneau Pages + Sections",
+        "editor_pages": "Arborescence latérale",
+        "editor_mask": "Aperçu grisé + pourcentage",
+        "editor_qa": "Inspections invisibles sauf problème"
+      }
+    },
+    {
+      "title": "08 · LocalAiWeb — projets & historique",
+      "note": "",
+      "answers": {
+        "projects_entry": "Dossiers Pro / Libres",
+        "projects_tabs": "Deux onglets",
+        "projects_new": "Carte + dans la grille",
+        "projects_card": "Capture + statut + dernier changement",
+        "projects_filter": "Barre de recherche + filtres",
+        "projects_version": "Timeline projet",
+        "projects_delete": "Menu ⋯ + confirmation",
+        "projects_archive": "Archiver depuis menu ⋯",
+        "projects_resume": "Notification globale cliquable",
+        "projects_client": "Bibliothèque centrale de marques",
+        "projects_activity": "Pourcentage sur chaque carte"
+      }
+    },
+    {
+      "title": "09 · Publication, publicité, devis et CRM",
+      "note": "",
+      "answers": {
+        "publish_gate": "Après Publier uniquement",
+        "publish_dialog": "Assistant en 3 étapes",
+        "publish_checks": "Résumé + détails dépliables",
+        "publish_status": "Carte de confirmation",
+        "publish_ad": "Automatiquement proposé",
+        "publish_quote": "À la fin du parcours publication",
+        "publish_invoice": "Dossier client",
+        "crm_home": "Dossiers clients",
+        "crm_pipeline": "Kanban",
+        "crm_contact": "Dans le dossier client",
+        "crm_preview": "Tu proposes le meilleur compromis",
+        "crm_pricing": "Généré puis validé manuellement",
+        "crm_delivery": "Tous selon sélection"
+      }
+    },
+    {
+      "title": "10 · LocalAiVision — accueil, chat et commandes",
+      "note": "Ne pas modifier l'interface actuelle de l'espace NSFW ; améliorer les performances générales sans changer sa disposition.",
+      "answers": {
+        "vision_layout": "Panneaux redimensionnables",
+        "vision_welcome": "Carte des modes Photo, Vidéo, Retouche, Publicité",
+        "vision_field": "Bas du chat gauche",
+        "vision_send": "Bouton dépendant du mode",
+        "vision_mode": "Détection automatique + bouton changer",
+        "vision_tool_gear": "Bas gauche du champ",
+        "vision_add": "Bas gauche du champ",
+        "vision_models": "Dans réglages experts",
+        "vision_advanced": "Pop-up flottante",
+        "vision_gallery": "Tiroir fermable",
+        "vision_history": "Bouton haut droit",
+        "vision_nsfw_btn": "Page réservée distincte",
+        "vision_brand": "Dans mode Publicité",
+        "vision_preview": "Grande carte à droite",
+        "vision_actions": "Au survol en overlay"
+      }
+    },
+    {
+      "title": "11 · LocalAiVision — génération photo",
+      "note": "",
+      "answers": {
+        "photo_comp": "Viewer à droite + réglages dans chat",
+        "photo_styles": "Tuiles avec véritables exemples",
+        "photo_ratio": "Icônes illustrées",
+        "photo_quality": "Choix automatique de profil VRAM",
+        "photo_seed": "Dans paramètres avancés",
+        "photo_batch": "1 image et variantes sur demande",
+        "photo_ref": "Bouton + Image dans le champ",
+        "photo_compare": "Grille 2×2",
+        "photo_prompt": "Choix technique / créatif",
+        "photo_detail": "Automatique avec validation",
+        "photo_upscale": "Sous le résultat",
+        "photo_export": "Fenêtre Export avancé"
+      }
+    },
+    {
+      "title": "12 · LocalAiVision — T2V / I2V et cinéma",
+      "note": "Toute nouvelle fonction doit être opérationnelle à son introduction, pas seulement un bouton.",
+      "answers": {
+        "video_split": "Espace création + montage séparés",
+        "video_type": "Deux onglets bien visibles",
+        "video_engine": "Moteur auto, nom visible",
+        "video_reference": "Miniature jointe dans le champ",
+        "video_duration": "Boutons 3/5/10/20 s",
+        "video_fps": "Auto selon profil VRAM",
+        "video_camera": "Galerie d’exemples animés",
+        "video_motion": "Faible / Standard / Intense",
+        "video_frame": "Formats TikTok/YouTube/Reels",
+        "video_story": "Mode Vidéo / Mode Film",
+        "video_timeline": "Bas de fenêtre",
+        "video_plan": "Mini boutons Edit / Relancer / Remplacer",
+        "video_preview": "Images clés pendant le rendu",
+        "video_consistency": "Panneau Identité verrouillée",
+        "video_export": "MP4 + paramètres avancés",
+        "video_audio": "Piste audio séparée"
+      }
+    },
+    {
+      "title": "13 · Retouche & édition des images",
+      "note": "NSFW isolé ; préserver le fonctionnement.",
+      "answers": {
+        "retouch_layout": "Grande toile avec barres flottantes",
+        "retouch_mask": "Combinaison de tous",
+        "retouch_brush": "Panneau latéral",
+        "retouch_before": "Slider vertical",
+        "retouch_strength": "Slider 0–100 %",
+        "retouch_layers": "Calques facultatifs experts",
+        "retouch_undo": "Ctrl+Z + historique",
+        "retouch_prompt": "Panneau chat à gauche",
+        "retouch_export": "En haut droite",
+        "retouch_preserve": "Toujours conserver l’original"
+      }
+    },
+    {
+      "title": "14 · Espace réservé — interface distincte",
+      "note": "Préserver l'espace réservé actuel sans refonte dans ce cycle.",
+      "answers": {
+        "adult_entry": "Panneau flouté + code",
+        "adult_theme": "Rouge profond + noir",
+        "adult_gate": "Déverrouillage par session",
+        "adult_layout": "Chat à gauche / créations à droite",
+        "adult_gallery": "Fermable avec croix",
+        "adult_gear": "Bas gauche du champ",
+        "adult_source": "Menu déroulant",
+        "adult_progress": "Combinaison des trois",
+        "adult_privacy": "Jamais affichées hors de l’espace",
+        "adult_library": "Bibliothèque locale séparée",
+        "adult_lock": "Icône cadenas dans l’en-tête",
+        "adult_fx": "Éclairage rouge doux"
+      }
+    },
+    {
+      "title": "15 · Mes créations (Photo / Vidéo / Autres)",
+      "note": "",
+      "answers": {
+        "lib_view": "Grille / liste réglables",
+        "lib_tabs": "Barre de filtres + recherche",
+        "lib_search": "Champ en haut toujours visible",
+        "lib_thumb": "Vignettes uniformes avec badge ratio",
+        "lib_hover": "Menu ⋯",
+        "lib_open": "Viewer plein écran",
+        "lib_details": "Vue simplifiée + détails repliables",
+        "lib_reuse": "Dans barre de détail",
+        "lib_edit": "Deux actions visibles dans viewer",
+        "lib_bulk": "Aucune sélection multiple",
+        "lib_delete": "Suppression définitive après confirmation",
+        "lib_folders": "Projets + tags"
+      }
+    },
+    {
+      "title": "16 · Paramètres & gestion des modèles",
+      "note": "",
+      "answers": {
+        "settings_entry": "Rouage bas gauche",
+        "settings_layout": "Fenêtre modale",
+        "settings_order": "Styles → LoRA → Simple → Expert",
+        "settings_model": "Auto + choix expert en bas",
+        "settings_status": "Pastille + nom",
+        "settings_install": "Dans la carte du modèle",
+        "settings_loras": "Liste avec recherche",
+        "settings_lora_strength": "Slider sur chaque LoRA",
+        "settings_lora_apply": "Filtre modèles compatibles",
+        "settings_advanced": "Sections repliables",
+        "settings_reset": "Question « Optimiser pour ma GPU »",
+        "settings_hardware": "Panneau diagnostic détaillé",
+        "settings_presets": "Sauvegarder depuis chaque génération",
+        "settings_logs": "Bouton « Diagnostic »",
+        "settings_update": "Dans paramètres généraux",
+        "settings_import": "Bouton Importer",
+        "settings_validation": "Grisé + raison"
+      }
+    },
+    {
+      "title": "17 · Chargements, erreurs et animations",
+      "note": "",
+      "answers": {
+        "progress_place": "Panneau Activités flottant",
+        "progress_percent": "Étapes détaillées + pourcentage",
+        "progress_truth": "Estimation clairement signalée",
+        "progress_preview": "Dès disponibilité technique",
+        "progress_overlay": "Panneau étapes en surimpression",
+        "progress_cancel": "Toujours à côté du pourcentage",
+        "progress_background": "Tâche continue + pastille",
+        "progress_error": "Message compréhensible + Réessayer",
+        "progress_retry": "Silencieuse avec statut",
+        "progress_success": "Ouvrir automatiquement le résultat",
+        "progress_motion": "Ligne de progression brillante",
+        "progress_sound": "Son discret à la fin"
+      }
+    },
+    {
+      "title": "18 · Mobile, fenêtres et accessibilité",
+      "note": "",
+      "answers": {
+        "mobile_nav": "Barre d’onglets basse",
+        "mobile_chat": "Onglets Chat / Aperçu",
+        "mobile_map": "Tiroir depuis le bas",
+        "mobile_buttons": "Actions majeures + menu ⋯",
+        "mobile_qcm": "Plein écran mobile",
+        "mobile_orientation": "Deux modes soignés",
+        "mobile_touch": "Minimum 48 px",
+        "mobile_keyboard": "Champ toujours visible au-dessus",
+        "mobile_motion": "Allégées automatiquement",
+        "access_reduce": "Système + interrupteur",
+        "access_focus": "Contour lumineux visible",
+        "access_contrast": "Disponible comme option"
+      }
+    },
+    {
+      "title": "19 · Agents, Autopilot et tableaux de bord futurs",
+      "note": "Ne pas afficher de fonctions futures tant qu'elles ne sont pas opérationnelles.",
+      "answers": {
+        "agents_hub": "Intégré à chaque création",
+        "agents_state": "Badge dans le chat",
+        "agents_controls": "Mode auto / assisté",
+        "agents_qa": "Rapport visuel comparatif",
+        "agents_repair": "Mode auto / manuel",
+        "agents_branddna": "Dans chaque dossier client",
+        "agents_compare": "Trois variantes côte à côte",
+        "agents_prospect": "Bandeau de 5 prospects",
+        "agents_autopilot": "Assistant guidé en étapes",
+        "agents_portal": "Onglet dans projet Pro",
+        "agents_performance": "Page Diagnostic",
+        "agents_rollout": "Afficher seulement si opérationnelles"
+      }
+    }
+  ]
+}
