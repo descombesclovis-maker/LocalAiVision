@@ -67,7 +67,8 @@ window.LocalAiWebGoogleMap={
          map.setZoom(Math.max(map.getZoom()||6,13));
        }
      };
-     document.getElementById('loadedCount').textContent='Google';
+     const counter=document.querySelector('.map-counter');
+     if(counter)counter.textContent='Google Maps · Entreprises natives à sélectionner';
      setStatus('Google Maps officiel · cliquez directement sur une entreprise pour afficher sa fiche d’origine et préparer un projet.');
      return true;
    }
