@@ -264,7 +264,7 @@ def contract_repair_prompt(original_request, findings):
 
 def code_quality_report(store, project_id, request, integrations):
     """Check real build output; never rate visual beauty without inspecting a screenshot."""
-    from local_app import web_briefing, web_content_contract, web_site_architecture
+    from local_app import web_briefing, web_content_contract, web_site_architecture, web_experience_contract
     site = store.project_dir(project_id) / 'site'
     files = store.text_files(project_id)
     spec = web_content_contract.specification(request, store.meta(project_id).get('name', ''))
@@ -306,6 +306,7 @@ def code_quality_report(store, project_id, request, integrations):
         structural = store.preflight(project_id)
     findings.extend(contract_issues)
     findings.extend(web_site_architecture.check(files, request))
+    findings.extend(web_experience_contract.check(files, request))
     return {'ok': not findings and syntax['ok'] and structural['ok'],
             'findings': findings, 'syntax': syntax,
             'preflight': structural, 'build': build}
