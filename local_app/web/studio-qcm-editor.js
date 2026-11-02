@@ -72,4 +72,50 @@ function showRename(){
 }
 heading.addEventListener('dblclick',showRename);
 heading.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showRename()}});
+}
+// Compact device controls keep the existing data-view handlers and keyboard support.
+for(const button of document.querySelectorAll('.view-modes [data-view]')){
+ const key=button.dataset.view;
+ const label={desktop:'Ordinateur',tablet:'Tablette',mobile:'Téléphone'}[key];
+ const glyph={desktop:'▣',tablet:'▯',mobile:'▵'}[key];
+ if(!label)continue;
+ button.textContent=glyph;
+ button.title='Aperçu '+label.toLowerCase();
+ button.setAttribute('aria-label','Afficher en mode '+label.toLowerCase());
+ button.classList.add('qcm-device-button');
+}
+// Real source-code inspection, not a pretend shortcut or a generated screenshot.
+const controls=document.querySelector('.preview-controls'),siteTools=document.getElementById('lawSiteTools');
+if(controls&&/^web-[a-f0-9]{12}$/.test(id)){
+ const codeButton=document.createElement('button');codeButton.type='button';codeButton.className='qcm-code-button';
+ codeButton.title='Voir les véritables fichiers du site';codeButton.textContent='</>';
+ codeButton.setAttribute('aria-label','Consulter le code du site');
+ const codeDialog=document.createElement('dialog');codeDialog.className='qcm-code-dialog';
+ codeDialog.setAttribute('aria-label','Code du site enregistré');
+ codeDialog.innerHTML='<div class="qcm-code-head"><strong>Fichiers du site</strong><button type="button" aria-label="Fermer le code">×</button></div><div class="qcm-code-body"><nav aria-label="Fichiers source" class="qcm-code-files"></nav><pre><code class="qcm-code-content"></code></pre></div>';
+ document.body.append(codeDialog);
+ const close=codeDialog.querySelector('button');close.addEventListener('click',()=>codeDialog.close());
+ const list=codeDialog.querySelector('.qcm-code-files'),content=codeDialog.querySelector('.qcm-code-content');
+ codeButton.addEventListener('click',async()=>{
+   codeDialog.showModal();content.textContent='Chargement des fichiers enregistrés…';list.replaceChildren();
+   try{
+     const response=await fetch('/api/web/project?id='+encodeURIComponent(id),{cache:'no-store'});
+     const data=await response.json();
+     if(!response.ok||data.error)throw Error(data.error||'Sources indisponibles.');
+     const files=Object.entries(data.files||{}).filter(([name,value])=>typeof value==='string'&&!name.startsWith('.'));
+     if(!files.length){content.textContent='Aucun fichier texte disponible pour ce projet.';return}
+     files.slice(0,70).forEach(([name,value],i)=>{
+       const b=document.createElement('button');b.type='button';b.textContent=name;b.className=i===0?'selected':'';
+       b.addEventListener('click',()=>{
+         list.querySelectorAll('button').forEach(button=>button.classList.toggle('selected',button===b));
+         content.textContent=value.slice(0,250000);
+       });
+       list.append(b);
+     });
+     content.textContent=String(files[0][1]).slice(0,250000);
+   }catch(error){content.textContent='Impossible de lire les sources : '+error.message}
+ });
+ // Keep publish prominent, source and viewport buttons to its right.
+ if(siteTools)controls.insertBefore(codeButton,siteTools);else controls.append(codeButton);
+}
 })();
