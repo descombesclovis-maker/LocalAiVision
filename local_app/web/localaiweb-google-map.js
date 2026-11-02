@@ -58,6 +58,22 @@ window.LocalAiWebGoogleMap={
      // Do not call event.stop(): the Google-provided original POI
      // info window remains available with attribution and native links.
    });
+   if(config.places_enabled){
+     // A true Google Places-only browsing mode: no French registry pins or
+     // artificial buildings. The original Google listing remains native.
+     this.focus=item=>{
+       if(item&&Number.isFinite(item.lat)&&Number.isFinite(item.lon)){
+         map.setCenter({lat:item.lat,lng:item.lon});
+         map.setZoom(Math.max(map.getZoom()||6,13));
+       }
+     };
+     document.getElementById('loadedCount').textContent='Google';
+     setStatus('Google Maps officiel · cliquez directement sur une entreprise pour afficher sa fiche d’origine et préparer un projet.');
+     return true;
+   }
+   // Google basemap-only configuration: retain independently licensed
+   // directory results as an explicitly identified fallback.
+   setStatus('Google Places non configuré : carte Google et entreprises de l’annuaire public en mode de secours.');
    const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)').matches;
    let infoWindow=null,loading=false,lastKey='',lastAt=0,refreshTimer;
    const businesses=new Map();
