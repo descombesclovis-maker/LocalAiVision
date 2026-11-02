@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-ui-polish.css">
 <link rel="stylesheet" href="/assets/localai-studio-next.css">
-<link rel="stylesheet" href="/assets/studio-configurator.css">
+
 <link rel="stylesheet" href="/assets/studio-qcm-v1.css">
 </head>
 <body class="universe-home" data-studio-page="home">
@@ -28,7 +28,7 @@
           <a href="/studio/brands">◇ Identités & marques</a>
           <a href="/localaiweb">▦ Projets Web</a>
           <a href="/localaiweb/map">⌖ Carte de prospection</a>
-          <button id="studioCustomize" class="studio-config-trigger" type="button" aria-haspopup="dialog" aria-controls="studioConfigDialog">⚙ Paramètres d'interface</button>
+          <button id="qcmMotionToggle" type="button" aria-pressed="false">Réduire les animations</button>
           <button id="qcmHomeUpdateCheck" type="button">↻ Vérifier les mises à jour</button>
           <span id="qcmHomeUpdateStatus" role="status" aria-live="polite" class="qcm-home-update-note"></span>
         </div></details>
@@ -77,29 +77,7 @@
   <div id="qcmHomeRecent" class="qcm-home-recent" aria-live="polite"></div>
   <footer class="universe-footer"><span>LOCALAI STUDIO <i aria-hidden="true">·</i> VOTRE ESPACE PRIVÉ</span><span>Vos conversations et projets restent séparés par univers.</span></footer>
 </main>
-<dialog id="studioConfigDialog" class="studio-config-dialog" aria-labelledby="studioConfigTitle">
-  <div class="studio-config-shell">
-    <header class="studio-config-header">
-      <div><span class="studio-config-overline">LOCALAI STUDIO / DESIGN SYSTEM</span><h2 id="studioConfigTitle">Compose ton studio.</h2><p>46 choix indépendants : position, disposition, lumières, interactions, animations et confort.</p></div>
-      <button type="button" id="studioConfigClose" class="studio-config-icon" aria-label="Fermer la personnalisation">×</button>
-    </header>
-    <div class="studio-config-progress"><progress id="studioConfigProgress" value="0" max="46"></progress><span id="studioConfigCount">0 / 46</span></div>
-    <div class="studio-config-layout">
-      <nav id="studioConfigTabs" class="studio-config-tabs" aria-label="Catégories de configuration"></nav>
-      <form id="studioConfigForm" class="studio-config-form">
-        <div id="studioConfigQuestions" class="studio-config-questions"></div>
-        <footer class="studio-config-actions">
-          <button id="studioConfigReset" type="button">↺ Réinitialiser</button>
-          <button id="studioConfigExport" type="button">↓ Exporter</button>
-          <label class="studio-config-import">↑ Importer<input id="studioConfigImport" type="file" accept=".json,application/json" hidden></label>
-          <button id="studioConfigSave" type="submit">Appliquer mes choix ↗</button>
-        </footer>
-        <p class="studio-config-feedback" id="studioConfigFeedback" role="status" aria-live="polite"></p>
-      </form>
-    </div>
-  </div>
-</dialog>
-<script src="/assets/studio-configurator.js" defer></script>
+
 <script src="/assets/localai-studio-motion.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 <script src="/assets/studio-qcm-shell.js" defer></script>
