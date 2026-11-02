@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-ui-polish.css">
 <link rel="stylesheet" href="/assets/localai-studio-next.css">
+<link rel="stylesheet" href="/assets/studio-configurator.css">
 </head>
 <body class="universe-home">
 <div class="studio-backdrop" aria-hidden="true"><span class="backdrop-glow one"></span><span class="backdrop-glow two"></span><span class="backdrop-grid"></span></div>
@@ -20,7 +21,7 @@
       <span><strong>LocalAI <em>Studio</em></strong><small>Création sans compromis</small></span>
     </a>
     <span class="universe-top-hint"><span class="presence-dot" aria-hidden="true"></span> UN STUDIO · DEUX UNIVERS</span>
-    <a class="universe-help-link" href="/studio/brands">Identités & marques <span aria-hidden="true">↗</span></a>
+    <div class="studio-hub-tools"><button id="studioCustomize" class="universe-help-link studio-config-trigger" type="button" aria-haspopup="dialog" aria-controls="studioConfigDialog">✦ Personnaliser</button><a class="universe-help-link" href="/studio/brands">Identités & marques <span aria-hidden="true">↗</span></a></div>
   </header>
   <section class="universe-intro" aria-labelledby="universe-title">
     <span class="universe-eyebrow"><i aria-hidden="true"></i> L'ATELIER DE VOS IDÉES</span>
@@ -63,6 +64,29 @@
   </section>
   <footer class="universe-footer"><span>LOCALAI STUDIO <i aria-hidden="true">·</i> VOTRE ESPACE PRIVÉ</span><span>Vos conversations et projets restent séparés par univers.</span></footer>
 </main>
+<dialog id="studioConfigDialog" class="studio-config-dialog" aria-labelledby="studioConfigTitle">
+  <div class="studio-config-shell">
+    <header class="studio-config-header">
+      <div><span class="studio-config-overline">LOCALAI STUDIO / DESIGN SYSTEM</span><h2 id="studioConfigTitle">Compose ton studio.</h2><p>46 choix indépendants : position, disposition, lumières, interactions, animations et confort.</p></div>
+      <button type="button" id="studioConfigClose" class="studio-config-icon" aria-label="Fermer la personnalisation">×</button>
+    </header>
+    <div class="studio-config-progress"><progress id="studioConfigProgress" value="0" max="46"></progress><span id="studioConfigCount">0 / 46</span></div>
+    <div class="studio-config-layout">
+      <nav id="studioConfigTabs" class="studio-config-tabs" aria-label="Catégories de configuration"></nav>
+      <form id="studioConfigForm" class="studio-config-form">
+        <div id="studioConfigQuestions" class="studio-config-questions"></div>
+        <footer class="studio-config-actions">
+          <button id="studioConfigReset" type="button">↺ Réinitialiser</button>
+          <button id="studioConfigExport" type="button">↓ Exporter</button>
+          <label class="studio-config-import">↑ Importer<input id="studioConfigImport" type="file" accept=".json,application/json" hidden></label>
+          <button id="studioConfigSave" type="submit">Appliquer mes choix ↗</button>
+        </footer>
+        <p class="studio-config-feedback" id="studioConfigFeedback" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+</dialog>
+<script src="/assets/studio-configurator.js" defer></script>
 <script src="/assets/localai-studio-motion.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 </body>

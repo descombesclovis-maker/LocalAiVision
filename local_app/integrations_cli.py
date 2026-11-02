@@ -153,7 +153,11 @@ def status(deep=False):
         "stripe": {"installed": bool(stripe_direct), "ready": False},
     }
     if gh:
-        out["github"]["ready"] = _run([gh, "auth", "status"], timeout=20).returncode == 0
+        try:
+            out["github"]["ready"] = _run([gh, "auth", "status"], timeout=12).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            # An offline or blocked GitHub CLI must never crash Studio startup.
+            out["github"]["ready"] = False
 
     vercel_cmd = [vercel_direct] if vercel_direct else (_vercel_cmd() if deep else None)
     supabase_cmd = [supabase_direct] if supabase_direct else (_supabase_cmd() if deep else None)
