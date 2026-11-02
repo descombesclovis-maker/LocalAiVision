@@ -9,6 +9,18 @@ const id=new URLSearchParams(location.search).get('id')||'';
 if(!/^web-[a-f0-9]{12}$/.test(id))return;
 const controls=root.querySelector('.preview-controls');
 if(!controls)return;
+const tools=document.getElementById('lawSiteTools'),zip=document.getElementById('lawZipBtn');
+if(tools&&zip){
+  const more=document.createElement('details');more.className='qcm-editor-more';
+  const trigger=document.createElement('summary');trigger.textContent='⋯';trigger.title='Actions supplémentaires';
+  trigger.setAttribute('aria-label','Afficher les actions supplémentaires');
+  const pop=document.createElement('div');pop.className='qcm-editor-more-menu';
+  more.append(trigger,pop);tools.append(more);pop.append(zip);
+  zip.textContent='↓ Exporter le ZIP du site';zip.title='Télécharger les vrais fichiers du site';
+  zip.addEventListener('click',()=>{more.open=false});
+  document.addEventListener('click',event=>{if(!more.contains(event.target))more.open=false});
+}
+
 const drawer=document.createElement('aside');drawer.className='qcm-editor-drawer';drawer.hidden=true;
 drawer.setAttribute('aria-label','Détails du projet');
 drawer.innerHTML='<header><strong id="qcmDrawerTitle">Pages du site</strong><button id="qcmDrawerClose" type="button" aria-label="Fermer les détails">×</button></header><div id="qcmDrawerContent" class="qcm-drawer-body" aria-live="polite"></div><footer><button type="button" id="qcmDrawerRefresh">↻ Actualiser</button><span id="qcmDrawerStatus" role="status" aria-live="polite"></span></footer>';
