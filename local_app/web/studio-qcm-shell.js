@@ -49,6 +49,7 @@ input.addEventListener('keydown',e=>{
  if(e.key==='Enter'&&visible[active]){e.preventDefault();location.assign(visible[active].path)}
 });
 document.addEventListener('keydown',e=>{
+ if(isAdult())return;
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();dialog.open?close():open()}
 },{passive:false});
 const hideForAdult=()=>{dock.hidden=isAdult();if(isAdult())close()};
