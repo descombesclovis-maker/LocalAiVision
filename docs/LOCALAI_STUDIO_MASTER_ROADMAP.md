@@ -26,6 +26,7 @@ LocalAI Studio = atelier professionnel tout-en-un, regroupant LocalAiWeb, LocalA
 ## Cycle 296 — Vision Engine : routage de modèles intelligents
 - [ ] Inventaire des moteurs réellement présents (taille, VRAM, licence, nœuds ComfyUI, disponibilité).
 - [ ] Comparaison sur RTX 3060 12 Go : HunyuanVideo 1.5 T2V/I2V, Wan 2.1/2.2 selon quantification, Z-Image, FLUX.2 Klein, HunyuanImage 2.1.
+- [ ] Gestion des LoRA : compatibilité réelle par moteur, catalogue, poids, intensité et validations visuelles.
 - [ ] Gestion des licences, en particulier vérification du droit de distribution/usage commercial en France avant recommandation d'un modèle.
 - [ ] Profils de rendu photo, retouche, publicité, vidéo, espaces réservés aux adultes autorisés ; aucun réglage affiché sans effet vérifié sur le workflow.
 - [ ] Choix automatique du modèle, du quantifié, de l'offload VRAM et du ratio selon la tâche ; contrôle manuel toujours possible.
