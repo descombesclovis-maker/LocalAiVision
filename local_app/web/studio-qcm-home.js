@@ -14,6 +14,22 @@
       }
     }).catch(()=>{ /* Keep a clean welcome when the server has no project store. */ });
  }
+ const motionToggle=document.getElementById('qcmMotionToggle'),MOTION_KEY='localai_studio_motion_reduced_v1';
+ if(motionToggle){
+   let manuallyReduced=false;
+   try{manuallyReduced=localStorage.getItem(MOTION_KEY)==='1'}catch{}
+   const apply=()=>{
+     document.body.classList.toggle('qcm-reduce-motion',manuallyReduced);
+     motionToggle.setAttribute('aria-pressed',String(manuallyReduced));
+     motionToggle.textContent=manuallyReduced?'✓ Réactiver les animations':'☾ Réduire les animations';
+   };
+   apply();
+   motionToggle.addEventListener('click',()=>{
+     manuallyReduced=!manuallyReduced;
+     try{localStorage.setItem(MOTION_KEY,manuallyReduced?'1':'0')}catch{}
+     apply();
+   });
+ }
  const button=document.getElementById('qcmHomeUpdateCheck'),note=document.getElementById('qcmHomeUpdateStatus');
  button?.addEventListener('click',async()=>{
    button.disabled=true;note.textContent='Vérification de la dernière version…';
