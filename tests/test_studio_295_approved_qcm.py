@@ -85,6 +85,38 @@ class ApprovedQcmV1(TestCase):
         self.assertIn("window.StudioMapRecenter",google)
         self.assertIn("color:'#171d28'",google)
 
+    def test_web_editor_real_panels_versions_and_media(self):
+        html=(WEB/"localaiweb.html").read_text(encoding="utf-8")
+        js=(WEB/"studio-qcm-editor-rail.js").read_text(encoding="utf-8")
+        for resource in ("studio-qcm-editor-rail.js","studio-qcm-editor.js"):
+            self.assertIn(resource,html)
+        for contract in ("/api/web/project?id=", "/api/web/version/restore",
+                         "data.assets", "data.versions", "data.files",
+                         "confirm(", "location.reload()",
+                         "qcm-select-source"):
+            self.assertIn(contract,js)
+
+    def test_public_vision_library_has_no_fake_media_or_adult_leak(self):
+        html=(WEB/"index.html").read_text(encoding="utf-8")
+        js=(WEB/"studio-qcm-library.js").read_text(encoding="utf-8")
+        css=(WEB/"studio-qcm-library.css").read_text(encoding="utf-8")
+        for asset in ("studio-qcm-library.js","studio-qcm-library.css"):
+            self.assertIn(asset,html)
+        for contract in ("const isAdult=", "card.querySelector('img,video')",
+                         "validSrc", "node.src=href", "qcm-library-list"):
+            self.assertIn(contract,js)
+        self.assertIn("body.nsfw-active .qcm-library-dialog",css)
+        self.assertNotIn("/api/studio/media/start",js)
+
+    def test_acceptance_spec_covers_each_choice_and_is_honest_about_status(self):
+        spec=(ROOT/"docs/LOCALAI_STUDIO_FINAL_QCM_ACCEPTANCE_261.md").read_text(encoding="utf-8")
+        self.assertIn("261/261",spec)
+        self.assertIn("CI",spec)
+        for key in self.answers:
+            self.assertIn("`"+key+"`",spec)
+        self.assertIn("À développer",spec)
+        self.assertIn("Aucun build CI vert",spec)
+
     def test_vision_uses_real_results_only_and_never_modifies_adult_ui(self):
         js=(WEB/"studio-qcm-vision.js").read_text(encoding="utf-8")
         css=(WEB/"studio-qcm-vision.css").read_text(encoding="utf-8")
