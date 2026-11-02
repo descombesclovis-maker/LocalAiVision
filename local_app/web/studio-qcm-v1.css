@@ -176,3 +176,19 @@ body.qcm-reduce-motion :where(.universe-choices,.universe-card,.qcm-orbit-center
  .qcm-map-filter{padding:7px}
  .qcm-map-filter select{max-width:130px}
 }
+
+/* Actual code inspector, compact 3-device controls; no dummy controls. */
+body[data-studio-page="editor"] .qcm-device-button{min-width:39px;min-height:38px;display:grid;place-items:center;font-size:22px;line-height:1}
+.qcm-code-button{height:37px;min-width:46px;border:1px solid #ffffff40;border-radius:10px;color:#e8dcff;background:#ffffff0b;font-weight:850;font-size:14px;cursor:pointer}
+.qcm-code-button:hover{background:#8f71bd32}
+.qcm-code-dialog{width:min(1000px,calc(100vw - 26px));max-height:88dvh;background:#101724;color:#eef4ff;border:1px solid #a18bd153;border-radius:17px;overflow:hidden;padding:0;box-shadow:0 30px 110px #000d}
+.qcm-code-dialog::backdrop{background:#02050bd9;backdrop-filter:blur(7px)}
+.qcm-code-head{display:flex;justify-content:space-between;align-items:center;padding:16px 19px;border-bottom:1px solid #ffffff29}
+.qcm-code-head strong{font-size:15px}
+.qcm-code-head button{width:36px;height:36px;border:1px solid #ffffff31;background:transparent;border-radius:10px;color:#fff;font-size:23px;cursor:pointer}
+.qcm-code-body{display:grid;grid-template-columns:230px minmax(0,1fr);height:min(68vh,680px)}
+.qcm-code-files{overflow:auto;padding:12px;border-right:1px solid #ffffff24;display:flex;flex-direction:column;align-items:stretch;gap:3px}
+.qcm-code-files button{padding:10px;border:0;border-radius:8px;background:transparent;color:#c6c9dc;text-align:left;font:600 11px/1.5 inherit;font-family:inherit;cursor:pointer;word-break:break-word}
+.qcm-code-files button.selected,.qcm-code-files button:hover{background:#ab8be735;color:#fff}
+.qcm-code-body pre{overflow:auto;margin:0;padding:20px;white-space:pre;tab-size:2;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;color:#dceaff;background:#090f19}
+@media(max-width:740px){.qcm-code-body{grid-template-columns:1fr;grid-template-rows:100px 1fr;height:70dvh}.qcm-code-files{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid #ffffff24}.qcm-code-files button{flex:none}.qcm-code-body pre{padding:12px;font-size:11px}}
