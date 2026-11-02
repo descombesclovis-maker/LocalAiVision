@@ -156,3 +156,23 @@ body[data-studio-page="vision"] .qcm-dock{--qcm-violet:#96c8dc}
  body[data-studio-page] :where(.universe-choices,.universe-card,.universe-choices::before,.qcm-orbit-center::before,.qcm-orbit-center img,#mapCreate,.qcm-dock-link,.qcm-dock>button){animation:none!important;transition:none!important;translate:0 0!important}
 }
 body.qcm-reduce-motion :where(.universe-choices,.universe-card,.qcm-orbit-center,.qcm-orbit-center *,#mapCreate){animation:none!important;transition:none!important}
+
+/* Approved project creation card and honest map actions. */
+.qcm-create-tile{display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:12px;text-align:center;min-height:220px;cursor:pointer;border:1px dashed #b296e16b!important;background:linear-gradient(135deg,#a27fd91b,#1a24411c)!important;transition:background .22s,transform .22s}
+.qcm-create-tile:hover{transform:translateY(-4px);background:#9668d731!important;border-style:solid!important}
+.qcm-create-plus{width:54px;height:54px;display:grid;place-items:center;border-radius:19px;font-size:34px;color:#e8cfff;background:#9d7ae12d;box-shadow:inset 0 0 0 1px #af8ae84a}
+.qcm-create-tile strong{font-size:15px;color:#f3edff}
+.qcm-create-tile small{font-size:11px;color:#b8b1c9}
+.qcm-map-recenter{position:absolute;z-index:660;right:16px;bottom:18px;background:#121b29e8;color:#f4f0ff;padding:11px 15px;min-height:45px;border:1px solid #ffffff40;border-radius:13px;box-shadow:0 10px 30px #0008;cursor:pointer;font-size:12px;font-weight:800;backdrop-filter:blur(12px)}
+.qcm-map-recenter:hover{background:#263047;border-color:#bcb2e2}
+.qcm-map-recenter:disabled{opacity:.4;cursor:not-allowed}
+.qcm-map-filter-note{color:#aab0c2;font-size:10px;max-width:140px;line-height:1.3}
+.qcm-map-filter select:disabled{opacity:.65;cursor:not-allowed}
+.qcm-home-update-note{color:#bac8d5;font-size:10px;line-height:1.5;display:block;padding:3px 12px}
+.qcm-project-title-input{font:750 16px/1.4 inherit;font-family:inherit;font-size:16px;background:#181928;color:white;border:1px solid #ac96e2;padding:6px 8px;width:min(230px,100%);border-radius:10px}
+@media(max-width:780px){
+ .qcm-map-recenter{bottom:calc(153px + env(safe-area-inset-bottom,0px));right:8px;font-size:11px}
+ .qcm-map-filter-note{display:none}
+ .qcm-map-filter{padding:7px}
+ .qcm-map-filter select{max-width:130px}
+}
