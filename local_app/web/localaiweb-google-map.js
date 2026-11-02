@@ -46,6 +46,8 @@ window.LocalAiWebGoogleMap={
        {featureType:'transit.station',stylers:[{visibility:'off'}]}
      ]
    });
+   window.StudioMapRecenter=()=>{map.setCenter({lat:46.60,lng:2.28});map.setZoom(6)};
+   window.dispatchEvent(new Event('studio-map-ready'));
    // Each native Google business POI opens its original Maps card. A single
    // user-initiated request also offers the Studio project action; no bulk
    // Places search, no harvested database, and no hidden geo scraping.
