@@ -96,6 +96,8 @@ if(controls&&/^web-[a-f0-9]{12}$/.test(id)){
  document.body.append(codeDialog);
  const close=codeDialog.querySelector('button');close.addEventListener('click',()=>codeDialog.close());
  const list=codeDialog.querySelector('.qcm-code-files'),content=codeDialog.querySelector('.qcm-code-content');
+ let requestedFile=null;
+ document.addEventListener('qcm-select-source',event=>{requestedFile=String(event.detail?.name||'')});
  codeButton.addEventListener('click',async()=>{
    codeDialog.showModal();content.textContent='Chargement des fichiers enregistrés…';list.replaceChildren();
    try{
@@ -104,15 +106,17 @@ if(controls&&/^web-[a-f0-9]{12}$/.test(id)){
      if(!response.ok||data.error)throw Error(data.error||'Sources indisponibles.');
      const files=Object.entries(data.files||{}).filter(([name,value])=>typeof value==='string'&&!name.startsWith('.'));
      if(!files.length){content.textContent='Aucun fichier texte disponible pour ce projet.';return}
+     const initial=files.find(([name])=>name===requestedFile)||files[0];
      files.slice(0,70).forEach(([name,value],i)=>{
-       const b=document.createElement('button');b.type='button';b.textContent=name;b.className=i===0?'selected':'';
+       const b=document.createElement('button');b.type='button';b.textContent=name;b.className=name===initial[0]?'selected':'';
        b.addEventListener('click',()=>{
          list.querySelectorAll('button').forEach(button=>button.classList.toggle('selected',button===b));
          content.textContent=value.slice(0,250000);
        });
        list.append(b);
      });
-     content.textContent=String(files[0][1]).slice(0,250000);
+     content.textContent=String(initial[1]).slice(0,250000);
+     requestedFile=null;
    }catch(error){content.textContent='Impossible de lire les sources : '+error.message}
  });
  // Keep publish prominent, source and viewport buttons to its right.
