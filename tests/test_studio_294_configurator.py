@@ -18,21 +18,21 @@ class StudioConfiguratorTests(TestCase):
             self.assertGreaterEqual(len(q["options"]),2)
             self.assertEqual(len({o["value"] for o in q["options"]}),len(q["options"]))
 
-    def test_dialog_is_accessible_and_separate_from_projects(self):
+    def test_original_46_option_system_is_preserved_as_a_legacy_asset(self):
+        # Build 294 resources remain intact for backwards compatibility.
+        # Build 295 displays the 261 user-approved choices instead.
         html=(WEB/"localai-studio.html").read_text(encoding="utf-8")
         js=(WEB/"studio-configurator.js").read_text(encoding="utf-8")
-        for token in ('id="studioConfigDialog"','id="studioCustomize"','id="studioConfigForm"',
-                      'id="studioConfigSave"','id="studioConfigExport"','id="studioConfigImport"',
-                      'studio-configurator.css','studio-configurator.js'):
-            self.assertIn(token,html)
         for target in ('href="/localaiweb"','href="/localaivision"','studio-activity.js'):
             self.assertIn(target,html)
+        self.assertNotIn('id="studioConfigDialog"',html)
+        self.assertNotIn('id="studioCustomize"',html)
+        self.assertIn('id="qcmMotionToggle"',html)
+        self.assertIn('studio-qcm-home.js',html)
         self.assertIn("localStorage.setItem(KEY",js)
         self.assertIn("studio-design-schema.json",js)
         self.assertIn("safeValue",js)
-        self.assertIn("matchMedia('(prefers-reduced-motion: reduce)')",js)
         self.assertNotIn("/api/web/project/delete",js)
-        self.assertNotIn("/api/loras",js)
 
     def test_layout_and_motion_have_real_css_targets(self):
         css=(WEB/"studio-configurator.css").read_text(encoding="utf-8")
