@@ -218,3 +218,10 @@ body[data-studio-page="editor"] .preview-pane{position:relative}
 .qcm-editor-drawer>footer span{overflow:hidden;line-height:1.4}
 @media(max-width:1160px){.qcm-editor-rail{gap:0}.qcm-editor-rail button{padding:7px;font-size:10px}.qcm-editor-drawer{top:93px}}
 @media(max-width:760px){.qcm-editor-rail{gap:2px}.qcm-editor-drawer{bottom:82px;top:70px;right:8px}}
+
+.qcm-editor-more{position:relative;flex:none}
+.qcm-editor-more summary{list-style:none;display:grid;place-items:center;min-width:39px;min-height:39px;border:1px solid #ffffff30;border-radius:10px;background:#ffffff0d;color:#f2eaff;font-size:23px;cursor:pointer}
+.qcm-editor-more summary::-webkit-details-marker{display:none}
+.qcm-editor-more-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:90;min-width:220px;padding:8px;border:1px solid #a18bd063;border-radius:12px;background:#151b29f5;box-shadow:0 15px 55px #000a}
+.qcm-editor-more-menu button{width:100%;display:block;text-align:left;padding:12px!important;border:0!important;border-radius:9px;background:transparent!important;font-size:11px!important;color:#eff0ff;white-space:nowrap}
+.qcm-editor-more-menu button:hover{background:#ffffff19!important}
