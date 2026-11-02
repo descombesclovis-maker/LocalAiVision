@@ -55,8 +55,8 @@ async function render(){
        const card=row(name,name==='index.html'?'Page d’accueil':'Page existante du projet');
        card.classList.add('is-page');
        const action=document.createElement('button');action.type='button';action.textContent='Voir le code ↗';action.title='Ouvrir le code source réel de '+name;
-       action.addEventListener('click',()=>{close();const b=controls.querySelector('.qcm-code-button');b?.click();
-         // The source viewer starts on the first file; the user can select this exact file in its list.
+       action.addEventListener('click',()=>{close();const b=controls.querySelector('.qcm-code-button');
+         if(b){b.click();document.dispatchEvent(new CustomEvent('qcm-select-source',{detail:{name}}))}
        });
        card.append(action);content.append(card);
      }
