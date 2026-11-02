@@ -531,6 +531,8 @@
    map.invalidateSize({pan:false});
    map.fitBounds(franceBounds,{padding:[25,30],maxZoom:6,animate:false});
  };
+ window.StudioMapRecenter=showFrance;
+ window.dispatchEvent(new Event('studio-map-ready'));
  setTimeout(showFrance,300);
  window.addEventListener('resize',()=>{map.invalidateSize({pan:false});scheduleRedraw()});
  document.addEventListener('visibilitychange',()=>{
