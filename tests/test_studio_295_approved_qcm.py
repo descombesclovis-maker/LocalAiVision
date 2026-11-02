@@ -92,5 +92,4 @@ class ApprovedQcmV1(TestCase):
         self.assertIn("isAdult()",js)
         self.assertIn("viewer.hidden=true;clear();return",js)
         self.assertIn("body.nsfw-active .qcm-vision-viewer",css)
-        self.assertIn("window",js if "window" in js else "window") # no change to gated application
         self.assertNotIn("/api/loras/install",js)
