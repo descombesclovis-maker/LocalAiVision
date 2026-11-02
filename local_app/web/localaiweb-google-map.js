@@ -32,6 +32,14 @@ window.LocalAiWebGoogleMap={
      // Native Google business pins remain clickable, non-commercial POIs hidden.
      // Roads and map geography remain as context, not selectable prospects.
      styles:[
+       {elementType:'geometry',stylers:[{color:'#171d28'}]},
+       {elementType:'labels.text.fill',stylers:[{color:'#a4afc4'}]},
+       {elementType:'labels.text.stroke',stylers:[{color:'#121924'}]},
+       {featureType:'administrative',elementType:'geometry.stroke',stylers:[{color:'#354155'}]},
+       {featureType:'road',elementType:'geometry',stylers:[{color:'#303b4b'}]},
+       {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#4c5566'}]},
+       {featureType:'water',elementType:'geometry',stylers:[{color:'#0b2335'}]},
+       {featureType:'landscape.natural',elementType:'geometry',stylers:[{color:'#161e2a'}]},
        {featureType:'poi',stylers:[{visibility:'off'}]},
        {featureType:'poi.business',elementType:'labels',stylers:[{visibility:'on'}]},
        {featureType:'poi.business',elementType:'geometry',stylers:[{visibility:'on'}]},
