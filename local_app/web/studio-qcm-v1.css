@@ -196,3 +196,25 @@ body[data-studio-page="editor"] .qcm-device-button{min-width:39px;min-height:38p
 /* Ensure split handles are positioned relative to their actual editor viewport. */
 body[data-studio-page="editor"] main.studio{position:relative}
 body[data-studio-page="vision"]:not(.nsfw-active) .content{position:relative}
+
+/* Functional Web project rail: source-backed panels with safe version recovery. */
+body[data-studio-page="editor"] .preview-pane{position:relative}
+.qcm-editor-rail{display:flex;align-items:center;gap:3px;padding:2px;border:1px solid #ffffff24;background:#171827;border-radius:13px}
+.qcm-editor-rail button{border:0;background:transparent;color:#c2b9d6;border-radius:10px;padding:9px 11px;cursor:pointer;font:740 11px/1.4 inherit;font-family:inherit;font-size:11px;min-height:38px}
+.qcm-editor-rail button[aria-pressed="true"],.qcm-editor-rail button:hover{background:#aa8ce531;color:#fff}
+.qcm-editor-drawer{position:absolute;right:12px;top:calc(72px + 6px);bottom:100px;z-index:66;width:min(380px,calc(100% - 22px));min-width:0;border:1px solid #b29eeb68;background:#111727f5;border-radius:19px;box-shadow:0 20px 70px #000b;backdrop-filter:blur(22px);display:flex;flex-direction:column;overflow:hidden;animation:qcm-section-in .22s ease both}
+.qcm-editor-drawer[hidden]{display:none!important}
+.qcm-editor-drawer>header{padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #ffffff1e}
+.qcm-editor-drawer>header strong{font-size:15px;color:#f0eaff}
+.qcm-editor-drawer>header button{width:36px;height:36px;border-radius:10px;border:1px solid #ffffff29;color:#fff;background:transparent;font-size:23px;cursor:pointer}
+.qcm-drawer-body{overflow:auto;flex:1;padding:12px;min-height:0;display:flex;flex-direction:column;gap:10px}
+.qcm-drawer-row{border:1px solid #ffffff25;border-radius:13px;background:#ffffff09;display:flex;flex-direction:column;gap:6px;padding:13px}
+.qcm-drawer-row strong{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.qcm-drawer-row small{color:#aeb9ce;font-size:10px}
+.qcm-drawer-row button{margin-top:6px;align-self:start;padding:7px 11px;border:1px solid #ad92eb62;border-radius:9px;background:#ac8de62b;color:#f5e8ff;font-size:10px;font-weight:760;cursor:pointer}
+.qcm-drawer-row button:disabled{opacity:.4;cursor:not-allowed}
+.qcm-editor-drawer>footer{display:flex;align-items:center;gap:10px;padding:11px 15px;border-top:1px solid #ffffff20;color:#9edcd5;font-size:10px;min-height:55px}
+.qcm-editor-drawer>footer button{border:1px solid #ffffff26;border-radius:10px;background:#ffffff13;color:#fff;padding:8px 12px;cursor:pointer;font-size:11px;flex:none}
+.qcm-editor-drawer>footer span{overflow:hidden;line-height:1.4}
+@media(max-width:1160px){.qcm-editor-rail{gap:0}.qcm-editor-rail button{padding:7px;font-size:10px}.qcm-editor-drawer{top:93px}}
+@media(max-width:760px){.qcm-editor-rail{gap:2px}.qcm-editor-drawer{bottom:82px;top:70px;right:8px}}
