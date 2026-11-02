@@ -10,7 +10,7 @@
  let navigating=false;
  for(const card of cards){
    card.addEventListener('click',event=>{
-     if(navigating||motion.matches||!pointer.matches||event.defaultPrevented ||
+     if(navigating||motion.matches||document.body.classList.contains('studio-motion-reduced')||document.body.dataset.studioTransition==='instant'||!pointer.matches||event.defaultPrevented ||
        event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button!==0)return;
      const target=card.getAttribute('href');
      if(!target||!target.startsWith('/'))return;
@@ -29,7 +29,7 @@
    document.body.classList.remove('studio-entering');
    cards.forEach(card=>card.classList.remove('studio-selected'));
  });
- if(!pointer.matches||motion.matches)return;
+ if(!pointer.matches||motion.matches||document.body.classList.contains('studio-motion-reduced')||document.body.dataset.studioTilt==='off')return;
  const frame=new WeakMap();
  for(const card of cards){
    let lastEvent=null;
