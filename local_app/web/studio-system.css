@@ -260,3 +260,9 @@ body[data-studio-page="editor"]:not(.nsfw-active) :is(.preview-controls button,.
  body[data-studio-page="projects"]:not(.nsfw-active) .card:hover .card-art img:not([hidden]){transform:none;filter:none}
  body[data-studio-page="projects"]:not(.nsfw-active) .project-context-panel{animation:none}
 }
+
+@media(max-width:780px){
+ body[data-studio-page]:not(.nsfw-active)::after{display:none}
+ body[data-studio-page]:not(.nsfw-active)::before{animation-duration:28s;opacity:.32}
+}
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::before{will-change:auto}
