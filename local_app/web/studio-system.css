@@ -112,8 +112,14 @@ body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]{position:fix
 body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]::backdrop{background:#020b13a8;pointer-events:auto}
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation{display:grid;gap:8px;align-content:start}
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(button,a){width:100%;min-height:46px;height:auto;padding:12px;display:flex;align-items:center;justify-content:center;text-align:center;background:#0b1f34!important;border:1px solid #155066;border-radius:10px;color:#d8f6ff;text-decoration:none;line-height:1.4}
-body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(.nav-glyph,.public-mode-icon){display:none}
-body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn{font-size:0}
+/* The ordinary navigation buttons keep their pictograms. Only the two
+   highlighted secondary controls (LoRA and New discussion) are text-only. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .nav-glyph{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .nav-glyph>svg{display:block;width:21px;height:21px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .nav-glyph:has(.public-mode-icon)>svg{display:none}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .public-mode-icon{display:inline-grid;place-items:center}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle .nav-glyph{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn{font-size:14px}
 body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn span{font-size:14px}
 body[data-studio-page="vision"]:not(.nsfw-active) :is(.studio-universe-link,#updateBtn){display:none!important}
 body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer :is(header,footer){border-color:var(--ui-line);background:var(--ui-surface)}
@@ -139,3 +145,84 @@ body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation>*{margin:0!
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation button>span{font-weight:400}
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .brand>div:last-child{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .brand span{display:block;color:#92bac7;font-size:11px}
+
+/* Studio 314 completion — composited aurora trails, no global SVG filters or
+   animation of layout metrics. Runs only outside the reserved workspace. */
+body[data-studio-page]:not(.nsfw-active){
+  --brand-trail:#b66aff;--brand-halo:#6a2bb1;
+  background:radial-gradient(ellipse 75% 42% at 85% 100%,color-mix(in srgb,var(--brand-trail) 10%,transparent),transparent 74%),
+             radial-gradient(ellipse 65% 55% at 4% -15%,color-mix(in srgb,var(--brand-halo) 12%,transparent),transparent 80%),
+             var(--ui-bg);
+}
+body[data-studio-page="home"]:not(.nsfw-active){--brand-trail:#9c70f2;--brand-halo:#20b9d7}
+body[data-studio-page="vision"]:not(.nsfw-active){--brand-trail:#38ddf5;--brand-halo:#167da1}
+body[data-studio-page]:not(.nsfw-active)::before{
+  inset:32% -24% -27%;z-index:-1;pointer-events:none;opacity:.55;
+  background:
+    linear-gradient(165deg,transparent 43.7%,color-mix(in srgb,var(--brand-trail) 8%,transparent) 44.0%,color-mix(in srgb,var(--brand-trail) 35%,transparent) 44.13%,transparent 44.6%),
+    linear-gradient(168deg,transparent 58.5%,color-mix(in srgb,var(--brand-halo) 28%,transparent) 58.8%,transparent 59.2%),
+    linear-gradient(157deg,transparent 74%,color-mix(in srgb,var(--brand-trail) 23%,transparent) 74.27%,transparent 74.75%),
+    radial-gradient(ellipse at 75% 75%,color-mix(in srgb,var(--brand-trail) 12%,transparent),transparent 63%);
+  mask-image:linear-gradient(180deg,transparent,black 23%,black 75%,transparent);
+  transform:translate3d(-3%,8px,0);will-change:transform,opacity;
+  animation:studio314-light-rivers 21s cubic-bezier(.44,0,.56,1) infinite alternate;
+}
+body[data-studio-page]:not(.nsfw-active)::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background:radial-gradient(ellipse 30% 24% at 20% 78%,color-mix(in srgb,var(--brand-trail) 11%,transparent),transparent),
+             radial-gradient(ellipse 42% 27% at 91% 32%,color-mix(in srgb,var(--brand-halo) 12%,transparent),transparent);
+  transform:translate3d(0,12px,0);animation:studio314-ambient-drift 28s ease-in-out infinite alternate;
+}
+@keyframes studio314-light-rivers{
+  0%{transform:translate3d(-3%,8px,0);opacity:.36}
+  45%{opacity:.62}
+  100%{transform:translate3d(5%,-24px,0);opacity:.48}
+}
+@keyframes studio314-ambient-drift{to{transform:translate3d(1.5%,-15px,0);opacity:.75}}
+/* Restore icons to every regular Vision action and distinguish exactly two
+   intentionally icon-free actions in teal. The "+" is part of the button text. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .studio-nav-entry{
+  gap:12px;transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle,
+body[data-studio-page="vision"]:not(.nsfw-active) #newConversation{
+  background:linear-gradient(122deg,#16475a,#0f3545)!important;
+  border:1px solid #329cb4!important;color:#ecfdff!important;
+  font-weight:500;box-shadow:inset 0 1px 0 #9cefff14,0 0 0 1px #021c25;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#visionAdvancedToggle,#newConversation):hover{
+  background:linear-gradient(122deg,#1c6274,#124b5e)!important;
+  border-color:#70ddef!important;box-shadow:inset 0 1px 0 #c0f9ff22,0 0 24px #2ec6e321;
+  transform:translateY(-1px);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#visionAdvancedToggle,#newConversation):active{transform:translateY(0);box-shadow:inset 0 2px 5px #00172255}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle .nav-glyph{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .studio-nav-entry:not(#visionAdvancedToggle):hover{
+  background:#123a4b!important;border-color:#3286a2;transform:translateX(2px);
+}
+/* Restrained cinematic interactions: only opacity/transform are animated. */
+body[data-studio-page]:not(.nsfw-active) .studio-menu-panel{
+  transform-origin:12% 0;animation:studio314-menu-unfold .19s cubic-bezier(.2,.78,.28,1) both;
+}
+body[data-studio-page]:not(.nsfw-active) .studio-menu-panel :is(a,button,summary){
+  transition:background-color .15s ease,color .15s ease,transform .15s ease;
+}
+body[data-studio-page]:not(.nsfw-active) .studio-menu-panel :is(a,button,summary):hover{transform:translateX(2px)}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card){
+  transition:transform .24s cubic-bezier(.2,.76,.25,1),border-color .22s ease,box-shadow .22s ease;
+}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card):hover{
+  transform:translateY(-3px);
+  box-shadow:0 16px 44px color-mix(in srgb,var(--brand-trail) 11%,transparent);
+}
+body[data-studio-page]:not(.nsfw-active) :is(.primary,.primary-action,.studio-return,.studio-hamburger,#openSidebar):active{transform:translateY(1px) scale(.985)}
+body[data-studio-page]:not(.nsfw-active) :is(button,a,summary):focus-visible{outline:2px solid var(--ui-accent);outline-offset:3px}
+body[data-studio-page]:not(.nsfw-active) .studio-activity-toggle .studio-activity-spinner{animation-duration:1.4s}
+@keyframes studio314-menu-unfold{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::before,
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::after{animation-play-state:paused!important}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page]:not(.nsfw-active)::before,body[data-studio-page]:not(.nsfw-active)::after{animation:none!important;will-change:auto}
+ body[data-studio-page]:not(.nsfw-active) .studio-menu-panel{animation:none!important}
+ body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card):hover{transform:none!important}
+}
