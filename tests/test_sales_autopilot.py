@@ -162,6 +162,11 @@ class SalesTests(TestCase):
             with self.assertRaises(TimeoutError):orders.verify_acceptance(self.crm,self.pid,number)
         self.assertEqual(orders.signatures(self.crm,self.pid)[0]["state"],"declined")
         record["is_declined"]=False
+        record["signatures"][0]["status_code"]="expired"
+        with patch.object(orders,"_request",return_value={"signature_request":record}):
+            self.assertEqual(orders.verify_acceptance(self.crm,self.pid,number),[])
+        self.assertEqual(orders.signatures(self.crm,self.pid)[0]["state"],"expired")
+        record["signatures"][0]["status_code"]="awaiting_signature"
         quote=dict(orders._quote(self.crm,self.pid,number),valid_until="2000-01-01")
         with patch.object(orders,"_quote",return_value=quote),patch.object(orders,"_request",return_value={"signature_request":record}):
             self.assertEqual(orders.verify_acceptance(self.crm,self.pid,number),[])

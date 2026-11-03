@@ -152,7 +152,7 @@ def save_mandate(root,store,pid,number,body):
     target=store.project_dir(pid)/"site"/".vercel"/"project.json"
     if not target.is_file():
         raise ValueError("Relier au préalable le projet Vercel du client.")
-    link=json.loads(target.read_text())
+    link=json.loads(target.read_text(encoding="utf-8"))
     offer=registrar_search(body.get("domain"))
     if not offer.get("available") or not all(type(offer.get(k)) in (int,float) for k in ("price","renewal","years")):
         raise ValueError("Tarif ou disponibilité non confirmé.")
@@ -181,7 +181,7 @@ def save_mandate(root,store,pid,number,body):
         previous=path.read_bytes() if path.exists() else None
         pending=area/(uuid.uuid4().hex+".tmp")
         try:
-            pending.write_text(json.dumps(record,ensure_ascii=False))
+            pending.write_text(json.dumps(record,ensure_ascii=False),encoding="utf-8")
             pending.replace(path)
             result,_=prepare(root,store,pid,number)
         except Exception:

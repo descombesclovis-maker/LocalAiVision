@@ -182,6 +182,8 @@ def verify_acceptance(root, project, number, recovery=None):
     state = "pending"
     if data.get("is_declined") is True or any(s.get("status_code")=="declined" for s in signers):
         state = "declined"
+    elif any(s.get("status_code")=="expired" for s in signers):
+        state = "expired"
     elif data.get("has_error") is True:
         state = "provider_error"
     elif data.get("is_complete") is True:

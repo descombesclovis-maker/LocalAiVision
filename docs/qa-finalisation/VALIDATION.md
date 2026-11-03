@@ -4,11 +4,12 @@ Branche : `codex/studio-297-sales-autopilot`, empilée sur la PR #53 au commit `
 
 ## Corrections et critères vérifiés
 
-- Une demande Dropbox Sign conserve ses états envoyé, en attente, refusé, devis expiré, erreur fournisseur et accord vérifié dans SQLite. Historique consultable et date de dernière vérification affichée. Un refus, un délai réseau ou un PDF différent ne crée aucun accord. « Devis expiré » est une échéance locale, pas une attestation d'expiration par Dropbox Sign.
+- Une demande Dropbox Sign conserve ses états envoyé, en attente, refusé, demande expirée chez le fournisseur, devis expiré, erreur fournisseur et accord vérifié dans SQLite. Historique consultable et date de dernière vérification affichée. Un refus, un délai réseau ou un PDF différent ne crée aucun accord. « Devis expiré » est une échéance locale distincte du statut fournisseur `expired` (référence officielle : https://developers.hellosign.com/api/manual-reference-pages/expiration).
 - Les paiements échoués ne peuvent pas devenir payés à partir d'un événement d'échec incohérent. Montants de remboursement entiers, bornés, cumulatifs et non régressifs ; intention de paiement stable ; événements refusés annulés atomiquement.
 - La remise Pro exige le règlement non remboursé du devis lié à la publication. Un autre devis payé ne le remplace pas. Un remboursement reste visible même après une publication.
 - Les API contrôlent l'origine complète, port et protocole compris. La recette hostile comprend lectures CRM/projet/facture, accès parent, lectures d'autres projets, écritures avec prévol CORS et écritures simples sans prévol. Inspecteur réel conservé.
 - Le mandat par défaut est relu depuis son emplacement privé après redémarrage, sans dépendre d'une variable en mémoire. Aucun achat dans ce test.
+- Le premier workflow Windows de cette passe a révélé une écriture du mandat dans l'encodage Windows par défaut. Les noms accentués échouaient à la relecture UTF-8. L'écriture et la lecture utilisent désormais explicitement UTF-8 ; le test du mandat contient un nom accentué.
 - Accroches complémentaires raccourcies, questions métier naturelles, sources et correction manuelle conservées. Contrôles de l'écran accord/paiement harmonisés, champs lisibles sur mobile.
 - Version source alignée sur `3.1.0`. Les métadonnées Windows restent écrites par le workflow. ZIP contrôlé pour les trois fichiers requis, contenus non vides et en-tête MZ de l'EXE. Empreinte SHA-256 désormais jointe à l'artefact de PR.
 - Le parcours Windows Edge du Studio est aussi exécuté sur la branche commerciale, après inclusion des changements de la PR #53. Release toujours limitée à `main`.

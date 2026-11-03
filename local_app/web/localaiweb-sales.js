@@ -152,7 +152,7 @@
    $('invoiceQuote').value=invoice;
    $('providerQuote').replaceChildren(...data.quotes.map(q=>new Option(q.number+' · '+currency(q.total),q.number)));
    if(data.quotes.some(q=>q.number===chosen))$('providerQuote').value=chosen;
-   const signatureLabels={sent:'envoyé',uncertain:'envoi incertain : rapprocher chez Dropbox Sign',pending:'signature en attente',declined:'signature refusée',quote_expired:'devis expiré, sans accord vérifié',provider_error:'erreur signalée par Dropbox Sign',accepted:'accord vérifié'};
+   const signatureLabels={sent:'envoyé',uncertain:'envoi incertain : rapprocher chez Dropbox Sign',pending:'signature en attente',declined:'signature refusée',expired:'demande expirée chez Dropbox Sign',quote_expired:'devis expiré, sans accord vérifié',provider_error:'erreur signalée par Dropbox Sign',accepted:'accord vérifié'};
    $('signatureHistory').replaceChildren(...(data.signatures||[]).map(row=>{
      const detail=document.createElement('details'),title=document.createElement('summary');
      title.textContent=row.quote+' · '+(signatureLabels[row.state]||row.state);

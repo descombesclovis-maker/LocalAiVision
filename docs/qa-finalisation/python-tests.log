@@ -168,9 +168,9 @@ test_translation_uses_local_llm_faithfully (test_regressions.PromptTranslation.t
 test_build_info_has_version_and_build_tag (test_regressions.SelfUpdater.test_build_info_has_version_and_build_tag) ... ok
 test_release_asset_only_accepts_official_repo_asset (test_regressions.SelfUpdater.test_release_asset_only_accepts_official_repo_asset) ... ok
 test_release_asset_rejects_wrong_host_or_repo (test_regressions.SelfUpdater.test_release_asset_rejects_wrong_host_or_repo) ... ok
-test_health_does_not_launch_engines (test_regressions.ServerHTTP.test_health_does_not_launch_engines) ... 127.0.0.1 - - [03/Nov/2026 15:09:50] "GET /api/health HTTP/1.1" 200 -
+test_health_does_not_launch_engines (test_regressions.ServerHTTP.test_health_does_not_launch_engines) ... 127.0.0.1 - - [03/Nov/2026 15:15:58] "GET /api/health HTTP/1.1" 200 -
 ok
-test_ping (test_regressions.ServerHTTP.test_ping) ... 127.0.0.1 - - [03/Nov/2026 15:09:50] "GET /api/ping HTTP/1.1" 200 -
+test_ping (test_regressions.ServerHTTP.test_ping) ... 127.0.0.1 - - [03/Nov/2026 15:15:58] "GET /api/ping HTTP/1.1" 200 -
 ok
 test_localaiweb_does_not_reuse_localvision_saved_state (test_regressions.SettingsUi.test_localaiweb_does_not_reuse_localvision_saved_state) ... ok
 test_localaiweb_guides_users_and_all_changes_are_textual (test_regressions.SettingsUi.test_localaiweb_guides_users_and_all_changes_are_textual) ... ok
@@ -200,10 +200,10 @@ test_release_size_and_sha256_and_extracted_binary (test_safe_self_update.UpdateS
 test_update_endpoint_returns_build_tag_for_health_check (test_safe_self_update.UpdateSafetyTests.test_update_endpoint_returns_build_tag_for_health_check) ... ok
 test_updater_does_not_wait_for_unbounded_engine_cleanup (test_safe_self_update.UpdateSafetyTests.test_updater_does_not_wait_for_unbounded_engine_cleanup) ... ok
 test_updater_script_keeps_backup_until_healthcheck (test_safe_self_update.UpdateSafetyTests.test_updater_script_keeps_backup_until_healthcheck) ... skipped 'PowerShell updater is Windows-only'
-test_api_refuses_other_ports_schemes_and_preview_hosts (test_sales_autopilot.SalesTests.test_api_refuses_other_ports_schemes_and_preview_hosts) ... 127.0.0.1 - - [03/Nov/2026 15:09:51] "GET /api/web/crm/overview HTTP/1.1" 403 -
-127.0.0.1 - - [03/Nov/2026 15:09:51] "GET /api/web/crm/overview HTTP/1.1" 403 -
-127.0.0.1 - - [03/Nov/2026 15:09:51] "GET /api/web/crm/overview HTTP/1.1" 403 -
-127.0.0.1 - - [03/Nov/2026 15:09:51] "GET /api/web/crm/overview HTTP/1.1" 403 -
+test_api_refuses_other_ports_schemes_and_preview_hosts (test_sales_autopilot.SalesTests.test_api_refuses_other_ports_schemes_and_preview_hosts) ... 127.0.0.1 - - [03/Nov/2026 15:15:59] "GET /api/web/crm/overview HTTP/1.1" 403 -
+127.0.0.1 - - [03/Nov/2026 15:15:59] "GET /api/web/crm/overview HTTP/1.1" 403 -
+127.0.0.1 - - [03/Nov/2026 15:15:59] "GET /api/web/crm/overview HTTP/1.1" 403 -
+127.0.0.1 - - [03/Nov/2026 15:15:59] "GET /api/web/crm/overview HTTP/1.1" 403 -
 ok
 test_completion_and_restart_and_opposition (test_sales_autopilot.SalesTests.test_completion_and_restart_and_opposition) ... ok
 test_db_migrations_require_same_sql_and_same_linked_ref (test_sales_autopilot.SalesTests.test_db_migrations_require_same_sql_and_same_linked_ref) ... ok
@@ -291,6 +291,6 @@ test_registry_requires_same_name_and_establishment_not_similar (test_world_busin
 test_trade_catalog_has_grouped_full_list (test_world_business_prospecting.IndustryMapTests.test_trade_catalog_has_grouped_full_list) ... ok
 
 ----------------------------------------------------------------------
-Ran 284 tests in 3.002s
+Ran 284 tests in 3.040s
 
 OK (skipped=1)
