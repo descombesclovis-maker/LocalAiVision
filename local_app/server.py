@@ -2162,7 +2162,10 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def _sales_host(self):
-        return (getattr(self,"headers",{}) or {}).get("Host","").split(":")[0].lower()
+        try:
+            return (urlparse("//"+(getattr(self,"headers",{}) or {}).get("Host","")).hostname or "").lower()
+        except ValueError:
+            return ""
 
     def _sales_surface(self, path):
         # Never serve generated HTML, scripts, service workers or previews on
@@ -2206,7 +2209,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location",f"http://preview-{pid}.localhost:{self.server.server_port}"+self.path)
             self.end_headers()
             return False
-        if path.startswith("/api/") and (preview or origin.startswith("preview-web-") or
+        trusted={"127.0.0.1","localhost","::1","ventes.localhost"}
+        trusted.update(x.strip().lower() for x in os.getenv("LOCALAI_TRUSTED_HOSTS","").split(",") if x.strip())
+        if path.startswith("/api/") and (host not in trusted or
+                (origin and origin!=urlparse("//"+self.headers.get("Host","")).hostname) or
+                preview or origin.startswith("preview-web-") or
                 self.headers.get("Origin")=="null" or self.headers.get("Sec-Fetch-Site")=="cross-site"):
             self.send_json({"error":"API interdite depuis une maquette."},403)
             return False
