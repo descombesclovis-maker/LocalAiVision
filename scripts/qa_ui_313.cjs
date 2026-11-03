@@ -116,10 +116,13 @@ function fixture(project){
    await check('Commercial navigation points to the actual existing CRM',async()=>{
     await page.locator('#qcmDock a[data-qcm-link="clients"]').click();await page.waitForURL(/\/localaiweb\/clients/);await page.locator('#newClient').click();assert.equal(await page.locator('#clientDialog').evaluate(x=>x.open),true);await page.keyboard.press('Escape');
    });
-   await check('Public image import opens genuine file chooser; plus geometry centered',async()=>{
+   await check('Actual image import switches to I2V; plus geometry centered',async()=>{
     await page.goto(base+'/localaivision');await wait(600);
     const button=page.locator('#composerImageBtn');
     const [chooser]=await Promise.all([page.waitForEvent('filechooser'),button.click()]);assert.ok(chooser);
+    await chooser.setFiles({name:'reference-recette.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j0XcAAAAASUVORK5CYII=','base64')});
+    await page.waitForFunction(()=>document.getElementById('composerImageBtn').title.includes('reference-recette.png'));
+    assert.equal(await page.locator('#taskMode').inputValue(),'i2v');
     const delta=await button.evaluate(x=>{const a=x.getBoundingClientRect(),b=x.querySelector('.studio-public-plus').getBoundingClientRect();return {x:Math.abs(a.x+a.width/2-b.x-b.width/2),y:Math.abs(a.y+a.height/2-b.y-b.height/2)}});
     assert.ok(delta.x<1&&delta.y<1,JSON.stringify(delta));
     await button.screenshot({path:path.join(output,'vision-import-detail.png')});
