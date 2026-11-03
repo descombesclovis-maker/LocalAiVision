@@ -32,3 +32,66 @@ body[data-qcm-project-filter="pro"] .library:not(.pro-library){display:none}body
 .card-art>.art-ring{display:none}
 .card-art>.project-thumbnail{position:absolute;inset:0;z-index:1}
 .card-art>.art-caption{z-index:2;padding:4px 8px;border-radius:6px;background:#10071fc9;font-size:10px;letter-spacing:.02em;left:12px;bottom:12px}
+
+
+/* Build 314 refinement: luminous violet strands live behind content, not on top
+   of labels or interactive controls. Keep compositing to opacity/transform. */
+body[data-studio-page="projects"] .workspace{position:relative;isolation:isolate}
+body[data-studio-page="projects"] .workspace::before{
+ content:"";position:absolute;inset:100px -7% 10%;z-index:-1;pointer-events:none;
+ background:
+  linear-gradient(162deg,transparent 28%,#7b39dd23 28.28%,#b55cff50 28.4%,transparent 28.75%),
+  linear-gradient(169deg,transparent 53%,#9d50ff24 53.3%,#ca84ff42 53.44%,transparent 53.7%),
+  linear-gradient(153deg,transparent 74%,#7036c52e 74.24%,#a65cff3f 74.41%,transparent 74.82%),
+  radial-gradient(ellipse 55% 28% at 85% 70%,#7136cc1d,transparent 90%);
+ mask-image:linear-gradient(180deg,transparent 0%,#000 13%,#000 84%,transparent 100%);
+ opacity:.8;transform:translate3d(-2%,0,0);
+ animation:studio314-web-streaks 21s ease-in-out infinite alternate;
+}
+@keyframes studio314-web-streaks{
+ from{transform:translate3d(-2%,0,0);opacity:.64}
+ 55%{opacity:.9}
+ to{transform:translate3d(3%,-18px,0);opacity:.78}
+}
+body[data-studio-page="projects"] .project-path{
+ position:relative;isolation:isolate;overflow:hidden;
+ transition:transform .25s cubic-bezier(.17,.76,.27,1),
+            box-shadow .28s ease,border-color .2s ease;
+}
+body[data-studio-page="projects"] .project-path::before{
+ content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;
+ background:radial-gradient(ellipse 80% 60% at 25% 100%,#b85dff24,transparent 80%);
+ transition:opacity .35s ease;
+}
+body[data-studio-page="projects"] .project-path:hover::before,
+body[data-studio-page="projects"] .project-path:focus-visible::before{opacity:1}
+body[data-studio-page="projects"] .project-path:hover,
+body[data-studio-page="projects"] .project-path:focus-visible{
+ transform:translateY(-3px);box-shadow:0 16px 42px #16042966;
+ border-color:#ba81fd8a;
+}
+body[data-studio-page="projects"] .project-path .path-cta>span{
+ display:inline-block;transition:transform .24s cubic-bezier(.15,.7,.25,1)
+}
+body[data-studio-page="projects"] .project-path:hover .path-cta>span,
+body[data-studio-page="projects"] .project-path:focus-visible .path-cta>span{
+ transform:translate3d(4px,-2px,0)
+}
+body[data-studio-page="projects"] .project-context[open] .project-context-panel{
+ animation:studio314-project-options .19s cubic-bezier(.17,.76,.27,1) both;
+}
+@keyframes studio314-project-options{
+ from{opacity:0;transform:translate3d(0,-5px,0) scale(.985)}
+ to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+body[data-studio-page="projects"]:is([data-gpu-busy="true"],[data-motion-paused="true"]) .workspace::before{
+ animation-play-state:paused;will-change:auto;
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page="projects"] .workspace::before{animation:none}
+ body[data-studio-page="projects"] .project-path,
+ body[data-studio-page="projects"] .project-path .path-cta>span{transition:none}
+ body[data-studio-page="projects"] .project-path:hover,
+ body[data-studio-page="projects"] .project-path:focus-visible{transform:none}
+ body[data-studio-page="projects"] .project-context[open] .project-context-panel{animation:none}
+}
