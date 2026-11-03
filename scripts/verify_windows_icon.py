@@ -94,7 +94,9 @@ def main():
         if error >= 0.1:raise AssertionError(label+': icon differs from the complete approved logo (mean error '+str(error)+').')
 
     large,small=W.HICON(),W.HICON()
-    if shell.ExtractIconExW(str(exe),0,ctypes.byref(large),ctypes.byref(small),1)!=1:
+    extracted = shell.ExtractIconExW(str(exe),0,ctypes.byref(large),ctypes.byref(small),1)
+    # With both output arrays Windows can return two extracted handles.
+    if extracted == 0 or not large or not small:
         raise RuntimeError('The EXE has no extractable icon resource.')
     try:
         verify(large,'exe-large');verify(small,'exe-small')
