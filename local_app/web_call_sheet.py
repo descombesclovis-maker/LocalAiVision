@@ -40,6 +40,68 @@ class PageFacts(HTMLParser):
         if self.anchor:self.anchor[1].append(data)
 
 
+def _internal_link(page,name,pages):
+    for href,anchor in page.links:
+        try:
+            target=urlsplit(href)
+            if target.scheme or target.netloc:
+                continue
+            url=urlsplit(urljoin("https://preview.invalid/"+name,href))
+        except ValueError:
+            continue
+        dest=unquote(url.path.lstrip("/")) or "index.html"
+        if href and anchor and dest!=name and dest in pages:
+            return anchor,dest
+    return None
+
+
+def _first_call(desk,facts,goal,refs):
+    company=desk["business"]
+    angle=desk.get("angle")
+    introduction="Bonjour, [votre prénom] à l’appareil. Je crée des sites pour les professionnels."
+    if angle:
+        fresh=(date.today()-date.fromisoformat(angle["day"])).days<=90
+        refs.append(f"Intitulé public retenu par le vendeur le {angle['day']} : « {angle['heading']} » — {angle['url']}.")
+        if fresh:
+            topic=angle["heading"]
+            # Each angle is a question about the literal public heading. It does
+            # not imply a conversion problem, missing feature or proven demand.
+            if re.search(r"mariage|réception|événement",topic,re.I):
+                lead=f"J’ai vu « {topic} » sur votre site. Pour une personne qui prépare cet événement, qu’aimeriez-vous lui montrer en premier ?"
+            elif re.search(r"abonnement|récurrent|chaque mois",topic,re.I):
+                lead=f"Je suis tombé sur « {topic} » en regardant votre site. Avant de s’engager dans la durée, qu’est-ce qu’un client devrait pouvoir comprendre tout de suite ?"
+            elif re.search(r"entreprises|professionnels|collectivités",topic,re.I):
+                lead=f"« {topic} » a retenu mon attention sur votre site. Si une entreprise découvre {company} aujourd’hui, quel exemple aimeriez-vous qu’elle voie avant de vous appeler ?"
+            elif re.search(r"réserv|rendez.vous|booking",topic,re.I):
+                lead=f"Sur votre site, j’ai vu « {topic} ». Quand quelqu’un veut réserver, quel premier geste voulez-vous lui rendre évident ?"
+            elif re.search(r"devis|sur.mesure",topic,re.I):
+                lead=f"J’ai une question à propos de « {topic} », que j’ai lu sur votre site : qu’aimeriez-vous savoir d’un client avant de lui chiffrer une demande ?"
+            else:
+                lead=f"En regardant votre site, je me suis arrêté sur « {topic} ». Est-ce l’offre que vous aimeriez mettre en avant, ou y en a-t-il une plus importante aujourd’hui ?"
+            return [introduction+" "+lead,
+                    f"Si la personne répond : j’ai préparé une maquette privée pour {company}. Je vous montre le passage qui peut servir de point de départ ? Cela prend vingt secondes."]
+        refs.append("Observation de plus de 90 jours : relire la page avant de réutiliser cet intitulé en ouverture.")
+    if desk["website"]:
+        try: host=urlsplit(desk["website"]).hostname
+        except ValueError: host=None
+        if host:
+            return [introduction+f" Votre fiche pour {company} indique {host}. Est-ce toujours votre site ?",
+                    f"Si oui : j’ai préparé un autre parcours où un visiteur pourrait {goal}. Est-ce que je peux vous le montrer pour que vous jugiez vous-même de l’intérêt ?"]
+    labels={name:label for name,label,_ in facts}
+    for name,_,page in facts:
+        link=_internal_link(page,name,desk["pages"])
+        if link and link[1] in labels:
+            anchor,target=link
+            return [introduction+f" Pour {company}, j’ai préparé une maquette : on choisit « {anchor} » et on arrive sur « {labels[target]} ».",
+                    "Ce petit parcours vous semble-t-il utile pour vos clients ? Si vous avez vingt secondes, je peux vous le montrer."]
+    city=" à "+desk["city"] if desk["city"] else ""
+    if desk["activity"]!="votre activité":
+        return [introduction+f" Je vous appelle au sujet de {company}{city}. Quand une personne souhaite {goal}, qu’est-ce qu’elle vous demande en premier ?",
+                "J’ai une proposition de site à vous montrer. Votre réponse me dira tout de suite si elle est pertinente."]
+    return [introduction+f" Pour {company}{city}, j’ai préparé un aperçu privé. Est-ce vous qui choisissez comment présenter l’entreprise en ligne ?",
+            "Si oui : qu’aimeriez-vous qu’un visiteur comprenne tout de suite ? Je peux vous montrer en vingt secondes comment la maquette aborde ce point."]
+
+
 def script(desk,preview):
     if not desk["ready"] or desk["opposed"]:
         return []
@@ -94,29 +156,16 @@ def script(desk,preview):
             refs.append(line);confirmed.append(f)
     client_points=[f for f in confirmed if f["source"] in ("Client au téléphone","Document du client")]
     sections=[("Repères du dossier — pour le vendeur",refs),
-      ("1 · Ouverture — 20 à 40 secondes",[
-        f"Bonjour, je m’appelle [votre nom], de [votre entreprise]. Est-ce vous qui vous occupez de la présentation en ligne chez {company}{place} ?",
-        f"J’ai préparé une maquette privée pour vous montrer comment un visiteur pourrait {goal}. Avez-vous deux minutes pour regarder un exemple et me dire si cela répond à une demande que vous recevez ?"]),
+      ("1 · Première accroche — obtenir vingt secondes",_first_call(desk,facts,goal,refs)),
       ("2 · Découvrir le besoin", [question,"Comment cela se passe-t-il aujourd’hui ? Parmi les informations que vous donnez à chaque client, laquelle voudriez-vous rendre plus facile à trouver ?"]),
     ]
     if client_points:
         f=next((x for x in client_points if x["category"]=="priorité"),client_points[0])
-        sections[1][1].append(f"Vous aviez indiqué le {f['day']} : « {f['value']} ». Est-ce toujours le point à traiter en premier ?")
+        sections[1][1].append(f"En reprise seulement, si vous avez déjà échangé : vous aviez indiqué le {f['day']} : « {f['value']} ». Est-ce toujours le point à traiter en premier ?")
     sections[2][1].extend(revisit)
     proof=[]
     for name,label,page in facts[:3]:
-        linked=None
-        for href,anchor in page.links:
-            try:
-                target=urlsplit(href)
-                if target.scheme or target.netloc:
-                    continue
-                url=urlsplit(urljoin("https://preview.invalid/"+name,href))
-            except ValueError:
-                continue
-            dest=unquote(url.path.lstrip("/")) or "index.html"
-            if href and anchor and url.hostname=="preview.invalid" and dest!=name and dest in desk["pages"]:
-                linked=(anchor,dest);break
+        linked=_internal_link(page,name,desk["pages"])
         if linked:
             argument=f"Dans la maquette, « {linked[0]} » ouvre {linked[1]}. Suivons ensemble ce lien. Est-ce le bon chemin pour votre clientèle ?"
         elif page.tel:

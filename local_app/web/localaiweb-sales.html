@@ -17,11 +17,13 @@
  <p class="eyebrow">DOSSIER DE VENTE</p><h2 id="deskTitle">Présenter la maquette privée</h2>
  <p id="salesState" role="status">Chargement du dossier…</p>
 
- <div id="presentation"><h3>Préparer l’appel</h3><p id="pitch"></p><p id="salesSource" class="hint"></p>
+ <div id="presentation"><h3>Préparer l’appel</h3><p id="pitch"></p><blockquote id="openingLine"></blockquote><p id="salesSource" class="hint"></p>
  <div class="sales-links"><button id="prepareSale" type="button">Préparer la présentation</button><button id="aiPitch" type="button">Choisir l’ordre de démonstration avec Codex</button><a id="demoSite" target="_blank" rel="noopener" hidden>Ouvrir la démo locale ↗</a></div>
  <section id="callSheet"><h3>Feuille d’appel ciblée</h3><p class="hint">Support vendeur · à utiliser avant le devis</p><a id="printScript" class="back" target="_blank" rel="noopener">Ouvrir la feuille PDF ↗</a><div id="scriptSections"></div>
  <details><summary>Vérifier ou compléter les informations de ce client</summary>
  <button id="registryCheck" type="button">Vérifier l’identité au registre public français</button>
+ <div id="officialSite"><p id="siteStatus"></p><button id="scanSite" type="button">Lire la page publique du site officiel</button>
+ <label>Intitulé relevé sur la page<select id="observedTopics"></select></label><button type="button" id="useTopic">Utiliser cet intitulé pour l’accroche</button><button type="button" id="removeTopic">Retirer cet angle</button></div>
  <form id="clientFact" class="fields"><label>Information<select id="factType"><option>priorité</option><option>besoin</option><option>contrainte</option><option>offre</option></select></label>
  <label>Source<select id="factSource"><option>Client au téléphone</option><option>Document du client</option><option>Vérification du vendeur</option></select></label>
  <label>Date de vérification<input type="date" id="factDay" required></label><label>Point professionnel confirmé<input id="factValue" maxlength="480" required placeholder="Ex. : montrer les bouquets de saison avant la prise de contact"></label>

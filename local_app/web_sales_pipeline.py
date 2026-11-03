@@ -80,6 +80,20 @@ def dossier(root, store, pid, ready, pages, change=None, revision=None):
                     raise ValueError("Information absente du dossier.")
                 state["facts"].pop(key)
                 state["events"].append({"action":action,"at":stamp,"category":key})
+            elif action == "website_observed":
+                state["public_page"]=change["observation"]
+                state.pop("angle",None)
+                state["events"].append({"action":"public_source","url":state["public_page"]["url"],"at":stamp})
+            elif action == "select_angle":
+                page=state.get("public_page") or {}
+                choice=change.get("heading")
+                if choice not in page.get("headings",[]) or change.get("confirmed") is not True:
+                    raise ValueError("Choisir un intitulé réellement relevé sur cette page.")
+                state["angle"]={"heading":choice,"url":page["url"],"day":page["day"]}
+                state["events"].append(dict(state["angle"],action="select_angle",at=stamp))
+            elif action == "clear_angle":
+                state.pop("angle",None)
+                state["events"].append({"action":"clear_angle","at":stamp})
             elif action == "registry_result":
                 state["registry"]=change["registry"]
                 state["events"].append({"action":"registry_check","at":stamp,"matched":change["registry"].get("matched") is True})
@@ -146,7 +160,7 @@ def dossier(root, store, pid, ready, pages, change=None, revision=None):
                  else "presentation_ready" if state.get("prepared") else "draft_site_ready" if ready else "awaiting_site")
         return {"kind": meta.get("project_kind","libre"), "stage": stage, "ready": ready, "name": meta["name"], "pages": pages,
                 "delivery": state.get("delivery") if state.get("checks_revision")==revision else None, "release": state.get("release"),
-                "revision":revision,"cost_ht":state.get("cost_ht"),"facts":list(state.get("facts",{}).values()),"page_order":state.get("page_order",[]),
+                "revision":revision,"angle":state.get("angle"),"public_page":state.get("public_page"),"cost_ht":state.get("cost_ht"),"facts":list(state.get("facts",{}).values()),"page_order":state.get("page_order",[]),
                 "registry":state.get("registry") or {k:v for k,v in (business.get("official_registry") or {}).items() if k in ("matched","legal_name","siren","naf","source","checked_at")},
                 "address":business.get("address") or "", "website":business.get("website") or "",
                 "website_recorded":bool(business.get("website_recorded") or business.get("website")),

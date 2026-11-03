@@ -82,6 +82,7 @@ jobs:
             --hidden-import local_app.web_sales_invoice ^
             --hidden-import local_app.web_sales_pipeline ^
             --hidden-import local_app.web_call_sheet ^
+            --hidden-import local_app.web_sales_source ^
             --hidden-import local_app.web_sales_orders ^
             --hidden-import local_app.web_sales_registrar ^
             --hidden-import local_app.web_sales_delivery ^

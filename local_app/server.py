@@ -168,6 +168,13 @@ def _sales_dossier(pid, change=None):
             raise ValueError("Maquette non prête.")
         ranks = web_sales_pipeline.rank_pages(meta, pages)
         change = {"action":"save_pitch", "page_order":ranks}
+    elif change and change.get("action") == "scan_website":
+        from local_app import web_sales_source
+        current=web_sales_pipeline.dossier(LOCALAIWEB_DATA/"crm",store,pid,ready,pages)
+        if not ready or current["opposed"] or change.get("confirmed") is not True:
+            raise ValueError("Site officiel à confirmer, maquette absente ou contact opposé.")
+        website=(meta.get("business") or {}).get("website")
+        change={"action":"website_observed","observation":web_sales_source.scan(website)}
     elif change and change.get("action") == "refresh_registry":
         from local_app import web_business_registry
         if not ready:
@@ -179,7 +186,7 @@ def _sales_dossier(pid, change=None):
         if siret and not siret.startswith(str(result.get("siren") or "-")):
             result={"matched":False,"message":"Les identifiants d’établissement ne concordent pas."}
         change={"action":"registry_result","registry":result}
-    elif change and change.get("action") in ("save_pitch","registry_result"):
+    elif change and change.get("action") in ("save_pitch","registry_result","website_observed"):
         raise ValueError("Action interne.")
     root = LOCALAIWEB_DATA/"crm"
     result = web_sales_pipeline.dossier(root, store, pid, ready, pages, change, revision)

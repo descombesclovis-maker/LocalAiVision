@@ -201,3 +201,39 @@ class SalesTests(TestCase):
             with self.assertRaises(ValueError):delivery.database_change(self.store,self.pid,ref,plan["digest"])
             with self.assertRaises(ValueError):delivery.database_change(self.store,self.pid,"b"*20)
             self.assertEqual(command.call_count,1)
+
+
+    def test_public_heading_changes_first_spoken_sentence_with_traceable_source(self):
+        from local_app import web_sales_source
+        from email.message import Message
+        self.build()
+        meta=self.store.meta(self.pid)
+        meta["business"]["website"]="https://atelier-demo.example/"
+        self.store.write_meta(self.pid,meta)
+        headers=Message();headers["Content-Type"]="text/html"
+        page="<input hidden><header hidden><h2>Hidden topic</h2></header><h1>Atelier Démo</h1><h2>Fleurs pour les entreprises</h2><script>never quoted</script><h2>Abonnements floraux</h2>"
+        with patch.object(web_sales_source,"_read",side_effect=[(404,headers,b""),(200,headers,page.encode())]):
+            d=server._sales_dossier(self.pid,{"action":"scan_website","confirmed":True})
+        self.assertNotIn("Hidden topic",d["public_page"]["headings"])
+        with self.assertRaises(ValueError):
+            server._sales_dossier(self.pid,{"action":"select_angle","heading":"Offre inventée","confirmed":True})
+        def first(heading):
+            d=server._sales_dossier(self.pid,{"action":"select_angle","heading":heading,"confirmed":True})
+            self.assertIn(d["public_page"]["url"],str(d["call_sheet"][0]))
+            return d["call_sheet"][1][1][0]
+        self.assertIn("Si une entreprise découvre",first("Fleurs pour les entreprises"))
+        self.assertIn("s’engager dans la durée",first("Abonnements floraux"))
+        manual=server._sales_dossier(self.pid,{"action":"clear_angle"})
+        self.assertIn("Est-ce toujours votre site",manual["call_sheet"][1][1][0])
+        with self.assertRaises(ValueError):server._sales_dossier(self.pid,{"action":"website_observed","observation":{}})
+
+    def test_official_page_requires_public_origin_and_robots_permission(self):
+        from local_app import web_sales_source
+        with patch("socket.getaddrinfo",return_value=[(2,1,6,"",("127.0.0.1",443))]):
+            with self.assertRaises(ValueError):web_sales_source.scan("https://atelier.example")
+        with patch.object(web_sales_source,"_read",return_value=(200,{},b"User-agent: *\nDisallow: /")) as read:
+            with self.assertRaises(ValueError):web_sales_source.scan("https://atelier.example")
+            self.assertEqual(read.call_count,1)
+        with patch.object(web_sales_source,"_read",side_effect=[(404,{},b""),(302,{"Location":"https://other.example/"},b"")]) as read:
+            with self.assertRaises(ValueError):web_sales_source.scan("https://atelier.example")
+            self.assertEqual(read.call_count,2)

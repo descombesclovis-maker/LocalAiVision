@@ -7,3 +7,5 @@
 @media(min-width:1900px){.layout{width:84vw;max-width:2900px}.intro h1{font-size:clamp(64px,3.2vw,120px)}.sales-desk,.layout>.card{padding:clamp(28px,1.55vw,60px)}.sales-desk p,.card label,.sales-steps a,.sales-desk button{font-size:clamp(14px,.6vw,24px)}}
 @media(max-width:720px){.sales-steps{position:static;gap:5px;padding:3px}.sales-steps a{font-size:11px;padding:9px}.layout{padding:20px 12px 80px}.layout>.card{padding:18px}.top .brand{font-size:18px}}
 #callSheet{margin:20px 0;padding:18px 20px;border:1px solid #62477f;border-radius:12px;background:#20182c}#callSheet .back{display:inline-block;margin-bottom:8px}#scriptSections details{border-top:1px solid #46364f;padding-top:12px}#scriptSections summary{cursor:pointer;font-weight:650}#scriptSections p{line-height:1.65;color:#e1d9ea}
+
+#openingLine{max-width:64ch;margin:12px 0 18px;padding:12px 18px;border-left:3px solid #c5a1fb;color:#f6eeff;font-size:clamp(16px,1.3vw,23px);line-height:1.5}#officialSite{padding-block:12px}#officialSite label{display:block;margin-block:8px}

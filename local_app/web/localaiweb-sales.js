@@ -102,6 +102,15 @@
    const pages=data.pages.length;
    $('pitch').textContent=data.ready?'Feuille de '+data.business+(data.city?' · '+data.city:'')+' · '+pages+' page(s) dans la maquette privée.':'Le dossier sera disponible après une génération réussie.';
 
+   const opening=data.call_sheet.find(([title])=>title.startsWith('1 ·'));
+   $('openingLine').textContent=opening?.[1][0]||'';
+   $('openingLine').hidden=!opening;
+   $('officialSite').hidden=!data.website;
+   const observed=data.public_page;
+   $('siteStatus').textContent=observed?'Page consultée le '+observed.day+' : '+observed.url:'Site indiqué dans la fiche : '+(data.website||'non renseigné');
+   $('observedTopics').replaceChildren(...(observed?.headings||[]).map(h=>new Option(h,h)));
+   $('useTopic').disabled=!observed?.headings?.length;
+   $('removeTopic').disabled=!data.angle;
    $('callSheet').hidden=!data.call_sheet.length;
    $('printScript').href='/api/web/sales/call-sheet.pdf?id='+projectId;
    $('scriptSections').replaceChildren(...data.call_sheet.map(([title,lines],i)=>{
@@ -212,6 +221,17 @@
    if(confirm('Confirmer que cette information professionnelle, sa source et sa date sont exactes ?'))
      action('confirm_fact',{category:$('factType').value,value:$('factValue').value,day:$('factDay').value,source:$('factSource').value,confirmed:true});
  };
+ $('scanSite').onclick=async()=>{
+   if(!desk?.website||!confirm('Confirmer que '+desk.website+' est le site officiel de '+desk.business+' ? Seuls les intitulés publics de cette page seront consultés.'))return;
+   const b=$('scanSite');b.disabled=true;
+   try{await action('scan_website',{confirmed:true})}finally{b.disabled=false}
+ };
+ $('useTopic').onclick=()=>{
+   const heading=$('observedTopics').value;
+   if(heading&&confirm('Confirmer que « '+heading+' » est bien pertinent pour ce client et peut servir d’accroche ?'))
+     action('select_angle',{heading,confirmed:true});
+ };
+ $('removeTopic').onclick=()=>action('clear_angle');
  $('registryCheck').onclick=()=>action('refresh_registry');
  $('saveBudget').onclick=()=>action('budget',{cost:$('costHT').value});
  $('prepareSale').onclick=()=>action('prepare');
