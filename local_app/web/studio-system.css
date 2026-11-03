@@ -273,3 +273,20 @@ body[data-studio-page="editor"]:not(.nsfw-active) :is(.preview-controls button,.
  body[data-studio-page]:not(.nsfw-active)::before{animation-duration:28s;opacity:.32}
 }
 body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::before{will-change:auto}
+
+
+/* Build 314 mobile fix: the legacy 780px topbar stylesheet hides all
+   .topbar-action labels, but public Vision moves these actions INSIDE the
+   slide-out menu. Their names must always remain visible in that menu. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .topbar-action>span{
+ display:inline!important;visibility:visible!important;opacity:1!important;
+ font-size:14px!important;font-weight:400;line-height:1.3;white-space:normal;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #historyBtn,
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #newConversation{
+ white-space:normal;text-align:center;
+}
+/* Keep names visible without reintroducing glyphs in the two special rows. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #newConversation>span{
+ display:inline!important;
+}
