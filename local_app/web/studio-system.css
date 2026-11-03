@@ -80,3 +80,7 @@ body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn>.studio-publ
 }
 
 body[data-studio-page="sales"] .brand{font-weight:500;letter-spacing:-.02em}body[data-studio-page="sales"] .brand small{letter-spacing:.12em}
+
+body[data-studio-page]:not(.nsfw-active) :is(a,small,label){font-weight:400}
+body[data-studio-page]:not(.nsfw-active) .brands-brand{font-weight:500}
+@media(max-width:780px){body[data-studio-page="brands"]{height:100dvh;overflow:hidden;padding-bottom:0!important}body[data-studio-page="brands"] .brands-shell{height:calc(100dvh - 78px - env(safe-area-inset-bottom,0px));overflow-y:auto}}

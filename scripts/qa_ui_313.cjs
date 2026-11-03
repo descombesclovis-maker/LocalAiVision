@@ -62,6 +62,7 @@ function fixture(project){
      if(name==='map'){
       assert.equal(await page.locator('#mapUnavailable').isVisible(),true);
       assert.equal(await page.locator('.leaflet-container').count(),0);
+      assert.equal(await page.locator('.qcm-map-recenter').isVisible(),false);
      }
     }
    }

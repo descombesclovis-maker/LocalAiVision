@@ -38,7 +38,7 @@ Les feuilles suite/polish ne seront plus chargées par les pages Web reconstruit
 - [x] Tests de sélection : réponses inversées, fermeture, mauvais identifiant et erreur du composant.
 - [x] Import public Vision SVG centré ; exclusion CSS de l’espace réservé contrôlée.
 - [x] Suite Python, syntaxe JS, tests navigateur et captures aux six résolutions.
-- [ ] Vérifier le résultat final du workflow Windows de la PR ; aucune release autorisée.
+- [x] Compilation Windows vérifiée sur le workflow 315 ; contrôles du dernier commit consultables dans la PR. Aucune release autorisée.
 
 ## Résultats reproductibles
 
