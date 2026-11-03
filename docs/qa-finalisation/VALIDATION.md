@@ -11,17 +11,18 @@ Branche : `codex/studio-297-sales-autopilot`, empilée sur la PR #53 au commit `
 - Le mandat par défaut est relu depuis son emplacement privé après redémarrage, sans dépendre d'une variable en mémoire. Aucun achat dans ce test.
 - Le premier workflow Windows de cette passe a révélé une écriture du mandat dans l'encodage Windows par défaut. Les noms accentués échouaient à la relecture UTF-8. L'écriture et la lecture utilisent désormais explicitement UTF-8 ; le test du mandat contient un nom accentué.
 - Accroches complémentaires raccourcies, questions métier naturelles, sources et correction manuelle conservées. Contrôles de l'écran accord/paiement harmonisés, champs lisibles sur mobile.
+- Réglages LoRA publics adaptés aux petits écrans : grille pouvant rétrécir, champs bornés, commandes repliables. Les règles excluent explicitement le mode NSFW ; le scénario supplémentaire vérifie aussi les contrôles coupés par un conteneur.
 - Version source alignée sur `3.1.0`. Les métadonnées Windows restent écrites par le workflow. ZIP contrôlé pour les trois fichiers requis, contenus non vides et en-tête MZ de l'EXE. Empreinte SHA-256 désormais jointe à l'artefact de PR.
 - Le parcours Windows Edge du Studio est aussi exécuté sur la branche commerciale, après inclusion des changements de la PR #53. Release toujours limitée à `main`.
 
 ## Vérifications locales
 
 - Python : 284 tests exécutés, **283 réussis, 1 ignoré** (PowerShell Windows). Journal : `python-tests.log`.
-- JavaScript : 44 fichiers vérifiés par `node --check`, aucun échec. 9 tests/sous-programmes Node réussis (qualité adaptative, actions de prompts, routage d'intention, masque et sélection de workflow).
+- JavaScript : 45 fichiers vérifiés par `node --check`, aucun échec. 9 tests/sous-programmes Node réussis (qualité adaptative, actions de prompts, routage d'intention, masque et sélection de workflow).
 - Chromium Linux 153 : parcours Pro/Libre, génération par adaptateur déterministe, suggestion de vente, aperçu hostile, inspecteur, feuille sourcée/PDF, rappel, devis avant publication, signature simulée envoyée → attente → refus, puis rechargement du dossier sans accord. Le refus est conservé et consultable.
 - Navigateur : écrans commerciaux aux formats 390×844, 1365×768, 1920×1080, 3840×2160 ; vérification de débordement. Accord/paiement contrôlé séparément en mobile.
 - Studio : accueil aux cinq dimensions, animation active/arrêtée, préférence persistante, commandes Vision/I2V/fichier, navigation clavier, filtres Leaflet avec fiches contrôlées, fiche mobile/zoom et contrat de limite des POI Google. Trace dans `browser-report.json`. Cadence Linux sans GPU : environ 35,6 rappels/s en UHD ; aucune promesse de performance sur RTX 3060.
-- Inspection visuelle des captures mobile et desktop, dont accueil UHD et nouvel écran accord/paiement.
+- Inspection visuelle des captures mobile et desktop, dont accueil UHD et nouvel écran accord/paiement. Scénario reproductible `scripts/review_studio_extra.cjs` : contrôle complémentaire des projets, CRM, marques, réglages LoRA et bibliothèque publique vide aux quatre dimensions ; ce contrôle ne certifie pas tous les contenus possibles de ces écrans.
 
 ## Matrice de validation
 

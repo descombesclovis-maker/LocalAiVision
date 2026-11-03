@@ -21,4 +21,5 @@
 #signatureHistory details{padding:12px 0;border-top:1px solid #635174}
 #signatureHistory summary{cursor:pointer;overflow-wrap:anywhere}
 #signatureHistory p{color:var(--muted);font-size:.9em}
+.intro .primary{display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
 @media(max-width:720px){.sales-links>button{flex:1 1 100%;min-height:44px}.card :is(input:not([type=checkbox]),select,textarea){font-size:16px}}

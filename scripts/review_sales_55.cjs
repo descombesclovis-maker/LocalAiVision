@@ -11,6 +11,7 @@ fs.mkdirSync(out,{recursive:true});
  const p=await browser.newPage({viewport:{width:1365,height:768},serviceWorkers:'block',
   ...(process.env.SALES_VIDEO?{recordVideo:{dir:process.env.SALES_VIDEO,size:{width:960,height:540}}}:{})});
  const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ const failedRequests=[];p.on('requestfailed',r=>failedRequests.push({url:r.url(),error:r.failure()?.errorText}));
  try{
   const post=async(url,data)=>{
    const r=await p.request.post(base+url,{data});assert.ok(r.ok(),await r.text());return r.json();
@@ -39,10 +40,19 @@ fs.mkdirSync(out,{recursive:true});
   await p.locator('#lawInspectorPopover:not([hidden])').waitFor();
   await p.click('#lawInspectorCancel');
   await p.screenshot({path:path.join(out,'editeur.jpg'),quality:80});
+  // A single interrupted read must recover, without repeating any POST.
+  let estimateAttempts=0;
+  await p.route('**/api/web/sales/estimate?*',route=>{
+   estimateAttempts++;
+   return estimateAttempts===1?route.abort('connectionreset'):route.continue();
+  });
   await p.click('#lawSaleDesk');await p.waitForSelector('#pitch');
+  await p.waitForFunction(()=>document.querySelector('#lineItems')?.children.length>0);
+  assert.equal(estimateAttempts,2);
   assert.equal(new URL(p.url()).hostname,'ventes.localhost');
   assert.equal(await p.evaluate(id=>fetch('/web-preview/'+id+'/index.html').then(r=>r.status),pro),403);
   await p.waitForSelector('#scriptSections details');
+  assert.match(await p.locator('#nextSalesStep').innerText(),/présentation/);
   assert.match(await p.locator('#scriptSections').innerText(),/Première accroche/);
   p.on('dialog',dialog=>dialog.accept());
   const facts=p.getByText('Vérifier ou compléter les informations de ce client',{exact:true});
@@ -84,16 +94,24 @@ fs.mkdirSync(out,{recursive:true});
   await p.click('#issueQuote');const pdf=p.locator('#quoteFeedback a');await pdf.waitFor();
   const doc=await p.request.get(new URL(await pdf.getAttribute('href'),base).href);
   assert.equal((await doc.body()).subarray(0,4).toString(),'%PDF');
-  await p.click('.sales-steps [href="#agreement"]');
+  assert.equal(await p.locator('#nextSalesStep').getAttribute('href'),'#agreement');
+  await p.click('#nextSalesStep');
   await p.locator('#agreement:not([hidden])').waitFor();
   await p.waitForTimeout(300);
   await p.screenshot({path:path.join(out,'devis-avant-publication.jpg'),quality:80});
+  let failedSends=0;
+  await p.route('**/api/web/sales/sign',route=>{failedSends++;return route.abort('connectionreset')});
+  await p.fill('#operatorCode','fixture-operator-55');await p.click('#requestSign');
+  await p.waitForFunction(()=>document.querySelector('#orderStatus').textContent.includes('fetch'));
+  assert.equal(failedSends,1);
+  await p.unroute('**/api/web/sales/sign');
   for(const [button,state] of [['requestSign','envoyé'],['verifySign','signature en attente'],['verifySign','signature refusée']]){
    await p.fill('#operatorCode','fixture-operator-55');
    await p.click('#'+button);
    await p.waitForFunction(text=>document.querySelector('#signatureHistory summary')?.textContent.includes(text),state);
   }
   await p.reload();await p.waitForSelector('#deskQuotes a');
+  assert.equal(await p.locator('#nextSalesStep').getAttribute('href'),'#quoteTitle');
   assert.match(await p.locator('#signatureHistory').innerText(),/signature refusée/);
   await p.screenshot({path:path.join(out,'signature-refusee.jpg'),quality:80});
   await p.setViewportSize({width:390,height:844});
@@ -104,6 +122,11 @@ fs.mkdirSync(out,{recursive:true});
   assert.deepEqual(d.signatures[0].history.map(h=>h.state),['sent','pending','declined']);
   assert.deepEqual(errors,[]);
   console.log('LocalAiWeb #55 : Pro, Libre, CTA, rappel, reprise, PDF et quatre dimensions validés.');
+ }catch(error){
+  console.error('Failed requests:',JSON.stringify(failedRequests));
+  console.error('Quote feedback:',await p.locator('#quoteFeedback').textContent().catch(()=>''));
+  await p.screenshot({path:path.join(out,'failure.jpg')}).catch(()=>{});
+  throw error;
  }finally{
   await p.close();
   if(process.env.SALES_VIDEO)await p.video().saveAs(path.join(out,'parcours.webm'));

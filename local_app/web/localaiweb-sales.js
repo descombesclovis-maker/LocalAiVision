@@ -14,9 +14,17 @@
  const selected=new Map();
  let estimate=null;
  async function api(url,body){
-  const resp=await fetch(url,body===undefined?{cache:'no-store'}:{
+  const options=body===undefined?{cache:'no-store'}:{
     method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Sales':'1'},
-    body:JSON.stringify(body)});
+    body:JSON.stringify(body)};
+  let resp;
+  try{resp=await fetch(url,options)}catch(error){
+    // Retry only a read interrupted before any HTTP response. Financial and
+    // other POST operations must always be reconciled, never blindly repeated.
+    if(body!==undefined)throw error;
+    await new Promise(resolve=>setTimeout(resolve,200));
+    resp=await fetch(url,options);
+  }
   let result={};try{result=await resp.json()}catch{}
   if(!resp.ok||result.error)throw Error(result.error||'HTTP '+resp.status);
   return result;
@@ -54,11 +62,13 @@
    update();
  };
  async function load(){
+  $('issueQuote').disabled=true;$('reloadEstimate').disabled=true;
   try{
    const [data,project]=await Promise.all([
      api('/api/web/sales/estimate?id='+encodeURIComponent(projectId)),
      api('/api/web/project?id='+encodeURIComponent(projectId))]);
    estimate=data;
+   selected.clear();
    const meta=project.project||{};
    $('projectLabel').textContent='Projet « '+(meta.name||'Sans nom')+' » · '+(meta.project_kind==='pro'?'Pro':'Libre');
    const business=meta.business||{};
@@ -74,10 +84,16 @@
    }
    update();
    $('quoteNotice').textContent=data.notice;
+   $('reloadEstimate').hidden=true;
   }catch(err){
    $('projectLabel').textContent='Impossible de charger le projet : '+err.message;
+   $('quoteNotice').textContent='Le chiffrage n’est pas chargé. Utilise « Recharger le chiffrage » pour reprendre sans modifier le dossier.';
+   $('reloadEstimate').hidden=false;
+  }finally{
+   $('issueQuote').disabled=!estimate||!selected.size;$('reloadEstimate').disabled=false;
   }
  }
+ $('reloadEstimate').onclick=()=>load();
  function showStep(){
    const links=[...document.querySelectorAll('.sales-steps a')];
    const active=links.find(a=>a.hash===location.hash)||links[0];
@@ -96,6 +112,20 @@
  function renderDesk(data){
    desk=data;$('salesState').textContent=titles[data.stage]||({accepted:'Accord vérifié',payment_pending:'Paiement en attente',paid:'Règlement vérifié',published:'Publication enregistrée',handover_complete:'Remise vérifiée',domain_pending:'Commande de domaine en cours',domain_completed:'Domaine enregistré'}[data.stage]||data.stage);
    $('overallStage').textContent=$('salesState').textContent;
+   const proposal=data.quotes.at(-1);
+   const signature=(data.signatures||[]).find(s=>s.quote===proposal?.number);
+   const payment=data.orders.find(o=>o.quote===proposal?.number);
+   let next=['#presentation','Préparer la présentation','Commence par les pages de la maquette et les informations vérifiées du prospect.'];
+   if(data.stage==='presentation_ready')next=['#presentation','Préparer l’appel','Vérifie le numéro professionnel puis présente la maquette.'];
+   if(data.stage==='contacted')next=['#quoteTitle','Préparer le devis','Retiens avec le client le périmètre et les coûts récurrents.'];
+   if(proposal)next=['#agreement','Faire accepter le devis','Vérifie le PDF et le destinataire avant tout envoi.'];
+   if(signature?.state==='pending'||signature?.state==='sent')next=['#agreement','Suivre la signature','Consulte le prestataire pour actualiser la demande.'];
+   if(['declined','expired','quote_expired'].includes(signature?.state))next=['#quoteTitle','Revoir la proposition','La demande n’a pas abouti. Échange avec le client avant de créer un nouveau devis.'];
+   if(payment)next=['#agreement','Suivre le règlement','Seule la confirmation du prestataire valide le paiement.'];
+   if(payment?.payment==='paid')next=['#domainTitle','Préparer le domaine et les services','Vérifie la titularité, les coûts et les besoins réels du site avant toute activation.'];
+   if(data.stage==='published')next=['#handover','Vérifier et livrer le site','Contrôle le domaine, HTTPS et les fonctions métier avant la remise.'];
+   if(data.stage==='handover_complete')next=['#handover','Consulter la livraison','Le dossier conserve la preuve de remise et les documents.'];
+   $('nextSalesStep').href=next[0];$('nextSalesStep').textContent=next[1];$('nextSalesHint').textContent=next[2];
    $('costHT').value=data.cost_ht??'';update();
    if(data.client_id)$('clientRecord').href=studioOrigin+'/localaiweb/clients?client='+encodeURIComponent(data.client_id);
    if(data.delivery)$('releaseStatus').textContent='Remise vérifiée : '+data.delivery.url;
