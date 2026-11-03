@@ -54,8 +54,14 @@ if(welcome){
  const modes=document.createElement('div');modes.className='qcm-vision-modes';
  const items=[['Photo','navPhoto','📷'],['Vidéo','navVideo','🎬'],['Publicité','studioAdOpen','⭐'],['Mes créations','navCreations','🎨']];
  for(const [label,target,glyph] of items){
+   const navGlyph=document.getElementById(target)?.querySelector('.nav-glyph');
+   if(navGlyph){
+     const publicIcon=document.createElement('span');publicIcon.className='public-mode-icon';
+     publicIcon.innerHTML=window.studioIconMarkup(glyph);
+     navGlyph.append(publicIcon);
+   }
    const b=document.createElement('button');b.type='button';b.dataset.qcmTarget=target;
-   b.innerHTML='<span aria-hidden="true">'+glyph+'</span><strong></strong><small>↗</small>';
+   b.innerHTML='<span aria-hidden="true">'+window.studioIconMarkup(glyph)+'</span><strong></strong><small>↗</small>';
    b.querySelector('strong').textContent=label;
    b.addEventListener('click',()=>{if(!isAdult())document.getElementById(target)?.click()});
    modes.append(b);

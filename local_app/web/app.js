@@ -443,8 +443,21 @@ window.onStudioAdvertError=(message,id)=>{
  addMessage(id,{role:'assistant',error:true,text:message});
 };
 
-function showSidebar(){$('#sidebar').classList.remove('closed')}
-function hideSidebar(){$('#sidebar').classList.add('closed')}
+function showSidebar(){
+ $('#sidebar').classList.remove('closed');
+ $('#openSidebar').setAttribute('aria-expanded','true');
+ $('#closeSidebar').focus();
+}
+function hideSidebar(){
+ const sidebar=$('#sidebar');
+ const restore=sidebar.contains(document.activeElement);
+ sidebar.classList.add('closed');
+ $('#openSidebar').setAttribute('aria-expanded','false');
+ if(restore)$('#openSidebar').focus();
+}
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!document.querySelector('dialog[open]')&&!$('#sidebar').classList.contains('closed'))hideSidebar();
+});
 let pollingHealth=false,lastSetupState=null,healthFailures=0;
 async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
  const comfyBefore=comfyReady,h=await api('/api/health');healthFailures=0;lastHealth=h;comfyReady=!!h.online;llmReady=!!h.llm?.online;
