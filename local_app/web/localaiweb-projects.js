@@ -189,7 +189,7 @@ document.getElementById('confirmDeleteProject').addEventListener('click',async()
  const confirm=document.getElementById('confirmDeleteProject');confirm.disabled=true;
  try{
   await json('/api/web/project/delete',{id:selected});deleteDialog.close();
-  await loadProjects();status.textContent='Projet supprimé.';
+  await loadProjects();status.textContent='Projet supprimé.';search.focus();
  }catch(error){deleteError.textContent=error.message}
  finally{deleting=false;confirm.disabled=false}
 });
