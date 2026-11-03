@@ -11,10 +11,10 @@
   "theme_color": "#171126",
   "icons": [
     {
-      "src": "/assets/app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/assets/assets/brand-reference/LocalAIVision_Official_Original.png",
+      "sizes": "724x724",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

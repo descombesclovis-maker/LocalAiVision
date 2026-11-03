@@ -29,6 +29,10 @@ const secondary=[...header.children].filter(node=>node.id!=='nsfwGalleryToggle')
 const newDiscussion=document.getElementById('newConversation');
 const plusText=[...newDiscussion.childNodes].find(n=>n.nodeType===3);
 const originalPlus=plusText?.textContent;
+// Restore the reserved workspace's original identity on mode switch.
+const favicon=document.querySelector('link[rel~="icon"]');
+const originalFavicon=favicon?{href:favicon.getAttribute('href'),type:favicon.getAttribute('type')}:null;
+const officialFavicon='/assets/assets/brand-reference/LocalAIVision_Official_Original.png';
 function arrangeMenu(){
  if(plusText)plusText.textContent=isAdult()?originalPlus:'+ ';
  for(const logo of document.querySelectorAll('img[src*="brand-vision"],img[data-public-master]')){
@@ -37,6 +41,12 @@ function arrangeMenu(){
  }
 
  const adult=isAdult();
+ if(favicon&&originalFavicon){
+  const expected=adult?originalFavicon.href:officialFavicon;
+  if(favicon.getAttribute('href')!==expected)favicon.setAttribute('href',expected);
+  const type=adult?originalFavicon.type:'image/png';
+  if(type&&favicon.getAttribute('type')!==type)favicon.setAttribute('type',type);
+ }
  for(const node of secondary){
   const excluded=node.id==='updateBtn'||node.classList.contains('studio-universe-link');
   const parent=adult||excluded?header:menu;

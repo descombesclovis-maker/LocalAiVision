@@ -43,7 +43,7 @@ class BrandTests(unittest.TestCase):
         self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):
             self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',web_ui)
-        self.assertIn("/assets/app-icon.svg",manifest)
+        self.assertIn("/assets/assets/brand-reference/LocalAIVision_Official_Original.png",manifest)
         self.assertIn("LocalAIStudio_Official_Original.png",
                       (BASE/"scripts/prepare_windows_brand.py").read_text(encoding="utf-8"))
 

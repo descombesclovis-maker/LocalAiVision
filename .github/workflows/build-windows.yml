@@ -8,7 +8,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction"]
+    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish"]
 
 concurrency:
   group: studio-build-${{ github.event.pull_request.number || github.ref }}

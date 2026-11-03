@@ -89,8 +89,7 @@ body[data-studio-page]:not(.nsfw-active) .brands-brand{font-weight:500}
 body[data-studio-page]:not(.nsfw-active){--ui-bg:#0d0716;--ui-surface:#180e25;--ui-raised:#241334;--ui-accent:#b66aff;--ui-cyan:var(--ui-accent);--ui-line:#b66aff30;background:var(--ui-bg);isolation:isolate}
 body[data-studio-page="home"]:not(.nsfw-active){--ui-cyan:#38ddf5}
 body[data-studio-page="vision"]:not(.nsfw-active){--ui-bg:#050f19;--ui-surface:#0b1f34;--ui-raised:#092c38;--ui-accent:#38ddf5;--ui-cyan:#38ddf5;--ui-line:#166073}
-body[data-studio-page]:not(.nsfw-active)::before{content:"";position:fixed;inset:40% -10% -20%;z-index:-1;pointer-events:none;background:repeating-linear-gradient(165deg,transparent 0 55px,color-mix(in srgb,var(--ui-accent) 10%,transparent) 56px,transparent 59px 110px);transform:translateX(-2%);animation:studio314-trails 14s ease-in-out infinite alternate}
-body[data-studio-page="home"]:not(.nsfw-active)::before{background:linear-gradient(160deg,transparent 45%,#b66aff1c 46%,transparent 47%,transparent 68%,#38ddf51c 69%,transparent 70%)}
+/* Aurora and light-streak layers are defined together below, not stacked with the obsolete striped backdrop. */
 body[data-studio-page]:not(.nsfw-active) .qcm-dock-link[aria-current="page"]{color:var(--ui-accent)!important;background:color-mix(in srgb,var(--ui-accent) 10%,transparent)}
 body[data-studio-page]:not(.nsfw-active) :is(.primary,.primary-action){background:var(--ui-accent);border-color:var(--ui-accent);color:var(--ui-bg)}
 body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.studio-menu-panel,.studio-activity-panel){background:var(--ui-surface);border-color:var(--ui-line)}
@@ -112,14 +111,20 @@ body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]{position:fix
 body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]::backdrop{background:#020b13a8;pointer-events:auto}
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation{display:grid;gap:8px;align-content:start}
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(button,a){width:100%;min-height:46px;height:auto;padding:12px;display:flex;align-items:center;justify-content:center;text-align:center;background:#0b1f34!important;border:1px solid #155066;border-radius:10px;color:#d8f6ff;text-decoration:none;line-height:1.4}
-body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(.nav-glyph,.public-mode-icon){display:none}
-body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn{font-size:0}
+/* The ordinary navigation buttons keep their pictograms. Only the two
+   highlighted secondary controls (LoRA and New discussion) are text-only. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .nav-glyph{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .nav-glyph>svg{display:block;width:21px;height:21px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .nav-glyph:has(.public-mode-icon)>svg{display:none}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .public-mode-icon{display:inline-grid;place-items:center;width:21px;height:21px;font-size:19px;line-height:1}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .public-mode-icon .studio-icon{display:block;width:21px;height:21px;stroke:currentColor;stroke-width:1.7}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle .nav-glyph{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn{font-size:14px}
 body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn span{font-size:14px}
 body[data-studio-page="vision"]:not(.nsfw-active) :is(.studio-universe-link,#updateBtn){display:none!important}
 body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer :is(header,footer){border-color:var(--ui-line);background:var(--ui-surface)}
 body[data-studio-page]:not(.nsfw-active)[data-motion-paused="true"] *,body[data-studio-page]:not(.nsfw-active)[data-motion-paused="true"]::before{animation-play-state:paused!important}
 body[data-studio-page]:not(.nsfw-active)[data-gpu-busy="true"] *,body[data-studio-page]:not(.nsfw-active)[data-gpu-busy="true"]::before{animation-play-state:paused!important}
-@keyframes studio314-trails{to{transform:translateX(3%) translateY(-24px);opacity:.55}}
 @keyframes studio314-arrive{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
 @media(prefers-reduced-motion:reduce){body[data-studio-page]:not(.nsfw-active)::before{animation:none!important}body[data-studio-page]:not(.nsfw-active) *{animation:none!important;transition:none!important}}
 body[data-studio-page="vision"]:not(.nsfw-active) #send{background:linear-gradient(110deg,#147c99,#38bfd0)!important;border:1px solid #3ad7ec!important;box-shadow:0 0 18px #18b5d51a!important;color:#f5feff}
@@ -139,3 +144,149 @@ body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation>*{margin:0!
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation button>span{font-weight:400}
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .brand>div:last-child{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .brand span{display:block;color:#92bac7;font-size:11px}
+
+/* Studio 314 completion — composited aurora trails, no global SVG filters or
+   animation of layout metrics. Runs only outside the reserved workspace. */
+body[data-studio-page]:not(.nsfw-active){
+  --brand-trail:#b66aff;--brand-halo:#6a2bb1;
+  background:radial-gradient(ellipse 75% 42% at 85% 100%,color-mix(in srgb,var(--brand-trail) 10%,transparent),transparent 74%),
+             radial-gradient(ellipse 65% 55% at 4% -15%,color-mix(in srgb,var(--brand-halo) 12%,transparent),transparent 80%),
+             var(--ui-bg);
+}
+body[data-studio-page="home"]:not(.nsfw-active){--brand-trail:#9c70f2;--brand-halo:#20b9d7}
+body[data-studio-page="vision"]:not(.nsfw-active){--brand-trail:#38ddf5;--brand-halo:#167da1}
+body[data-studio-page]:not(.nsfw-active)::before{
+  inset:27% -24% -24%;z-index:-1;pointer-events:none;opacity:.78;
+  background:
+    linear-gradient(165deg,transparent 43.4%,color-mix(in srgb,var(--brand-trail) 19%,transparent) 43.9%,color-mix(in srgb,var(--brand-trail) 62%,transparent) 44.13%,transparent 44.75%),
+    linear-gradient(168deg,transparent 58.0%,color-mix(in srgb,var(--brand-halo) 51%,transparent) 58.8%,transparent 59.45%),
+    linear-gradient(157deg,transparent 73.7%,color-mix(in srgb,var(--brand-trail) 52%,transparent) 74.25%,transparent 74.95%),
+    radial-gradient(ellipse at 75% 75%,color-mix(in srgb,var(--brand-trail) 20%,transparent),transparent 63%);
+  mask-image:linear-gradient(180deg,transparent,black 23%,black 75%,transparent);
+  transform:translate3d(-3%,8px,0);will-change:transform,opacity;
+  animation:studio314-light-rivers 21s cubic-bezier(.44,0,.56,1) infinite alternate;
+}
+body[data-studio-page]:not(.nsfw-active)::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background:radial-gradient(ellipse 30% 24% at 20% 78%,color-mix(in srgb,var(--brand-trail) 22%,transparent),transparent),
+             radial-gradient(ellipse 42% 27% at 91% 32%,color-mix(in srgb,var(--brand-halo) 22%,transparent),transparent);
+  transform:translate3d(0,12px,0);animation:studio314-ambient-drift 28s ease-in-out infinite alternate;
+}
+@keyframes studio314-light-rivers{
+  0%{transform:translate3d(-3%,8px,0);opacity:.36}
+  45%{opacity:.62}
+  100%{transform:translate3d(5%,-24px,0);opacity:.48}
+}
+@keyframes studio314-ambient-drift{to{transform:translate3d(1.5%,-15px,0);opacity:.75}}
+/* Restore icons to every regular Vision action and distinguish exactly two
+   intentionally icon-free actions in teal. The "+" is part of the button text. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .studio-nav-entry{
+  gap:12px;transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+/* All seven menu actions have a genuinely identical row box despite mixed
+   SVG / native emoji / text-only content; no optical wobble between rows. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation> :is(button,a){
+ box-sizing:border-box;width:100%;height:52px!important;min-height:52px;padding:0 12px!important;
+ align-items:center;justify-content:center;line-height:1.25;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle,
+body[data-studio-page="vision"]:not(.nsfw-active) #newConversation{
+  background:linear-gradient(122deg,#16475a,#0f3545)!important;
+  border:1px solid #329cb4!important;color:#ecfdff!important;
+  font-weight:500;box-shadow:inset 0 1px 0 #9cefff14,0 0 0 1px #021c25;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#visionAdvancedToggle,#newConversation):hover{
+  background:linear-gradient(122deg,#1c6274,#124b5e)!important;
+  border-color:#70ddef!important;box-shadow:inset 0 1px 0 #c0f9ff22,0 0 24px #2ec6e321;
+  transform:translateY(-1px);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#visionAdvancedToggle,#newConversation):active{transform:translateY(0);box-shadow:inset 0 2px 5px #00172255}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle .nav-glyph{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .studio-nav-entry:not(#visionAdvancedToggle):hover{
+  background:#123a4b!important;border-color:#3286a2;transform:translateX(2px);
+}
+/* Restrained cinematic interactions: only opacity/transform are animated. */
+body[data-studio-page]:not(.nsfw-active) .studio-menu-panel{
+  transform-origin:12% 0;animation:studio314-menu-unfold .19s cubic-bezier(.2,.78,.28,1) both;
+}
+body[data-studio-page]:not(.nsfw-active) .studio-menu-panel :is(a,button,summary){
+  transition:background-color .15s ease,color .15s ease,transform .15s ease;
+}
+body[data-studio-page]:not(.nsfw-active) .studio-menu-panel :is(a,button,summary):hover{transform:translateX(2px)}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card){
+  transition:transform .24s cubic-bezier(.2,.76,.25,1),border-color .22s ease,box-shadow .22s ease;
+}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card):hover{
+  transform:translateY(-3px);
+  box-shadow:0 16px 44px color-mix(in srgb,var(--brand-trail) 11%,transparent);
+}
+body[data-studio-page]:not(.nsfw-active) :is(.primary,.primary-action,.studio-return,.studio-hamburger,#openSidebar):active{transform:translateY(1px) scale(.985)}
+body[data-studio-page]:not(.nsfw-active) :is(button,a,summary):focus-visible{outline:2px solid var(--ui-accent);outline-offset:3px}
+body[data-studio-page]:not(.nsfw-active) .studio-activity-toggle .studio-activity-spinner{animation-duration:1.4s}
+@keyframes studio314-menu-unfold{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::before,
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::after{animation-play-state:paused!important}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page]:not(.nsfw-active)::before,body[data-studio-page]:not(.nsfw-active)::after{animation:none!important;will-change:auto}
+ body[data-studio-page]:not(.nsfw-active) .studio-menu-panel{animation:none!important}
+ body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card):hover{transform:none!important}
+}
+
+/* Small real interactions, rather than perpetual high-frequency effects. */
+body[data-studio-page]:not(.nsfw-active) :is(.map-brand,.branding .logo,.web-logo-heading,.brands-brand,.chat-brand) img{
+  transition:transform .3s cubic-bezier(.2,.7,.3,1),filter .3s ease;
+}
+body[data-studio-page]:not(.nsfw-active) :is(.map-brand,.branding .logo,.web-logo-heading,.brands-brand,.chat-brand):hover img{
+  transform:translateY(-1px) scale(1.04);
+  filter:drop-shadow(0 0 7px color-mix(in srgb,var(--ui-accent) 35%,transparent));
+}
+body[data-studio-page="projects"]:not(.nsfw-active) .card-art img{
+  transition:transform .6s cubic-bezier(.16,.67,.3,1),opacity .24s ease;
+}
+body[data-studio-page="projects"]:not(.nsfw-active) .card:hover .card-art img:not([hidden]){
+  transform:scale(1.045);
+}
+body[data-studio-page="projects"]:not(.nsfw-active) .project-context-panel{
+  transform-origin:90% 0;
+  animation:studio314-menu-unfold .2s cubic-bezier(.2,.76,.28,1) both;
+}
+body[data-studio-page="editor"]:not(.nsfw-active) .chat-composer{
+  transition:box-shadow .2s ease,background-color .2s ease;
+}
+body[data-studio-page="editor"]:not(.nsfw-active) .chat-composer:focus-within{
+  box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--ui-accent) 48%,transparent);
+}
+body[data-studio-page="editor"]:not(.nsfw-active) :is(.preview-controls button,.preview-header button){
+  transition:transform .16s ease,background-color .16s ease,color .16s ease;
+}
+body[data-studio-page="editor"]:not(.nsfw-active) :is(.preview-controls button,.preview-header button):active{
+  transform:scale(.97);
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page]:not(.nsfw-active) :is(.map-brand,.branding .logo,.web-logo-heading,.brands-brand,.chat-brand):hover img,
+ body[data-studio-page="projects"]:not(.nsfw-active) .card:hover .card-art img:not([hidden]){transform:none;filter:none}
+ body[data-studio-page="projects"]:not(.nsfw-active) .project-context-panel{animation:none}
+}
+
+@media(max-width:780px){
+ body[data-studio-page]:not(.nsfw-active)::after{display:none}
+ body[data-studio-page]:not(.nsfw-active)::before{animation-duration:28s;opacity:.32}
+}
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"])::before{will-change:auto}
+
+
+/* Build 314 mobile fix: the legacy 780px topbar stylesheet hides all
+   .topbar-action labels, but public Vision moves these actions INSIDE the
+   slide-out menu. Their names must always remain visible in that menu. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .topbar-action>span{
+ display:inline!important;visibility:visible!important;opacity:1!important;
+ font-size:14px!important;font-weight:400;line-height:1.3;white-space:normal;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #historyBtn,
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #newConversation{
+ white-space:normal;text-align:center;
+}
+/* Keep names visible without reintroducing glyphs in the two special rows. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #newConversation>span{
+ display:inline!important;
+}
