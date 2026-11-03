@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
 DATA = Path(os.environ.get('LOCALVISIONAI_DATA', str(Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'LocalVisionAI')))
 os.environ['LOCALVISIONAI_DATA'] = str(DATA)
 URL = 'http://127.0.0.1:3000'
+APPLICATION_ICON = ROOT / 'local_app' / 'assets' / 'LocalAiStudio.ico'
 
 
 def probe():
@@ -123,7 +124,8 @@ def main():
                 title = "LocalAI Studio · " + str(current.get("build_tag") or "source")
                 webview.create_window(title, URL + "/studio", width=1440, height=920,
                                       min_size=(900, 650), background_color="#090909")
-                webview.start(debug=False, private_mode=False, storage_path=str(DATA / "webview"))
+                webview.start(debug=False, private_mode=False, storage_path=str(DATA / "webview"),
+                              icon=str(APPLICATION_ICON) if APPLICATION_ICON.is_file() else None)
         except Exception:
             # WebView2 might be absent or fail after starting the HTTP server.
             traceback.print_exc()

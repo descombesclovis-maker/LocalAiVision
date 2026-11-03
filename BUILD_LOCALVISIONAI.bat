@@ -10,7 +10,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-py -3.11 -m pip install --upgrade pyinstaller pywebview
+py -3.11 -m pip install --upgrade pyinstaller pywebview pillow
 if errorlevel 1 goto FAIL
 
 if exist build rmdir /s /q build
@@ -19,7 +19,12 @@ if exist dist rmdir /s /q dist
 for /f "tokens=2 delims="" %%V in ('findstr /r /c:"VERSION = " local_app\server.py') do set "LVA_VERSION=%%V"
 > local_app\data\build_info.json echo {"version":"%LVA_VERSION%","build_tag":"local","commit":"local","run_number":0}
 
+py -3.11 scripts\prepare_windows_brand.py
+if errorlevel 1 goto FAIL
+
 py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name LocalVisionAI ^
+  --icon "build\branding\LocalAiStudio.ico" ^
+  --version-file "build\branding\version_info.txt" ^
   --collect-all webview ^
   --hidden-import local_app ^
   --hidden-import local_app.bootstrap_windows ^
@@ -31,6 +36,7 @@ py -3.11 -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name 
   --hidden-import local_app.nsfw_profile ^
   --add-data "local_app\web;local_app\web" ^
   --add-data "local_app\data;local_app\data" ^
+  --add-data "build\branding\LocalAiStudio.ico;local_app\assets" ^
   --add-data "local_app\bootstrap_windows.py;local_app" ^
   --add-data "local_app\server.py;local_app" ^
   --add-data "local_app\llm.py;local_app" ^
