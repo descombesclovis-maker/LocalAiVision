@@ -10,6 +10,10 @@ on:
   pull_request:
     branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction"]
 
+concurrency:
+  group: studio-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -69,6 +73,7 @@ jobs:
             --hidden-import local_app.media_director ^
             --hidden-import local_app.comfy_progress ^
             --hidden-import local_app.web_builder ^
+            --hidden-import local_app.presentation_assets ^
             --hidden-import local_app.brand_catalog ^
             --hidden-import local_app.web_briefing ^
             --hidden-import local_app.web_hybrid ^
