@@ -92,7 +92,11 @@ def main():
         if state == "same":
             print("An identical build is already active; opening Studio in browser.", flush=True)
             if not webbrowser.open(URL + "/studio", new=2):
-                show_error("Ce build fonctionne déjà. Ouvre " + URL + "/studio")
+                show_error("Le navigateur ne s'est pas ouvert. Ouvre " + URL + "/studio")
+            else:
+                show_error("LocalVisionAI est déjà ouvert.\n\n"
+                           "Le même build fonctionne sur ce PC ; sa page Studio "
+                           "vient de s'ouvrir dans ton navigateur.")
             return
         else:
             try:
