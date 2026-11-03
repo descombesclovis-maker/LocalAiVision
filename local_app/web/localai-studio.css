@@ -85,3 +85,17 @@ body[data-motion-paused="true"] .universe-intro,body[data-gpu-busy="true"] .univ
  .studio-photo-frame .studio-photo,.studio-card-cta b{transition:none}
  .universe-card:hover .studio-photo,.universe-card:focus-visible .studio-photo{transform:none}
 }
+
+/* The Studio navigation script already creates this wash; without these styles
+   it was an invisible element. 190 ms transition never blocks navigation. */
+.studio-transition-wash{
+ position:fixed;inset:0;z-index:4000;pointer-events:none;opacity:0;
+ background:radial-gradient(circle at var(--transition-x,50%) var(--transition-y,50%),
+       #7a54c02d 0,transparent 48%),
+       linear-gradient(135deg,#0e082bc8,#071824bf);
+ transform:translate3d(0,10px,0);
+ transition:opacity .18s ease,transform .18s cubic-bezier(.2,.75,.25,1);
+}
+.studio-entering .studio-transition-wash{opacity:1;transform:translate3d(0,0,0)}
+.studio-entering .universe-card.studio-selected{border-color:#9ecfff;box-shadow:0 0 0 1px #87daec36,0 18px 46px #0009}
+@media(prefers-reduced-motion:reduce){.studio-transition-wash{display:none}}
