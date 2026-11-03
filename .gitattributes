@@ -1,0 +1,5 @@
+# Preserve every byte of the locked archive, including Markdown line endings.
+local_app/web/assets/brand-reference/* -text
+*.ico binary
+*.png binary
+*.webp binary
