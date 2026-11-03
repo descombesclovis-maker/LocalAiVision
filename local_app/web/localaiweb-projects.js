@@ -27,17 +27,19 @@ async function json(url,body,timeoutMs=12000){
  }finally{clearTimeout(timer)}
 }
 function card(p,index){
- const button=document.createElement('button');button.type='button';button.className='card';
+ const wrapper=document.createElement('article');wrapper.className='card';
+ const button=document.createElement('button');button.type='button';button.className='card-open';
  button.setAttribute('aria-label','Ouvrir le projet '+String(p.name||'Sans nom'));
  button.title='Ouvrir le projet et reprendre son historique';
  const cover=document.createElement('div');cover.className='card-art';
- const shape=document.createElement('div');shape.className='art-shape';
+ const shape=document.createElement('img');shape.className='project-illustration';
+ shape.src='/assets/presentation/web-1600.webp';shape.alt='Photographie illustrative d’un espace de création numérique';shape.loading='lazy';
  const ring=document.createElement('div');ring.className='art-ring';
  const caption=document.createElement('span');caption.className='art-caption';
- caption.textContent=p.project_kind==='pro'?'SITE CLIENT':p.template==='cinematic3d'?'EXPÉRIENCE 3D':'CRÉATION WEB';
+ caption.textContent='Photographie illustrative';
  const thumbnail=document.createElement('img');thumbnail.className='project-thumbnail';thumbnail.alt='';
  thumbnail.loading='lazy';thumbnail.src='/api/web/project/thumbnail?id='+encodeURIComponent(p.id)+'&v='+encodeURIComponent(p.updated_at||0);
- thumbnail.onload=()=>cover.classList.add('has-thumbnail');
+ thumbnail.onload=()=>{cover.classList.add('has-thumbnail');shape.hidden=true;caption.textContent='Aperçu du projet'};
  thumbnail.onerror=()=>thumbnail.remove();
  cover.append(shape,ring,thumbnail,caption);
  const body=document.createElement('div');body.className='card-body';
@@ -56,7 +58,29 @@ function card(p,index){
   button.classList.add('opening');button.setAttribute('aria-busy','true');
   openProject(p.id);
  });
- return button;
+ const menu=document.createElement('details');menu.className='project-context';
+ const summary=document.createElement('summary');summary.textContent='…';
+ summary.setAttribute('aria-label','Actions du projet '+String(p.name||'Sans nom'));
+ const panel=document.createElement('div');panel.className='project-context-panel';
+ const copy=document.createElement('button');copy.type='button';copy.textContent="Copier le prompt d'origine";
+ copy.addEventListener('click',async()=>{
+  try{
+   const {project}=await json('/api/web/project?id='+encodeURIComponent(p.id));
+   if(typeof project.original_prompt!=='string'||!project.original_prompt){
+    status.textContent="Le prompt d’origine de ce projet n’a pas été conservé.";return;
+   }
+   await navigator.clipboard.writeText(project.original_prompt);
+   status.textContent="Prompt d’origine copié.";menu.open=false;summary.focus();
+  }catch(error){status.textContent='Copie impossible : '+error.message}
+ });
+ const remove=document.createElement('button');remove.type='button';remove.textContent='Supprimer le projet';
+ remove.addEventListener('click',()=>{
+  menu.open=false;pendingDeletion={id:p.id,name:p.name||'Sans nom',focus:summary};
+  deleteName.textContent=pendingDeletion.name;deleteError.textContent='';
+  deleteDialog.showModal();document.getElementById('cancelDeleteProject').focus();
+ });
+ panel.append(copy,remove);menu.append(summary,panel);wrapper.append(button,menu);
+ return wrapper;
 }
 function emptyCard(kind,query){
  const empty=document.createElement('div');empty.className='empty';
@@ -117,7 +141,7 @@ async function refreshActive(){
     Array.from(next).some(([id,job])=>activeJobs.get(id)?.detail!==job.detail);
   activeJobs=next;previousActive=new Set(next.keys());
   if(done)await loadProjects();
-  else if(changed)render();
+  else if(changed&&!document.querySelector('.project-context[open]')&&!deleteDialog.open)render();
  }catch{} // Temporary server error never erases saved library.
 }
 document.getElementById('createProject').addEventListener('click',()=>{
@@ -152,3 +176,26 @@ window.addEventListener('pageshow',event=>{if(event.persisted){void loadProjects
 void loadProjects();void refreshActive();
 window.setInterval(()=>{void refreshActive()},5000);
 
+
+// Separate modal and card button prevent card navigation from triggering deletion.
+const deleteDialog=document.getElementById('deleteProjectDialog');
+const deleteName=document.getElementById('deleteProjectName'),deleteError=document.getElementById('deleteProjectError');
+let pendingDeletion=null,deleting=false;
+document.getElementById('cancelDeleteProject').addEventListener('click',()=>deleteDialog.close());
+deleteDialog.addEventListener('close',()=>{pendingDeletion?.focus?.focus();pendingDeletion=null});
+document.getElementById('confirmDeleteProject').addEventListener('click',async()=>{
+ if(deleting||!pendingDeletion||!validProject(pendingDeletion.id))return;
+ const selected=pendingDeletion.id;deleting=true;
+ const confirm=document.getElementById('confirmDeleteProject');confirm.disabled=true;
+ try{
+  await json('/api/web/project/delete',{id:selected});deleteDialog.close();
+  await loadProjects();status.textContent='Projet supprimé.';
+ }catch(error){deleteError.textContent=error.message}
+ finally{deleting=false;confirm.disabled=false}
+});
+document.addEventListener('pointerdown',event=>{
+ for(const menu of document.querySelectorAll('.project-context[open]'))if(!menu.contains(event.target))menu.open=false;
+});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape')for(const menu of document.querySelectorAll('.project-context[open]')){menu.open=false;menu.querySelector('summary').focus()}
+});
