@@ -73,8 +73,8 @@
 .studio-card-cta b{display:inline-block;transition:transform .23s ease}
 .universe-brand .studio-identity{filter:drop-shadow(0 0 12px #41d7f322)}
 .universe-intro{animation:studio314-home-intro .65s cubic-bezier(.16,.7,.26,1) both}
-.universe-card:first-child{animation:studio314-home-card .55s cubic-bezier(.19,.8,.3,1) .08s both}
-.universe-card:nth-child(2){animation:studio314-home-card .55s cubic-bezier(.19,.8,.3,1) .18s both}
+.universe-card:first-child{animation:studio314-home-card .55s cubic-bezier(.19,.8,.3,1) .08s backwards}
+.universe-card:nth-child(2){animation:studio314-home-card .55s cubic-bezier(.19,.8,.3,1) .18s backwards}
 @keyframes studio314-home-intro{from{opacity:0;transform:translate3d(0,9px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
 @keyframes studio314-home-card{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
 body[data-motion-paused="true"] .universe-card,body[data-gpu-busy="true"] .universe-card,
