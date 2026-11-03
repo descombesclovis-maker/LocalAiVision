@@ -32,3 +32,16 @@
 @media(min-width:2400px){.universe-shell{max-width:2200px;padding:56px 80px}.universe-intro{max-width:1000px}.universe-intro h1{font-size:88px}.universe-intro p{font-size:20px;max-width:720px}.studio-scene{height:390px}.studio-card-title{font-size:36px}.studio-card-cta{font-size:20px;min-height:72px}.universe-choices{gap:36px}.universe-card{padding:40px}.universe-topbar{margin-bottom:64px}}
 @media(max-width:700px){.universe-shell{padding:24px 20px;justify-content:flex-start}.universe-topbar{margin-bottom:32px}.universe-top-hint{display:none}.universe-intro{margin-bottom:24px}.universe-intro h1{font-size:40px}.universe-intro p{font-size:13px}.universe-choices{grid-template-columns:1fr;gap:16px}.universe-card{padding:20px;gap:10px}.studio-card-title{font-size:21px}.studio-scene{height:160px}.studio-card-cta{font-size:13px}.universe-footer{flex-direction:column;text-align:center;gap:8px;margin-top:24px}}
 @media(min-width:701px) and (max-height:800px){.universe-shell{padding-block:24px}.universe-topbar{margin-bottom:24px}.universe-intro{margin-bottom:24px}.universe-intro h1{font-size:44px}.studio-scene{height:150px}.universe-footer{margin-top:20px}}
+.studio-photo-frame{position:relative;border-radius:15px;overflow:hidden;isolation:isolate;background:#090714}
+.studio-photo-frame .studio-photo{width:100%;height:clamp(175px,25vh,360px);object-fit:cover;object-position:50% 54%;transition:transform .5s ease;filter:saturate(.9)}
+.studio-photo-frame::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 40%,#10051ac9),linear-gradient(120deg,#6b1aaa35,transparent);mix-blend-mode:screen;opacity:.6}
+.vision-photo::after{background:linear-gradient(180deg,transparent 40%,#031c29d9),linear-gradient(110deg,#00b6e64d,#064c734d);mix-blend-mode:color;opacity:.85}
+.vision-photo .studio-photo{object-position:38% 42%}
+.photo-disclosure{position:absolute;bottom:12px;left:14px;z-index:1;font-size:10px;letter-spacing:.05em;color:#f0e9fa;background:#050812b8;border-radius:6px;padding:4px 8px}
+.universe-card:hover .studio-photo{transform:scale(1.025)}
+.studio-master-mark img{width:60px;height:60px;border-radius:12px}
+.studio-card-title img{width:48px;height:48px;border-radius:10px}
+@media(min-width:2400px){.studio-photo-frame .studio-photo{height:390px}}
+@media(min-width:701px) and (max-height:800px){.studio-photo-frame .studio-photo{height:170px}}
+@media(max-width:700px){.studio-photo-frame .studio-photo{height:190px}}
+@media(prefers-reduced-motion:reduce){.universe-card:hover .studio-photo{transform:none}.studio-photo-frame .studio-photo{transition:none}}
