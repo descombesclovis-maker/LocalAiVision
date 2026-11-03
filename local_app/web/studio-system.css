@@ -89,8 +89,7 @@ body[data-studio-page]:not(.nsfw-active) .brands-brand{font-weight:500}
 body[data-studio-page]:not(.nsfw-active){--ui-bg:#0d0716;--ui-surface:#180e25;--ui-raised:#241334;--ui-accent:#b66aff;--ui-cyan:var(--ui-accent);--ui-line:#b66aff30;background:var(--ui-bg);isolation:isolate}
 body[data-studio-page="home"]:not(.nsfw-active){--ui-cyan:#38ddf5}
 body[data-studio-page="vision"]:not(.nsfw-active){--ui-bg:#050f19;--ui-surface:#0b1f34;--ui-raised:#092c38;--ui-accent:#38ddf5;--ui-cyan:#38ddf5;--ui-line:#166073}
-body[data-studio-page]:not(.nsfw-active)::before{content:"";position:fixed;inset:40% -10% -20%;z-index:-1;pointer-events:none;background:repeating-linear-gradient(165deg,transparent 0 55px,color-mix(in srgb,var(--ui-accent) 10%,transparent) 56px,transparent 59px 110px);transform:translateX(-2%);animation:studio314-trails 14s ease-in-out infinite alternate}
-body[data-studio-page="home"]:not(.nsfw-active)::before{background:linear-gradient(160deg,transparent 45%,#b66aff1c 46%,transparent 47%,transparent 68%,#38ddf51c 69%,transparent 70%)}
+/* Aurora and light-streak layers are defined together below, not stacked with the obsolete striped backdrop. */
 body[data-studio-page]:not(.nsfw-active) .qcm-dock-link[aria-current="page"]{color:var(--ui-accent)!important;background:color-mix(in srgb,var(--ui-accent) 10%,transparent)}
 body[data-studio-page]:not(.nsfw-active) :is(.primary,.primary-action){background:var(--ui-accent);border-color:var(--ui-accent);color:var(--ui-bg)}
 body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.studio-menu-panel,.studio-activity-panel){background:var(--ui-surface);border-color:var(--ui-line)}
@@ -125,7 +124,6 @@ body[data-studio-page="vision"]:not(.nsfw-active) :is(.studio-universe-link,#upd
 body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer :is(header,footer){border-color:var(--ui-line);background:var(--ui-surface)}
 body[data-studio-page]:not(.nsfw-active)[data-motion-paused="true"] *,body[data-studio-page]:not(.nsfw-active)[data-motion-paused="true"]::before{animation-play-state:paused!important}
 body[data-studio-page]:not(.nsfw-active)[data-gpu-busy="true"] *,body[data-studio-page]:not(.nsfw-active)[data-gpu-busy="true"]::before{animation-play-state:paused!important}
-@keyframes studio314-trails{to{transform:translateX(3%) translateY(-24px);opacity:.55}}
 @keyframes studio314-arrive{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
 @media(prefers-reduced-motion:reduce){body[data-studio-page]:not(.nsfw-active)::before{animation:none!important}body[data-studio-page]:not(.nsfw-active) *{animation:none!important;transition:none!important}}
 body[data-studio-page="vision"]:not(.nsfw-active) #send{background:linear-gradient(110deg,#147c99,#38bfd0)!important;border:1px solid #3ad7ec!important;box-shadow:0 0 18px #18b5d51a!important;color:#f5feff}
@@ -225,4 +223,40 @@ body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gp
  body[data-studio-page]:not(.nsfw-active)::before,body[data-studio-page]:not(.nsfw-active)::after{animation:none!important;will-change:auto}
  body[data-studio-page]:not(.nsfw-active) .studio-menu-panel{animation:none!important}
  body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.universe-card):hover{transform:none!important}
+}
+
+/* Small real interactions, rather than perpetual high-frequency effects. */
+body[data-studio-page]:not(.nsfw-active) :is(.map-brand,.branding .logo,.web-logo-heading,.brands-brand,.chat-brand) img{
+  transition:transform .3s cubic-bezier(.2,.7,.3,1),filter .3s ease;
+}
+body[data-studio-page]:not(.nsfw-active) :is(.map-brand,.branding .logo,.web-logo-heading,.brands-brand,.chat-brand):hover img{
+  transform:translateY(-1px) scale(1.04);
+  filter:drop-shadow(0 0 7px color-mix(in srgb,var(--ui-accent) 35%,transparent));
+}
+body[data-studio-page="projects"]:not(.nsfw-active) .card-art img{
+  transition:transform .6s cubic-bezier(.16,.67,.3,1),opacity .24s ease;
+}
+body[data-studio-page="projects"]:not(.nsfw-active) .card:hover .card-art img:not([hidden]){
+  transform:scale(1.045);
+}
+body[data-studio-page="projects"]:not(.nsfw-active) .project-context-panel{
+  transform-origin:90% 0;
+  animation:studio314-menu-unfold .2s cubic-bezier(.2,.76,.28,1) both;
+}
+body[data-studio-page="editor"]:not(.nsfw-active) .chat-composer{
+  transition:box-shadow .2s ease,background-color .2s ease;
+}
+body[data-studio-page="editor"]:not(.nsfw-active) .chat-composer:focus-within{
+  box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--ui-accent) 48%,transparent);
+}
+body[data-studio-page="editor"]:not(.nsfw-active) :is(.preview-controls button,.preview-header button){
+  transition:transform .16s ease,background-color .16s ease,color .16s ease;
+}
+body[data-studio-page="editor"]:not(.nsfw-active) :is(.preview-controls button,.preview-header button):active{
+  transform:scale(.97);
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page]:not(.nsfw-active) :is(.map-brand,.branding .logo,.web-logo-heading,.brands-brand,.chat-brand):hover img,
+ body[data-studio-page="projects"]:not(.nsfw-active) .card:hover .card-art img:not([hidden]){transform:none;filter:none}
+ body[data-studio-page="projects"]:not(.nsfw-active) .project-context-panel{animation:none}
 }
