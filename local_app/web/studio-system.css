@@ -183,6 +183,12 @@ body[data-studio-page]:not(.nsfw-active)::after{
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .studio-nav-entry{
   gap:12px;transition:background-color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease;
 }
+/* All seven menu actions have a genuinely identical row box despite mixed
+   SVG / native emoji / text-only content; no optical wobble between rows. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation> :is(button,a){
+ box-sizing:border-box;width:100%;height:52px!important;min-height:52px;padding:0 12px!important;
+ align-items:center;justify-content:center;line-height:1.25;
+}
 body[data-studio-page="vision"]:not(.nsfw-active) #visionAdvancedToggle,
 body[data-studio-page="vision"]:not(.nsfw-active) #newConversation{
   background:linear-gradient(122deg,#16475a,#0f3545)!important;
