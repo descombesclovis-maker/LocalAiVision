@@ -2683,6 +2683,10 @@ class Handler(BaseHTTPRequestHandler):
                 parts = u.path[len("/web-preview/"):].split("/", 1)
                 project_id = web_builder.safe_id(parts[0])
                 rel = parts[1] if len(parts) > 1 and parts[1] else "index.html"
+                parts=Path(rel).parts
+                if any(part.startswith(".") or part in web_builder.PRIVATE_NAMES or part in ("node_modules","supabase") for part in parts) or Path(rel).suffix.lower() in (".db",".sqlite",".pem",".key",".pfx"):
+                    self.send_json({"error":"Fichier privé."},403)
+                    return
                 base = _web_preview_root(project_id).resolve()
                 target = (base / web_builder.safe_rel(rel)).resolve()
                 if not target.is_relative_to(base) or not target.is_file():
