@@ -347,7 +347,7 @@ def _studio_activity_status():
             "jobs":web["jobs"],"media":media}
 
 
-def _web_start_generation(project_id, prompt):
+def _web_start_generation(project_id, prompt, original_prompt=None):
     store = _web_store()
     meta = store.meta(project_id)
     request = str(prompt or "").strip()
@@ -365,6 +365,7 @@ def _web_start_generation(project_id, prompt):
         if provider in ("codex", "claude"):
             from local_app import web_hybrid
             web_hybrid.select_coding_agent(provider, integrations_cli.coding_agent_status(provider))
+        store.remember_original_prompt(project_id, original_prompt)
         ticket = uuid.uuid4().hex
         _web_generation_jobs[project_id] = {
             "state": "running", "ticket": ticket,
@@ -2744,6 +2745,13 @@ class Handler(BaseHTTPRequestHandler):
             p = WEB / "service-worker.js"
             self.send_bytes(p.read_bytes(), "application/javascript; charset=utf-8")
             return
+        if u.path.startswith('/assets/presentation/') and u.path.endswith('.webp'):
+            from local_app.presentation_assets import photograph
+            try:
+                self.send_bytes(photograph(str(WEB), u.path.rsplit('/', 1)[-1]), 'image/webp')
+            except (FileNotFoundError, ValueError):
+                self.send_response(404); self.end_headers()
+            return
         if u.path == "/" or u.path.startswith("/assets/"):
             rel = "index.html" if u.path=="/" else u.path[len("/assets/"):]
             p = (WEB / rel).resolve()
@@ -3253,7 +3261,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/web/generate/start":
             try:
-                self.send_json(_web_start_generation(body.get("id"),body.get("prompt")))
+                self.send_json(_web_start_generation(body.get("id"),body.get("prompt"),body.get("original_prompt")))
             except Exception as exc:
                 self.send_json({"error":str(exc)},400)
             return
