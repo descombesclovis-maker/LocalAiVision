@@ -180,12 +180,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Copy-Item dist\LocalVisionAI.exe release\LocalVisionAI.exe
           Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
+          Copy-Item OUVRIR_DANS_NAVIGATEUR.bat release\OUVRIR_DANS_NAVIGATEUR.bat
           Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
           Compress-Archive -Path release\* -DestinationPath LocalVisionAI-Windows.zip -Force
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path LocalVisionAI-Windows.zip))
           try {
-            foreach ($required in @('LocalVisionAI.exe','ACTIVER_ACCES_TELEPHONE.bat','MOBILE_SETUP.md')) {
+            foreach ($required in @('LocalVisionAI.exe','ACTIVER_ACCES_TELEPHONE.bat','OUVRIR_DANS_NAVIGATEUR.bat','MOBILE_SETUP.md')) {
               $entry = $archive.GetEntry($required)
               if (-not $entry -or $entry.Length -le 0) { throw "Missing or empty package entry: $required" }
             }
