@@ -53,9 +53,11 @@ def eligible(row):
     Missing site data must still be labelled 'not listed', not 'no site'.
     Unknown company size is tolerated and must not be declared verified.
     """
+    return directory_eligible(row) and not (row.get("website") or row.get("website_recorded"))
+
+def directory_eligible(row):
+    """Independent establishments shown on the map, regardless of website."""
     if not isinstance(row,dict) or not row.get("name"):
-        return False
-    if row.get("website") or row.get("website_recorded"):
         return False
     # OSM 'network' and a different 'brand' normally identify a network
     # outlet even when the brand is not in our known-chain catalogue.

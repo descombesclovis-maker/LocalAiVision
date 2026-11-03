@@ -47,7 +47,7 @@ def save(rows):
     now=time.time()
     for row in rows or []:
         if (not isinstance(row,dict) or not row.get("id") or
-                not web_prospect_filter.eligible(row)):
+                not web_prospect_filter.directory_eligible(row)):
             continue
         try:
             lat,lon=float(row["lat"]),float(row["lon"])
@@ -88,9 +88,9 @@ def browse(limit=12000, south=40.8,west=-6.2,north=52,east=10.3):
     # Old local databases can still include chains / sites: filter at read
     # time, too, instead of requiring users to delete their saved leads.
     results=[row for (raw,) in records if (row:=json.loads(raw))
-             and web_prospect_filter.eligible(row)]
+             and web_prospect_filter.directory_eligible(row)]
     total=sum(1 for (raw,) in all_records if
-              web_prospect_filter.eligible(json.loads(raw)))
+              web_prospect_filter.directory_eligible(json.loads(raw)))
     return {"results":results[:limit],"count":total,"partial":len(results)>limit,
             "source":"Annuaire français + OpenStreetMap, index local",
             "website_verified":False}
@@ -105,7 +105,7 @@ def find(identifier):
     if not value:
         raise ValueError("Cette entreprise n'est plus dans l'index local.")
     source=json.loads(value[0])
-    if not web_prospect_filter.eligible(source):
+    if not web_prospect_filter.directory_eligible(source):
         raise ValueError("Cette entreprise ne correspond plus aux critères de prospection.")
     from local_app import web_business_map
     provider=("french_registry" if "data.gouv" in str(source.get("source",""))

@@ -8,7 +8,7 @@ const chat=document.getElementById('chat'),messages=document.getElementById('mes
 if(!area||!chat||!messages)return;
 const viewer=document.createElement('aside');viewer.className='qcm-vision-viewer';viewer.id='qcmVisionViewer';
 viewer.setAttribute('aria-label','Aperçu des créations dans la discussion');
-viewer.innerHTML='<header><span><i aria-hidden="true"></i> APERÇU LIVE</span><strong id="qcmVisionKind">Prêt à créer</strong></header><div class="qcm-vision-stage" id="qcmVisionStage"><div class="qcm-vision-placeholder"><div class="qcm-vision-lens" aria-hidden="true"><span></span><span></span><span></span></div><strong>Votre vision, en grand.</strong><p>Les résultats de votre conversation apparaissent ici dès leur disponibilité.</p></div></div><footer id="qcmVisionActions" hidden><a id="qcmVisionOpen" target="_blank" rel="noopener noreferrer">↗ Ouvrir</a><a id="qcmVisionDownload" download>↓ Télécharger</a></footer>';
+viewer.innerHTML='<header><span><i aria-hidden="true"></i> APERÇU LIVE</span><strong id="qcmVisionKind">Prêt à créer</strong></header><div class="qcm-vision-stage" id="qcmVisionStage"><div class="qcm-vision-placeholder"><span class="preview-light" aria-hidden="true"></span><strong>Votre vision, en grand.</strong><p>Les résultats de votre conversation apparaissent ici dès leur disponibilité.</p></div></div><footer id="qcmVisionActions" hidden><a id="qcmVisionOpen" target="_blank" rel="noopener noreferrer">↗ Ouvrir</a><a id="qcmVisionDownload" download>↓ Télécharger</a></footer>';
 area.append(viewer);
 const stage=viewer.querySelector('#qcmVisionStage'),actions=viewer.querySelector('#qcmVisionActions');
 const heading=viewer.querySelector('#qcmVisionKind'),open=viewer.querySelector('#qcmVisionOpen'),download=viewer.querySelector('#qcmVisionDownload');
@@ -16,7 +16,15 @@ const empty=stage.firstElementChild;
 let lastSrc='',lastType='';
 const isAdult=()=>document.body.classList.contains('nsfw-active');
 function clear(){lastSrc='';lastType='';stage.replaceChildren(empty);actions.hidden=true;heading.textContent='Prêt à créer';open.removeAttribute('href');download.removeAttribute('href')}
+const header=document.querySelector('.topbar-actions');
+const menu=document.querySelector('.studio-navigation');
+const secondary=[...header.children].filter(node=>node.id!=='nsfwGalleryToggle');
+function arrangeMenu(){
+ const parent=isAdult()?header:menu;
+ if(secondary[0].parentElement!==parent)parent.append(...secondary);
+}
 function update(){
+ arrangeMenu();
  if(isAdult()){viewer.hidden=true;clear();return}
  viewer.hidden=false;
  const items=[...messages.querySelectorAll('.generation-frame .result-media')];
@@ -44,10 +52,16 @@ update();
 const welcome=document.getElementById('welcome');
 if(welcome){
  const modes=document.createElement('div');modes.className='qcm-vision-modes';
- const items=[['Photo','navPhoto','▧'],['Vidéo','navVideo','▣'],['Publicité','studioAdOpen','✦'],['Mes créations','navCreations','◇']];
+ const items=[['Photo','navPhoto','📷'],['Vidéo','navVideo','🎬'],['Publicité','studioAdOpen','⭐'],['Mes créations','navCreations','🎨']];
  for(const [label,target,glyph] of items){
+   const navGlyph=document.getElementById(target)?.querySelector('.nav-glyph');
+   if(navGlyph){
+     const publicIcon=document.createElement('span');publicIcon.className='public-mode-icon';
+     publicIcon.innerHTML=window.studioIconMarkup(glyph);
+     navGlyph.append(publicIcon);
+   }
    const b=document.createElement('button');b.type='button';b.dataset.qcmTarget=target;
-   b.innerHTML='<span aria-hidden="true">'+glyph+'</span><strong></strong><small>↗</small>';
+   b.innerHTML='<span aria-hidden="true">'+window.studioIconMarkup(glyph)+'</span><strong></strong><small>↗</small>';
    b.querySelector('strong').textContent=label;
    b.addEventListener('click',()=>{if(!isAdult())document.getElementById(target)?.click()});
    modes.append(b);

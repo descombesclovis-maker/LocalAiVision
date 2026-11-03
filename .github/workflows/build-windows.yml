@@ -7,6 +7,8 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   build:
@@ -138,6 +140,7 @@ jobs:
         run: python scripts/smoke_update_windows.py dist\\LocalVisionAI.exe
 
       - name: Optionally sign the EXE with an authentic Windows publisher certificate
+        if: github.ref == 'refs/heads/main'
         shell: powershell
         env:
           WINDOWS_SIGN_CERT_B64: ${{ secrets.WINDOWS_SIGN_CERT_B64 }}
@@ -184,6 +187,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish latest updater release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}

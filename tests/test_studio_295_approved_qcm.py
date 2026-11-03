@@ -30,7 +30,7 @@ class ApprovedQcmV1(TestCase):
 
     def test_new_assets_are_referenced_from_real_pages(self):
         mapping={
-          "localai-studio.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-home.js","qcm-orbit-center"],
+          "localai-studio.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-home.js","studio-scene"],
           "localaiweb.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-editor.js"],
           "localaiweb-projects.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-projects.js"],
           "localaiweb-map.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-map.js"],
@@ -48,7 +48,7 @@ class ApprovedQcmV1(TestCase):
         css=(WEB/"studio-qcm-v1.css").read_text(encoding="utf-8")
         home=(WEB/"localai-studio.html").read_text(encoding="utf-8")
         nav=(WEB/"studio-qcm-shell.js").read_text(encoding="utf-8")
-        self.assertIn("qcm-orbit-center",css)
+        self.assertNotIn("qcm-orbit-center",home)
         self.assertIn("@keyframes qcm-orbit-float",css)
         self.assertIn("prefers-reduced-motion",css)
         self.assertIn("href=\"/localaiweb\"",home)

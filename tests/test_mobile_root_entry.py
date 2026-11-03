@@ -50,8 +50,8 @@ class MobileRootEntryTests(unittest.TestCase):
 
     def test_homepage_button_is_real_accessible_link(self):
         html = (WEB / "index.html").read_text(encoding="utf-8")
-        self.assertIn('id="localAiWebEntry"', html)
-        self.assertIn('class="localaiweb-entry" href="/localaiweb"', html)
+        self.assertNotIn('id="localAiWebEntry"', html)
+        self.assertIn('href="/localaiweb"', (WEB / 'localai-studio.html').read_text())
         self.assertIn('src="/assets/pwa-install.js"', html)
 
     def test_mobile_hub_displays_real_pc_build_and_pending_update(self):

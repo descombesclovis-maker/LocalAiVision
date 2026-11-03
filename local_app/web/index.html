@@ -66,7 +66,7 @@
   </div>
   <main class="main">
     <div class="main-topbar">
-      <button class="open-sidebar" id="openSidebar" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
+      <button class="open-sidebar" id="openSidebar" aria-controls="sidebar" aria-expanded="false" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
       <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
       <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
       <div class="topbar-actions"><button type="button" id="nsfwGalleryToggle" class="topbar-action" hidden aria-label="Afficher les créations de l’espace adulte">Créations</button><a href="/studio" class="topbar-action studio-universe-link" title="Changer d’univers">◈ <span>Univers</span></a>
@@ -80,7 +80,7 @@
       <div id="chat" class="chat">
         <div id="welcome" class="welcome" aria-label="Accueil LocalAiVision">
           <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-vision.svg" alt="" width="66" height="66"><h1>LocalAiVision</h1><p>Décris ton image, ta vidéo ou ta publicité. Je choisis le moteur et les paramètres adaptés.</p></div>
-          <div class="welcome-actions"><a id="localAiWebEntry" class="localaiweb-entry" href="/localaiweb"><img src="/assets/brand-web.svg" alt=""><span>Accéder à LocalAiWeb</span><span aria-hidden="true">↗</span></a></div>
+
         </div>
         <div id="messages" class="messages"></div>
       </div>
@@ -198,7 +198,7 @@
           <div class="composer-row">
             <div class="left-tools">
               <button id="nsfwLoraGear" class="composer-tool nsfw-lora-gear" type="button" title="LoRA HunyuanVideo 1.5" aria-label="Ouvrir les LoRA et modèles de cet espace"><span>⚙</span><small>LoRA</small></button>
-              <button id="composerImageBtn" class="composer-tool" type="button" aria-label="Ajouter une image" title="Ajouter une image pour I2V"><span>＋</span><small>Image</small></button>
+              <button id="composerImageBtn" class="composer-tool" type="button" aria-label="Ajouter une image" title="Ajouter une image pour I2V"><span>+</span><small>Image</small></button>
               <button id="settingsBtn" class="composer-tool settings-button" type="button" aria-label="Ouvrir les réglages" title="Réglages"><span>⌘</span><small>Réglages</small></button>
             </div>
             <button id="send" class="send send-modern" aria-label="Envoyer le message ou démarrer la génération" title="Envoyer (Entrée)"><span class="send-icon" aria-hidden="true">➤</span><span class="send-label">Envoyer</span></button>

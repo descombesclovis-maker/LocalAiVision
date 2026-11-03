@@ -4,6 +4,14 @@
 
 Objectif : permettre la correction et le peaufinage élément par élément, bouton par bouton. Un choix marqué « à réaliser » n'est pas déclaré prêt. L'interface NSFW reste inchangée. Les projets existants ne sont jamais effacés. Chaque bouton visible doit déclencher une action réelle ; sinon il reste absent.
 
+## Recette de la branche 296
+
+Le dossier `docs/qa296` contient les captures comparatives du Build 295 et de cette branche aux cinq dimensions demandées, ainsi que l’aperçu public Vision. La préférence de réduction des animations persiste après rechargement dans Chromium. Les boutons de conversation existants sont accessibles dans le menu Vision. Le bouton + ouvre le sélecteur de fichier I2V. À 1365 × 768, les deux cartes de même hauteur se terminent au-dessus du dock aux facteurs Chromium 1, 1,25 et 1,5. La suite Python couvre les commerces avec site, sans site renseigné et avec URL non exploitable, ainsi que la sélection quotidienne indépendante du filtre d’affichage.
+
+La revue #54 ajoute le scénario reproductible de la carte, la trace de mouvement et les comparaisons UHD dans [le rapport de recette](qa296/REVUE_54.md).
+
+Les 261 réponses originales sont conservées. Le contrôle visuel Windows aux différents DPI, la cadence sur RTX 3060, la génération avec ComfyUI, la session Codex locale et les API Google configurées restent à vérifier sur une installation équipée.
+
 ## Contrat partagé de tout composant
 - **Placement :** choix QCM ci-dessous ; sur ordinateur, tablette et mobile, sans chevauchement avec chat, clavier virtuel, carte, navigateur et dock.
 - **État :** normal, survol, focus, sélectionné, désactivé, chargement, erreur, terminé ; tooltips accessibles ; animations allégées sur mobile et supprimables via reduced-motion.
@@ -50,7 +58,7 @@ LocalAI Intelligence : agents direction artistique → code → inspection navig
 
 | Choix stable | Valeur approuvée | Comportement / résultat contrôlable | État technique du premier cycle |
 |---|---|---|---|
-| `home_macro` | Menu radial / orbites | Deux grands univers cliquables disposés autour d'un noyau central orbital. Web en premier ; sur petit écran, empilement Web → marque → Vision, sans collision. | Conservé ou planifié — non certifié |
+| `home_macro` | Menu radial / orbites | Issue #52 : deux cartes sans noyau orbital, Web puis Vision sur mobile. | Vérifié dans Chromium aux cinq résolutions demandées |
 | `home_first` | LocalAiWeb | Construire le composant fonctionnel selon « LocalAiWeb », placer l'action dans son emplacement validé et préserver les routes/états de la page déjà existante. | Intégré partiellement — QA requise |
 | `home_title` | Centré au-dessus des cartes | Construire le composant fonctionnel selon « Centré au-dessus des cartes », placer l'action dans son emplacement validé et préserver les routes/états de la page déjà existante. | Intégré partiellement — QA requise |
 | `home_card_art` | Mini interface 3D animée | Construire le composant fonctionnel selon « Mini interface 3D animée », placer l'action dans son emplacement validé et préserver les routes/états de la page déjà existante. | Intégré partiellement — QA requise |

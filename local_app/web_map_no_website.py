@@ -126,7 +126,7 @@ def _normalize(row):
         return None
     category=next((tags[t] for t in ("shop","craft","office","amenity","leisure","tourism")
                    if tags.get(t)), "entreprise")
-    if not web_prospect_filter.eligible({
+    if not web_prospect_filter.directory_eligible({
         "name":tags["name"],"website_recorded":bool(website_raw),
         "osm_category":category,"brand":tags.get("brand"),
         "operator":tags.get("operator"),"network":tags.get("network")
@@ -217,9 +217,9 @@ def _load(key, query, mode):
         seen.add(business["id"])
         items.append(business)
     result={"results":items,"mode":mode,"partial":True,
-            "website_status":"non_renseigne_osm",
+            "website_status":"selon_fiche",
             "website_verified":False,
-            "notice":"Petits commerces sans site renseigné dans OSM (absence non confirmée). Enseignes nationales écartées ; données partielles.",
+            "notice":"Statut du site selon les renseignements disponibles dans OSM (absence non confirmée). Enseignes nationales écartées ; données partielles.",
             "source":"OpenStreetMap / Overpass","cached":False,"offline":source_offline}
     with LOCK:
         if len(CACHE)>70:CACHE.clear()

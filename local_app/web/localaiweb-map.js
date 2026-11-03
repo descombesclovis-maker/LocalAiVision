@@ -5,7 +5,7 @@
 (()=>{
  'use strict';
  const $=id=>document.getElementById(id);
- const info=$('mapFeedbackText'),reload=$('mapReload'),panel=$('mapSelection'),btn=$('mapCreate');
+ const panel=$('mapSelection'),btn=$('mapCreate');
  let map,selected=null,creating=false,loading=false;
  let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
  const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)');
@@ -13,7 +13,9 @@
  const siteFilter=$('qcmWebsiteFilter');
  let websiteFilter='all';
  const matchesWebsite=item=>websiteFilter==='all'||(websiteFilter==='missing'?!item.website&&!item.website_recorded:!!(item.website||item.website_recorded));
- siteFilter?.addEventListener('change',()=>{websiteFilter=siteFilter.value;scheduleRedraw()});
+ siteFilter?.addEventListener('change',()=>{websiteFilter=siteFilter.value;
+   if(selected&&!matchesWebsite(selected)){selected=null;panel.hidden=true}
+   map?.closePopup();scheduleRedraw()});
  const prospectDrawer=$('dailyProspects'),prospectToggle=$('dailyProspectsToggle');
  function setProspectsOpen(open){
    if(!prospectDrawer||!prospectToggle)return;
@@ -25,7 +27,6 @@
    setProspectsOpen(!mobile.matches);
    prospectToggle.addEventListener('click',()=>setProspectsOpen(prospectDrawer.dataset.collapsed==='true'));
  }
- $('mapRetryLibrary')?.addEventListener('click',()=>location.reload());
  // Pinned Leaflet release from two trusted independent CDNs.
  let leafletLoad=null;
  async function ensureLeaflet(){
@@ -59,7 +60,7 @@
    })();
    return leafletLoad;
  }
- const setStatus=message=>{info.textContent=message};
+ const setStatus=message=>{console.debug('[Carte]',message)};
  const element=(tag,cls,value)=>{
    const item=document.createElement(tag);
    if(cls)item.className=cls;
@@ -359,7 +360,7 @@
    for(const item of records||[]){
      if(!item||item.kind==='location'||item.prospect_eligible===false||!item.id||
         !Number.isFinite(item.lat)||!Number.isFinite(item.lon))continue;
-     if(businesses.has(item.id))continue;
+     if(businesses.has(item.id)){businesses.set(item.id,item);scheduleRedraw();continue}
      if(businesses.size>=MAX_STORED)break;
      businesses.set(item.id,item);count++;
    }
@@ -385,7 +386,7 @@
      overviewTimer=setTimeout(()=>overview(batch),12000);return;
    }
    if(loading){overviewTimer=setTimeout(()=>overview(batch),700);return}
-   loading=true;reload.hidden=true;nextOverviewBatch=batch;
+   loading=true;nextOverviewBatch=batch;
    setStatus('Chargement de la France · zone '+(batch+1)+' · '+countLabel());
    try{
      const response=await api('/api/web/map/no-website/france?batch='+encodeURIComponent(batch));
@@ -397,11 +398,11 @@
        // Respect the official directory's fair-use limits; datasets are cached.
        overviewTimer=setTimeout(()=>overview(response.next_batch),3600);
      }else if(businesses.size===0){
-       reload.hidden=false;
+
        setStatus('Aucune entreprise disponible pour le moment. Réessaie avec une connexion Internet.');
      }
    }catch(err){
-     reload.hidden=false;nextOverviewBatch=batch;
+     nextOverviewBatch=batch;
      setStatus('Annuaire des entreprises temporairement indisponible : '+
        err.message+'. Tu peux réessayer ou consulter les points déjà chargés.');
    }finally{
@@ -457,10 +458,6 @@
    clearTimeout(pending);
    if(map.getZoom()>=8)pending=setTimeout(nearby,750);
  }
- reload.addEventListener('click',()=>{
-   if(!map){location.reload();return}
-   if(!loading)overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0)
- });
  $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){panel.hidden=true;selected=null}});
  btn.addEventListener('click',async()=>{
@@ -490,7 +487,7 @@
        new Promise((_,reject)=>setTimeout(()=>reject(Error('Configuration de carte trop lente')),6000))
      ]);
      if(config.enabled && window.LocalAiWebGoogleMap){
-       const started=await window.LocalAiWebGoogleMap.start(config,details,setStatus,api);
+       const started=await window.LocalAiWebGoogleMap.start(config,details,setStatus,api,matchesWebsite);
        if(started){
          if(config.places_enabled&&siteFilter){
            siteFilter.disabled=true;
@@ -512,7 +509,7 @@
      await startPublicMap();
    }catch(error){
      $('mapUnavailable').hidden=false;
-     reload.hidden=false;
+
      setStatus('Impossible d’initialiser la carte : '+error.message);
    }
    void loadIndexed();
@@ -520,7 +517,7 @@
  async function startPublicMap(){
  if(!(await ensureLeaflet())){
    $('mapUnavailable').hidden=false;
-   reload.hidden=false;
+
    setStatus('Bibliothèque de carte indisponible. Les suggestions commerciales restent accessibles.');
    return;
  }

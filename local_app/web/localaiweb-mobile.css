@@ -91,7 +91,7 @@
     transform:none!important;max-width:calc(100% - 170px)!important;font-size:10px!important;}
   .daily-prospects {top:55px!important;max-height:124px;overflow:hidden;}
   .daily-prospect {min-width:160px!important;min-height:54px;}
-  .map-selection {top:auto!important;bottom:calc(9px + env(safe-area-inset-bottom))!important;
+  .map-selection {top:auto!important;bottom:calc(78px + env(safe-area-inset-bottom,0px))!important;
     max-height:min(77dvh,680px)!important;left:8px!important;right:8px!important;width:auto!important;
     display:flex;flex-direction:column;overflow:hidden!important;padding:0!important;
     border-radius:19px!important;}

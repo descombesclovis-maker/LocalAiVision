@@ -21,7 +21,7 @@ class GoogleMapsSmallCommerceTests(TestCase):
         self.assertIn("maps.googleapis.com/maps/api/js?",google)
         self.assertIn("featureType:'poi'",google)
         self.assertIn("google.maps.Map",google)
-        self.assertIn("/api/web/map/registry/city",google)
+        self.assertIn("/api/web/map/no-website/nearby",google)
         self.assertIn("/api/web/map/no-website/france",google)
         self.assertIn("/api/web/map/google/place",google)
         self.assertIn("event.placeId",google)

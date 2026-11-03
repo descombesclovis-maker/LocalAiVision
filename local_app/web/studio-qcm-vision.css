@@ -61,3 +61,21 @@ body[data-studio-page="vision"]:not(.nsfw-active) #welcome .welcome-visual{max-w
  .qcm-vision-lens{width:155px}
 }
 @media(prefers-reduced-motion:reduce){.qcm-vision-lens,.qcm-vision-modes button{animation:none!important;transition:none!important}}
+
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.composer,#prompt) {background:#101922!important;color:#eefaff!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .composer:focus-within {box-shadow:0 0 0 1px #67dedc99}
+body:not(.nsfw-active) #composerImageBtn {display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #71d3e3;border-radius:10px;color:#9af0ef}
+body:not(.nsfw-active) #composerImageBtn small {display:none}
+.preview-light {display:block;width:55%;margin:20px auto;height:1px;background:linear-gradient(90deg,transparent,#78ddda,transparent)}
+.studio-navigation .topbar-action {text-align:left;width:100%;justify-content:flex-start}
+.public-mode-icon {display:none}
+body:not(.nsfw-active) .nav-glyph:has(.public-mode-icon)>svg {display:none}
+body:not(.nsfw-active) .public-mode-icon {display:inline-grid;place-items:center}
+body[data-studio-page="vision"]:not(.nsfw-active) #openSidebar {display:grid;place-content:center;gap:4px;width:42px;height:42px;padding:0;background:#10232c;border:1px solid #467080;border-radius:12px}
+body[data-studio-page="vision"]:not(.nsfw-active) #openSidebar span {width:17px;height:2px;margin:0;background:#a8e1df}
+body[data-studio-page="vision"]:not(.nsfw-active) #openSidebar:hover {background:#193840;border-color:#8edcdb}
+body[data-studio-page="vision"]:not(.nsfw-active) #openSidebar:focus-visible {outline:2px solid #89f1e9;outline-offset:3px}
+body:not(.nsfw-active) #composerImageBtn>span {font:500 24px/1 system-ui;color:#9af0ef}
+body[data-studio-page="vision"]:not(.nsfw-active) .content {background:#0d141e!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn {background:#16313c;transition:background .18s,box-shadow .18s}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn:hover {background:#1b414d;box-shadow:0 0 12px #64e2ed33}

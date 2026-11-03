@@ -49,3 +49,27 @@ jobs:
         run: node --test tests/test_3d_quality.mjs
       - name: Test sent prompt context actions
         run: node --test tests/test_web_prompt_actions.mjs
+      - name: Verify Studio layout, attachment and map in Windows Edge
+        if: github.head_ref == 'codex/studio-296-4k-polish'
+        shell: pwsh
+        env:
+          LOCALVISIONAI_SKIP_SETUP: '1'
+        run: |
+          $qa = Join-Path $env:RUNNER_TEMP studio-review
+          npm install --prefix $qa --no-audit --no-fund playwright-core@1.58.2 leaflet@1.9.4
+          if ($LASTEXITCODE) {exit $LASTEXITCODE}
+          $env:NODE_PATH = Join-Path $qa node_modules
+          $env:QA_OUTPUT = Join-Path $qa evidence
+          $server = Start-Process python -ArgumentList '-m','local_app.server' -PassThru
+          try {
+            for ($i=0; $i -lt 30; $i++) {
+              try {Invoke-RestMethod http://127.0.0.1:3000/api/ping | Out-Null; break} catch {Start-Sleep 1}
+            }
+            node scripts/review_studio_54.cjs
+            exit $LASTEXITCODE
+          } finally {Stop-Process -Id $server.Id -ErrorAction SilentlyContinue}
+      - uses: actions/upload-artifact@v4
+        if: always() && github.head_ref == 'codex/studio-296-4k-polish'
+        with:
+          name: Studio-54-Windows-Edge
+          path: ${{ runner.temp }}/studio-review/evidence

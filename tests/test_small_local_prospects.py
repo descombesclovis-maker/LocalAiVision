@@ -57,8 +57,8 @@ class LocalSmallBusinessTests(unittest.TestCase):
                           json.dumps(old),time.time()))
                     db.commit()
                 result=index.browse()
-                self.assertEqual([x["id"] for x in result["results"]],["node/1"])
-                self.assertEqual(result["count"],1)
+                self.assertCountEqual([x["id"] for x in result["results"]],["node/1","node/3"])
+                self.assertEqual(result["count"],2)
                 self.assertEqual([x["id"] for x in index.daily(limit=5)["results"]],
                                  ["node/1"])
                 with self.assertRaisesRegex(ValueError,"critères"):

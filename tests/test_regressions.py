@@ -112,7 +112,7 @@ class SettingsUi(unittest.TestCase):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
         studio = (ROOT / 'local_app' / 'web' / 'localaiweb.html').read_text(encoding='utf-8')
         logic = (ROOT / 'local_app' / 'web' / 'localaiweb.js').read_text(encoding='utf-8')
-        self.assertIn('id="localAiWebEntry"', html)
+        self.assertNotIn('id="localAiWebEntry"', html)
         self.assertIn("window.location.href='/localaiweb'", (ROOT / 'local_app' / 'web' / 'app.js').read_text(encoding='utf-8'))
         for control in ('lawPreview','lawPreviewStage','lawChat','lawPrompt','lawGenerate','lawComposer'):
             self.assertIn(f'id="{control}"', studio)
