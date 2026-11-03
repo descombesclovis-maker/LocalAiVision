@@ -22,7 +22,7 @@ class Reconstruction313(unittest.TestCase):
             self.assertEqual(payload['project']['initial_generation']['status'],'brief_required')
             self.assertNotIn('address',reference)
             for file in Path(tmp).rglob('*.json'):
-                text=file.read_text()
+                text=file.read_text(encoding="utf-8")
                 for forbidden in ['Restricted Google name','Restricted address','0123456789','restricted.example']:
                     self.assertNotIn(forbidden,text)
             self.assertFalse(store.claim_initial_generation(payload['project']['id'])['ready'])
@@ -42,9 +42,9 @@ class Reconstruction313(unittest.TestCase):
             self.assertFalse(handler._sales_surface(denied),denied)
 
     def test_new_shared_style_excludes_reserved_workspace(self):
-        style=(ROOT/'local_app/web/studio-system.css').read_text()
+        style=(ROOT/'local_app/web/studio-system.css').read_text(encoding="utf-8")
         self.assertIn('body[data-studio-page]:not(.nsfw-active)',style)
-        vision=(ROOT/'local_app/web/studio-qcm-vision.js').read_text()
+        vision=(ROOT/'local_app/web/studio-qcm-vision.js').read_text(encoding="utf-8")
         self.assertIn("importButton.append(svg)",vision)
         self.assertIn("viewer.hidden=true;clear();return",vision)
 
