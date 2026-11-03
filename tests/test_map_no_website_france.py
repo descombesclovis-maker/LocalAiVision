@@ -128,7 +128,7 @@ class WebsiteProspectMapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             with patch.object(mapdata,"CACHE_DIR",Path(folder)):
                 with patch.object(mapdata,"_french_registry_near",self.real_french_registry):
-                    with patch("urllib.request.urlopen",return_value=BytesIO(
+                    with patch("urllib.request.urlopen",side_effect=lambda *args,**kwargs: BytesIO(
                          dumps({"results":[company]}).encode("utf-8"))):
                         result=mapdata.france_overview()
         self.assertEqual(result["source"],"API Recherche d'entreprises / data.gouv.fr")

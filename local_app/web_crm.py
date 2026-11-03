@@ -77,6 +77,15 @@ def _client_by_project(data,project_id):
     return next((c for c in data["clients"] if project_id and project_id in c.get("project_ids",[])),None)
 
 
+def professional_phone(value):
+    raw=re.sub(r"[\s().-]","",str(value or ""))
+    if raw.startswith("0033"):
+        raw="+"+raw[2:]
+    if re.fullmatch(r"0[1-9]\d{8}",raw):
+        raw="+33"+raw[1:]
+    return raw if re.fullmatch(r"\+\d{8,15}",raw) else ""
+
+
 def _upsert(data,store,body,*,auto=False):
     if not isinstance(body,dict):
         raise ValueError("Fiche client invalide.")
@@ -115,11 +124,15 @@ def _upsert(data,store,body,*,auto=False):
                 raise ValueError()
         except (TypeError,ValueError):
             raise ValueError("Date de relance invalide (AAAA-MM-JJ).") from None
+    phone=professional_phone(body.get("phone",(existing or {}).get("phone","")))
+    blocked=bool((existing or {}).get("do_not_contact") or ("tel:"+phone in data.get("sales_oppositions",[])))
+    if due and blocked:
+        raise ValueError("Ce client a exercé son droit d’opposition.")
     if existing is None:
         existing={"id":"client-"+uuid.uuid4().hex[:12],"created_at":time.time(),"project_ids":[]}
         data["clients"].append(existing)
     existing.update({
-        "name":name,"stage":stage,
+        "name":name,"stage":stage,"do_not_contact":blocked,
         "email":email,"phone":_field(body.get("phone",(existing or {}).get("phone","")),35),
         "address":_field(body.get("address",(existing or {}).get("address","")),250),
         "siret":siret,
@@ -130,7 +143,7 @@ def _upsert(data,store,body,*,auto=False):
     })
     if project_id and project_id not in existing["project_ids"]:
         existing["project_ids"].append(project_id)
-    if auto:existing["source"]="OpenStreetMap · présence de site non confirmée"
+
     return existing
 
 
@@ -155,6 +168,8 @@ def attach_business_project(root,store,project_id,business):
             "address":business.get("address") or "",
             "stage":"prospect"
         },auto=True)
+        profile["source"]=str(business.get("source") or "Source non renseignée")[:150]
+        profile["source_date"]=time.time()
         _write(root,data)
         return dict(profile)
 
@@ -232,7 +247,7 @@ def create_quote(root,store,request):
     project_id=str(request.get("project_id") or "")
     _valid_project(store,project_id)
     parties=sales.validate_parties(request.get("seller"),request.get("customer"))
-    available={row["id"]:row for row in sales.estimate(store,project_id)["items"]}
+    available={row["id"]:row for row in sales.estimate(store,project_id,request.get("discount_pct",30))["items"]}
     ids=list(dict.fromkeys(request.get("items") or []))
     if not ids or any(x not in available for x in ids):
         raise ValueError("Sélectionne des prestations réellement identifiées dans le projet.")
@@ -262,6 +277,8 @@ def create_quote(root,store,request):
         number=f"DEV-{today.year}-{count:05d}"
         record={"quote_number":number,"project_id":project_id,"client_id":client["id"],
                 "project_name":store.meta(project_id).get("name",""),
+                "scope":_field(request.get("scope"),900),"recurring":_field(request.get("recurring"),600),
+                "discount_pct":request.get("discount_pct",30),
                 "issued_at":today.isoformat(),"valid_until":(today+timedelta(days=days)).isoformat(),
                 "seller":parties["seller"],"customer":parties["customer"],"items":lines,
                 "subtotal_eur":str(sales.money(subtotal)),"vat_eur":str(vat),
@@ -304,7 +321,7 @@ def register_invoice(root,store,result):
         client=_upsert(data,store,{"project_id":project_id,
             "name":customer.get("name"),"email":customer.get("email"),
             "address":customer.get("address"),"siret":customer.get("siret"),
-            "stage":"delivered"})
+            })
         data["invoices"].append({
             "invoice_number":record["invoice_number"],"client_id":client["id"],
             "project_id":project_id,"total_eur":record.get("total_eur"),
@@ -372,5 +389,14 @@ def quote_pdf(data):
     show(48,y,"Projet concerne : "+data["project_name"],9)
     pdf.setFillColor(colors.HexColor("#58318b"));pdf.rect(0,0,w,38,fill=1,stroke=0)
     show(48,14,"LocalAiWeb Pro  |  Aucun paiement ou envoi automatique",8,color="#ffffff")
+    if data.get("scope") or data.get("recurring"):
+        import textwrap
+        pdf.showPage()
+        y=h-62
+        for title,value in (("Périmètre convenu",data.get("scope")),("Frais récurrents et exclusions",data.get("recurring"))):
+            show(48,y,title,13,True);y-=25
+            for line in textwrap.wrap(value or "À préciser.",width=78):
+                show(48,y,line);y-=17
+            y-=18
     pdf.save()
     return out.getvalue()

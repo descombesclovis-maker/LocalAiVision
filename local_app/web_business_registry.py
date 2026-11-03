@@ -139,7 +139,7 @@ def professional_profile(business):
     if not re.fullmatch(r"\d{9}",siren):
         return {"matched":False,"message":"Identifiant légal non validé."}
     result={
-      "matched":True,"legal_name":clean(entry.get("nom_complet"),100),
+      "matched":True,"checked_at":time.time(),"legal_name":clean(entry.get("nom_complet"),100),
       "siren":siren,"naf":clean(entry.get("activite_principale"),20),
       "created":clean(entry.get("date_creation"),20),
       "legal_status":clean(entry.get("nature_juridique"),30),

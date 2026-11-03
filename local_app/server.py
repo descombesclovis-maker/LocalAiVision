@@ -9,6 +9,11 @@ try:
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
+from local_app import web_sales_orders
+web_sales_orders.isolate_config()
+_sales_attempts = []
+_sales_attempt_lock = threading.Lock()
+
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 DATA = Path(os.environ.get("LOCALVISIONAI_DATA", str(Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "LocalVisionAI")))
 WEB = ROOT / "local_app" / "web"
@@ -112,6 +117,99 @@ def _web_generation_status(project_id):
     except (OSError, ValueError):
         result["preview_ready"] = False
     return result
+
+def _sales_ready(meta, generation):
+    quality=meta.get("last_agent_quality") or {}
+    finished=(generation["state"]=="done" or
+              (generation["state"]=="idle" and bool(quality or
+               (meta.get("initial_generation") or {}).get("status")=="completed")))
+    return bool(generation.get("preview_ready") and finished and
+                quality.get("ok") is not False and quality.get("visual")!="failed")
+
+
+def _sales_dossier(pid, change=None):
+    from local_app import web_sales_pipeline
+    store = _web_store()
+    meta = store.meta(pid)
+    ready = _sales_ready(meta,_web_generation_status(pid))
+    files=store.text_files(pid) if ready else {}
+    revision=hashlib.sha256(json.dumps(files,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+    pages = []
+    if ready:
+        base = _web_preview_root(pid)
+        for folder,dirs,names in os.walk(base,followlinks=False):
+            dirs[:]=sorted(d for d in dirs if not d.startswith(".") and d!="node_modules")
+            pages.extend((Path(folder)/n).relative_to(base).as_posix()
+                         for n in sorted(names) if n.endswith(".html") and
+                         not n.startswith(".") and not (Path(folder)/n).is_symlink())
+            if len(pages)>=100:
+                pages=pages[:100]
+                break
+    if change and change.get("action") == "handover":
+        from local_app import web_sales_orders, web_sales_delivery
+        root=LOCALAIWEB_DATA/"crm"
+        orders=web_sales_orders.status(root,pid)
+        if not ready or not store.preflight(pid)["ok"] or not integrations_cli.validate_site(store.project_dir(pid)/"site").get("ok"):
+            raise ValueError("Recette technique incomplète.")
+        if meta.get("project_kind")=="pro" and not any(o["mode"]=="live" and o["payment"]=="paid" for o in orders):
+            raise ValueError("Aucun règlement réel vérifié pour ce dossier.")
+        if change.get("confirmed") is not True:
+            raise ValueError("Remise au client à confirmer.")
+        current=web_sales_pipeline.dossier(root,store,pid,ready,pages,revision=revision)
+        if current["release"] and current["release"].get("revision")!=revision:
+            raise ValueError("Le site a changé depuis la publication. Refaire la recette.")
+        if meta.get("project_kind")=="pro" and not current["release"]:
+            raise ValueError("Publication de cette version à vérifier dans le dossier.")
+        change={"action":"verified_handover","evidence":web_sales_delivery.verify(store,pid)}
+    elif change and change.get("action")=="verified_handover":
+        raise ValueError("Action interne.")
+    if change and change.get("action") == "generate_pitch":
+        if not ready:
+            raise ValueError("Maquette non prête.")
+        ranks = web_sales_pipeline.rank_pages(meta, pages)
+        change = {"action":"save_pitch", "page_order":ranks}
+    elif change and change.get("action") == "refresh_registry":
+        from local_app import web_business_registry
+        if not ready:
+            raise ValueError("Maquette non prête.")
+        b=meta.get("business") or {}
+        profile=web_business_registry.professional_profile(b)
+        result={k:v for k,v in profile.items() if k in ("matched","legal_name","siren","naf","source","message","checked_at")}
+        siret=str(b.get("siret") or "")
+        if siret and not siret.startswith(str(result.get("siren") or "-")):
+            result={"matched":False,"message":"Les identifiants d’établissement ne concordent pas."}
+        change={"action":"registry_result","registry":result}
+    elif change and change.get("action") in ("save_pitch","registry_result"):
+        raise ValueError("Action interne.")
+    root = LOCALAIWEB_DATA/"crm"
+    result = web_sales_pipeline.dossier(root, store, pid, ready, pages, change, revision)
+    from local_app import web_sales_orders
+    from local_app import web_call_sheet
+    result["call_sheet"] = web_call_sheet.script(result,_web_preview_root(pid))
+    result["orders"] = web_sales_orders.status(root,pid)
+    from local_app import web_sales_registrar
+    markup=" ".join(v.lower() for k,v in files.items() if k.endswith((".html",".jsx",".tsx",".js",".ts")))
+    result["service_needs"]=["Hébergement et HTTPS à vérifier"]
+    if "<form" in markup:
+        result["service_needs"].append("Formulaire détecté : tester son traitement et sa destination")
+    if "supabase" in markup:
+        result["service_needs"].append("Supabase référencé : vérifier migrations, permissions et sauvegardes")
+    if "stripe" in markup or "checkout" in markup:
+        result["service_needs"].append("Paiement du site à tester chez le prestataire")
+    result["registration"] = web_sales_registrar.details(root,pid)
+    result["provider_mode"] = web_sales_orders._mode()
+    if result["provider_mode"]=="live":
+        if result["orders"]:
+            payment=result["orders"][-1]["payment"]
+            result["stage"]={"unpaid":"accepted","pending":"payment_pending","paid":"paid"}.get(payment,payment)
+        if result["registration"] and result["stage"]=="paid":
+            result["stage"]="domain_"+result["registration"]["state"]
+        if result["release"] and result["release"].get("revision")==revision:
+            result["stage"]="published"
+        if result["delivery"]:
+            result["stage"]="handover_complete"
+    return result
+
 
 def _web_active_generations():
     """Small, accurate cross-workspace generation summary.
@@ -2037,6 +2135,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.send_response(status)
             self.send_header("Content-Type",content_type)
+            if self._sales_host()=="ventes.localhost":
+                self.send_header("Content-Security-Policy","frame-ancestors 'none'; object-src 'none'; base-uri 'none'; script-src 'self'")
+                self.send_header("Cross-Origin-Opener-Policy","same-origin")
+                self.send_header("X-Content-Type-Options","nosniff")
             if content_type.split(";")[0].strip() in (
                 "text/html", "text/css", "text/javascript",
                 "application/javascript", "application/manifest+json"
@@ -2050,8 +2152,36 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
             pass
 
+    def _sales_host(self):
+        return (getattr(self,"headers",{}) or {}).get("Host","").split(":")[0].lower()
+
+    def _sales_surface(self, path):
+        # Never serve generated HTML, scripts, service workers or previews on
+        # the origin that accepts the operator code. Preserve the editor's DOM inspector.
+        if self._sales_host()!="ventes.localhost":
+            return True
+        assets={"/assets/"+name for name in ("localaiweb-sales.js","localaiweb-sales.css",
+            "studio-suite.css","localaiweb-mobile.css","studio-ui-polish.css","studio-activity.css",
+            "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg")}
+        routes={"/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
+            "/api/web/project/pro/authorize","/api/web/vercel/publish","/api/web/domain/attach",
+            "/api/web/invoice/issue","/api/web/invoice/file","/api/web/crm/quote/create",
+            "/api/web/crm/quote/file","/api/studio/activity"}
+        if path in routes or path in assets or path.startswith("/api/web/sales/"):
+            return True
+        self.send_json({"error":"Route indisponible sur le dossier commercial."},403)
+        return False
+
     def do_GET(self):
         u = urlparse(self.path)
+        if not self._sales_surface(u.path):
+            return
+        if u.path=="/localaiweb/vente" and self._sales_host() in ("127.0.0.1","localhost"):
+            self.send_response(302)
+            self.send_header("Location",f"http://ventes.localhost:{self.server.server_port}/localaiweb/vente?"+u.query)
+            self.send_header("Cache-Control","no-store")
+            self.end_headers()
+            return
         # The same clear universe selector is served on PC and phone.
         # Keep the original LocalAiVision engine at a dedicated, stable URL.
         if u.path in ("/", "/studio") and parse_qs(u.query).get("studio", [""])[0] != "vision":
@@ -2406,6 +2536,41 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
+        if u.path == "/api/web/sales/ready":
+            try:
+                pid=parse_qs(u.query).get("id",[""])[0]
+                self.send_json({"ready":_sales_ready(_web_store().meta(pid),_web_generation_status(pid))})
+            except (ValueError,OSError,RuntimeError) as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/sales/call-sheet.pdf":
+            if self._sales_host() != "ventes.localhost":
+                self.send_json({"error":"Ouvrir la feuille depuis le dossier de vente local."},403)
+                return
+            try:
+                from local_app import web_call_sheet
+                pid=parse_qs(u.query).get("id",[""])[0]
+                desk=_sales_dossier(pid)
+                data=web_call_sheet.pdf(desk,desk["call_sheet"])
+                self.send_response(200)
+                self.send_header("Content-Type","application/pdf")
+                self.send_header("Content-Disposition",'inline; filename="Feuille-appel-'+pid+'.pdf"')
+                self.send_header("Cache-Control","no-store")
+                self.send_header("Content-Length",str(len(data)))
+                self.end_headers()
+                self._write_response(data)
+            except (ValueError,OSError,RuntimeError) as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == "/api/web/sales/dossier":
+            if self._sales_host() in ("127.0.0.1","localhost"):
+                self.send_json({"error":"Ouvrir le dossier sur son origine dédiée."},403)
+                return
+            try:
+                self.send_json(_sales_dossier(parse_qs(u.query).get("id", [""])[0]))
+            except (ValueError, OSError, RuntimeError) as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/web/sales/estimate":
             try:
                 from local_app import web_sales_invoice
@@ -2421,6 +2586,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not re.fullmatch(r"FORMA-\d{4}-\d{5}",number):
                     raise ValueError("Numéro de facture invalide.")
                 path=LOCALAIWEB_DATA/"invoices"/(number+".pdf")
+                if parse_qs(u.query).get("format")==["json"]:
+                    data=json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+                    self.send_json(data)
+                    return
                 if not path.is_file():raise FileNotFoundError("Facture introuvable.")
                 self.send_bytes(path.read_bytes(),"application/pdf")
             except Exception as exc:
@@ -2517,6 +2686,25 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_response(404); self.end_headers()
 
+    def _sales_operator(self, body):
+        import hmac
+        # Financial actions are restricted to the operator on the loopback app.
+        host=urlparse("//"+self.headers.get("Host","")).hostname
+        origin=self.headers.get("Origin","")
+        if (host!="ventes.localhost" or self.client_address[0] not in ("127.0.0.1","::1")
+            or self.headers.get("X-LocalAI-Sales")!="1"
+            or (origin and urlparse(origin).netloc.lower()!=self.headers.get("Host","").lower())):
+            raise ValueError("Action réservée au poste local.")
+        with _sales_attempt_lock:
+            now=time.monotonic()
+            _sales_attempts[:]=[v for v in _sales_attempts if now-v<60]
+            if len(_sales_attempts)>=20:
+                raise ValueError("Trop de demandes opérateur. Réessaie dans une minute.")
+            _sales_attempts.append(now)
+        secret=web_sales_orders.setting("LOCALAI_SALES_APPROVAL_CODE")
+        if len(secret)<16 or not hmac.compare_digest(secret.encode(),str(body.get("approval") or "").encode()):
+            raise ValueError("Code opérateur requis (LOCALAI_SALES_APPROVAL_CODE).")
+
     def _authorized_update_request(self):
         """Require a same-origin application action, not a cross-site form."""
         origin = self.headers.get("Origin", "")
@@ -2608,6 +2796,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         u=urlparse(self.path)
+        if not self._sales_surface(u.path):
+            return
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/loras/upload":
             self._upload_existing_lora()
@@ -2627,10 +2817,104 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/studio/media/start" and (length<0 or length>35_000_000):
             self.send_json({"error":"Image de référence trop volumineuse."},413)
             return
+        if u.path == "/api/web/sales/stripe/webhook":
+            if not 0 < length <= 512000:
+                self.send_json({"error":"Taille incorrecte."},400)
+                return
+            from local_app import web_sales_orders
+            try:
+                web_sales_orders.webhook(LOCALAIWEB_DATA/"crm", self.rfile.read(length),
+                                        self.headers.get("Stripe-Signature",""))
+                self.send_json({"received":True})
+            except (ValueError, KeyError, TypeError):
+                self.send_json({"error":"Événement Stripe refusé."},400)
+            except RuntimeError:
+                self.send_json({"error":"Rapprochement en attente."},503)
+            return
+        sales_action = u.path in ("/api/web/sales/action", "/api/web/sales/domain-search",
+                                  "/api/web/sales/sign", "/api/web/sales/verify", "/api/web/sales/checkout",
+                                  "/api/web/sales/domain-offer", "/api/web/sales/domain-buy", "/api/web/sales/domain-status",
+                                  "/api/web/sales/db-link", "/api/web/sales/db-plan", "/api/web/sales/db-apply")
+        if sales_action or u.path in ("/api/web/crm/quote/create","/api/web/invoice/issue"):
+            if self._sales_host() in ("127.0.0.1","localhost"):
+                self.send_json({"error":"Utilise le dossier de vente dédié."},403)
+                return
+            origin = self.headers.get("Origin", "")
+            if (self.headers.get("X-LocalAI-Sales") != "1" or
+                    self.headers.get("Sec-Fetch-Site") == "cross-site" or
+                    (origin and urlparse(origin).netloc.lower() != self.headers.get("Host", "").lower())):
+                self.send_json({"error":"Action commerciale non autorisée."}, 403)
+                return
+            if not 0 < length <= 16000:
+                self.send_json({"error":"Taille de requête incorrecte."}, 400)
+                return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if sales_action:
+            try:
+                if not isinstance(body, dict):
+                    raise ValueError("Requête invalide.")
+                if u.path in ("/api/web/sales/sign", "/api/web/sales/verify", "/api/web/sales/checkout",
+                                  "/api/web/sales/domain-offer", "/api/web/sales/domain-buy", "/api/web/sales/domain-status",
+                                  "/api/web/sales/db-link", "/api/web/sales/db-plan", "/api/web/sales/db-apply"):
+                    from local_app import web_sales_orders
+                    pid,number = body.get("id"),body.get("quote")
+                    _web_store().meta(pid)
+                    root = LOCALAIWEB_DATA/"crm"
+                    if body.get("confirmed") is not True:
+                        raise ValueError("Confirmation explicite requise.")
+                    self._sales_operator(body)
+                    if "/db-" in u.path:
+                        from local_app import web_sales_delivery
+                        store=_web_store()
+                        reference=body.get("reference")
+                        if not re.fullmatch(r"[a-z0-9]{20}",str(reference or "")):
+                            raise ValueError("Référence Supabase non valide.")
+                        if u.path.endswith("db-link"):
+                            site=store.project_dir(pid)/"site"
+                            if not list((site/"supabase"/"migrations").glob("*.sql")):
+                                raise ValueError("Aucune migration prévue pour ce projet.")
+                            self.send_json(integrations_cli.supabase_link(site,reference))
+                        else:
+                            apply=u.path.endswith("db-apply")
+                            if apply and not body.get("digest"):
+                                raise ValueError("Préparer les migrations avant application.")
+                            self.send_json(web_sales_delivery.database_change(store,pid,reference,
+                                             body.get("digest") if apply else None))
+                        return
+                    if "/domain-" in u.path:
+                        from local_app import web_sales_registrar as registrar
+                        if u.path.endswith("domain-offer"):
+                            result,_ = registrar.prepare(root,_web_store(),pid,number)
+                        elif u.path.endswith("domain-buy"):
+                            result = registrar.buy(root,_web_store(),pid,number,body.get("offer"))
+                        else:
+                            result = registrar.details(root,pid,refresh=True,recovery=body.get("recovery"))
+                        self.send_json(result or {})
+                        return
+                    if u.path.endswith("/sign"):
+                        current=_sales_dossier(pid)
+                        if current["opposed"] or not current["ready"]:
+                            raise ValueError("Envoi bloqué : opposition ou maquette non prête.")
+                        web_sales_orders.signature_request(root,pid,number)
+                    elif u.path.endswith("/verify"):
+                        web_sales_orders.verify_acceptance(root,pid,number,body.get("recovery"))
+                    else:
+                        web_sales_orders.checkout(root,pid,number,body.get("recovery"))
+                    self.send_json(_sales_dossier(pid))
+                elif u.path.endswith("domain-search"):
+                    from local_app import web_sales_pipeline
+                    _web_store().meta(body.get("id"))
+                    self.send_json(web_sales_pipeline.registrar_search(body.get("domain")))
+                else:
+                    if body.get("action")=="handover":
+                        self._sales_operator(body)
+                    self.send_json(_sales_dossier(body.get("id"), body))
+            except (ValueError, OSError, RuntimeError, KeyError, TypeError) as exc:
+                self.send_json({"error":str(exc)}, 400)
+            return
         if u.path == "/api/update/draft":
             if body.get("active") is True:
                 with _auto_update_active_lock:
@@ -2787,6 +3071,13 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/web/invoice/issue":
             try:
                 from local_app import web_sales_invoice
+                number=body.get("quote_number")
+                proposal=None
+                if number:
+                    from local_app import web_sales_orders
+                    proposal=web_sales_orders._quote(LOCALAIWEB_DATA/"crm",body.get("id"),number)
+                    body.update(seller=proposal["seller"],customer=proposal["customer"],
+                                items=[x["id"] for x in proposal["items"]],discount_pct=proposal.get("discount_pct",30))
                 result=web_sales_invoice.issue(
                     _web_store(),body.get("id"),
                     LOCALAIWEB_DATA/"invoices",
@@ -2794,7 +3085,7 @@ class Handler(BaseHTTPRequestHandler):
                     body.get("items") or [],
                     accepted=body.get("accepted") is True,
                     service_date=body.get("service_date") or "",
-                    due_days=body.get("due_days",30))
+                    due_days=body.get("due_days",30), discount_pct=body.get("discount_pct",30), quote_number=number, quote_items=proposal["items"] if proposal else None)
                 try:
                     from local_app import web_crm
                     web_crm.register_invoice(LOCALAIWEB_DATA/"crm",_web_store(),result)
@@ -2814,6 +3105,8 @@ class Handler(BaseHTTPRequestHandler):
                 if meta.get("project_kind")=="pro" and not meta.get("business_authorized"):
                     raise ValueError("Domaine officiel interdit avant autorisation de l'entreprise.")
                 site=store.project_dir(pid)/"site"
+                if meta.get("project_kind")=="pro":
+                    self._sales_operator(body)
                 domain=integrations_cli.vercel_attach_purchased_domain(
                     site,body.get("domain"),body.get("vercel_project"))
                 store.update_deployment(pid,{"custom_domain":domain["domain"],
@@ -3065,6 +3358,22 @@ class Handler(BaseHTTPRequestHandler):
                 if (store.meta(project_id).get("project_kind") == "pro" and
                         not store.meta(project_id).get("business_authorized")):
                     raise ValueError("Publication Pro interdite sans autorisation de l'entreprise confirmée.")
+                if store.meta(project_id).get("project_kind") == "pro":
+                    if (body.get("publication_confirmed") is not True or
+                            self.headers.get("X-LocalAI-Sales") != "1" or
+                            (self.headers.get("Origin") and urlparse(self.headers["Origin"]).netloc != self.headers.get("Host"))):
+                        raise ValueError("Confirme cette publication depuis le dossier de vente.")
+                    self._sales_operator(body)
+                    desk=_sales_dossier(project_id)
+                    if not any(o["mode"]=="live" and o["payment"]=="paid" and o["quote"]==body.get("quote_number") for o in desk["orders"]):
+                        raise ValueError("Accord et règlement réels du dossier requis avant publication officielle.")
+                    if not (store.project_dir(project_id)/"site"/".vercel"/"project.json").is_file():
+                        raise ValueError("Relier le site au projet Vercel du client avant publication.")
+
+                    if (body.get("revision")!=desk["revision"] or not desk["ready"] or len(desk["checks"])!=8 or not all(desk["checks"][:7])
+                            or not store.preflight(project_id)["ok"] or
+                            not integrations_cli.validate_site(store.project_dir(project_id)/"site").get("ok")):
+                        raise ValueError("La maquette ou les contrôles techniques ne sont pas validés.")
                 qa = (store.meta(project_id).get("last_agent_quality") or {})
                 if qa and (qa.get("ok") is False or qa.get("visual") == "failed"):
                     raise ValueError(
@@ -3077,6 +3386,10 @@ class Handler(BaseHTTPRequestHandler):
                     patch = {"last_deployed_at": time.time()}
                     patch["production_url" if production else "preview_url"] = result["url"]
                     store.update_deployment(project_id, patch)
+                    if store.meta(project_id).get("project_kind")=="pro" and production:
+                        from local_app import web_sales_pipeline
+                        web_sales_pipeline.record_release(LOCALAIWEB_DATA/"crm",project_id,desk["revision"],
+                                                         body["quote_number"],result["url"])
                 payload = store.payload(project_id)
                 payload["deployment_result"] = result
                 self.send_json(payload)
@@ -3096,6 +3409,10 @@ class Handler(BaseHTTPRequestHandler):
                 store = _web_store()
                 project_id = body.get("id")
                 site = store.project_dir(project_id) / "site"
+                if store.meta(project_id).get("project_kind")=="pro":
+                    self._sales_operator(body)
+                    if not store.meta(project_id).get("business_authorized"):
+                        raise ValueError("Autorisation de l’entreprise requise.")
                 result = integrations_cli.vercel_add_domain(site, body.get("domain"))
                 store.update_deployment(project_id, {"custom_domain": body.get("domain") or ""})
                 payload = store.payload(project_id); payload["domain_result"] = result
@@ -3107,6 +3424,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 store = _web_store()
                 site = store.project_dir(body.get("id")) / "site"
+                if store.meta(body.get("id")).get("project_kind")=="pro":
+                    self._sales_operator(body)
                 self.send_json(integrations_cli.supabase_link(site, body.get("project_ref")))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
@@ -3115,6 +3434,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 store = _web_store()
                 site = store.project_dir(body.get("id")) / "site"
+                if store.meta(body.get("id")).get("project_kind")=="pro":
+                    raise ValueError("Préparer puis approuver les migrations dans Domaine et services.")
                 self.send_json(integrations_cli.supabase_db_push(site))
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)

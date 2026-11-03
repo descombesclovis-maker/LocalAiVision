@@ -12,6 +12,13 @@ const api = async(url,body) => {
 let project=null,busy=false,viewport='desktop',stage='welcome';
 const chat=$('#lawChat'),prompt=$('#lawPrompt'),button=$('#lawGenerate');
 const publishButton=$('#lawPublishBtn');
+let presentable=false;
+async function refreshSales(){
+ const id=project?.project?.id;if(!id)return;
+ try{const d=await api('/api/web/sales/ready?id='+encodeURIComponent(id));
+ if(project?.project?.id===id){presentable=d.ready;refreshPublishing()}
+ }catch{presentable=false;refreshPublishing()}
+}
 const afterPublish=$('#lawAfterPublish');
 const editOverlay=$('#lawEditOverlay');
 function publishedUrl(){return project?.project?.deployment?.production_url||project?.project?.production_url||''}
@@ -19,10 +26,16 @@ function refreshPublishing(){
  const url=publishedUrl();
  if(publishButton){
   publishButton.disabled=busy||stage!=='ready';
-  publishButton.textContent=url?'Republier ↗':'Publier ↗';
+  publishButton.textContent=project?.project?.project_kind==='pro'?'Vendre & livrer ↗':url?'Republier ↗':'Publier ↗';
  }
  if(afterPublish){
-  afterPublish.hidden=!url;
+  const offer=presentable&&!busy;
+  afterPublish.hidden=!url&&!offer;
+  $('#lawSellReady').hidden=!offer;
+  if(offer)$('#lawSaleDesk').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+  $('#lawCreateCampaign').hidden=!url;
+  $('#lawCreateQuote').hidden=!url;
+  $('#lawPublishedAddress').hidden=!url;
   if(url){
    $('#lawPublishedAddress').textContent='En ligne : '+url;
    $('#lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
@@ -244,7 +257,7 @@ function generationFeedback(result){
 }
 async function watchGeneration(id){
  if(activeGeneration===id)return;
- activeGeneration=id;
+ activeGeneration=id;presentable=false;
  setBusy(true,'Génération en cours : le site apparaîtra dès sa première compilation…');
  let reading=false;
  const started=Date.now();
@@ -268,7 +281,7 @@ async function watchGeneration(id){
          const salesLink=document.getElementById('lawSalesBtn');
          if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
          generationFeedback(status);
-         showSiteEditing(false);refreshPublishing();
+         showSiteEditing(false);refreshPublishing();void refreshSales();
          stop();
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
@@ -318,16 +331,8 @@ async function generate(text){
 }
 async function publish(){
  await ensureProject();
- if(project.project?.project_kind==='pro' && !project.project?.business_authorized){
-   const okay=window.confirm('Projet Pro : « '+project.project.name+
-     ' »\n\nConfirme que tu représentes cette entreprise ou disposes de son autorisation '+
-     'explicite pour publier un site en son nom. Vérifie aussi les informations de la carte '+
-     'et remplace les maquettes/illustrations non officielles.\n\nAutoriser la publication ?');
-   if(!okay){message('Publication annulée : le site reste une maquette privée.');return;}
-   try{
-     project=await api('/api/web/project/pro/authorize',{
-       id:project.project.id,confirmed:true});
-   }catch(err){message('Autorisation non enregistrée : '+err.message);return;}
+ if(project.project?.project_kind==='pro'){
+   location.assign('/localaiweb/vente?id='+encodeURIComponent(project.project.id));return;
  }
  message('Je vérifie le site avant publication. La publication nécessite que Vercel soit installé et connecté sur cet ordinateur.');
  setBusy(true,'Vérification et mise en ligne…');
@@ -400,7 +405,6 @@ async function sendText(value,{preserveDraft=false}={}){
 }
 $('#lawComposer').addEventListener('submit',event=>{event.preventDefault();sendText(prompt.value);});
 publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
-publishButton?.addEventListener('click',()=>{if(!busy)void publish()});
 prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText(prompt.value);}});
 document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
 async function initialize(){
@@ -420,6 +424,7 @@ async function initialize(){
    await watchGeneration(id);
    return;
   }
+  await refreshSales();
   const first=project.project?.initial_generation||{};
   if(project.project?.project_kind==='pro' && !generation.preview_ready &&
      (first.status==='pending'||first.status==='failed')){
