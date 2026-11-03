@@ -45,3 +45,43 @@
 @media(min-width:701px) and (max-height:800px){.studio-photo-frame .studio-photo{height:170px}}
 @media(max-width:700px){.studio-photo-frame .studio-photo{height:190px}}
 @media(prefers-reduced-motion:reduce){.universe-card:hover .studio-photo{transform:none}.studio-photo-frame .studio-photo{transition:none}}
+
+/* Studio 314 cinematic polish: photographic materials remain sharp and local.
+   Only composite-friendly transforms and opacity are animated. */
+.universe-card{position:relative;isolation:isolate;overflow:hidden;box-shadow:inset 0 1px 0 #fff1,0 12px 40px #02040924;backface-visibility:hidden}
+.universe-card:focus-visible{outline:2px solid #a7b6ff;outline-offset:5px}
+.universe-card::after{
+ content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:1;
+ background:linear-gradient(120deg,transparent 14%,#c79fff0c 48%,transparent 68%);
+ opacity:0;transition:opacity .4s ease;
+}
+.vision-universe::after{background:linear-gradient(120deg,transparent 14%,#5fe8ff0d 48%,transparent 68%)}
+.universe-card:hover::after,.universe-card:focus-visible::after{opacity:1}
+.studio-photo-frame::before{
+ content:"";position:absolute;z-index:2;pointer-events:none;top:-20%;bottom:-20%;
+ left:0;width:24%;background:linear-gradient(90deg,transparent,#fff2,transparent);
+ transform:translate3d(-170%,0,0) skewX(-17deg);opacity:0;
+ transition:transform 1.05s cubic-bezier(.12,.75,.24,1),opacity .4s;
+}
+.universe-card:hover .studio-photo-frame::before,
+.universe-card:focus-visible .studio-photo-frame::before{
+ transform:translate3d(510%,0,0) skewX(-17deg);opacity:.56;
+}
+.universe-card:hover .studio-photo,.universe-card:focus-visible .studio-photo{transform:scale(1.055)}
+.studio-photo-frame .studio-photo{transition:transform .8s cubic-bezier(.18,.7,.21,1),filter .5s ease}
+.universe-card:hover .studio-card-cta b,.universe-card:focus-visible .studio-card-cta b{transform:translate3d(4px,-2px,0)}
+.studio-card-cta b{display:inline-block;transition:transform .23s ease}
+.universe-brand .studio-identity{filter:drop-shadow(0 0 12px #41d7f322)}
+.universe-intro{animation:studio314-home-intro .65s cubic-bezier(.16,.7,.26,1) both}
+.universe-card:first-child{animation:studio314-home-card .55s cubic-bezier(.19,.8,.3,1) .08s both}
+.universe-card:nth-child(2){animation:studio314-home-card .55s cubic-bezier(.19,.8,.3,1) .18s both}
+@keyframes studio314-home-intro{from{opacity:0;transform:translate3d(0,9px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes studio314-home-card{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+body[data-motion-paused="true"] .universe-card,body[data-gpu-busy="true"] .universe-card,
+body[data-motion-paused="true"] .universe-intro,body[data-gpu-busy="true"] .universe-intro{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){
+ .universe-card,.universe-intro{animation:none!important}
+ .universe-card::after,.studio-photo-frame::before{display:none}
+ .studio-photo-frame .studio-photo,.studio-card-cta b{transition:none}
+ .universe-card:hover .studio-photo,.universe-card:focus-visible .studio-photo{transform:none}
+}
