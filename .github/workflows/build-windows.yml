@@ -8,7 +8,11 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "codex/studio-296-4k-polish"]
+    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction"]
+
+concurrency:
+  group: studio-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -56,7 +60,7 @@ jobs:
         shell: cmd
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --noupx --name LocalVisionAI ^
-            --icon "build\branding\LocalAiVision.ico" ^
+            --icon "build\branding\LocalAiStudio.ico" ^
             --version-file "build\branding\version_info.txt" ^
             --collect-all webview ^
             --collect-all reportlab ^
@@ -69,6 +73,7 @@ jobs:
             --hidden-import local_app.media_director ^
             --hidden-import local_app.comfy_progress ^
             --hidden-import local_app.web_builder ^
+            --hidden-import local_app.presentation_assets ^
             --hidden-import local_app.brand_catalog ^
             --hidden-import local_app.web_briefing ^
             --hidden-import local_app.web_hybrid ^
@@ -100,6 +105,7 @@ jobs:
             --hidden-import local_app.nsfw_profile ^
             --add-data "local_app\web;local_app\web" ^
             --add-data "local_app\data;local_app\data" ^
+            --add-data "build\branding\LocalAiStudio.ico;local_app\assets" ^
             --add-data "local_app\bootstrap_windows.py;local_app" ^
             --add-data "local_app\server.py;local_app" ^
             --add-data "local_app\llm.py;local_app" ^
@@ -113,6 +119,21 @@ jobs:
             --add-data "HunyuanVideo 1.5 T2V.json;." ^
             --add-data "HunyuanVideo 1.5 I2V.json;." ^
             local_app\launcher.py
+
+      - name: Verify approved full-logo icons in Windows Shell and native window
+        run: python scripts/verify_windows_icon.py dist\LocalVisionAI.exe
+
+      - name: Retain Windows icon evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalAiStudio-OfficialIcon
+          path: |
+            build/branding/LocalAiStudio.ico
+            build/branding/LocalAiStudio.png
+            build/branding/icon-provenance.txt
+            build/icon-qa/
+          if-no-files-found: warn
 
       - name: Smoke test native EXE and extracted Python DLL
         shell: powershell
@@ -223,3 +244,75 @@ jobs:
           make_latest: true
           draft: false
           prerelease: false
+
+  visual-qa:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated QA dependencies
+        shell: powershell
+        run: |
+          python -m pip install pillow reportlab
+          npm install --prefix "$env:RUNNER_TEMP/studio314-qa" playwright@1.62.1
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio314-qa/node_modules"
+          node "$env:RUNNER_TEMP/studio314-qa/node_modules/playwright/cli.js" install chromium ffmpeg
+      - name: Chromium six-resolution and focused functional review
+        shell: powershell
+        run: |
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio314-qa/node_modules"
+          $env:UI_OUTPUT='build/qa314/chromium/screens'
+          node scripts/qa_ui_313.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:UI_OUTPUT='build/qa314/chromium/interactions'
+          node scripts/qa_ui_314.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Edge six-resolution and focused functional review
+        shell: powershell
+        run: |
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio314-qa/node_modules"
+          $env:UI_BROWSER_CHANNEL='msedge'
+          $env:UI_OUTPUT='build/qa314/edge/screens'
+          node scripts/qa_ui_313.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:UI_OUTPUT='build/qa314/edge/interactions'
+          node scripts/qa_ui_314.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain actual screenshots, videos and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalAiStudio-Build314-VisualQA
+          path: build/qa314/
+          if-no-files-found: error
+
+  brand-exports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated export dependencies
+        run: |
+          python -m pip install pillow vtracer==0.6.15
+          npm install --prefix "$RUNNER_TEMP/studio314-export" sharp
+      - name: Reconstruct paths and export original and vector 4096px variants
+        run: |
+          python scripts/build_brand_derivatives_314.py
+          NODE_PATH="$RUNNER_TEMP/studio314-export/node_modules" node scripts/render_brand_derivatives_314.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalAiStudio-Build314-BrandDerivatives
+          path: build/brand314/
+          if-no-files-found: error

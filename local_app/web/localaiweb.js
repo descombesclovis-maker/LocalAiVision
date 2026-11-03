@@ -302,7 +302,7 @@ async function watchGeneration(id){
  });
  setBusy(false);
 }
-async function generate(text){
+async function generate(text,originalPrompt=text){
  await ensureProject();
  if(activeGeneration){message('Une création est déjà en cours pour ce site. Son avancement apparaît sous le champ de saisie.');return}
  setBusy(true,'Vérification de la connexion Codex et préparation du site…');
@@ -313,7 +313,7 @@ async function generate(text){
   ?'BRIEF UTILISATEUR :\\n'+existingBrief+'\\n\\nDERNIÈRE DEMANDE :\\n'+text
   :text;
  try{
-  const result=await api('/api/web/generate/start',{id,prompt:instructions});
+  const result=await api('/api/web/generate/start',{id,prompt:instructions,original_prompt:originalPrompt});
   if(!result.already_running){
    message('Première maquette lancée. Je construis les vrais fichiers du site. '+
     'La prévisualisation sera affichée dès la première compilation, sans attendre les finitions.');
@@ -372,11 +372,12 @@ async function startProDraft(retry=false){
  message('Je construis maintenant une première maquette indépendante pour « '+
    project.project.name+' ». Elle restera modifiable dans cette conversation. '+
    'Les informations de la carte devront être vérifiées avant publication.');
- await generate(claim.prompt);
+ await generate(claim.prompt,null);
  return true;
 }
 async function sendText(value,{preserveDraft=false}={}){
- const text=String(value||prompt.value||'').trim();if(!text||busy)return;
+ const rawText=String(value||prompt.value||'');
+ const text=rawText.trim();if(!text||busy)return;
  if(!preserveDraft)prompt.value='';message(text,'user');setBusy(true,'Je comprends ta demande…');
  try{
   const intent=detectIntent(text);
@@ -396,7 +397,7 @@ async function sendText(value,{preserveDraft=false}={}){
   if(intent==='restore'){await restoreLast();return;}
   // Natural-language instructions go straight to the selected coding agent.
   // No questionnaire, mandatory style guide, canned suggestions or QCM.
-  await generate(text);
+  await generate(text,rawText);
  }catch(error){message('Erreur : '+error.message);}
  finally{setBusy(false);}
 }

@@ -190,6 +190,18 @@ class LocalAiWebStore:
         except Exception:
             return []
 
+    def remember_original_prompt(self, project_id, text):
+        """Capture a new project's exact first brief; never infer old history."""
+        meta = self.meta(project_id)
+        if 'original_prompt' not in meta or meta['original_prompt'] is not None:
+            return
+        if not isinstance(text, str) or not text.strip():
+            return
+        if len(text) > 25000:
+            raise ValueError('Décris ton site en 25 000 caractères maximum.')
+        meta['original_prompt'] = text
+        self.write_meta(project_id, meta)
+
     def append_chat(self, project_id, role, text):
         rows = self.chat_history(project_id)
         rows.append({'role': str(role or 'assistant'), 'text': str(text or '')[:12000], 'time': time.time()})
@@ -216,7 +228,7 @@ class LocalAiWebStore:
                                               'ai_provider':'codex',
                                               'site_kind':'landing' if template == 'cinematic3d' else 'auto',
                                               'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
-                                 'template':template, 'project_kind':'libre'})
+                                 'template':template, 'project_kind':'libre', 'original_prompt':None})
         starter = {
           'index.html': '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prévisualisation LocalAiWeb</title><link rel="stylesheet" href="styles.css"></head><body><main class="hero"><p>La prévisualisation devrait apparaitre ici.</p></main></body></html>',
           'styles.css': 'html,body{margin:0;min-height:100%;font-family:Inter,system-ui,sans-serif;background:#0e0e12;color:#bcbac7}main{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}p{font-size:clamp(16px,2vw,22px);font-weight:500}@media(max-width:600px){p{font-size:16px}}',
@@ -391,6 +403,7 @@ class LocalAiWebStore:
                 'ready': bool(plan.get('ready'))}
 
     def brief_begin(self, project_id, prompt):
+        self.remember_original_prompt(project_id, prompt)
         request = str(prompt or '').strip()
         if not request: raise ValueError('Décris le site souhaité.')
         plan = web_briefing.new_plan(request)

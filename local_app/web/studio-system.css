@@ -84,3 +84,58 @@ body[data-studio-page="sales"] .brand{font-weight:500;letter-spacing:-.02em}body
 body[data-studio-page]:not(.nsfw-active) :is(a,small,label){font-weight:400}
 body[data-studio-page]:not(.nsfw-active) .brands-brand{font-weight:500}
 @media(max-width:780px){body[data-studio-page="brands"]{height:100dvh;overflow:hidden;padding-bottom:0!important}body[data-studio-page="brands"] .brands-shell{height:calc(100dvh - 78px - env(safe-area-inset-bottom,0px));overflow-y:auto}}
+
+/* Build 314: public universe material, with every rule excluding reserved mode. */
+body[data-studio-page]:not(.nsfw-active){--ui-bg:#0d0716;--ui-surface:#180e25;--ui-raised:#241334;--ui-accent:#b66aff;--ui-cyan:var(--ui-accent);--ui-line:#b66aff30;background:var(--ui-bg);isolation:isolate}
+body[data-studio-page="home"]:not(.nsfw-active){--ui-cyan:#38ddf5}
+body[data-studio-page="vision"]:not(.nsfw-active){--ui-bg:#050f19;--ui-surface:#0b1f34;--ui-raised:#092c38;--ui-accent:#38ddf5;--ui-cyan:#38ddf5;--ui-line:#166073}
+body[data-studio-page]:not(.nsfw-active)::before{content:"";position:fixed;inset:40% -10% -20%;z-index:-1;pointer-events:none;background:repeating-linear-gradient(165deg,transparent 0 55px,color-mix(in srgb,var(--ui-accent) 10%,transparent) 56px,transparent 59px 110px);transform:translateX(-2%);animation:studio314-trails 14s ease-in-out infinite alternate}
+body[data-studio-page="home"]:not(.nsfw-active)::before{background:linear-gradient(160deg,transparent 45%,#b66aff1c 46%,transparent 47%,transparent 68%,#38ddf51c 69%,transparent 70%)}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link[aria-current="page"]{color:var(--ui-accent)!important;background:color-mix(in srgb,var(--ui-accent) 10%,transparent)}
+body[data-studio-page]:not(.nsfw-active) :is(.primary,.primary-action){background:var(--ui-accent);border-color:var(--ui-accent);color:var(--ui-bg)}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.studio-menu-panel,.studio-activity-panel){background:var(--ui-surface);border-color:var(--ui-line)}
+body[data-studio-page]:not(.nsfw-active) :is(.search,input,textarea,select){border-color:var(--ui-line)}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.studio-return,.studio-nav-entry){transition:background .18s,border-color .18s,box-shadow .18s,translate .18s}
+body[data-studio-page]:not(.nsfw-active) :is(.project-path,.card,.studio-return):hover{border-color:var(--ui-accent);box-shadow:0 8px 28px color-mix(in srgb,var(--ui-accent) 12%,transparent);translate:0 -2px}
+body[data-studio-page]:not(.nsfw-active) :is(.card,.studio-menu-panel,.qcm-vision-viewer){animation:studio314-arrive .24s ease-out both}
+body[data-studio-page]:not(.nsfw-active) :is(.studio-hamburger,#openSidebar){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:44px;height:44px;min-height:44px;padding:10px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface);color:var(--ui-accent)}
+body[data-studio-page]:not(.nsfw-active) :is(.studio-hamburger,#openSidebar)>span{display:block;width:20px;height:2px;margin:0;border-radius:2px;background:currentColor;transition:transform .18s}
+body[data-studio-page]:not(.nsfw-active) :is(.studio-hamburger:hover,#openSidebar:hover)>span:first-child{transform:translateX(2px)}
+body[data-studio-page]:not(.nsfw-active) :is(.studio-hamburger:hover,#openSidebar:hover)>span:last-child{transform:translateX(-2px)}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.app,.main,.content,.main-topbar,.welcome){background:transparent!important;color:var(--ui-text)}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.welcome h1,.welcome p,.topbar-home){color:var(--ui-text)}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.composer,.qcm-vision-viewer,.qcm-vision-stage,.qcm-vision-modes button){background:var(--ui-surface);border-color:var(--ui-line);color:var(--ui-text)}
+body[data-studio-page="vision"]:not(.nsfw-active) .sidebar{background:#092c38!important;color:var(--ui-text);border:1px solid #166073;border-radius:0 18px 18px 0;box-shadow:12px 0 60px #0008;overflow-y:auto}
+/* Native top layer escapes all ancestor stacking contexts. Background controls
+   are inert while open; no rail can paint or receive input above this menu. */
+body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]{position:fixed;inset:0 auto 0 0;margin:0;width:min(330px,88vw);height:100dvh;max-height:100dvh;transform:none}
+body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]::backdrop{background:#020b13a8;pointer-events:auto}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation{display:grid;gap:8px;align-content:start}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(button,a){width:100%;min-height:46px;height:auto;padding:12px;display:flex;align-items:center;justify-content:center;text-align:center;background:#0b1f34!important;border:1px solid #155066;border-radius:10px;color:#d8f6ff;text-decoration:none;line-height:1.4}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(.nav-glyph,.public-mode-icon){display:none}
+body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn{font-size:0}
+body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn span{font-size:14px}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.studio-universe-link,#updateBtn){display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer :is(header,footer){border-color:var(--ui-line);background:var(--ui-surface)}
+body[data-studio-page]:not(.nsfw-active)[data-motion-paused="true"] *,body[data-studio-page]:not(.nsfw-active)[data-motion-paused="true"]::before{animation-play-state:paused!important}
+body[data-studio-page]:not(.nsfw-active)[data-gpu-busy="true"] *,body[data-studio-page]:not(.nsfw-active)[data-gpu-busy="true"]::before{animation-play-state:paused!important}
+@keyframes studio314-trails{to{transform:translateX(3%) translateY(-24px);opacity:.55}}
+@keyframes studio314-arrive{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){body[data-studio-page]:not(.nsfw-active)::before{animation:none!important}body[data-studio-page]:not(.nsfw-active) *{animation:none!important;transition:none!important}}
+body[data-studio-page="vision"]:not(.nsfw-active) #send{background:linear-gradient(110deg,#147c99,#38bfd0)!important;border:1px solid #3ad7ec!important;box-shadow:0 0 18px #18b5d51a!important;color:#f5feff}
+body[data-studio-page="vision"]:not(.nsfw-active) textarea::placeholder{color:#91a9b8}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(button,a){font-size:14px;font-weight:400}
+body[data-studio-page="vision"]:not(.nsfw-active) #newConversation span{font-size:14px;font-weight:400}
+/* Original artwork stays intact; a luminance mask keeps the reflection inside
+   its bright material rather than washing over the entire square. */
+body[data-studio-page]:not(.nsfw-active) .identity-frame{position:relative;display:inline-flex;flex:none;overflow:hidden;border-radius:10px;width:48px;height:48px;--logo-mask:url('/assets/assets/brand-reference/LocalAIWeb_Official_Original.png')}
+body[data-studio-page]:not(.nsfw-active) .identity-frame img{width:100%;height:100%;object-fit:contain}
+body[data-studio-page]:not(.nsfw-active) .identity-frame::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 35%,#ffffffa8 48%,transparent 60%);background-size:300% 100%;mask-image:var(--logo-mask);mask-mode:luminance;mask-size:contain;mask-repeat:no-repeat;animation:studio314-reflection 7s ease-in-out infinite}
+body[data-studio-page]:not(.nsfw-active) .identity-frame.studio-identity{width:60px;height:60px;--logo-mask:url('/assets/assets/brand-reference/LocalAIStudio_Official_Original.png')}
+body[data-studio-page]:not(.nsfw-active) .identity-frame.vision-identity-frame{--logo-mask:url('/assets/assets/brand-reference/LocalAIVision_Official_Original.png')}
+body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"]) *::after,body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"]) *::before{animation-play-state:paused!important}
+@keyframes studio314-reflection{0%,20%{background-position:140% 0}70%,100%{background-position:-60% 0}}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation>*{margin:0!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation button>span{font-weight:400}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .brand>div:last-child{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .brand span{display:block;color:#92bac7;font-size:11px}

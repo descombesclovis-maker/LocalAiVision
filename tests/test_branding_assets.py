@@ -39,18 +39,18 @@ class BrandTests(unittest.TestCase):
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('Décris ton image, ta vidéo ou ta publicité.',vision)
-        self.assertIn('src="/assets/brand-web.svg"',projects)
+        self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',projects)
         self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):
-            self.assertIn('src="/assets/brand-web.svg"',web_ui)
+            self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',web_ui)
         self.assertIn("/assets/app-icon.svg",manifest)
-        self.assertIn("brand-studio.svg",
+        self.assertIn("LocalAIStudio_Official_Original.png",
                       (BASE/"scripts/prepare_windows_brand.py").read_text(encoding="utf-8"))
 
     def test_windows_embeds_icon_and_only_signs_with_real_certificate(self):
         workflow=(BASE/".github/workflows/build-windows.yml").read_text(encoding="utf-8")
         self.assertIn("python scripts/prepare_windows_brand.py",workflow)
-        self.assertIn('--icon "build\\branding\\LocalAiVision.ico"',workflow)
+        self.assertIn('--icon "build\\branding\\LocalAiStudio.ico"',workflow)
         self.assertIn("Get-AuthenticodeSignature",workflow)
         self.assertIn("WINDOWS_SIGN_CERT_B64",workflow)
         self.assertIn("LocalVisionAI-Windows.sha256",workflow)

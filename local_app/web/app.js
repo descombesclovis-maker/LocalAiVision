@@ -443,8 +443,16 @@ window.onStudioAdvertError=(message,id)=>{
  addMessage(id,{role:'assistant',error:true,text:message});
 };
 
+const sidebarInertState=new Map();
 function showSidebar(){
- $('#sidebar').classList.remove('closed');
+ const sidebar=$('#sidebar');
+ if(!document.body.classList.contains('nsfw-active')&&sidebar.showPopover){
+  sidebar.setAttribute('popover','manual');sidebar.showPopover();
+  for(const node of document.querySelectorAll('.main,#qcmDock')){
+   sidebarInertState.set(node,node.inert);node.inert=true;
+  }
+ }
+ sidebar.classList.remove('closed');
  $('#openSidebar').setAttribute('aria-expanded','true');
  $('#closeSidebar').focus();
 }
@@ -452,11 +460,29 @@ function hideSidebar(){
  const sidebar=$('#sidebar');
  const restore=sidebar.contains(document.activeElement);
  sidebar.classList.add('closed');
+ if(sidebar.matches(':popover-open'))sidebar.hidePopover();
+ sidebar.removeAttribute('popover');
+ for(const [node,wasInert] of sidebarInertState)node.inert=wasInert;
+ sidebarInertState.clear();
  $('#openSidebar').setAttribute('aria-expanded','false');
  if(restore)$('#openSidebar').focus();
 }
+document.addEventListener('pointerdown',event=>{
+ const sidebar=$('#sidebar');
+ if(sidebar.matches(':popover-open')){
+  const r=sidebar.getBoundingClientRect();
+  if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)hideSidebar();
+ }
+});
 document.addEventListener('keydown',event=>{
- if(event.key==='Escape'&&!document.querySelector('dialog[open]')&&!$('#sidebar').classList.contains('closed'))hideSidebar();
+ const sidebar=$('#sidebar');
+ if(event.key==='Tab'&&sidebar.matches(':popover-open')){
+  const controls=[...sidebar.querySelectorAll('button,a[href],input')].filter(x=>!x.disabled&&x.getClientRects().length);
+  const first=controls[0],last=controls.at(-1);
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
+ }
+ if(event.key==='Escape' &&!document.querySelector('dialog[open]')&&!$('#sidebar').classList.contains('closed'))hideSidebar();
 });
 let pollingHealth=false,lastSetupState=null,healthFailures=0;
 async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{

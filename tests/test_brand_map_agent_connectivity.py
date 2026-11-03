@@ -23,7 +23,7 @@ class BrandMapAgentTests(unittest.TestCase):
         main=(WEB/"index.html").read_text(encoding="utf-8")
         hub=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
         self.assertIn('src="/assets/brand-vision.svg"',main)
-        self.assertIn('src="/assets/brand-web.svg"',hub)
+        self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',hub)
         self.assertNotIn('src="/assets/brand-identity.svg"',hub)
 
     def test_composer_and_responsive_layout_not_absolute_clipped(self):

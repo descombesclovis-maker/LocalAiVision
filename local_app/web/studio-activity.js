@@ -27,6 +27,7 @@
    return sec<60?sec+' s':Math.floor(sec/60)+' min '+String(sec%60).padStart(2,'0')+' s';
  }
  function paint(data){
+   document.body.dataset.gpuBusy=String(Number(data?.media?.count||0)>0);
    const jobs=Array.isArray(data?.jobs)?data.jobs.filter(x=>safeId(x.id)):[],
       media=data?.media||{},mediaCount=Number(media.count)||0,
       toggle=chip.querySelector('#studioActivityToggle'),copy=chip.querySelector('.studio-activity-copy'),
@@ -84,6 +85,8 @@
      }finally{clearTimeout(timeout)}
    }catch{}finally{requesting=false}
  }
+ const syncVisibility=()=>{document.body.dataset.motionPaused=String(document.hidden)};
+ syncVisibility();document.addEventListener('visibilitychange',syncVisibility);
  setup();
  void update();
  window.setInterval(update,4200);

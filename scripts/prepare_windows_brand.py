@@ -1,44 +1,54 @@
-"""Create the real Windows desktop icon from the user-provided master identity.
+"""Convert the complete, locked Studio PNG to a genuine multi-resolution ICO.
 
-No external requests, telemetry, untrusted downloads or antivirus exclusions.
-The second supplied logo includes the studio wordmark and the eight-pointed
-purple mark; the mark is cropped for clarity at small Windows icon sizes.
+No drawing, cropping, recolouring, alpha removal or logo reconstruction.
+The master bytes are pinned to the user-approved SHA-256 before conversion.
 """
 from __future__ import annotations
-import base64
+import hashlib
 import io
 from pathlib import Path
-import re
+import struct
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MASTER = ROOT / "local_app" / "web" / "brand-studio.svg"
+MASTER = ROOT / "local_app" / "web" / "assets" / "brand-reference" / "LocalAIStudio_Official_Original.png"
+MASTER_SHA256 = "9c8e94862781f263b1b95d2e13504518f7a624b809db93e074ce1a498b9fdcd4"
+ICON_SIZES = (16, 24, 32, 48, 64, 128, 256)
 OUTPUT = ROOT / "build" / "branding"
 
 
-def prepare():
-    # Render the vector master mark directly with Pillow primitives at
-    # four times the final size. No embedded 160px WebP, no platform-specific
-    # SVG/Cairo runtime and no network download.
-    from PIL import Image, ImageDraw
-    import math
-    if "viewBox=\"0 0 128 128\"" not in MASTER.read_text(encoding="utf-8"):
-        raise RuntimeError("La nouvelle identité LocalAI Studio est introuvable.")
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    size=1024
-    icon=Image.new("RGBA",(size,size),(17,16,26,255))
-    draw=ImageDraw.Draw(icon)
-    # Unified studio monogram, pixel-perfect and readable in the taskbar.
-    draw.rounded_rectangle((40,40,984,984),radius=228,
-                           outline=(177,144,227,145),width=13)
-    draw.line((256,294,755,294),fill="#B98BFF",width=85,joint="curve")
-    draw.line((256,510,513,510,755,294),fill="#A77BEF",width=85,joint="curve")
-    draw.line((256,740,755,740,513,510),fill="#5FCACF",width=85,joint="curve")
-    draw.ellipse((700,687,845,832),fill="#7CE5DB")
-    icon=icon.resize((256,256),Image.Resampling.LANCZOS)
-    icon.save(OUTPUT / "LocalAiVision.png","PNG")
-    icon.save(OUTPUT / "LocalAiVision.ico",format="ICO",
-              sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+def prepare(output=OUTPUT):
+    from PIL import Image
+    payload = MASTER.read_bytes()
+    if hashlib.sha256(payload).hexdigest() != MASTER_SHA256:
+        raise RuntimeError("Le logo maître LocalAI Studio ne correspond pas à l’original approuvé.")
+    with Image.open(io.BytesIO(payload)) as source:
+        if source.size != (724, 724):
+            raise RuntimeError("Le carré complet du logo Studio doit mesurer 724 × 724 pixels.")
+        master = source.convert("RGBA")
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    # Every size is independently scaled from the WHOLE original. PNG payloads
+    # inside an ICO directory are the lossless Windows Vista+ icon format.
+    entries, images = [], []
+    offset = 6 + 16 * len(ICON_SIZES)
+    for size in ICON_SIZES:
+        frame = master.resize((size, size), Image.Resampling.LANCZOS)
+        buffer = io.BytesIO()
+        frame.save(buffer, format="PNG")
+        data = buffer.getvalue()
+        entries.append(struct.pack("<BBBBHHII", size % 256, size % 256,
+                                   0, 0, 1, 32, len(data), offset))
+        images.append(data)
+        offset += len(data)
+    (output / "LocalAiStudio.ico").write_bytes(
+        struct.pack("<HHH", 0, 1, len(entries)) + b"".join(entries) + b"".join(images))
+    master.resize((256, 256), Image.Resampling.LANCZOS).save(output / "LocalAiStudio.png")
+    (output / "icon-provenance.txt").write_text(
+        f"Source: {MASTER.relative_to(ROOT).as_posix()}\nSHA-256: {MASTER_SHA256}\n"
+        "Conversion: complete square, proportional LANCZOS scaling only.\n"
+        "ICO sizes: " + ", ".join(map(str, ICON_SIZES)) + " px.\n",
+        encoding="utf-8")
     # Windows PE metadata identifies the software, but ONLY a legitimate
     # Authenticode certificate can identify a verified publisher to Windows.
     version = """VSVersionInfo(
@@ -61,8 +71,8 @@ def prepare():
     VarFileInfo([VarStruct('Translation', [1033, 1200])]),
   ])
 """
-    (OUTPUT / "version_info.txt").write_text(version, encoding="utf-8")
-    return OUTPUT
+    (output / "version_info.txt").write_text(version, encoding="utf-8")
+    return output
 
 
 if __name__ == "__main__":

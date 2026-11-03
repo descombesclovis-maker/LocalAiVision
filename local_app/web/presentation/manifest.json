@@ -1,0 +1,34 @@
+{
+  "web-1600.webp": {
+    "sha256": "56457085aa288887a78bfda6c14924ac11af77b7bf36aa1300221301515d22b4",
+    "width": 1600,
+    "height": 1067,
+    "source_width": 4096,
+    "source_height": 2731,
+    "bytes": 80238
+  },
+  "web-4096.webp": {
+    "sha256": "683d7cd0e4ca81aa7aa1de88a2551ce1a03eb3eb5b75c4090494cee440d11015",
+    "width": 4096,
+    "height": 2731,
+    "source_width": 4096,
+    "source_height": 2731,
+    "bytes": 448592
+  },
+  "vision-1600.webp": {
+    "sha256": "45a142fe8f40b1066bf0e8fcc0fc7a037763e9a9c8dde50871f06b59f8098d89",
+    "width": 1600,
+    "height": 2000,
+    "source_width": 3933,
+    "source_height": 4916,
+    "bytes": 101402
+  },
+  "vision-4096.webp": {
+    "sha256": "28b4bf3bcc1df51237606f0f2027a6e2433a6f9f6791129c6fada8d33a5c2b60",
+    "width": 3933,
+    "height": 4916,
+    "source_width": 3933,
+    "source_height": 4916,
+    "bytes": 681004
+  }
+}
