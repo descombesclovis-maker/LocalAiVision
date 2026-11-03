@@ -76,9 +76,9 @@ heading.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preven
 for(const button of document.querySelectorAll('.view-modes [data-view]')){
  const key=button.dataset.view;
  const label={desktop:'Ordinateur',tablet:'Tablette',mobile:'Téléphone'}[key];
- const glyph={desktop:'▣',tablet:'▯',mobile:'▵'}[key];
+ const paths={desktop:'M3 4h18v13H3z M8 21h8 M12 17v4',tablet:'M5 2h14v20H5z M11 19h2',mobile:'M7 2h10v20H7z M10 5h4 M11 19h2'};
  if(!label)continue;
- button.textContent=glyph;
+ button.innerHTML='<svg class="studio-device-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="'+paths[key]+'"/></svg>';
  button.title='Aperçu '+label.toLowerCase();
  button.setAttribute('aria-label','Afficher en mode '+label.toLowerCase());
  button.classList.add('qcm-device-button');
@@ -122,3 +122,4 @@ if(controls&&/^web-[a-f0-9]{12}$/.test(id)){
  if(siteTools)controls.insertBefore(codeButton,siteTools);else controls.append(codeButton);
 }
 })();
+

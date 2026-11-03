@@ -108,18 +108,12 @@ class IndustryMapTests(unittest.TestCase):
             self.assertIn('id="'+name+'"',ui)
         self.assertIn('id="lawMapShortcut"',ui)
         self.assertNotIn('id="lawWorldMapBtn"',ui)
-        for field in ("mapSelection","selectionTitle","selectionAddress",
-                      "selectionPhone","selectionEmail","selectionHours",
-                      "selectionWebsite","mapCreate"):
-            self.assertIn('id="'+field+'"',page)
-        self.assertIn("setView([46.60,2.28],6)",script)
         self.assertNotIn('id="industryFilter"',page)
         self.assertNotIn('id="mapQuery"',page)
-        self.assertIn("/api/web/map/no-website/france",script)
         self.assertNotIn("/api/web/map/profile",script)
-        self.assertIn("function scheduleNearby()",script)
         self.assertIn("/api/update/check",updater)
         self.assertIn("/api/update/install",updater)
+        self.assertIn("gmp-place-details",page)
 
     def test_existing_pro_project_and_unrelated_libre_projects_untouched(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -135,3 +129,4 @@ class IndustryMapTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

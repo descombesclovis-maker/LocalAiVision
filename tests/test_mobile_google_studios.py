@@ -24,15 +24,13 @@ class MobileStudiosTests(unittest.TestCase):
     def test_map_shortcut_opens_france_focused_map_without_search(self):
         editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")
         page=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
-        js=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
+        google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
         self.assertIn('id="lawMapShortcut"',editor)
         self.assertIn('href="/localaiweb/map"',editor)
         self.assertIn('id="businessMap"',page)
         self.assertNotIn('id="mapProvider"',page)
         self.assertNotIn('id="mapQuery"',page)
-        self.assertIn("setView([46.60,2.28],6)",js)
-        self.assertIn("/api/web/map/no-website/france",js)
-        self.assertIn('id="selectionWebsite"',page)
+        self.assertIn("center:{lat:46.60,lng:2.28},zoom:6",google)
 
     def test_private_pwa_cache_excludes_api_and_projects(self):
         sw=(WEB/"service-worker.js").read_text(encoding="utf-8")
@@ -49,7 +47,7 @@ class MobileStudiosTests(unittest.TestCase):
         for name in ("localaiweb.html","localaiweb-map.html","localaiweb-projects.html","localaiweb-clients.html","localaiweb-sales.html"):
             page=(WEB/name).read_text(encoding="utf-8")
             self.assertIn('localaiweb.webmanifest',page)
-            self.assertIn('localaiweb-mobile.css',page)
+            self.assertIn('studio-system.css',page)
             self.assertIn('pwa-install.js',page)
         editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")
         self.assertIn('id="lawMobileTabs"',editor)
@@ -110,3 +108,4 @@ class MobileStudiosTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

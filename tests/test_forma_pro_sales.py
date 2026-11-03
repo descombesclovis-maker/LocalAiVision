@@ -27,16 +27,13 @@ class ProSaleTests(unittest.TestCase):
 
     def test_map_is_full_screen_france_first_without_search_or_filters(self):
         page=(ROOT/"local_app/web/localaiweb-map.html").read_text(encoding="utf-8")
-        js=(ROOT/"local_app/web/localaiweb-map.js").read_text(encoding="utf-8")
-        css=(ROOT/"local_app/web/localaiweb-map.css").read_text(encoding="utf-8")
+        google=(ROOT/"local_app/web/localaiweb-google-map.js").read_text(encoding="utf-8")
         for element in ('id="mapQuery"','id="industryFilter"','id="mapSearchForm"'):
             self.assertNotIn(element,page)
         self.assertIn('id="businessMap"',page)
         self.assertIn('id="mapCreate"',page)
-        self.assertIn('id="selectionWebsite"',page)
-        self.assertIn("setView([46.60,2.28],6)",js)
-        self.assertIn("function scheduleNearby()",js)
-        self.assertIn(".map-selection",css)
+        self.assertIn("center:{lat:46.60,lng:2.28},zoom:6",google)
+        self.assertIn("gmp-place-all-content",page)
 
     def test_single_project_estimate_30_percent_and_not_invoice(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,7 +94,7 @@ class ProSaleTests(unittest.TestCase):
         script=(ROOT/"local_app/web/localaiweb-sales.js").read_text(encoding="utf-8")
         editor=(ROOT/"local_app/web/localaiweb.html").read_text(encoding="utf-8")
         server=(ROOT/"local_app/server.py").read_text(encoding="utf-8")
-        self.assertIn("F<span>O</span>RMA",html)
+        self.assertIn("LocalAiWeb",html)
         self.assertNotIn("53784237900027",html)
         self.assertIn('id="issueQuote"',html)
         self.assertIn('id="quoteValidDays"',html)
@@ -114,3 +111,4 @@ class ProSaleTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

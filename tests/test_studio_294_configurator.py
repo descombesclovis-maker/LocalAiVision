@@ -27,7 +27,7 @@ class StudioConfiguratorTests(TestCase):
             self.assertIn(target,html)
         self.assertNotIn('id="studioConfigDialog"',html)
         self.assertNotIn('id="studioCustomize"',html)
-        self.assertIn('id="qcmMotionToggle"',html)
+        self.assertIn('data-studio-shell="off"',html)
         self.assertIn('studio-qcm-home.js',html)
         self.assertIn("localStorage.setItem(KEY",js)
         self.assertIn("studio-design-schema.json",js)
@@ -55,3 +55,4 @@ class StudioConfiguratorTests(TestCase):
         for token in ("LocalAI Intelligence","Cinema","Brand DNA","Google Maps","Autopilot",
                       "VRAM","Codex","LoRA","100 %","RTX 3060"):
             self.assertIn(token,roadmap)
+

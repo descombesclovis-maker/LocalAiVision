@@ -2180,7 +2180,8 @@ class Handler(BaseHTTPRequestHandler):
             return True
         assets={"/assets/"+name for name in ("localaiweb-sales.js","localaiweb-sales.css",
             "studio-suite.css","localaiweb-mobile.css","studio-ui-polish.css","studio-activity.css",
-            "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg")}
+            "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg",
+            "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js")}
         routes={"/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
             "/api/web/project/pro/authorize","/api/web/vercel/publish","/api/web/domain/attach",
             "/api/web/invoice/issue","/api/web/invoice/file","/api/web/crm/quote/create",
@@ -3086,7 +3087,11 @@ class Handler(BaseHTTPRequestHandler):
                 from local_app import web_business_map
                 company = web_business_map.selected_business(body.get("selection_token"))
                 store=_web_store()
-                payload=store.create_business_project(company)
+                if company.get("google_place_id"):
+                    from local_app import web_google_maps
+                    payload,company=web_google_maps.create_reference_project(store,company)
+                else:
+                    payload=store.create_business_project(company)
                 # A project must not disappear because CRM indexing fails.
                 try:
                     from local_app import web_crm
@@ -3797,3 +3802,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

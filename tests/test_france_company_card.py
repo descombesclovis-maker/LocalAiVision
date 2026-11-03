@@ -12,30 +12,13 @@ WEB=ROOT/"local_app"/"web"
 class FranceBusinessCardTests(unittest.TestCase):
     def test_single_color_and_clickable_groups_without_zoom(self):
         html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
-        js=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
-        css=(WEB/"localaiweb-map.css").read_text(encoding="utf-8")
-        for name in ("selectionTitle","selectionAddress","selectionPhone","selectionEmail",
-                     "selectionHours","selectionWebsite","selectionSiret","mapCreate"):
-            self.assertIn('id="'+name+'"',html)
-        self.assertIn("Créer un site pour cette entreprise",html)
-        self.assertIn("groupedPopup(entries)",js)
-        self.assertIn("sans zoomer davantage",js)
-        self.assertIn("L.divIcon(",js)
-        self.assertIn("hit=mobile.matches?44:32",js)
-        self.assertIn("iconSize:[hit,hit]",js)
-        self.assertIn("company-marker-single",css)
-        self.assertIn("/api/web/map/registry/city",js)
-        self.assertIn("Promise.allSettled(operations)",js)
-        self.assertIn("company-marker-group",css)
-        self.assertNotIn("legend-red",html)
-        self.assertNotIn("legend-green",html)
-        self.assertNotIn("#ef535e",js)
-        self.assertIn("Non renseigné",js)
-        self.assertIn("Oui, renseigné",js)
-        self.assertIn("absence non vérifiée",js)
-        self.assertNotIn('id="mapRegistry"',html)
-        self.assertNotIn('id="verifyWebPresence"',html)
-        self.assertNotIn('id="companyWebsite"',html)
+        google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
+        self.assertEqual(html.count('id="mapCreate"'),1)
+        self.assertIn("gmp-place-details",html)
+        self.assertNotIn('id="selectionWebsite"',html)
+        self.assertNotIn("shadowRoot",google)
+        self.assertIn("data.business.google_place_id!==placeId",google)
+        self.assertIn("current!==revision",google)
 
     def test_france_batch_collects_multiple_real_region_centers(self):
         seen=[]
@@ -85,3 +68,4 @@ class FranceBusinessCardTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

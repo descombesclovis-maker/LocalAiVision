@@ -29,10 +29,7 @@ function refreshPublishing(){
   publishButton.textContent=project?.project?.project_kind==='pro'?'Vendre & livrer ↗':url?'Republier ↗':'Publier ↗';
  }
  if(afterPublish){
-  const offer=presentable&&!busy;
-  afterPublish.hidden=!url&&!offer;
-  $('#lawSellReady').hidden=!offer;
-  if(offer)$('#lawSaleDesk').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+  afterPublish.hidden=!url;
   $('#lawCreateCampaign').hidden=!url;
   $('#lawCreateQuote').hidden=!url;
   $('#lawPublishedAddress').hidden=!url;
@@ -68,8 +65,8 @@ function codexRecovery(error){
  if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
  const node=$('#lawChatStatus');
  if(node)node.textContent=/authentif|login|401|token/i.test(raw)
-  ?'Codex demande une reconnexion. Ouvre « Connexion IA » pour te reconnecter.'
-  :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Connexion IA ».';
+  ?'Codex demande une reconnexion. Ouvre « Paramètres » pour te reconnecter.'
+  :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Paramètres ».';
  $('#lawMobileMenuToggle')?.classList.add('needs-attention');
 }
 
@@ -426,10 +423,12 @@ async function initialize(){
   }
   await refreshSales();
   const first=project.project?.initial_generation||{};
+  if(first.status==='brief_required'){
+    $('#lawChatStatus').textContent='Projet lié à la fiche Google. Décrivez dans le chat les informations confirmées de cette entreprise pour créer son site.';
+  }
   if(project.project?.project_kind==='pro' && !generation.preview_ready &&
-     (first.status==='pending'||first.status==='failed')){
-    const dialog=$('#lawDesignDialog');
-    if(dialog&&!dialog.open)dialog.showModal();
+     first.status==='pending'){
+    await startProDraft(false);
   }
  }catch(error){
   $('#lawChatStatus').textContent='Chargement impossible : '+error.message;
@@ -472,3 +471,4 @@ designForm?.addEventListener('submit',async event=>{
  }finally{submit.disabled=false}
 });
 initialize();
+

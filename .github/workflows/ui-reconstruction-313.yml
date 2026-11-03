@@ -1,0 +1,84 @@
+name: Studio UI reconstruction browser QA
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  visual-and-functional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: ui-baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser QA dependencies
+        run: |
+          pip install pillow reportlab
+          npm install --prefix "$RUNNER_TEMP/studio-ui" playwright@1.61.1
+          "$RUNNER_TEMP/studio-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Python regression suite and browser syntax
+        run: |
+          python -m unittest discover -s tests -v
+          rg --files local_app/web scripts tests -g '*.js' -g '*.cjs' | while IFS= read -r file; do node --check "$file"; done
+      - name: Capture baseline at six resolutions
+        env:
+          NODE_PATH: ${{ runner.temp }}/studio-ui/node_modules
+          UI_BASELINE: '1'
+          UI_SOURCE: ${{ github.workspace }}/ui-baseline
+          UI_OUTPUT: ${{ github.workspace }}/ui-evidence/before
+        run: node scripts/qa_ui_313.cjs
+      - name: Capture reconstruction and exercise real local UI routes
+        env:
+          NODE_PATH: ${{ runner.temp }}/studio-ui/node_modules
+          UI_OUTPUT: ${{ github.workspace }}/ui-evidence/after
+        run: node scripts/qa_ui_313.cjs
+      - name: Preserve visual and functional evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-313-ui-evidence
+          path: ui-evidence/
+          retention-days: 14
+  windows-edge:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare Edge UI checks
+        shell: pwsh
+        run: |
+          pip install pillow reportlab
+          $qa = Join-Path $env:RUNNER_TEMP studio-ui
+          npm install --prefix $qa playwright@1.61.1
+          & (Join-Path $qa node_modules/.bin/playwright.cmd) install ffmpeg
+      - name: Six viewports and real UI interactions in Windows Edge
+        shell: pwsh
+        env:
+          UI_BROWSER_CHANNEL: msedge
+          PYTHONUTF8: '1'
+        run: |
+          $env:NODE_PATH = Join-Path $env:RUNNER_TEMP studio-ui/node_modules
+          $env:UI_OUTPUT = Join-Path $env:RUNNER_TEMP studio-ui/evidence
+          node scripts/qa_ui_313.cjs
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studio-313-windows-edge-evidence
+          path: ${{ runner.temp }}/studio-ui/evidence
+          retention-days: 14

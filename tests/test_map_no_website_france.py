@@ -199,35 +199,12 @@ class WebsiteProspectMapTests(unittest.TestCase):
     def test_no_location_search_or_filter_present(self):
         html=(BASE/"local_app/web/localaiweb-map.html").read_text(encoding="utf-8")
         script=(BASE/"local_app/web/localaiweb-map.js").read_text(encoding="utf-8")
-        for item in ('id="mapSearchForm"','id="mapQuery"','id="industryFilter"',
-                     'id="industrySearch"','id="mapNearby"','id="mapProvider"'):
+        for item in ('id="mapSearchForm"','id="mapQuery"','id="industryFilter"','id="qcmWebsiteFilter"'):
             self.assertNotIn(item,html)
-        self.assertIn("setView([46.60,2.28],6)",script)
-        self.assertIn("company-marker-single",script)
-        self.assertIn("company-marker-group",script)
-        self.assertNotIn("'#ef535e'",script)
-        self.assertIn("website_recorded",script)
-        self.assertIn("groupedPopup(entries)",script)
-        self.assertIn("map.on('moveend',scheduleNearby)",script)
-        self.assertIn("overview();",script)
-        self.assertIn("fitBounds(franceBounds",script)
-        self.assertIn("map.invalidateSize",script)
-        self.assertIn("overview(response.next_batch)",script)
-        self.assertIn("console.debug",script)
-        self.assertNotIn('id="mapReload"',html)
-        self.assertNotIn("legend-red",html)
-        self.assertIn('id="selectionWebsite"',html)
-        self.assertIn('id="selectionHours"',html)
-        self.assertIn("absence non vérifiée",script)
-        self.assertIn("Non renseigné",script)
-        self.assertNotIn('id="companyWebsite"',html)
-        self.assertNotIn('id="verifyWebPresence"',html)
-        self.assertIn("/api/web/map/no-website/viewport",script)
-        self.assertIn("function compactOnMove()",script)
-        self.assertIn("link.target='_blank'",script)
-        self.assertIn("nofollow",script)
         self.assertIn('id="mapSelection"',html)
         self.assertIn('/api/web/project/create-from-map',script)
+        self.assertIn('selection_token:token',script)
+        self.assertNotIn('website_recorded',script)
 
     def test_map_api_routes_and_windows_bundle(self):
         server=(BASE/"local_app/server.py").read_text(encoding="utf-8")
@@ -241,3 +218,4 @@ class WebsiteProspectMapTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

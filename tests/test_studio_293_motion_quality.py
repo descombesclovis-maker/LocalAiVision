@@ -11,13 +11,13 @@ class LandingExperience(TestCase):
     def test_all_entrances_are_local_and_existing_paths_are_preserved(self):
         html=(WEB/"localai-studio.html").read_text(encoding="utf-8")
         for path in ('href="/localaiweb"', 'href="/localaivision"',
-                     'href="/studio"', 'href="/studio/brands"'):
+                     'href="/studio"'):
             self.assertIn(path,html)
         self.assertNotIn("images.unsplash.com",html)
         self.assertNotIn("http://",html)
         self.assertNotIn("https://",html)
         self.assertIn("studio-scene",html)
-        self.assertIn('localai-studio-next.css',html)
+        self.assertIn('studio-system.css',html)
         self.assertIn('localai-studio-motion.js',html)
         self.assertIn('studio-activity.js',html)
 
@@ -69,15 +69,13 @@ class WebQuality(TestCase):
 class MapAndAds(TestCase):
     def test_official_google_selection_and_original_card_are_available(self):
         google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
-        mapjs=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
         html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
         self.assertIn("clickableIcons:true",google)
         self.assertIn("event.placeId",google)
-        self.assertIn("if(config.places_enabled)",google)
         self.assertIn("/api/web/map/google/place?",google)
-        self.assertIn('id="googleOriginalPlace"',html)
-        self.assertIn("maps/place/?q=place_id:",mapjs)
-        self.assertIn("if(!googlePlace)api(",mapjs)
+        self.assertIn('<gmp-place-details id="googlePlaceDetails">',html)
+        self.assertIn('<gmp-place-all-content>',html)
+        self.assertLess(html.index('</gmp-place-details>'),html.index('id="mapCreate"'))
 
     def test_ad_aspect_is_enforced_without_expert_panel(self):
         ads=(WEB/"studio-ads.js").read_text(encoding="utf-8")
@@ -86,3 +84,4 @@ class MapAndAds(TestCase):
         self.assertIn("window.StudioAds.endGeneration=endGeneration",ads)
         self.assertIn("campaignAspect||'auto'",core)
         self.assertIn("StudioAds?.endGeneration?.(task)",core)
+

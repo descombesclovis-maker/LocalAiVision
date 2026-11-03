@@ -33,8 +33,8 @@ class StudioArchitectureTests(unittest.TestCase):
                       "/api/studio/advert/render","/api/web/generations/active"):
             self.assertIn(route,server_text)
         self.assertIn('studio-activity.js',studio)
-        self.assertIn('studio-ui-polish.css',studio)
-        self.assertIn("prefers-reduced-motion",(WEB/"localai-studio.css").read_text())
+        self.assertIn('studio-system.css',studio)
+        self.assertIn("prefers-reduced-motion",(WEB/"studio-system.css").read_text())
 
     def test_real_active_generation_pill_links_to_selected_project(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -171,3 +171,4 @@ class StudioArchitectureTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

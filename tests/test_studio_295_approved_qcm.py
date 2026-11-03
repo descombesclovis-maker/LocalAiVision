@@ -30,7 +30,7 @@ class ApprovedQcmV1(TestCase):
 
     def test_new_assets_are_referenced_from_real_pages(self):
         mapping={
-          "localai-studio.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-home.js","studio-scene"],
+          "localai-studio.html":["studio-system.css","localai-studio.css","studio-qcm-home.js","studio-scene"],
           "localaiweb.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-editor.js"],
           "localaiweb-projects.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-projects.js"],
           "localaiweb-map.html":["studio-qcm-v1.css","studio-qcm-shell.js","studio-qcm-map.js"],
@@ -49,8 +49,8 @@ class ApprovedQcmV1(TestCase):
         home=(WEB/"localai-studio.html").read_text(encoding="utf-8")
         nav=(WEB/"studio-qcm-shell.js").read_text(encoding="utf-8")
         self.assertNotIn("qcm-orbit-center",home)
-        self.assertIn("@keyframes qcm-orbit-float",css)
-        self.assertIn("prefers-reduced-motion",css)
+        self.assertNotIn("qcm-orbit-center",home)
+        self.assertIn("prefers-reduced-motion",(WEB/"studio-system.css").read_text())
         self.assertIn("href=\"/localaiweb\"",home)
         self.assertIn("href=\"/localaivision\"",home)
         self.assertIn("'/studio'",nav)
@@ -66,24 +66,24 @@ class ApprovedQcmV1(TestCase):
         self.assertIn("data-qcm-rename",js)
 
     def test_project_cards_trigger_existing_workflows(self):
-        js=(WEB/"studio-qcm-projects.js").read_text(encoding="utf-8")
-        self.assertIn("addCreationTile('projectsGrid'",js)
-        self.assertIn("create.click()",js)
-        self.assertIn("fromMap.click()",js)
-        self.assertIn("localaiweb_qcm_project_tab",js)
+        html=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
+        js=(WEB/"localaiweb-projects.js").read_text(encoding="utf-8")
+        tabs=(WEB/"studio-qcm-projects.js").read_text(encoding="utf-8")
+        self.assertIn('id="createProject"',html)
+        self.assertIn('id="createFromMap"',html)
+        self.assertIn("/api/web/project/create",js)
+        self.assertIn("dialog.showModal()",js)
+        self.assertNotIn("addCreationTile",tabs)
+        self.assertIn("localaiweb_qcm_project_tab",tabs)
 
     def test_map_filters_only_truthfully_and_google_dark_style(self):
-        base=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
         google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
         html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
-        self.assertIn('id="qcmWebsiteFilter"',html)
-        self.assertIn('id="qcmWebsiteBadge"',html)
-        self.assertIn("matchesWebsite",base)
-        self.assertIn("if(config.places_enabled&&siteFilter)",base)
-        self.assertIn("siteFilter.disabled=true",base)
-        self.assertIn("window.StudioMapRecenter",base)
+        self.assertNotIn('id="qcmWebsiteFilter"',html)
         self.assertIn("window.StudioMapRecenter",google)
-        self.assertIn("color:'#171d28'",google)
+        self.assertIn("featureType:'poi.business'",google)
+        self.assertNotIn("color:'#171d28'",google)
+        self.assertIn("La couverture dépend de Google",google)
 
     def test_web_editor_real_panels_versions_and_media(self):
         html=(WEB/"localaiweb.html").read_text(encoding="utf-8")
@@ -125,3 +125,4 @@ class ApprovedQcmV1(TestCase):
         self.assertIn("viewer.hidden=true;clear();return",js)
         self.assertIn("body.nsfw-active .qcm-vision-viewer",css)
         self.assertNotIn("/api/loras/install",js)
+

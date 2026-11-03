@@ -28,19 +28,13 @@ class IPhoneReliabilityTests(unittest.TestCase):
     def test_map_can_fallback_to_two_cdns_and_recover(self):
         html=source("localaiweb-map.html")
         js=source("localaiweb-map.js")
-        css=source("localaiweb-mobile.css")
-        for control in ("dailyProspectsToggle","mapUnavailable","businessMap"):
+        css=source("localaiweb-map.css")
+        for control in ("mapRetry","mapUnavailable","mapFailureReason","businessMap"):
             self.assertIn('id="'+control+'"',html)
-        self.assertIn("async function ensureLeaflet()",js)
-        self.assertIn("cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4",js)
-        self.assertIn("cdn.jsdelivr.net/npm/leaflet@1.9.4",js)
-        self.assertNotIn("document.write(",html)
-        self.assertIn("hit=mobile.matches?44:32",js)
-        self.assertIn("if(!(await ensureLeaflet()))",js)
-        self.assertNotIn("mapRetryLibrary",html)
-        self.assertIn("setProspectsOpen(!mobile.matches)",js)
-        self.assertIn(".map-unavailable{z-index:400",css)
-        self.assertIn("pointer:coarse",source("localaiweb-google-map.js"))
+        self.assertNotIn("leaflet",html.lower())
+        self.assertIn("failure.hidden=false",js)
+        self.assertIn("setStatus('La carte Google Maps",js)
+        self.assertIn("max-height:75%",css)
 
     def test_preview_eye_opens_phone_not_pc_and_two_taps_select(self):
         js=source("localaiweb-inspector.js")
@@ -54,8 +48,9 @@ class IPhoneReliabilityTests(unittest.TestCase):
         for name in ("localaiweb.html","localaiweb-projects.html",
                      "localaiweb-map.html","localaiweb-clients.html",
                      "localaiweb-sales.html"):
-            self.assertIn('localaiweb-mobile.css',source(name))
+            self.assertIn('studio-system.css',source(name))
             self.assertIn('viewport-fit=cover',source(name))
 
 if __name__=="__main__":
     unittest.main()
+

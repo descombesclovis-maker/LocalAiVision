@@ -6,6 +6,13 @@
 const area=document.querySelector('body[data-studio-page="vision"] .content');
 const chat=document.getElementById('chat'),messages=document.getElementById('messages');
 if(!area||!chat||!messages)return;
+const importButton=document.getElementById('composerImageBtn');
+if(importButton){
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+ svg.classList.add('studio-public-plus','studio-plus-icon');
+ const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d','M12 5v14M5 12h14');svg.append(path);importButton.append(svg);
+}
 const viewer=document.createElement('aside');viewer.className='qcm-vision-viewer';viewer.id='qcmVisionViewer';
 viewer.setAttribute('aria-label','Aperçu des créations dans la discussion');
 viewer.innerHTML='<header><span><i aria-hidden="true"></i> APERÇU LIVE</span><strong id="qcmVisionKind">Prêt à créer</strong></header><div class="qcm-vision-stage" id="qcmVisionStage"><div class="qcm-vision-placeholder"><span class="preview-light" aria-hidden="true"></span><strong>Votre vision, en grand.</strong><p>Les résultats de votre conversation apparaissent ici dès leur disponibilité.</p></div></div><footer id="qcmVisionActions" hidden><a id="qcmVisionOpen" target="_blank" rel="noopener noreferrer">↗ Ouvrir</a><a id="qcmVisionDownload" download>↓ Télécharger</a></footer>';
@@ -90,3 +97,4 @@ tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
  tabs.querySelectorAll('button').forEach(other=>other.setAttribute('aria-pressed',String(other===b)));
 }));
 })();
+

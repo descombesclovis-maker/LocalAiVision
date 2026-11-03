@@ -13,8 +13,8 @@ button:not(:disabled):hover,a:hover{border-color:#ac86dc}
 .chat-history{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#72568c transparent}
 .message.assistant{border-color:#704f844a;background:#21172d}
 .message.user{border-color:#8051b35e;background:linear-gradient(115deg,#4c2968,#302042)}
-.chat-composer{border:1px solid #674988;background:linear-gradient(155deg,#271b35,#191322);box-shadow:0 15px 50px #0007;transition:border-color .22s,box-shadow .22s}
-.chat-composer:focus-within{border-color:#bd8bed;box-shadow:0 0 0 3px #985bd520,0 22px 55px #0008}
+.chat-composer{border:1px solid #ffffff20;background:#151821;box-shadow:none}
+.chat-composer:focus-within{border-color:#9198aa;box-shadow:none}
 #lawGenerate{background:linear-gradient(125deg,#7040bd,#a36bf1);border:1px solid #b999f3;border-radius:12px;box-shadow:0 6px 20px #8350db45;min-height:41px;padding-inline:19px}
 #lawGenerate:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 11px 24px #8f58e055}
 #lawPrompt::placeholder{color:#9f8cac}
@@ -131,3 +131,4 @@ button:not(:disabled):hover,a:hover{border-color:#ac86dc}
 .design-free-note>span{display:flex;gap:9px;align-items:center;font-size:12px}
 .design-free-note input{width:17px;height:17px;accent-color:#aa73e8}
 @media(max-width:650px){.design-fields{grid-template-columns:1fr}}
+

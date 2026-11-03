@@ -22,21 +22,4 @@ function choose(value){
 }
 buttons.forEach(b=>b.addEventListener('click',()=>choose(b.dataset.qcmFilter)));
 choose(selected);
-function addCreationTile(id,label,handler){
- const grid=document.getElementById(id);if(!grid)return;
- const ensure=()=>{
-   if(grid.querySelector('.qcm-create-tile'))return;
-   const button=document.createElement('button');
-   button.type='button';button.className='card qcm-create-tile';button.setAttribute('aria-label',label);
-   button.innerHTML='<span aria-hidden="true" class="qcm-create-plus">＋</span><strong></strong><small></small>';
-   button.querySelector('strong').textContent=label;
-   button.querySelector('small').textContent=id==='projectsGrid'?'Créer depuis une idée':'Choisir un commerce réel';
-   button.addEventListener('click',handler);
-   grid.prepend(button);
- };
- new MutationObserver(ensure).observe(grid,{childList:true});
- ensure();
-}
-addCreationTile('projectsGrid','Nouveau projet libre',()=>create.click());
-addCreationTile('proProjectsGrid','Projet professionnel depuis la carte',()=>fromMap.click());
 })();
