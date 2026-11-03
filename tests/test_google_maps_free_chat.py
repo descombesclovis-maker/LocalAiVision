@@ -62,7 +62,8 @@ class FreeformDesignTests(TestCase):
         self.assertNotIn("renderBriefQuestion",js)
         self.assertNotIn("async function beginSpecification",js)
         self.assertIn("if(role!=='user')",js)
-        self.assertIn("await generate(text)",js)
+        self.assertIn("await generate(text,rawText)",js)
+        self.assertIn("original_prompt:originalPrompt",js)
         self.assertNotIn("choices.forEach(value",js)
 
     def test_profile_is_validated_stored_and_sent_to_codex(self):
