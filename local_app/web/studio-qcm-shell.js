@@ -8,15 +8,14 @@ if(!document.body||document.body.dataset.studioShell==='off')return;
 const page=document.body.dataset.studioPage||'home';
 const isAdult=()=>document.body.classList.contains('nsfw-active');
 const links=[
- {id:'home',text:'Studio',symbol:'◈',path:'/studio',keys:['accueil','studio']},
- {id:'web',text:'Projets',symbol:'▦',path:'/localaiweb',keys:['projets','web','site','creer']},
- {id:'map',text:'Carte',symbol:'⌖',path:'/localaiweb/map',keys:['commerces','carte','maps','prospection']},
- {id:'vision',text:'Vision',symbol:'◉',path:'/localaivision',keys:['image','photo','video','vision']},
+ {id:'home',text:'Studio',symbol:'🏠',path:'/studio',keys:['accueil','studio']},
+ {id:'web',text:'Projets',symbol:'💼',path:'/localaiweb',keys:['projets','web','site','creer']},
+ {id:'map',text:'Carte',symbol:'🗺️',path:'/localaiweb/map',keys:['commerces','carte','maps','prospection']},
+ {id:'vision',text:'Vision',symbol:'👁️',path:'/localaivision',keys:['image','photo','video','vision']},
  {id:'brands',text:'Marques',symbol:'◇',path:'/studio/brands',keys:['identite','marque','branding']},
 ];
 const dock=document.createElement('nav');dock.className='qcm-dock';dock.setAttribute('aria-label','Navigation principale');dock.id='qcmDock';
-dock.innerHTML=links.slice(0,4).map(x=>'<a class="qcm-dock-link" href="'+x.path+'" data-qcm-link="'+x.id+'" title="'+x.text+'"><span aria-hidden="true">'+x.symbol+'</span><small>'+x.text+'</small></a>').join('')+
- '<span class="qcm-dock-divider" aria-hidden="true"></span><button id="qcmOpenCommands" type="button" title="Rechercher une commande — Ctrl+K" aria-label="Ouvrir les commandes (Ctrl+K)"><span aria-hidden="true">⌕</span><small>Actions</small></button>';
+dock.innerHTML=links.slice(0,4).map(x=>'<a class="qcm-dock-link" href="'+x.path+'" data-qcm-link="'+x.id+'" title="'+x.text+'"><span aria-hidden="true">'+x.symbol+'</span><small>'+x.text+'</small></a>').join('');
 dock.querySelector('[data-qcm-link="'+page+'"]')?.setAttribute('aria-current','page');
 document.body.append(dock);
 const dialog=document.createElement('dialog');dialog.className='qcm-palette';dialog.setAttribute('aria-label','Palette de commandes');
@@ -41,7 +40,7 @@ function render(){
 function highlight(){[...list.children].forEach((a,i)=>a.classList.toggle('active',i===active))}
 function open(){if(isAdult())return;active=0;input.value='';render();dialog.showModal();input.focus()}
 function close(){if(dialog.open)dialog.close()}
-dock.querySelector('#qcmOpenCommands').addEventListener('click',open);
+
 dialog.querySelector('#qcmCloseCommands').addEventListener('click',close);
 input.addEventListener('input',()=>{active=0;render()});
 input.addEventListener('keydown',e=>{

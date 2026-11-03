@@ -6,7 +6,7 @@ permissions:
 on:
   workflow_dispatch:
   push:
-    branches: ["main"]
+    branches: ["main", "codex/studio-296-4k-polish"]
 
 jobs:
   build:
@@ -184,6 +184,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish latest updater release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}

@@ -18,11 +18,15 @@
  if(motionToggle){
    let manuallyReduced=false;
    try{manuallyReduced=localStorage.getItem(MOTION_KEY)==='1'}catch{}
+   const system=matchMedia('(prefers-reduced-motion: reduce)');
    const apply=()=>{
-     document.body.classList.toggle('qcm-reduce-motion',manuallyReduced);
-     motionToggle.setAttribute('aria-pressed',String(manuallyReduced));
-     motionToggle.textContent=manuallyReduced?'✓ Réactiver les animations':'☾ Réduire les animations';
+     const reduced=manuallyReduced||system.matches;
+     motionToggle.disabled=system.matches;
+     document.body.classList.toggle('qcm-reduce-motion',reduced);
+     motionToggle.setAttribute('aria-pressed',String(reduced));
+     motionToggle.textContent=system.matches?'Animations réduites par le système':reduced?'✓ Réactiver les animations':'☾ Réduire les animations';
    };
+   system.addEventListener('change',apply);
    apply();
    motionToggle.addEventListener('click',()=>{
      manuallyReduced=!manuallyReduced;

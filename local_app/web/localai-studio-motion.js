@@ -10,7 +10,7 @@
  let navigating=false;
  for(const card of cards){
    card.addEventListener('click',event=>{
-     if(navigating||motion.matches||document.body.classList.contains('studio-motion-reduced')||document.body.dataset.studioTransition==='instant'||!pointer.matches||event.defaultPrevented ||
+     if(navigating||document.body.classList.contains('qcm-reduce-motion')||motion.matches||document.body.classList.contains('studio-motion-reduced')||document.body.dataset.studioTransition==='instant'||!pointer.matches||event.defaultPrevented ||
        event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button!==0)return;
      const target=card.getAttribute('href');
      if(!target||!target.startsWith('/'))return;
@@ -29,34 +29,4 @@
    document.body.classList.remove('studio-entering');
    cards.forEach(card=>card.classList.remove('studio-selected'));
  });
- if(!pointer.matches||motion.matches||document.body.classList.contains('studio-motion-reduced')||document.body.dataset.studioTilt==='off')return;
- const frame=new WeakMap();
- for(const card of cards){
-   let lastEvent=null;
-   card.addEventListener('pointermove',event=>{
-     lastEvent=event;
-     if(frame.get(card))return;
-     const tick=requestAnimationFrame(()=>{
-       frame.delete(card);
-       if(!lastEvent||motion.matches)return;
-       const bounds=card.getBoundingClientRect();
-       const x=(lastEvent.clientX-bounds.left)/bounds.width;
-       const y=(lastEvent.clientY-bounds.top)/bounds.height;
-       card.style.setProperty('--pointer-x',(x*100).toFixed(1)+'%');
-       card.style.setProperty('--pointer-y',(y*100).toFixed(1)+'%');
-       card.style.transform='perspective(1400px) rotateX('+((.5-y)*2).toFixed(2)+'deg) rotateY('+((x-.5)*2).toFixed(2)+'deg) translateY(-4px)';
-     });
-     frame.set(card,tick);
-   },{passive:true});
-   const reset=()=>{
-     const tick=frame.get(card);if(tick)cancelAnimationFrame(tick);
-     frame.delete(card);lastEvent=null;
-     card.style.transform='';
-     card.style.removeProperty('--pointer-x');
-     card.style.removeProperty('--pointer-y');
-   };
-   card.addEventListener('pointerleave',reset);
-   card.addEventListener('blur',reset);
-   motion.addEventListener('change',reset);
- }
 })();

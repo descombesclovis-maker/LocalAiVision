@@ -61,3 +61,18 @@ body[data-studio-page="vision"]:not(.nsfw-active) #welcome .welcome-visual{max-w
  .qcm-vision-lens{width:155px}
 }
 @media(prefers-reduced-motion:reduce){.qcm-vision-lens,.qcm-vision-modes button{animation:none!important;transition:none!important}}
+
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.composer,#prompt) {background:#101922!important;color:#eefaff!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .composer:focus-within {box-shadow:0 0 0 1px #67dedc99}
+body:not(.nsfw-active) #composerImageBtn {display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #71d3e3;border-radius:10px;color:#9af0ef}
+body:not(.nsfw-active) #composerImageBtn small {display:none}
+.preview-light {display:block;width:55%;margin:20px auto;height:1px;background:linear-gradient(90deg,transparent,#78ddda,transparent)}
+.studio-navigation .topbar-action {text-align:left;width:100%;justify-content:flex-start}
+body:not(.nsfw-active) .studio-navigation :is(#navPhoto,#navVideo,#navCreations,#studioAdOpen) .nav-glyph svg {display:none}
+body:not(.nsfw-active) #navPhoto .nav-glyph::after {content:"📷"}
+body:not(.nsfw-active) #navVideo .nav-glyph::after {content:"🎬"}
+body:not(.nsfw-active) #navCreations .nav-glyph::after {content:"🎨"}
+body:not(.nsfw-active) #studioAdOpen .nav-glyph::after {content:"⭐"}
+body[data-studio-page="vision"]:not(.nsfw-active) .content {background:#0d141e!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn {background:#16313c;transition:background .18s,box-shadow .18s}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn:hover {background:#1b414d;box-shadow:0 0 12px #64e2ed33}

@@ -29,7 +29,7 @@ class IPhoneReliabilityTests(unittest.TestCase):
         html=source("localaiweb-map.html")
         js=source("localaiweb-map.js")
         css=source("localaiweb-mobile.css")
-        for control in ("dailyProspectsToggle","mapRetryLibrary","mapUnavailable","businessMap"):
+        for control in ("dailyProspectsToggle","mapUnavailable","businessMap"):
             self.assertIn('id="'+control+'"',html)
         self.assertIn("async function ensureLeaflet()",js)
         self.assertIn("cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4",js)
@@ -37,7 +37,7 @@ class IPhoneReliabilityTests(unittest.TestCase):
         self.assertNotIn("document.write(",html)
         self.assertIn("hit=mobile.matches?44:32",js)
         self.assertIn("if(!(await ensureLeaflet()))",js)
-        self.assertIn("if(!map){location.reload();return}",js)
+        self.assertNotIn("mapRetryLibrary",html)
         self.assertIn("setProspectsOpen(!mobile.matches)",js)
         self.assertIn(".map-unavailable{z-index:400",css)
         self.assertIn("pointer:coarse",source("localaiweb-google-map.js"))

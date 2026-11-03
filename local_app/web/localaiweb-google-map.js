@@ -2,7 +2,7 @@
    records come only from independent French registry/OSM datasets.
    Never scrape, harvest or build prospecting dossiers from Google listings. */
 window.LocalAiWebGoogleMap={
- async start(config, showCompany, setStatus, api) {
+ async start(config, showCompany, setStatus, api, matchesWebsite) {
    if(!config?.enabled||!config.browser_key) return false;
    const load=()=>new Promise((resolve,reject)=>{
      if(window.google?.maps){resolve();return}
@@ -124,11 +124,11 @@ window.LocalAiWebGoogleMap={
      const projection=map.getProjection();
      if(!projection)return;
      // Google Maps world coordinates * current pixels per world.
-     const scale=256*Math.pow(2,zoom);
+     const scale=Math.pow(2,zoom);
      const groups=new Map();
      for(const item of businesses.values()){
        const point={lat:item.lat,lng:item.lon};
-       if(!bounds.contains(point))continue;
+       if(!matchesWebsite(item)||!bounds.contains(point))continue;
        const world=projection.fromLatLngToPoint(new google.maps.LatLng(point));
        const key=Math.floor(world.x*scale/cell)+':'+Math.floor(world.y*scale/cell);
        if(!groups.has(key))groups.set(key,[]);
@@ -165,11 +165,12 @@ window.LocalAiWebGoogleMap={
        });
        markers.set(key,marker);
      }
-     document.getElementById('loadedCount').textContent=businesses.size.toLocaleString('fr-FR');
+     document.getElementById('loadedCount').textContent=Array.from(businesses.values()).filter(matchesWebsite).length.toLocaleString('fr-FR');
    }
+   document.getElementById('qcmWebsiteFilter').addEventListener('change',()=>{infoWindow?.close();draw()});
    function add(items){
      for(const item of items||[]){
-       if(!item?.name||!item.id||item.website||item.website_recorded||
+       if(!item?.name||!item.id||
           item.prospect_eligible===false||!Number.isFinite(item.lat)||!Number.isFinite(item.lon))
          continue;
        if(businesses.size>=(mobile?12000:30000))break;
@@ -212,7 +213,7 @@ window.LocalAiWebGoogleMap={
        const args=new URLSearchParams({lat:String(lat),lon:String(lon),zoom:String(zoom)});
        // Three pages of real independently licensed French firms, with
        // priority for retail, small trades and local services.
-       const data=await api('/api/web/map/registry/city?'+args);
+       const data=await api('/api/web/map/no-website/nearby?'+args);
        const before=businesses.size;
        add(data.results);
        setStatus((businesses.size-before)+' petits commerces et établissements ajoutés · '+
