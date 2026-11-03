@@ -6,7 +6,9 @@ permissions:
 on:
   workflow_dispatch:
   push:
-    branches: ["main", "codex/studio-296-4k-polish"]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   build:
@@ -138,6 +140,7 @@ jobs:
         run: python scripts/smoke_update_windows.py dist\\LocalVisionAI.exe
 
       - name: Optionally sign the EXE with an authentic Windows publisher certificate
+        if: github.ref == 'refs/heads/main'
         shell: powershell
         env:
           WINDOWS_SIGN_CERT_B64: ${{ secrets.WINDOWS_SIGN_CERT_B64 }}
