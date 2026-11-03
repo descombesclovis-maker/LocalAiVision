@@ -10,6 +10,9 @@ const env={...process.env,LOCALVISIONAI_DATA:data,LOCALVISIONAI_SKIP_SETUP:'1',L
 const fixture=spawnSync(process.env.PYTHON||'python',['-m','scripts.qa_ui_fixture_314',data],{cwd:root,env,encoding:'utf8'});
 if(fixture.status!==0)throw Error(fixture.stderr);
 const ids=JSON.parse(fixture.stdout),base='http://127.0.0.1:3000';
+// Chromium on Windows normalises clipboard newlines to CRLF. The persisted
+// original is independently checked without any normalisation.
+const normaliseClipboardLines=s=>String(s).replace(/\r\n?/g,'\n');
 const server=spawn(process.env.PYTHON||'python',['-m','local_app.server'],{cwd:root,env,stdio:['ignore','pipe','pipe']});
 const log=fs.createWriteStream(path.join(output,'server.log'));server.stdout.pipe(log);server.stderr.pipe(log);
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -38,6 +41,20 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    const geometry=await sidebar.locator('.studio-navigation>button').evaluateAll(xs=>xs.map(x=>{let r=x.getBoundingClientRect();return {x:r.x,w:r.width,h:r.height}}));
    assert.ok(geometry.every(r=>Math.abs(r.x-geometry[0].x)<1&&Math.abs(r.w-geometry[0].w)<1&&Math.abs(r.h-geometry[0].h)<1));
    assert.equal(await page.evaluate(()=>document.querySelector('#sidebar').contains(document.elementFromPoint(35,300))),true);
+   await check('Navigation icons restored except for distinct LoRA and New discussion actions',async()=>{
+    for(const id of ['navCreations','navPhoto','navVideo','studioAdOpen','navNsfw']){
+     const icon=sidebar.locator('#'+id+' .nav-glyph');
+     assert.equal(await icon.evaluate(e=>getComputedStyle(e).display!=='none'),true,id+' icon hidden');
+    }
+    const lora=sidebar.locator('#visionAdvancedToggle');
+    const fresh=sidebar.locator('#newConversation');
+    assert.equal(await lora.locator('.nav-glyph').evaluate(e=>getComputedStyle(e).display),'none');
+    assert.equal(await fresh.locator('.nav-glyph,svg,img').count(),0);
+    const generic=await sidebar.locator('#navPhoto').evaluate(e=>getComputedStyle(e).backgroundColor);
+    for(const special of [lora,fresh]){
+     assert.notEqual(await special.evaluate(e=>getComputedStyle(e).backgroundColor),generic);
+    }
+   });
    await page.screenshot({path:path.join(output,'vision-menu-desktop.png')});
    await page.keyboard.press('Escape');assert.equal(await page.locator('.main').evaluate(x=>x.inert),false);
    assert.equal(await page.locator('#openSidebar').evaluate(x=>x===document.activeElement),true);
@@ -50,7 +67,10 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   await check('Exact first prompt is copied; missing historical prompt is honestly reported',async()=>{
    await first.locator('summary').click();await first.getByRole('button',{name:"Copier le prompt d'origine"}).click();
    await page.waitForFunction(()=>document.getElementById('libraryStatus').textContent.includes('copié'));
-   assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),ids.prompt);
+   const raw=(await api('/api/web/project?id='+encodeURIComponent(ids.first))).project.original_prompt;
+   assert.equal(raw,ids.prompt,'The persisted original must remain unchanged');
+   assert.equal(normaliseClipboardLines(await page.evaluate(()=>navigator.clipboard.readText())),
+     normaliseClipboardLines(ids.prompt),'Clipboard content differs beyond Windows line endings');
    await legacy.locator('summary').click();await legacy.getByRole('button',{name:"Copier le prompt d'origine"}).click();
    await page.waitForFunction(()=>document.getElementById('libraryStatus').textContent.includes('n’a pas été conservé'));
    assert.equal(new URL(page.url()).pathname,'/localaiweb');
