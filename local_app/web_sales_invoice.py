@@ -43,7 +43,10 @@ _LOCK=threading.RLock()
 def money(value):
     return Decimal(str(value)).quantize(Decimal(".01"),rounding=ROUND_HALF_UP)
 
-def estimate(store,project_id):
+def estimate(store,project_id,discount_pct=30):
+    if type(discount_pct) is not int or not 0<=discount_pct<=99:
+        raise ValueError("Remise attendue entre 0 et 99 %.")
+
     meta=store.meta(project_id)
     files=store.text_files(project_id)
     html="\n".join(x for key,x in files.items() if key.endswith((".html",".tsx",".jsx",".vue",".svelte")))
@@ -82,15 +85,15 @@ def estimate(store,project_id):
     for ident in CATALOG:
         if ident not in tokens:continue
         description,market=CATALOG[ident]
-        discounted=money(Decimal(market)*(Decimal(1)-DISCOUNT))
+        discounted=money(Decimal(market)*(Decimal(1)-Decimal(discount_pct)/100))
         items.append({"id":ident,"label":description,"market_eur":str(money(market)),
-                      "discount_pct":30,"unit_eur":str(discounted),"qty":1,
+                      "discount_pct":discount_pct,"unit_eur":str(discounted),"qty":1,
                       "subtotal_eur":str(discounted),
                       "provisional":True})
     total=sum((money(item["subtotal_eur"]) for item in items),Decimal(0))
     return {"project_id":project_id,"project_name":meta.get("name",""),
             "items":items,"subtotal_eur":str(money(total)),
-            "currency":"EUR","discount_pct":30,"estimate_only":True,
+            "currency":"EUR","discount_pct":discount_pct,"estimate_only":True,
             "notice":"Chiffrage indicatif à vérifier : seules les fonctionnalités réellement livrées et acceptées peuvent être facturées. Achat du domaine et hébergement exclus. Ne constitue pas une facture ni un devis accepté. Ce PDF n'est pas une facture électronique structurée transmise par une plateforme agréée.",
             "sources":_REFERENCE_LINKS}
 
@@ -135,13 +138,15 @@ def validate_parties(seller,customer):
 
 
 def issue(store,project_id,invoice_store,seller,customer,item_ids,
-          accepted=False,service_date="",due_days=30):
+          accepted=False,service_date="",due_days=30,discount_pct=30,quote_number=None,quote_items=None):
     """Generate final numbered invoice ONLY after explicit seller approval."""
     if accepted is not True:
         raise ValueError("Validation explicite de la facture et des prestations exigée.")
     validated=validate_parties(seller,customer)
-    estimate_data=estimate(store,project_id)
+    estimate_data=estimate(store,project_id,discount_pct)
     available={item["id"]:item for item in estimate_data["items"]}
+    if quote_items is not None:
+        available={item["id"]:item for item in quote_items}
     selected=list(dict.fromkeys(item_ids or []))
     if not selected or any(x not in available for x in selected):
         raise ValueError("Sélectionne uniquement des fonctionnalités réellement chiffrées.")
@@ -163,6 +168,12 @@ def issue(store,project_id,invoice_store,seller,customer,item_ids,
     store.meta(project_id)
     folder=Path(invoice_store).resolve();folder.mkdir(parents=True,exist_ok=True)
     with _LOCK:
+        if quote_number:
+            for file in folder.glob("FORMA-????-?????.json"):
+                old=json.loads(file.read_text(encoding="utf-8"))
+                if old.get("quote_number")==quote_number:
+                    return {"ok":True,"invoice_number":old["invoice_number"],"total_eur":old["total_eur"],
+                        "download":"/api/web/invoice/file?number="+old["invoice_number"],"status":old["status"],"data":old}
         registry=folder/"invoice-sequence.json"
         try:sequence=json.loads(registry.read_text(encoding="utf-8")) if registry.exists() else {}
         except (ValueError,OSError):raise RuntimeError("Registre des factures endommagé : ne pas émettre de numéro en double.")
@@ -171,7 +182,7 @@ def issue(store,project_id,invoice_store,seller,customer,item_ids,
         number=int(sequence.get(key) or 0)+1
         invoice_id=f"FORMA-{current.year}-{number:05d}"
         data={
-            "invoice_number":invoice_id,"issue_date":current.isoformat(),
+            "invoice_number":invoice_id,"quote_number":quote_number,"issue_date":current.isoformat(),
             "service_date":service_date,
             "due_date":(current+timedelta(days=days)).isoformat(),
             "project_id":project_id,"project_name":estimate_data["project_name"],
@@ -179,7 +190,7 @@ def issue(store,project_id,invoice_store,seller,customer,item_ids,
             "items":items,"subtotal_eur":str(money(subtotal)),
             "vat_mode":validated["vat_mode"],"vat_eur":str(vat),
             "total_eur":str(total),"currency":"EUR","status":"issued_unpaid",
-            "discount_pct":30,"references":_REFERENCE_LINKS,
+            "discount_pct":discount_pct,"references":_REFERENCE_LINKS,
             "confirmation":"Validation explicite par l'émetteur sur les parties, les montants et la prestation."
         }
         # Produce final PDF before committing sequence and archive.

@@ -72,7 +72,6 @@ function showRename(){
 }
 heading.addEventListener('dblclick',showRename);
 heading.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showRename()}});
-}
 // Compact device controls keep the existing data-view handlers and keyboard support.
 for(const button of document.querySelectorAll('.view-modes [data-view]')){
  const key=button.dataset.view;

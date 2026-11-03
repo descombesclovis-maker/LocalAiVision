@@ -1,7 +1,7 @@
 name: LocalAiWeb 3D checks
 on:
   pull_request:
-    branches: [main]
+    branches: [main, codex/studio-296-4k-polish]
   workflow_dispatch:
 permissions:
   contents: read
@@ -50,7 +50,7 @@ jobs:
       - name: Test sent prompt context actions
         run: node --test tests/test_web_prompt_actions.mjs
       - name: Verify Studio layout, attachment and map in Windows Edge
-        if: github.head_ref == 'codex/studio-296-4k-polish'
+        if: github.head_ref == 'codex/studio-296-4k-polish' || github.head_ref == 'codex/studio-297-sales-autopilot'
         shell: pwsh
         env:
           LOCALVISIONAI_SKIP_SETUP: '1'
@@ -66,10 +66,28 @@ jobs:
               try {Invoke-RestMethod http://127.0.0.1:3000/api/ping | Out-Null; break} catch {Start-Sleep 1}
             }
             node scripts/review_studio_54.cjs
+            if ($LASTEXITCODE) {exit $LASTEXITCODE}
+            node scripts/review_studio_extra.cjs
             exit $LASTEXITCODE
           } finally {Stop-Process -Id $server.Id -ErrorAction SilentlyContinue}
       - uses: actions/upload-artifact@v4
-        if: always() && github.head_ref == 'codex/studio-296-4k-polish'
+        if: always() && (github.head_ref == 'codex/studio-296-4k-polish' || github.head_ref == 'codex/studio-297-sales-autopilot')
         with:
           name: Studio-54-Windows-Edge
           path: ${{ runner.temp }}/studio-review/evidence
+      - name: Validate sales desk in Windows Edge (isolated customers and provider fixtures)
+        if: github.head_ref == 'codex/studio-297-sales-autopilot'
+        shell: pwsh
+        run: |
+          $qa = Join-Path $env:RUNNER_TEMP sales-review
+          npm install --prefix $qa --no-audit --no-fund playwright-core@1.58.2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:NODE_PATH = Join-Path $qa node_modules
+          $env:QA_OUTPUT = Join-Path $qa evidence
+          python scripts/review_sales_55.py
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always() && github.head_ref == 'codex/studio-297-sales-autopilot'
+        with:
+          name: LocalAiWeb-Sales-55-Edge
+          path: ${{ runner.temp }}/sales-review/evidence

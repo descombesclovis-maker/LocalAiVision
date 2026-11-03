@@ -16,3 +16,5 @@
 @media(max-width:1190px){.law-post-publish{grid-template-columns:1fr 1fr;gap:10px}.law-post-publish>div{grid-column:span 2}.law-post-publish small{max-width:90vw}.law-post-publish a{white-space:normal}}
 @media(max-width:700px){.law-publish-btn{height:40px;min-width:95px;padding:0 10px;font-size:11px}.law-post-publish{padding:10px;gap:7px}.law-post-publish a{font-size:10px;padding:8px 6px}.law-edit-overlay strong{font-size:23px}}
 @media(prefers-reduced-motion:reduce){.law-edit-overlay,.law-edit-orb{animation:none!important}.law-stage-track>div,.law-publish-btn{transition:none!important}}
+
+.law-post-publish [hidden]{display:none!important}

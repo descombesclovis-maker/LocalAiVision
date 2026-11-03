@@ -349,7 +349,7 @@ class MediaModels(unittest.TestCase):
 
     def test_omni_media_status_requires_runtime_nodes_when_comfy_is_online(self):
         with tempfile.TemporaryDirectory() as folder:
-            model_dir = Path(folder)
+            model_dir = Path(folder) / 'models'
             for sub, name, _url in boot.MEDIA_MODELS['isolated-video']:
                 target = model_dir / sub / name
                 target.parent.mkdir(parents=True, exist_ok=True)

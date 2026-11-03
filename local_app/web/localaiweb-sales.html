@@ -5,18 +5,39 @@
 <link rel="stylesheet" href="/assets/studio-ui-polish.css">
 </head>
 <body><header class="top">
- <a id="returnEditor" class="back" href="/localaiweb">← Retour à LocalAiWeb</a><a class="back" href="/localaiweb/clients">◈ Portefeuille clients ↗</a>
+ <a id="returnEditor" class="back" href="/localaiweb">← Retour à LocalAiWeb</a><a id="clientRecord" class="back" href="/localaiweb/clients">◈ Portefeuille clients ↗</a>
  <div class="brand">F<span>O</span>RMA <small>STUDIO WEB · ESPACE COMMERCIAL</small></div>
- <div class="badge">CHIFFRAGE & LIVRAISON</div>
+ <div class="badge">LOCALAIWEB PRO</div>
 </header>
 <main class="layout">
- <div class="intro"><p class="eyebrow">PROCESSUS COMMERCIAL · FORMA</p><h1>Un site réussi.<br><em>Un projet prêt à vendre.</em></h1><p id="projectLabel">Chargement du projet…</p>
- <div class="note">Les prix sont des <strong>estimations indicatives</strong> basées sur des références françaises 2026, avec une réduction de 30 % par prestation. Seules les fonctionnalités réellement livrées, acceptées et facturables doivent figurer sur la facture définitive.</div></div>
- <section class="card quote"><div class="heading"><div><p class="eyebrow">01 / VALORISATION</p><h2>Proposition commerciale</h2></div><span class="label">−30 %</span></div>
- <p class="hint">Un devis provisoire est calculé automatiquement à partir des fichiers du site. Décoche les prestations non livrées avant d’émettre une facture.</p>
+ <div class="intro"><p class="eyebrow">LOCALAIWEB · DOSSIER CLIENT</p><h1>Vendre <em>& livrer.</em></h1><p id="projectLabel">Chargement du projet…</p>
+ <p id="overallStage" aria-live="polite"></p><a id="nextSalesStep" class="primary" href="#presentation">Préparer la présentation</a><p id="nextSalesHint" class="hint"></p></div>
+ <nav class="sales-steps" aria-label="Étapes du dossier"><a href="#presentation">01 · Présentation</a><a href="#quoteTitle">02 · Devis</a><a href="#agreement">03 · Accord et paiement</a><a href="#domainTitle">04 · Domaine et services</a><a href="#handover">05 · Livraison</a></nav>
+ <section data-step="presentation" class="sales-desk card" aria-labelledby="deskTitle">
+ <p class="eyebrow">DOSSIER DE VENTE</p><h2 id="deskTitle">Présenter la maquette privée</h2>
+ <p id="salesState" role="status">Chargement du dossier…</p>
+
+ <div id="presentation"><h3>Préparer l’appel</h3><p id="pitch"></p><blockquote id="openingLine"></blockquote><p id="salesSource" class="hint"></p>
+ <div class="sales-links"><button id="prepareSale" type="button">Préparer la présentation</button><button id="aiPitch" type="button">Choisir l’ordre de démonstration avec Codex</button><a id="demoSite" target="_blank" rel="noopener" hidden>Ouvrir la démo locale ↗</a></div>
+ <section id="callSheet"><h3>Feuille d’appel ciblée</h3><p class="hint">Support vendeur · à utiliser avant le devis</p><a id="printScript" class="back" target="_blank" rel="noopener">Ouvrir la feuille PDF ↗</a><div id="scriptSections"></div><details><summary>Corriger mon texte d’appel</summary><label>Version du vendeur<textarea id="manualScript" rows="6" maxlength="6000"></textarea></label><button id="saveScript" type="button">Conserver ma version avec les sources du dossier</button></details>
+ <details><summary>Vérifier ou compléter les informations de ce client</summary>
+ <button id="registryCheck" type="button">Vérifier l’identité au registre public français</button>
+ <div id="officialSite"><p id="siteStatus"></p><button id="scanSite" type="button">Lire la page publique du site officiel</button>
+ <label>Intitulé relevé sur la page<select id="observedTopics"></select></label><button type="button" id="useTopic">Utiliser cet intitulé pour l’accroche</button><button type="button" id="removeTopic">Retirer cet angle</button></div>
+ <form id="clientFact" class="fields"><label>Information<select id="factType"><option>priorité</option><option>besoin</option><option>contrainte</option><option>offre</option></select></label>
+ <label>Source<select id="factSource"><option>Client au téléphone</option><option>Document du client</option><option>Vérification du vendeur</option></select></label>
+ <label>Date de vérification<input type="date" id="factDay" required></label><label>Point professionnel confirmé<input id="factValue" maxlength="480" required placeholder="Ex. : montrer les bouquets de saison avant la prise de contact"></label>
+ <button>Confirmer et actualiser la feuille</button></form><div id="factList"></div><p id="registryResult" role="status"></p></details></section>
+ <details><summary>Résumé de la maquette</summary><p id="salesSummary"></p></details>
+ <p id="salesPhone"></p><div class="sales-links"><button id="verifyPhone" type="button">Vérifier le numéro professionnel</button><a id="dial" hidden>Appeler</a><button id="oppose" type="button">Enregistrer une opposition</button></div>
+ <form id="callLog" class="fields"><label>Issue de l’appel<select id="outcome"><option>répondu</option><option>intéressé</option><option>pas intéressé</option><option>rappel</option></select></label><label>Date de rappel<input type="date" id="due"></label><label>Note<input id="callNote" maxlength="800"></label><button>Enregistrer dans le dossier</button></form>
+ <p class="hint">Vérifie le caractère professionnel du numéro, le lien avec l’activité et informe ton interlocuteur de son droit d’opposition.</p>
+ <p class="feedback" id="deskFeedback" role="status"></p><div id="salesHistory"></div></div></section>
+ <section data-step="quoteTitle" id="quoteTitle" class="card quote"><div class="heading"><div><p class="eyebrow">01 / VALORISATION</p><h2>Proposition commerciale</h2></div><label>Remise (%) <input id="discountPct" type="number" min="0" max="99" step="1" value="30"></label></div>
+ <p class="hint">L’estimation provient des fichiers de ce projet. Ajuste la remise, le périmètre et les frais récurrents avant de proposer un prix. Décoche les prestations non livrées avant d’émettre une facture.</p>
  <div id="lineItems" role="group" aria-label="Prestations détectées"></div><div class="quote-total"><span>Total estimé HT</span><strong id="estimatedTotal">—</strong></div>
- <p id="quoteNotice" class="hint"></p><div class="ref-links"><span>Références tarifaires indicatives :</span><a href="https://onweb24.com/fr/guide/prix-site-internet" target="_blank" rel="noopener">Comparatif 2026 ↗</a><a href="https://dgtl.fr/tarif-creation-site-internet-professionnel/" target="_blank" rel="noopener">Grille tarifs ↗</a></div></section>
- <section class="card identity"><div class="heading"><div><p class="eyebrow">02 / FACTURATION</p><h2>Facture FORMA</h2></div><span class="label">PDF</span></div>
+ <div class="fields"><label>Périmètre du devis<input id="scope" maxlength="900" placeholder="Pages, contenu, révisions et droits convenus"></label><label>Coûts récurrents et exclusions<input id="recurring" maxlength="600" placeholder="Hébergement, domaine, maintenance : montants et fréquences à confirmer"></label></div><label>Coût interne total estimé HT (€)<input type="number" min="0" step=".01" id="costHT"></label><button id="saveBudget" type="button">Enregistrer le coût interne</button><p id="margin" class="hint"></p><p id="quoteNotice" class="hint"></p><button id="reloadEstimate" type="button">Recharger le chiffrage</button><div class="ref-links"><span>Références tarifaires indicatives :</span><a href="https://onweb24.com/fr/guide/prix-site-internet" target="_blank" rel="noopener">Comparatif 2026 ↗</a><a href="https://dgtl.fr/tarif-creation-site-internet-professionnel/" target="_blank" rel="noopener">Grille tarifs ↗</a></div></section>
+ <section data-step="quoteTitle" class="card identity"><div class="heading"><div><p class="eyebrow">02 / FACTURATION</p><h2>Identités et documents</h2></div><span class="label">PDF</span></div>
  <p class="hint">Le projet génère automatiquement un chiffrage. Une facture définitive numérotée ne peut être émise qu'après validation de l'identité du client, de ton statut juridique, de la TVA et de la prestation. Une facture émise est conservée. En 2026, le PDF ne remplace pas la facturation électronique structurée lorsque celle-ci est légalement exigée ; utilise une plateforme agréée si nécessaire.</p>
  <form id="invoiceForm">
  <h3>Prestataire · FORMA</h3>
@@ -34,21 +55,37 @@
  <label>SIRET du client (si applicable)<input id="customerSiret" placeholder="Facultatif selon situation"></label>
  <label>Courriel client<input id="customerEmail" type="email" placeholder="facultatif"></label>
  <label>Date réelle de prestation<input id="serviceDate" type="date" required></label><label>Délai de paiement (jours)<input id="dueDays" type="number" min="0" max="120" value="30" required></label></div>
- <label class="approval"><input type="checkbox" id="invoiceApproval" required><span>Je certifie que les coordonnées, le régime de TVA, les prix et la livraison des prestations sont exacts. J’autorise l’émission d’une facture définitive numérotée.</span></label>
- <div class="quote-actions"><p class="hint">Un devis peut être établi avant livraison. Il devra être accepté par le client ; il ne crée ni commande ni facture.</p><label for="quoteValidDays">Validité du devis (jours)</label><input type="number" id="quoteValidDays" min="1" max="90" value="30"><button id="issueQuote" class="primary secondary" type="button">Créer le devis PDF ↗</button><div id="quoteFeedback" class="feedback" role="status" aria-live="polite"></div></div>
+ <label>Facturer un devis existant<select id="invoiceQuote"><option value="">Sans devis associé</option></select></label><label class="approval"><input type="checkbox" id="invoiceApproval" required><span>Je certifie que les coordonnées, le régime de TVA, les prix et la livraison des prestations sont exacts. J’autorise l’émission d’une facture définitive numérotée.</span></label>
+ <div class="quote-actions"><p class="hint">Un devis peut être établi avant livraison. Il devra être accepté par le client ; il ne crée ni commande ni facture.</p><label for="quoteValidDays">Validité du devis (jours)</label><input type="number" id="quoteValidDays" min="1" max="90" value="30"><button id="issueQuote" class="primary secondary" type="button" disabled>Créer le devis PDF ↗</button><div id="quoteFeedback" class="feedback" role="status" aria-live="polite"></div></div>
  <button id="issueInvoice" class="primary" type="submit">Émettre la facture PDF FORMA ↗</button>
  <div id="invoiceFeedback" class="feedback" role="status" aria-live="polite"></div></form>
  </section>
- <section class="card domain"><div class="heading"><div><p class="eyebrow">03 / MISE EN LIGNE</p><h2>Domaine acheté</h2></div><span class="label">DNS</span></div>
+ <section data-step="agreement" id="agreement" class="card"><p class="eyebrow">ACCORD & PAIEMENT</p><h2>Suivre le devis</h2><div id="deskQuotes"></div><p id="providerMode"></p><label>Devis à traiter<select id="providerQuote"></select></label><label>Code opérateur<input type="password" id="operatorCode" autocomplete="off"></label>
+ <details><summary>Rapprocher une opération interrompue</summary><label>Référence existante sur le tableau de bord du prestataire<input id="recoveryRef" maxlength="240" autocomplete="off"></label><p class="hint">Utiliser « Vérifier la signature », « Préparer le lien » ou « Vérifier la commande » avec la référence correspondante. Une commande incertaine ne doit pas être renvoyée.</p></details>
+ <div class="sales-links"><button id="requestSign" type="button">Envoyer le PDF pour signature</button><button id="verifySign" type="button">Vérifier la signature</button><button id="checkout" type="button">Préparer le lien de paiement</button><button id="refreshOrders" type="button">Actualiser</button></div><p id="orderStatus" role="status"></p><div id="signatureHistory" aria-live="polite"></div><div id="checkoutLinks"></div></section>
+ <section data-step="domainTitle" id="domainTitle" class="card domain"><div class="heading"><div><p class="eyebrow">03 / MISE EN LIGNE</p><h2>Domaine et hébergement</h2></div><span class="label">DNS</span></div>
  <p class="hint">Rattache un domaine <strong>déjà acheté</strong> à un projet Vercel authentifié. Les DNS et la vérification SSL peuvent demander une intervention chez le registrar. Aucune acquisition ni dépense n’est déclenchée par ce bouton.</p>
+ <form id="domainLookup"><label>Rechercher un nom exact<input id="candidate" placeholder="exemple.fr" required></label><button>Consulter disponibilité et tarifs</button><p id="registrarResult" role="status"></p></form>
+ <details><summary>Acheter pour le client avec mandat</summary><p class="hint">Le devis sélectionné doit être signé et intégralement réglé. Un mandat local fixe le titulaire, l’organisation, la durée, le prix total autorisé et le renouvellement. Le mode test bloque les commandes réelles.</p>
+ <form id="mandateForm"><h3>Autorisation d’achat pour le client</h3><div id="holderFields" class="fields"></div>
+ <label>Coût total vérifié en USD<input id="mandateTotal" type="number" step=".01" required></label>
+ <label>Justificatif du coût final, taxes et frais inclus<input id="mandateEvidence" maxlength="300" required></label>
+ <label><input id="holderConsent" type="checkbox" required>Le client consent à la titularité et à ces conditions, sans renouvellement automatique.</label>
+ <label><input id="billingConsent" type="checkbox" required>Le responsable financier a vérifié que le coût total est égal au prix affiché.</label>
+ <button>Enregistrer l’autorisation et vérifier l’offre</button><p class="hint">Les taxes absentes de la réponse du registrar doivent être vérifiées avec le compte de facturation. Les frais supplémentaires bloquent l’achat.</p></form>
+ <button id="domainOffer" type="button">Vérifier le mandat et le prix</button><p id="offerDisplay" role="status"></p>
+ <button id="domainBuy" type="button" disabled>Confirmer cet achat</button><button id="domainPoll" type="button">Vérifier la commande</button></details>
+ <details><summary>Base de données facultative</summary><p class="hint">Pour un site qui contient déjà des migrations. Vérifie les droits RLS, la sauvegarde et la cible avant toute application.</p><label>Référence du projet Supabase<input id="dbRef" maxlength="20"></label>
+ <div class="sales-links"><button id="dbLink" type="button">Relier le projet existant</button><button id="dbPlan" type="button">Tester le plan de migration</button><button id="dbApply" type="button" disabled>Appliquer le plan vérifié</button></div><p id="dbStatus" role="status"></p></details>
  <form id="domainForm"><div class="fields"><label>Nom de domaine possédé<input id="domainName" required placeholder="exemple.fr"></label><label>Nom du projet Vercel<input id="vercelProject" required placeholder="nom-du-projet-vercel"></label></div>
  <button class="primary secondary" type="submit">Associer et obtenir la configuration DNS ↗</button><div id="domainFeedback" class="feedback" role="status"></div></form></section>
- <section class="card checklist"><div class="heading"><div><p class="eyebrow">04 / LIVRAISON</p><h2>Contrôle avant vente</h2></div><span class="label">À vérifier</span></div>
- <div class="checkgrid"><label><input type="checkbox"> Navigation et toutes les pages vérifiées</label><label><input type="checkbox"> Test mobile / tablette / ordinateur</label>
+ <section data-step="handover" class="card checklist" id="handover"><div class="heading"><div><p class="eyebrow">04 / LIVRAISON</p><h2>Recette et livraison</h2></div><span class="label">À vérifier</span></div>
+ <p id="serviceNeeds"></p><div class="checkgrid"><label><input type="checkbox"> Navigation et toutes les pages vérifiées</label><label><input type="checkbox"> Test mobile / tablette / ordinateur</label>
  <label><input type="checkbox"> Logos et photos réels autorisés</label><label><input type="checkbox"> Coordonnées, prestations et horaires confirmés</label>
  <label><input type="checkbox"> Formulaire et services externes testés</label><label><input type="checkbox"> Mentions légales / confidentialité / cookies si nécessaires</label>
  <label><input type="checkbox"> Accord du client pour le site et sa publication</label><label><input type="checkbox"> Domaine, HTTPS et URL de production vérifiés</label></div>
  <p class="hint">Ce contrôle est manuel et ne certifie pas une conformité juridique. La vente d'un site réellement prêt à fonctionner peut demander plus de 30 minutes selon les intégrations et contenus.</p>
+ <button id="saveReview" type="button">Conserver la recette manuelle</button><p id="releaseStatus" role="status"></p><button type="button" id="runPreflight">Vérifier les fichiers du site</button><button type="button" id="publishApproved">Publier avec mandat</button><button type="button" id="finishDelivery">Vérifier HTTPS et confirmer la remise</button><a id="deliveryZip">Exporter le ZIP du projet</a>
  </section>
 </main><script src="/assets/localaiweb-sales.js"></script><script src="/assets/pwa-install.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>

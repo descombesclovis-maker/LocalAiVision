@@ -168,7 +168,10 @@ async function load(){
   const [result,projectResult]=await Promise.all([
    api('/api/web/crm/overview'),api('/api/web/projects')]);
   state=result;projects=projectResult.projects||[];
-  render();status('Registre privé à jour · aucun envoi automatique.');
+  render();
+  const url=new URL(location.href), client=state.clients.find(c=>c.id===url.searchParams.get('client'));
+  if(client){url.searchParams.delete('client');history.replaceState(null,'',url);open(client)}
+  status('Registre privé à jour · aucun envoi automatique.');
  }catch(e){status('Impossible de charger les données commerciales : '+e.message)}
 }
 function exportClients(){
