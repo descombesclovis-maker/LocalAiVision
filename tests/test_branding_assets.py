@@ -39,10 +39,10 @@ class BrandTests(unittest.TestCase):
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('Décris ton image, ta vidéo ou ta publicité.',vision)
-        self.assertIn('src="/assets/brand-web.svg"',projects)
+        self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',projects)
         self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):
-            self.assertIn('src="/assets/brand-web.svg"',web_ui)
+            self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',web_ui)
         self.assertIn("/assets/app-icon.svg",manifest)
         self.assertIn("LocalAIStudio_Official_Original.png",
                       (BASE/"scripts/prepare_windows_brand.py").read_text(encoding="utf-8"))
