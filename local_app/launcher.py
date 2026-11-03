@@ -26,6 +26,36 @@ def probe():
         return None
 
 
+def running_instance_state(existing, expected):
+    """Identify the exact active build, not only its shared semantic version."""
+    if not isinstance(existing, dict) or existing.get("app") != "LocalVisionAI":
+        return "none"
+    for field in ("version", "build_tag"):
+        if str(existing.get(field) or "") != str(expected.get(field) or ""):
+            return "different"
+    return "same"
+
+
+def open_in_browser():
+    """Keep the server alive when WebView2 is absent or browser mode is requested."""
+    url = URL + "/studio"
+    print("Opening LocalAI Studio in browser:", url, flush=True)
+    if not webbrowser.open(url, new=2):
+        show_error("Le navigateur ne s'est pas ouvert automatiquement.\n\n"
+                   "Ouvre manuellement : " + url)
+    if os.name == "nt":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(
+            0, "LocalAI Studio fonctionne dans ton navigateur.\n"
+               "Adresse : " + url + "\n\n"
+               "Garde cette fenêtre ouverte pendant l'utilisation. "
+               "Clique sur OK pour arrêter le serveur local.",
+            "LocalAI Studio — navigateur", 0x40)
+    else:
+        while True:
+            time.sleep(1)
+
+
 def show_error(message):
     try:
         import ctypes
@@ -44,22 +74,25 @@ def main():
     httpd = None
     try:
         from local_app import server
+        current = server.build_info()
+        print("Executable:", sys.executable, "Build:", current.get("build_tag"),
+              "Version:", current.get("version"), flush=True)
         existing = probe()
-        if existing and existing.get('app') == 'LocalVisionAI':
-            if existing.get('version') != server.VERSION:
-                raise RuntimeError('Une autre version de LocalVisionAI occupe déjà le port 3000. Ferme cette ancienne version une fois, puis relance celle-ci.')
-            # The running instance owns the HTTP server. Opening a second native
-            # window would leave it orphaned if the owner is closed first.
-            try:
-                import ctypes
-                ctypes.windll.user32.MessageBoxW(
-                    0,
-                    'LocalVisionAI est déjà ouvert.\n\nUtilise la fenêtre déjà lancée.',
-                    'LocalVisionAI',
-                    0x40,
-                )
-            except Exception:
-                pass
+        state = running_instance_state(existing, current)
+        if state == "different":
+            raise RuntimeError(
+                "Une autre version de LocalAI Studio utilise déjà le port 3000.\n\n"
+                "Build déjà actif : " + str(existing.get("build_tag") or "inconnu") +
+                " (version " + str(existing.get("version") or "?") + ")\n"
+                "Build demandé : " + str(current.get("build_tag") or "inconnu") +
+                " (version " + str(current.get("version") or "?") + ")\n\n"
+                "Ferme l'ancien LocalVisionAI.exe dans le Gestionnaire des tâches, "
+                "puis relance cette version. Tes projets restent conservés dans "
+                "%LOCALAPPDATA%\\LocalVisionAI.")
+        if state == "same":
+            print("An identical build is already active; opening Studio in browser.", flush=True)
+            if not webbrowser.open(URL + "/studio", new=2):
+                show_error("Ce build fonctionne déjà. Ouvre " + URL + "/studio")
             return
         else:
             try:
@@ -79,22 +112,18 @@ def main():
             while True:
                 time.sleep(0.25)
         try:
-            import webview
-            webview.create_window('LocalAI Studio', URL, width=1440, height=920,
-                                  min_size=(900, 650), background_color='#090909')
-            webview.start(debug=False, private_mode=False, storage_path=str(DATA / 'webview'))
+            if os.environ.get("LOCALVISIONAI_BROWSER_ONLY") == "1":
+                open_in_browser()
+            else:
+                import webview
+                title = "LocalAI Studio · " + str(current.get("build_tag") or "source")
+                webview.create_window(title, URL + "/studio", width=1440, height=920,
+                                      min_size=(900, 650), background_color="#090909")
+                webview.start(debug=False, private_mode=False, storage_path=str(DATA / "webview"))
         except Exception:
-            # A missing WebView2 runtime must not make the entire app unusable.
+            # WebView2 might be absent or fail after starting the HTTP server.
             traceback.print_exc()
-            webbrowser.open(URL)
-            if httpd:
-                print('Interface ouverte dans le navigateur. Fermer ce processus pour arrêter le serveur.', flush=True)
-                if os.name == 'nt':
-                    import ctypes
-                    ctypes.windll.user32.MessageBoxW(0, 'L’interface est ouverte dans ton navigateur.\n\nGarde cette boîte ouverte pendant l’utilisation. Clique sur OK pour arrêter LocalVisionAI.', 'LocalAI Studio — mode navigateur', 0x40)
-                else:
-                    while True:
-                        time.sleep(1)
+            open_in_browser()
     except KeyboardInterrupt:
         pass
     except Exception as exc:
