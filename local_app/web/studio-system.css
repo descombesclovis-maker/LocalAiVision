@@ -156,20 +156,20 @@ body[data-studio-page]:not(.nsfw-active){
 body[data-studio-page="home"]:not(.nsfw-active){--brand-trail:#9c70f2;--brand-halo:#20b9d7}
 body[data-studio-page="vision"]:not(.nsfw-active){--brand-trail:#38ddf5;--brand-halo:#167da1}
 body[data-studio-page]:not(.nsfw-active)::before{
-  inset:32% -24% -27%;z-index:-1;pointer-events:none;opacity:.55;
+  inset:27% -24% -24%;z-index:-1;pointer-events:none;opacity:.78;
   background:
-    linear-gradient(165deg,transparent 43.7%,color-mix(in srgb,var(--brand-trail) 8%,transparent) 44.0%,color-mix(in srgb,var(--brand-trail) 35%,transparent) 44.13%,transparent 44.6%),
-    linear-gradient(168deg,transparent 58.5%,color-mix(in srgb,var(--brand-halo) 28%,transparent) 58.8%,transparent 59.2%),
-    linear-gradient(157deg,transparent 74%,color-mix(in srgb,var(--brand-trail) 23%,transparent) 74.27%,transparent 74.75%),
-    radial-gradient(ellipse at 75% 75%,color-mix(in srgb,var(--brand-trail) 12%,transparent),transparent 63%);
+    linear-gradient(165deg,transparent 43.4%,color-mix(in srgb,var(--brand-trail) 19%,transparent) 43.9%,color-mix(in srgb,var(--brand-trail) 62%,transparent) 44.13%,transparent 44.75%),
+    linear-gradient(168deg,transparent 58.0%,color-mix(in srgb,var(--brand-halo) 51%,transparent) 58.8%,transparent 59.45%),
+    linear-gradient(157deg,transparent 73.7%,color-mix(in srgb,var(--brand-trail) 52%,transparent) 74.25%,transparent 74.95%),
+    radial-gradient(ellipse at 75% 75%,color-mix(in srgb,var(--brand-trail) 20%,transparent),transparent 63%);
   mask-image:linear-gradient(180deg,transparent,black 23%,black 75%,transparent);
   transform:translate3d(-3%,8px,0);will-change:transform,opacity;
   animation:studio314-light-rivers 21s cubic-bezier(.44,0,.56,1) infinite alternate;
 }
 body[data-studio-page]:not(.nsfw-active)::after{
   content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
-  background:radial-gradient(ellipse 30% 24% at 20% 78%,color-mix(in srgb,var(--brand-trail) 11%,transparent),transparent),
-             radial-gradient(ellipse 42% 27% at 91% 32%,color-mix(in srgb,var(--brand-halo) 12%,transparent),transparent);
+  background:radial-gradient(ellipse 30% 24% at 20% 78%,color-mix(in srgb,var(--brand-trail) 22%,transparent),transparent),
+             radial-gradient(ellipse 42% 27% at 91% 32%,color-mix(in srgb,var(--brand-halo) 22%,transparent),transparent);
   transform:translate3d(0,12px,0);animation:studio314-ambient-drift 28s ease-in-out infinite alternate;
 }
 @keyframes studio314-light-rivers{
