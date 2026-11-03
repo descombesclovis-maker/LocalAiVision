@@ -38,7 +38,7 @@ body[data-qcm-project-filter="pro"] .library:not(.pro-library){display:none}body
    of labels or interactive controls. Keep compositing to opacity/transform. */
 body[data-studio-page="projects"] .workspace{position:relative;isolation:isolate}
 body[data-studio-page="projects"] .workspace::before{
- content:"";position:absolute;inset:100px -7% 10%;z-index:-1;pointer-events:none;
+ content:"";position:absolute;inset:100px 0 10%;z-index:-1;pointer-events:none;
  background:
   linear-gradient(162deg,transparent 28%,#7b39dd23 28.28%,#b55cff50 28.4%,transparent 28.75%),
   linear-gradient(169deg,transparent 53%,#9d50ff24 53.3%,#ca84ff42 53.44%,transparent 53.7%),
