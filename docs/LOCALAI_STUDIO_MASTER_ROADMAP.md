@@ -1,4 +1,7 @@
 # LocalAI Studio — feuille de route maîtresse (Build 294 et suivants)
+
+> **Mise à jour du 3 novembre 2026 — 261/261 réponses validées.** Ce document historique conserve les objectifs des cycles 294 à 300. La direction artistique définitive n'est plus le QCM générique du Build 294 : elle est dans [les 261 décisions approuvées](LOCALAI_STUDIO_QCM_V1_APPROVED.json), le [cahier de recette détaillé des 261 éléments](LOCALAI_STUDIO_FINAL_QCM_ACCEPTANCE_261.md) et la [liste d'intégration par page](LOCALAI_STUDIO_QCM_V1_IMPLEMENTATION.md). Ces fichiers doivent être consultés avant chaque modification. Les fonctionnalités ne passent à 100 % qu'après tests réels.
+
 Date : 2 novembre 2026. Base : Build 293 publié ; aucun projet, moteur ni fichier de sauvegarde supprimé.
 
 ## Cap permanent

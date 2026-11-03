@@ -10,6 +10,10 @@
  let previousArea='',lastLoad=0,pending=null,overviewTimer=null,nextOverviewBatch=0;
  const mobile=window.matchMedia('(max-width:700px), (max-width:1000px) and (pointer:coarse)');
  const businesses=new Map(),pins=new Map(),MAX_STORED=mobile.matches?12000:30000;
+ const siteFilter=$('qcmWebsiteFilter');
+ let websiteFilter='all';
+ const matchesWebsite=item=>websiteFilter==='all'||(websiteFilter==='missing'?!item.website&&!item.website_recorded:!!(item.website||item.website_recorded));
+ siteFilter?.addEventListener('change',()=>{websiteFilter=siteFilter.value;scheduleRedraw()});
  const prospectDrawer=$('dailyProspects'),prospectToggle=$('dailyProspectsToggle');
  function setProspectsOpen(open){
    if(!prospectDrawer||!prospectToggle)return;
@@ -118,6 +122,8 @@
    }
    $('selectionTitle').textContent=item.name||'Établissement';
    $('selectionCategory').textContent=item.category||'Entreprise';
+   const badge=$('qcmWebsiteBadge');
+   if(badge){const yes=Boolean(item.website||item.website_recorded);badge.className='qcm-website-badge '+(yes?'yes':'unknown');badge.textContent=yes?'Site renseigné : oui':'Site internet : inconnu';}
    setValue('selectionAddress',item.address||[item.postcode,item.city].filter(Boolean).join(' '));
    setValue('selectionSiret',item.siret);
    const phone=setValue('selectionPhone',item.phone);
@@ -330,7 +336,7 @@
    const groups=new Map();
    const bounds=map.getBounds().pad(.12);
    for(const item of businesses.values()){
-     if(!bounds.contains([item.lat,item.lon]))continue;
+     if(!bounds.contains([item.lat,item.lon])||!matchesWebsite(item))continue;
      const pt=map.latLngToContainerPoint([item.lat,item.lon]);
      const key=Math.floor(pt.x/cell)+':'+Math.floor(pt.y/cell);
      if(!groups.has(key))groups.set(key,[]);
@@ -340,7 +346,7 @@
    for(const [key,group] of groups){
      pins.set(key,markerFor(group));
    }
-   $('loadedCount').textContent=businesses.size.toLocaleString('fr-FR');
+   $('loadedCount').textContent=[...businesses.values()].filter(matchesWebsite).length.toLocaleString('fr-FR');
    rendering=false;
  }
  let redrawTimeout;
@@ -351,8 +357,7 @@
  function insert(records){
    let count=0;
    for(const item of records||[]){
-     if(!item||item.kind==='location'||item.website||item.website_recorded||
-        item.prospect_eligible===false||!item.id||
+     if(!item||item.kind==='location'||item.prospect_eligible===false||!item.id||
         !Number.isFinite(item.lat)||!Number.isFinite(item.lon))continue;
      if(businesses.has(item.id))continue;
      if(businesses.size>=MAX_STORED)break;
@@ -372,7 +377,7 @@
  }
  function countLabel(){
    const n=businesses.size;
-   return n+' petites entreprises sans site référencé · indépendance et absence de site à confirmer.';
+   return n+' établissements réels chargés · présence d’un site à confirmer.';
  }
  async function overview(batch=0){
    clearTimeout(overviewTimer);
@@ -457,6 +462,7 @@
    if(!loading)overview(Number.isInteger(nextOverviewBatch)?nextOverviewBatch:0)
  });
  $('mapClose').addEventListener('click',()=>{panel.hidden=true;selected=null});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){panel.hidden=true;selected=null}});
  btn.addEventListener('click',async()=>{
    if(creating||!selected?.selection_token)return;
    creating=true;btn.disabled=true;
@@ -485,7 +491,14 @@
      ]);
      if(config.enabled && window.LocalAiWebGoogleMap){
        const started=await window.LocalAiWebGoogleMap.start(config,details,setStatus,api);
-       if(started){void loadDailyProspects();return;}
+       if(started){
+         if(config.places_enabled&&siteFilter){
+           siteFilter.disabled=true;
+           siteFilter.title='Google Maps ne fournit pas de filtre global fiable des commerces selon leur site internet. Consulte la fiche pour vérifier son statut.';
+           const message=$('qcmWebsiteFilterNote');if(message)message.textContent='Statut vérifiable dans chaque fiche Google ; filtrage global indisponible avec les points natifs.';
+         }
+         void loadDailyProspects();return;
+       }
      }
      if(!config.enabled){
        // Never claim official Google Maps when the user has not configured
@@ -518,6 +531,8 @@
    map.invalidateSize({pan:false});
    map.fitBounds(franceBounds,{padding:[25,30],maxZoom:6,animate:false});
  };
+ window.StudioMapRecenter=showFrance;
+ window.dispatchEvent(new Event('studio-map-ready'));
  setTimeout(showFrance,300);
  window.addEventListener('resize',()=>{map.invalidateSize({pan:false});scheduleRedraw()});
  document.addEventListener('visibilitychange',()=>{
