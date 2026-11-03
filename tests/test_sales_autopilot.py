@@ -220,7 +220,7 @@ class SalesTests(TestCase):
         def first(heading):
             d=server._sales_dossier(self.pid,{"action":"select_angle","heading":heading,"confirmed":True})
             self.assertIn(d["public_page"]["url"],str(d["call_sheet"][0]))
-            return d["call_sheet"][1][1][0]
+            return " ".join(d["call_sheet"][1][1])
         self.assertIn("Si une entreprise découvre",first("Fleurs pour les entreprises"))
         self.assertIn("s’engager dans la durée",first("Abonnements floraux"))
         manual=server._sales_dossier(self.pid,{"action":"clear_angle"})

@@ -58,7 +58,7 @@ def _internal_link(page,name,pages):
 def _first_call(desk,facts,goal,refs):
     company=desk["business"]
     angle=desk.get("angle")
-    introduction="Bonjour, [votre prénom] à l’appareil. Je crée des sites pour les professionnels."
+    introduction="Bonjour. Je crée des sites pour les professionnels."
     if angle:
         fresh=(date.today()-date.fromisoformat(angle["day"])).days<=90
         refs.append(f"Intitulé public retenu par le vendeur le {angle['day']} : « {angle['heading']} » — {angle['url']}.")
@@ -78,8 +78,8 @@ def _first_call(desk,facts,goal,refs):
                 lead=f"J’ai une question à propos de « {topic} », que j’ai lu sur votre site : qu’aimeriez-vous savoir d’un client avant de lui chiffrer une demande ?"
             else:
                 lead=f"En regardant votre site, je me suis arrêté sur « {topic} ». Est-ce l’offre que vous aimeriez mettre en avant, ou y en a-t-il une plus importante aujourd’hui ?"
-            return [introduction+" "+lead,
-                    f"Si la personne répond : j’ai préparé une maquette privée pour {company}. Je vous montre le passage qui peut servir de point de départ ? Cela prend vingt secondes."]
+            return [f"Bonjour. J’ai lu « {topic} » sur votre site. Je crée des sites pour les professionnels et j’ai préparé une maquette pour {company}. Vous avez vingt secondes pour que je vous présente l’idée ?",
+                    "Si la personne accepte : "+lead]
         refs.append("Observation de plus de 90 jours : relire la page avant de réutiliser cet intitulé en ouverture.")
     if desk["website"]:
         try: host=urlsplit(desk["website"]).hostname

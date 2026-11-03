@@ -51,7 +51,7 @@ fs.mkdirSync(out,{recursive:true});
   await p.waitForFunction(()=>document.querySelector('#observedTopics')?.options.length===2);
   await p.selectOption('#observedTopics','Fleurs pour les entreprises');
   await p.click('#useTopic');
-  await p.waitForFunction(()=>document.querySelector('#openingLine').textContent.includes('Si une entreprise découvre'));
+  await p.waitForFunction(()=>document.querySelector('#openingLine').textContent.includes('Fleurs pour les entreprises'));
   await p.selectOption('#factType','priorité');
   await p.fill('#factValue','Présenter les bouquets de saison');
   await p.click('#clientFact button');await p.waitForFunction(()=>document.querySelector('#scriptSections').textContent.includes('bouquets de saison'));
