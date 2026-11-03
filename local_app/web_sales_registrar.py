@@ -11,11 +11,11 @@ from local_app import web_sales_orders as orders
 from local_app.web_sales_pipeline import registrar_search
 
 
-def _mandate(store, pid, number):
+def _mandate(root, store, pid, number):
     folder = orders.setting("LOCALAI_REGISTRAR_MANDATES")
-    if not folder or orders._mode() != "live":
+    if orders._mode() != "live":
         raise ValueError("Achat désactivé. Mandat financier local et mode réel requis.")
-    area = Path(folder).resolve()
+    area = (Path(folder) if folder else Path(root)/"mandates").resolve()
     if area.is_relative_to(store.root.resolve()):
         raise ValueError("Les mandats doivent être conservés hors des projets.")
     project = store.meta(pid)
@@ -73,7 +73,7 @@ def _provider(m, path, body=None):
 
 
 def prepare(root, store, pid, number):
-    m=_mandate(store,pid,number)
+    m=_mandate(root,store,pid,number)
     q=orders._quote(root,pid,number)
     if m.get("customer_name")!=q["customer"]["name"]:
         raise ValueError("Le bénéficiaire du mandat doit correspondre au client du devis.")
@@ -183,7 +183,6 @@ def save_mandate(root,store,pid,number,body):
         try:
             pending.write_text(json.dumps(record,ensure_ascii=False))
             pending.replace(path)
-            if not folder:orders._private_config["LOCALAI_REGISTRAR_MANDATES"]=str(area)
             result,_=prepare(root,store,pid,number)
         except Exception:
             if previous is None:path.unlink(missing_ok=True)

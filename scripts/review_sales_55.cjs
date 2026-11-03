@@ -28,7 +28,7 @@ fs.mkdirSync(out,{recursive:true});
   const preview=p.frames().find(f=>f.url().includes('preview-web-'));
   assert.ok(preview);
   const probes=await preview.evaluate(()=>window.securityProbe);
-  assert.deepEqual(probes,['blocked','blocked','blocked','isolated','write-blocked','write-blocked']);
+  assert.deepEqual(probes,['blocked','blocked','blocked','isolated','write-blocked','simple-write-blocked','write-blocked','simple-write-blocked']);
   assert.equal(await p.evaluate(()=>document.body.dataset.compromised),undefined);
   const other=await preview.evaluate(async id=>{try{return await (await fetch('http://preview-'+id+'.localhost:'+location.port+'/web-preview/'+id+'/index.html')).text()}catch{return 'blocked'}},libre);
   assert.equal(other,'blocked');
@@ -88,9 +88,20 @@ fs.mkdirSync(out,{recursive:true});
   await p.locator('#agreement:not([hidden])').waitFor();
   await p.waitForTimeout(300);
   await p.screenshot({path:path.join(out,'devis-avant-publication.jpg'),quality:80});
+  for(const [button,state] of [['requestSign','envoyé'],['verifySign','signature en attente'],['verifySign','signature refusée']]){
+   await p.fill('#operatorCode','fixture-operator-55');
+   await p.click('#'+button);
+   await p.waitForFunction(text=>document.querySelector('#signatureHistory summary')?.textContent.includes(text),state);
+  }
   await p.reload();await p.waitForSelector('#deskQuotes a');
+  assert.match(await p.locator('#signatureHistory').innerText(),/signature refusée/);
+  await p.screenshot({path:path.join(out,'signature-refusee.jpg'),quality:80});
+  await p.setViewportSize({width:390,height:844});
+  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await p.screenshot({path:path.join(out,'signature-refusee-mobile.jpg'),quality:80});
   const d=await p.evaluate(id=>fetch('/api/web/sales/dossier?id='+id).then(r=>r.json()),pro);
   assert.equal(d.stage,'quote_prepared');assert.equal(d.orders.length,0);
+  assert.deepEqual(d.signatures[0].history.map(h=>h.state),['sent','pending','declined']);
   assert.deepEqual(errors,[]);
   console.log('LocalAiWeb #55 : Pro, Libre, CTA, rappel, reprise, PDF et quatre dimensions validés.');
  }finally{

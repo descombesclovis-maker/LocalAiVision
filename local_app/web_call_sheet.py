@@ -67,17 +67,17 @@ def _first_call(desk,facts,goal,refs):
             # Each angle is a question about the literal public heading. It does
             # not imply a conversion problem, missing feature or proven demand.
             if re.search(r"mariage|réception|événement",topic,re.I):
-                lead=f"J’ai vu « {topic} » sur votre site. Pour une personne qui prépare cet événement, qu’aimeriez-vous lui montrer en premier ?"
+                lead="Pour ces événements, vos clients préfèrent voir des réalisations ou vous expliquer leur projet directement ?"
             elif re.search(r"abonnement|récurrent|chaque mois",topic,re.I):
-                lead=f"Je suis tombé sur « {topic} » en regardant votre site. Avant de s’engager dans la durée, qu’est-ce qu’un client devrait pouvoir comprendre tout de suite ?"
+                lead="Pour vos abonnements, on vous demande surtout les tarifs ou comment ça fonctionne ?"
             elif re.search(r"entreprises|professionnels|collectivités",topic,re.I):
-                lead=f"« {topic} » a retenu mon attention sur votre site. Si une entreprise découvre {company} aujourd’hui, quel exemple aimeriez-vous qu’elle voie avant de vous appeler ?"
+                lead="Pour vos clients professionnels, vous préférez montrer des exemples ou recevoir une demande de devis ?"
             elif re.search(r"réserv|rendez.vous|booking",topic,re.I):
-                lead=f"Sur votre site, j’ai vu « {topic} ». Quand quelqu’un veut réserver, quel premier geste voulez-vous lui rendre évident ?"
+                lead="Vos clients préfèrent réserver en ligne ou vous appeler pour choisir un créneau ?"
             elif re.search(r"devis|sur.mesure",topic,re.I):
-                lead=f"J’ai une question à propos de « {topic} », que j’ai lu sur votre site : qu’aimeriez-vous savoir d’un client avant de lui chiffrer une demande ?"
+                lead="Pour préparer un devis, quelles informations demandez-vous en premier ?"
             else:
-                lead=f"En regardant votre site, je me suis arrêté sur « {topic} ». Est-ce l’offre que vous aimeriez mettre en avant, ou y en a-t-il une plus importante aujourd’hui ?"
+                lead="Est-ce cette offre que vous souhaitez mettre en avant en ce moment ?"
             return [f"Bonjour. J’ai lu « {topic} » sur votre site. Je crée des sites pour les professionnels et j’ai préparé une maquette pour {company}. Vous avez vingt secondes pour que je vous présente l’idée ?",
                     "Si la personne accepte : "+lead]
         refs.append("Observation de plus de 90 jours : relire la page avant de réutiliser cet intitulé en ouverture.")

@@ -152,6 +152,15 @@
    $('invoiceQuote').value=invoice;
    $('providerQuote').replaceChildren(...data.quotes.map(q=>new Option(q.number+' · '+currency(q.total),q.number)));
    if(data.quotes.some(q=>q.number===chosen))$('providerQuote').value=chosen;
+   const signatureLabels={sent:'envoyé',uncertain:'envoi incertain : rapprocher chez Dropbox Sign',pending:'signature en attente',declined:'signature refusée',quote_expired:'devis expiré, sans accord vérifié',provider_error:'erreur signalée par Dropbox Sign',accepted:'accord vérifié'};
+   $('signatureHistory').replaceChildren(...(data.signatures||[]).map(row=>{
+     const detail=document.createElement('details'),title=document.createElement('summary');
+     title.textContent=row.quote+' · '+(signatureLabels[row.state]||row.state);
+     detail.append(title);
+     for(const h of row.history){const p=document.createElement('p');p.textContent=new Date(h.at*1000).toLocaleString('fr-FR')+' · '+(signatureLabels[h.state]||h.state);detail.append(p)}
+     if(row.checked){const p=document.createElement('p');p.textContent='Dernière consultation du prestataire : '+new Date(row.checked*1000).toLocaleString('fr-FR');detail.append(p)}
+     return detail;
+   }));
    $('checkoutLinks').replaceChildren(...data.orders.map(row=>{
      const line=document.createElement('p');line.textContent=row.quote+' · accord vérifié · '+({unpaid:'non réglé',pending:'paiement en attente',paid:'réglé',failed:'paiement échoué',refunded:'remboursé',partially_refunded:'remboursement partiel'}[row.payment]||row.payment);
      if(row.checkout && row.payment==='pending'){const a=document.createElement('a');a.href=row.checkout;a.target='_blank';a.rel='noopener';a.textContent='Ouvrir le paiement hébergé';line.append(' · ',a)}

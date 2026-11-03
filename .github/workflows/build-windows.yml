@@ -182,6 +182,18 @@ jobs:
           Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
           Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
           Compress-Archive -Path release\* -DestinationPath LocalVisionAI-Windows.zip -Force
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path LocalVisionAI-Windows.zip))
+          try {
+            foreach ($required in @('LocalVisionAI.exe','ACTIVER_ACCES_TELEPHONE.bat','MOBILE_SETUP.md')) {
+              $entry = $archive.GetEntry($required)
+              if (-not $entry -or $entry.Length -le 0) { throw "Missing or empty package entry: $required" }
+            }
+            $exe = $archive.GetEntry('LocalVisionAI.exe').Open()
+            try {
+              if ($exe.ReadByte() -ne 77 -or $exe.ReadByte() -ne 90) { throw 'Packaged executable has no MZ header.' }
+            } finally { $exe.Dispose() }
+          } finally { $archive.Dispose() }
           $hash=(Get-FileHash -Algorithm SHA256 LocalVisionAI-Windows.zip).Hash.ToLowerInvariant()
           "$hash  LocalVisionAI-Windows.zip" | Set-Content -Encoding ascii LocalVisionAI-Windows.sha256
 
@@ -189,7 +201,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LocalVisionAI-Windows
-          path: LocalVisionAI-Windows.zip
+          path: |
+            LocalVisionAI-Windows.zip
+            LocalVisionAI-Windows.sha256
           if-no-files-found: error
 
       - name: Publish latest updater release

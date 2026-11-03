@@ -151,11 +151,13 @@ def _sales_dossier(pid, change=None):
         orders=web_sales_orders.status(root,pid)
         if not ready or not store.preflight(pid)["ok"] or not integrations_cli.validate_site(store.project_dir(pid)/"site").get("ok"):
             raise ValueError("Recette technique incomplète.")
-        if meta.get("project_kind")=="pro" and not any(o["mode"]=="live" and o["payment"]=="paid" for o in orders):
-            raise ValueError("Aucun règlement réel vérifié pour ce dossier.")
         if change.get("confirmed") is not True:
             raise ValueError("Remise au client à confirmer.")
         current=web_sales_pipeline.dossier(root,store,pid,ready,pages,revision=revision)
+        released_quote=(current["release"] or {}).get("quote")
+        if meta.get("project_kind")=="pro" and not any(o["mode"]=="live" and o["payment"]=="paid"
+                and o["refunded"]==0 and o["quote"]==released_quote for o in orders):
+            raise ValueError("Le devis de cette publication doit disposer d’un règlement réel non remboursé.")
         if current["release"] and current["release"].get("revision")!=revision:
             raise ValueError("Le site a changé depuis la publication. Refaire la recette.")
         if meta.get("project_kind")=="pro" and not current["release"]:
@@ -194,6 +196,7 @@ def _sales_dossier(pid, change=None):
     from local_app import web_call_sheet
     result["call_sheet"] = web_call_sheet.script(result,_web_preview_root(pid))
     result["orders"] = web_sales_orders.status(root,pid)
+    result["signatures"] = web_sales_orders.signatures(root,pid)
     from local_app import web_sales_registrar
     markup=" ".join(v.lower() for k,v in files.items() if k.endswith((".html",".jsx",".tsx",".js",".ts")))
     result["service_needs"]=["Hébergement et HTTPS à vérifier"]
@@ -206,14 +209,17 @@ def _sales_dossier(pid, change=None):
     result["registration"] = web_sales_registrar.details(root,pid)
     result["provider_mode"] = web_sales_orders._mode()
     if result["provider_mode"]=="live":
+        payment=None
         if result["orders"]:
-            payment=result["orders"][-1]["payment"]
+            released_quote=(result["release"] or {}).get("quote")
+            active=next((o for o in result["orders"] if o["quote"]==released_quote),result["orders"][-1])
+            payment=active["payment"]
             result["stage"]={"unpaid":"accepted","pending":"payment_pending","paid":"paid"}.get(payment,payment)
         if result["registration"] and result["stage"]=="paid":
             result["stage"]="domain_"+result["registration"]["state"]
-        if result["release"] and result["release"].get("revision")==revision:
+        if payment=="paid" and result["release"] and result["release"].get("revision")==revision:
             result["stage"]="published"
-        if result["delivery"]:
+        if payment=="paid" and result["delivery"]:
             result["stage"]="handover_complete"
     return result
 
@@ -2186,7 +2192,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _preview_boundary(self, path):
         host=self._sales_host()
-        origin=urlparse(self.headers.get("Origin","")).hostname or ""
+        origin_url=urlparse(self.headers.get("Origin",""))
+        origin=origin_url.hostname or ""
         preview=host.startswith("preview-web-") and host.endswith(".localhost")
         if preview:
             pid=host[len("preview-"):-len(".localhost")]
@@ -2212,7 +2219,8 @@ class Handler(BaseHTTPRequestHandler):
         trusted={"127.0.0.1","localhost","::1","ventes.localhost"}
         trusted.update(x.strip().lower() for x in os.getenv("LOCALAI_TRUSTED_HOSTS","").split(",") if x.strip())
         if path.startswith("/api/") and (host not in trusted or
-                (origin and origin!=urlparse("//"+self.headers.get("Host","")).hostname) or
+                (self.headers.get("Origin") and
+                 (origin_url.scheme!="http" or origin_url.netloc.lower()!=self.headers.get("Host","").lower())) or
                 preview or origin.startswith("preview-web-") or
                 self.headers.get("Origin")=="null" or self.headers.get("Sec-Fetch-Site")=="cross-site"):
             self.send_json({"error":"API interdite depuis une maquette."},403)

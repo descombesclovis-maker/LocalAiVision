@@ -139,6 +139,122 @@ class SalesTests(TestCase):
         with patch("socket.getaddrinfo",return_value=[(2,1,6,"",("127.0.0.1",443))]):
             with self.assertRaises(ValueError):delivery._https("example.org")
 
+    def test_signature_pending_declined_and_expiry_persist_without_acceptance(self):
+        number=self.quote()
+        ref="b"*40
+        with patch.object(orders,"_request",return_value={"signature_request":{"signature_request_id":ref}}):
+            orders.signature_request(self.crm,self.pid,number)
+        record={"signature_request_id":ref,"is_complete":False,"is_declined":False,"has_error":False,
+            "metadata":{"sales_mode":"test","quote_number":number,
+                        "quote_sha256":hashlib.sha256(crm.quote_file(self.crm,number).read_bytes()).hexdigest()},
+            "signatures":[{"status_code":"awaiting_signature","signer_email_address":CLIENT["email"]}]}
+        with patch.object(orders,"_request",return_value={"signature_request":record}):
+            self.assertEqual(orders.verify_acceptance(self.crm,self.pid,number),[])
+            orders.verify_acceptance(self.crm,self.pid,number)
+            record["is_declined"]=True
+            self.assertEqual(orders.verify_acceptance(self.crm,self.pid,number),[])
+        saved=orders.signatures(self.crm,self.pid)[0]
+        self.assertEqual(saved["state"],"declined")
+        self.assertEqual([h["state"] for h in saved["history"]],["sent","pending","declined"])
+        self.assertEqual(server._sales_dossier(self.pid)["signatures"],[saved])
+        # Provider timeout must leave the last verified state, not invent success.
+        with patch.object(orders,"_request",side_effect=TimeoutError):
+            with self.assertRaises(TimeoutError):orders.verify_acceptance(self.crm,self.pid,number)
+        self.assertEqual(orders.signatures(self.crm,self.pid)[0]["state"],"declined")
+        record["is_declined"]=False
+        quote=dict(orders._quote(self.crm,self.pid,number),valid_until="2000-01-01")
+        with patch.object(orders,"_quote",return_value=quote),patch.object(orders,"_request",return_value={"signature_request":record}):
+            self.assertEqual(orders.verify_acceptance(self.crm,self.pid,number),[])
+        self.assertEqual(orders.signatures(self.crm,self.pid)[0]["state"],"quote_expired")
+        with self.assertRaises(ValueError):orders.checkout(self.crm,self.pid,number)
+
+    def test_signature_wrong_document_never_changes_history_or_accepts(self):
+        number=self.quote()
+        ref="c"*40
+        with patch.object(orders,"_request",return_value={"signature_request":{"signature_request_id":ref}}):
+            orders.signature_request(self.crm,self.pid,number)
+        record={"signature_request_id":ref,"is_complete":True,
+            "metadata":{"sales_mode":"test","quote_number":number,"quote_sha256":"wrong"},
+            "signatures":[{"status_code":"signed","signer_email_address":CLIENT["email"],"signed_at":int(time.time())}]}
+        with patch.object(orders,"_request",return_value={"signature_request":record}):
+            with self.assertRaises(ValueError):orders.verify_acceptance(self.crm,self.pid,number)
+        self.assertEqual(orders.status(self.crm,self.pid),[])
+        self.assertEqual(orders.signatures(self.crm,self.pid)[0]["state"],"sent")
+
+    def test_failure_cannot_grant_paid_and_refund_bounds_are_atomic(self):
+        number=self.quote()
+        with closing(orders._db(self.crm)) as db,db:
+            db.execute("INSERT INTO orders(quote,project,amount,signature,mode,accepted,session,payment) VALUES(?,?,72000,'sig','test',0,'cs_test_55','pending')",(number,self.pid))
+        obj={"id":"cs_test_55","metadata":{"quote":number},"currency":"eur","amount_total":72000,
+             "client_reference_id":number,"payment_status":"paid","payment_intent":"pi_test"}
+        orders.webhook(self.crm,*self.event("checkout.session.async_payment_failed","evt_failed",obj))
+        self.assertEqual(orders.status(self.crm,self.pid)[0]["payment"],"failed")
+        orders.webhook(self.crm,*self.event("checkout.session.completed","evt_paid",obj))
+        refund=dict(obj,id="ch_55",amount=72000,amount_refunded=1000)
+        orders.webhook(self.crm,*self.event("charge.refunded","evt_partial",refund))
+        for bad in (-1,72001,True,1.5,"1000"):
+            with self.assertRaises(ValueError):
+                orders.webhook(self.crm,*self.event("charge.refunded","evt_bad_refund",dict(refund,amount_refunded=bad)))
+        # Smaller out-of-order refund cannot reduce the known cumulative refund.
+        orders.webhook(self.crm,*self.event("charge.refunded","evt_older",dict(refund,amount_refunded=500)))
+        with self.assertRaises(ValueError):
+            orders.webhook(self.crm,*self.event("checkout.session.completed","evt_wrong_intent",dict(obj,payment_intent="pi_other")))
+        self.assertEqual(orders.status(self.crm,self.pid)[0]["refunded"],1000)
+        self.assertEqual(orders.status(self.crm,self.pid)[0]["payment"],"partially_refunded")
+        with closing(orders._db(self.crm)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM events").fetchone()[0],4)
+
+    def test_api_refuses_other_ports_schemes_and_preview_hosts(self):
+        from http.client import HTTPConnection
+        import threading
+        from http.server import ThreadingHTTPServer
+        http=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
+        thread=threading.Thread(target=http.serve_forever,daemon=True);thread.start()
+        try:
+            host="127.0.0.1:"+str(http.server_port)
+            for origin in ("http://127.0.0.1:1","https://"+host,"null","http://preview-"+self.pid+".localhost:"+str(http.server_port)):
+                conn=HTTPConnection("127.0.0.1",http.server_port)
+                try:
+                    conn.request("GET","/api/web/crm/overview",headers={"Host":host,"Origin":origin})
+                    response=conn.getresponse();self.assertEqual(response.status,403);response.read()
+                finally:conn.close()
+        finally:http.shutdown();http.server_close();thread.join()
+
+    def test_handover_requires_payment_of_published_quote_and_refund_stays_visible(self):
+        from local_app import web_sales_pipeline
+        published=self.quote()
+        other=self.quote()
+        revision=server._sales_dossier(self.pid)["revision"]
+        server._sales_dossier(self.pid,{"action":"prepare"})
+        web_sales_pipeline.record_release(self.crm,self.pid,revision,published,"https://example.org")
+        with closing(orders._db(self.crm)) as db,db:
+            db.execute("INSERT INTO orders(quote,project,amount,signature,mode,accepted,payment) VALUES(?,?,72000,'published','live',0,'refunded')",(published,self.pid))
+            db.execute("INSERT INTO orders(quote,project,amount,signature,mode,accepted,payment) VALUES(?,?,72000,'other','live',1,'paid')",(other,self.pid))
+        with patch.dict(os.environ,{"LOCALAI_SALES_MODE":"live"}),patch.object(self.store,"preflight",return_value={"ok":True}),patch("local_app.integrations_cli.validate_site",return_value={"ok":True}),patch.object(delivery,"verify") as verify:
+            self.assertEqual(server._sales_dossier(self.pid)["stage"],"refunded")
+            with self.assertRaisesRegex(ValueError,"devis de cette publication"):
+                server._sales_dossier(self.pid,{"action":"handover","confirmed":True})
+            verify.assert_not_called()
+
+    def test_default_domain_mandate_survives_configuration_reload(self):
+        number=self.quote()
+        link=self.store.project_dir(self.pid)/"site"/".vercel";link.mkdir()
+        (link/"project.json").write_text(json.dumps({"orgId":"team_55","projectId":"prj_55"}))
+        with closing(orders._db(self.crm)) as db,db:
+            db.execute("INSERT INTO orders(quote,project,amount,signature,mode,accepted,payment) VALUES(?,?,72000,'sig','live',0,'paid')",(number,self.pid))
+        contact={k:"test" for k in ("firstName","lastName","phone","address1","city","state","zip","country")}
+        contact["email"]=CLIENT["email"]
+        body={"domain":"example.org","all_in_usd":12,"holder_consented":True,"billing_verified":True,
+              "billing_evidence":"Fixture, no purchase", "contactInformation":contact}
+        with patch.dict(os.environ,{"LOCALAI_SALES_MODE":"live","LOCALAI_REGISTRAR_MANDATES":""}),patch.dict(orders._private_config,{},clear=True),patch.object(registrar,"registrar_search",return_value={"domain":"example.org","available":True,"price":12,"renewal":15,"years":1}),patch.object(registrar,"_provider") as buy:
+            offer=registrar.save_mandate(self.crm,self.store,self.pid,number,body)
+            self.assertTrue((self.crm/"mandates"/(self.pid+".json")).is_file())
+            self.assertNotIn("LOCALAI_REGISTRAR_MANDATES",orders._private_config)
+            # Only the persisted private file is needed after process restart.
+            recovered,_=registrar.prepare(self.crm,self.store,self.pid,number)
+            self.assertEqual(offer["approval"],recovered["approval"])
+            buy.assert_not_called()
+
     def test_two_florists_have_distinct_evidence_and_never_inherit_each_others_facts(self):
         self.build()
         self.store.write_files(self.pid,{"index.html":"<!doctype html><html><title>Atelier</title><main><h1>Fleurs de saison</h1><p>Une maquette locale</p><a href='bouquets.html'>Voir les bouquets</a></main></html>",
@@ -221,8 +337,8 @@ class SalesTests(TestCase):
             d=server._sales_dossier(self.pid,{"action":"select_angle","heading":heading,"confirmed":True})
             self.assertIn(d["public_page"]["url"],str(d["call_sheet"][0]))
             return " ".join(d["call_sheet"][1][1])
-        self.assertIn("Si une entreprise découvre",first("Fleurs pour les entreprises"))
-        self.assertIn("s’engager dans la durée",first("Abonnements floraux"))
+        self.assertIn("montrer des exemples",first("Fleurs pour les entreprises"))
+        self.assertIn("les tarifs ou comment ça fonctionne",first("Abonnements floraux"))
         manual=server._sales_dossier(self.pid,{"action":"clear_angle"})
         self.assertIn("Est-ce toujours votre site",manual["call_sheet"][1][1][0])
         with self.assertRaises(ValueError):server._sales_dossier(self.pid,{"action":"website_observed","observation":{}})

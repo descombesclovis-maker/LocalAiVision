@@ -50,7 +50,7 @@ jobs:
       - name: Test sent prompt context actions
         run: node --test tests/test_web_prompt_actions.mjs
       - name: Verify Studio layout, attachment and map in Windows Edge
-        if: github.head_ref == 'codex/studio-296-4k-polish'
+        if: github.head_ref == 'codex/studio-296-4k-polish' || github.head_ref == 'codex/studio-297-sales-autopilot'
         shell: pwsh
         env:
           LOCALVISIONAI_SKIP_SETUP: '1'
@@ -69,7 +69,7 @@ jobs:
             exit $LASTEXITCODE
           } finally {Stop-Process -Id $server.Id -ErrorAction SilentlyContinue}
       - uses: actions/upload-artifact@v4
-        if: always() && github.head_ref == 'codex/studio-296-4k-polish'
+        if: always() && (github.head_ref == 'codex/studio-296-4k-polish' || github.head_ref == 'codex/studio-297-sales-autopilot')
         with:
           name: Studio-54-Windows-Edge
           path: ${{ runner.temp }}/studio-review/evidence

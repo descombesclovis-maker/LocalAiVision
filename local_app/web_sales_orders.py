@@ -47,6 +47,10 @@ def _db(root):
           mode TEXT NOT NULL, reference TEXT, requested REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY, quote TEXT NOT NULL,
           type TEXT NOT NULL, at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS signature_checks(quote TEXT PRIMARY KEY,
+          reference TEXT NOT NULL, state TEXT NOT NULL, checked REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS signature_history(id INTEGER PRIMARY KEY,
+          quote TEXT NOT NULL, reference TEXT NOT NULL, state TEXT NOT NULL, at REAL NOT NULL);
     """)
     return con
 
@@ -78,8 +82,30 @@ def status(root, project):
     Path(root).mkdir(parents=True,exist_ok=True)
     with closing(_db(root)) as db:
         return [dict(row) for row in db.execute(
-            "SELECT quote,mode,accepted,payment,amount,refunded,checkout FROM orders WHERE project=? AND mode=?",
+            "SELECT quote,mode,accepted,payment,amount,refunded,checkout FROM orders WHERE project=? AND mode=? ORDER BY accepted,quote",
             (project,_mode()))]
+
+
+def signatures(root, project):
+    """Local history only; refreshing the desk never sends or polls a provider."""
+    with closing(_db(root)) as db:
+        rows = [dict(row) for row in db.execute(
+            "SELECT r.quote,r.reference,r.requested,c.checked,COALESCE(c.state,'uncertain') AS state "
+            "FROM requests r LEFT JOIN signature_checks c ON c.quote=r.quote "
+            "WHERE r.project=? AND r.mode=? ORDER BY r.requested", (project,_mode()))]
+        for row in rows:
+            row["history"] = [dict(h) for h in db.execute(
+                "SELECT state,at FROM signature_history WHERE quote=? ORDER BY id", (row["quote"],))]
+        return rows
+
+
+def _signature_state(db, number, reference, state):
+    old = db.execute("SELECT reference,state FROM signature_checks WHERE quote=?", (number,)).fetchone()
+    now = time.time()
+    if not old or (old["reference"],old["state"]) != (reference,state):
+        db.execute("INSERT INTO signature_history(quote,reference,state,at) VALUES(?,?,?,?)",
+                   (number,reference,state,now))
+    db.execute("INSERT OR REPLACE INTO signature_checks VALUES(?,?,?,?)", (number,reference,state,now))
 
 
 def signature_request(root, project, number):
@@ -117,6 +143,7 @@ def signature_request(root, project, number):
         raise ValueError("Référence inconnue. Réconcilier chez Dropbox Sign.")
     with closing(_db(root)) as db, db:
         db.execute("UPDATE requests SET reference=? WHERE quote=?",(reference,number))
+        _signature_state(db,number,reference,"sent")
     return reference
 
 
@@ -139,18 +166,35 @@ def verify_acceptance(root, project, number, recovery=None):
     meta = data.get("metadata") or {}
     email = (quote["customer"].get("email") or "").casefold()
     signers = data.get("signatures") or []
-    from datetime import datetime, timezone
+    from datetime import date, datetime, timezone
     until = quote["valid_until"]
     def client_signed(s):
         if s.get("status_code") != "signed" or not email or str(s.get("signer_email_address")).casefold()!=email:
             return False
         stamp = datetime.fromtimestamp(int(s.get("signed_at") or 0),timezone.utc).date().isoformat()
         return quote["issued_at"] <= stamp <= until
-    if (data.get("signature_request_id") != reference or data.get("is_complete") is not True
-        or data.get("has_error") or data.get("is_declined")
+    if (data.get("signature_request_id") != reference
         or meta.get("sales_mode") != _mode() or meta.get("quote_number") != number or meta.get("quote_sha256") != digest
-        or not any(client_signed(s) for s in signers)):
+        or not email or not any(str(s.get("signer_email_address") or "").casefold()==email for s in signers)):
         raise ValueError("Accord non vérifié : contrôler PDF, signataire, dates et environnement.")
+    # Incomplete, declined and expired requests are provider observations, never
+    # an acceptance. Keep them visible across a restart, including transitions.
+    state = "pending"
+    if data.get("is_declined") is True or any(s.get("status_code")=="declined" for s in signers):
+        state = "declined"
+    elif data.get("has_error") is True:
+        state = "provider_error"
+    elif data.get("is_complete") is True:
+        if not any(client_signed(s) for s in signers):
+            raise ValueError("Signature hors validité ou signataire non confirmé.")
+        state = "accepted"
+    elif date.today().isoformat() > until:
+        state = "quote_expired"
+    with closing(_db(root)) as db, db:
+        db.execute("UPDATE requests SET reference=? WHERE quote=? AND reference IS NULL",(reference,number))
+        _signature_state(db,number,reference,state)
+    if state != "accepted":
+        return status(root,project)
     with closing(_db(root)) as db, db:
         db.execute("UPDATE requests SET reference=? WHERE quote=? AND reference IS NULL",(reference,number))
         db.execute("INSERT OR IGNORE INTO orders(quote,project,amount,signature,mode,accepted) VALUES(?,?,?,?,?,?)",
@@ -234,7 +278,10 @@ def webhook(root, raw, header):
                 raise RuntimeError("Paiement à rapprocher avant remboursement.")
             if obj.get("payment_intent")!=row["intent"] or obj.get("amount")!=row["amount"]:
                 raise ValueError("Remboursement non associé au paiement vérifié.")
-            refund=max(row["refunded"],int(obj["amount_refunded"]))
+            amount_refunded=obj.get("amount_refunded")
+            if type(amount_refunded) is not int or not 0 <= amount_refunded <= row["amount"]:
+                raise ValueError("Montant remboursé incohérent.")
+            refund=max(row["refunded"],amount_refunded)
             db.execute("UPDATE orders SET payment=?,refunded=? WHERE quote=?",
                        ("refunded" if refund==row["amount"] else "partially_refunded",refund,number))
         else:
@@ -242,7 +289,11 @@ def webhook(root, raw, header):
                 raise RuntimeError("Session à rapprocher. Réessayer le webhook.")
             if obj.get("id")!=row["session"] or obj.get("amount_total")!=row["amount"] or obj.get("client_reference_id")!=number:
                 raise ValueError("Session ou montant incohérent.")
-            if obj.get("payment_status")=="paid" and obj.get("payment_intent") and not row["refunded"]:
+            intent=obj.get("payment_intent")
+            if row["intent"] and intent and intent!=row["intent"]:
+                raise ValueError("Identifiant de paiement incohérent.")
+            if (kind in ("checkout.session.completed","checkout.session.async_payment_succeeded")
+                and obj.get("payment_status")=="paid" and intent and not row["refunded"]):
                 db.execute("UPDATE orders SET payment='paid',intent=? WHERE quote=?", (obj["payment_intent"],number))
             elif kind.endswith(("failed","expired")) and row["payment"] in ("pending","unpaid"):
                 db.execute("UPDATE orders SET payment='failed' WHERE quote=?",(number,))
