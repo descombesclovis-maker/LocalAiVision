@@ -78,3 +78,28 @@ def place_details(place_id):
     if not result:raise ValueError("Impossible de sélectionner cette entreprise Google Maps.")
     return {"business":result}
 
+
+def create_reference_project(store, business):
+    """Persist a permitted place ID, not copied Places content in site/CRM.
+
+    The official widget owns display of Google content. The user's own brief
+    supplies reusable professional facts; this project is never auto-published.
+    Existing projects and independent registry/OSM workflows remain untouched.
+    See developers.google.com/maps/documentation/places/web-service/policies.
+    """
+    pid=str(business.get("google_place_id") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,220}",pid):
+        raise ValueError("Identifiant Google Place invalide.")
+    reference={"id":"google-"+pid,"google_place_id":pid,
+               "name":"Projet lié à Google Maps",
+               "source":"Google Maps — identifiant du lieu uniquement",
+               "verified":False}
+    payload=store.create_business_project(reference)
+    project_id=payload["project"]["id"]
+    meta=store.meta(project_id)
+    meta["initial_generation"]={"status":"brief_required","attempts":0,
+                                "created_at":time.time()}
+    store.write_meta(project_id,meta)
+    return store.payload(project_id), reference
+
+

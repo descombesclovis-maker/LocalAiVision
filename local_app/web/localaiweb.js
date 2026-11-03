@@ -65,8 +65,8 @@ function codexRecovery(error){
  if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
  const node=$('#lawChatStatus');
  if(node)node.textContent=/authentif|login|401|token/i.test(raw)
-  ?'Codex demande une reconnexion. Ouvre « Connexion IA » pour te reconnecter.'
-  :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Connexion IA ».';
+  ?'Codex demande une reconnexion. Ouvre « Paramètres » pour te reconnecter.'
+  :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Paramètres ».';
  $('#lawMobileMenuToggle')?.classList.add('needs-attention');
 }
 
@@ -274,8 +274,7 @@ async function watchGeneration(id){
          project=await api('/api/web/project?id='+encodeURIComponent(id));
          preview();
          $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
-         if(!chat.children.length)message('Décrivez votre site ou la modification souhaitée. Votre aperçu et vos versions restent accessibles à droite.');
-  stage='ready';
+         stage='ready';
          const salesLink=document.getElementById('lawSalesBtn');
          if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
          generationFeedback(status);
@@ -414,7 +413,6 @@ async function initialize(){
   for(const row of project.chat||[]){
    if(row.role==='user')message(row.text,'user');
   }
-  if(!chat.children.length)message('Décrivez votre site ou la modification souhaitée. Votre aperçu et vos versions restent accessibles à droite.');
   stage='ready';
   const generation=await api('/api/web/generation/status?id='+encodeURIComponent(id));
   if(generation.state==='running'){
@@ -425,6 +423,9 @@ async function initialize(){
   }
   await refreshSales();
   const first=project.project?.initial_generation||{};
+  if(first.status==='brief_required'){
+    $('#lawChatStatus').textContent='Projet lié à la fiche Google. Décrivez dans le chat les informations confirmées de cette entreprise pour créer son site.';
+  }
   if(project.project?.project_kind==='pro' && !generation.preview_ready &&
      first.status==='pending'){
     await startProDraft(false);

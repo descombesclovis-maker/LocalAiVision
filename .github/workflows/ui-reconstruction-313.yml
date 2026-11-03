@@ -28,7 +28,7 @@ jobs:
       - name: Python regression suite and browser syntax
         run: |
           python -m unittest discover -s tests -v
-          git diff --name-only '${{ github.event.pull_request.base.sha }}' HEAD -- '*.js' '*.cjs' | while IFS= read -r file; do node --check "$file"; done
+          rg --files local_app/web scripts tests -g '*.js' -g '*.cjs' | while IFS= read -r file; do node --check "$file"; done
       - name: Capture baseline at six resolutions
         env:
           NODE_PATH: ${{ runner.temp }}/studio-ui/node_modules

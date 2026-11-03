@@ -11,7 +11,7 @@ let mapCallback;
 const window={dispatchEvent(){}};
 const context={window,Event:class{},URLSearchParams,setTimeout,clearTimeout,customElements:{get(){return true}},
  document:{getElementById(id){return elements[id]},addEventListener(name,fn){docEvents[name]=fn}},
- google:{maps:{importLibrary:async()=>{},Map:class{constructor(element,options){assert.equal(options.center.lat,46.60);assert.equal(options.zoom,6)}addListener(name,fn){mapCallback=fn}setCenter(){}setZoom(){}}}};
+ google:{maps:{importLibrary:async()=>{},Map:class{constructor(element,options){assert.equal(options.center.lat,46.60);assert.equal(options.zoom,6)}addListener(name,fn){mapCallback=fn}setCenter(){}setZoom(){}}}}};
 window.google=context.google;
 vm.runInNewContext(fs.readFileSync('local_app/web/localaiweb-google-map.js','utf8'),context);
 const tick=()=>new Promise(resolve=>setImmediate(resolve));

@@ -3087,7 +3087,11 @@ class Handler(BaseHTTPRequestHandler):
                 from local_app import web_business_map
                 company = web_business_map.selected_business(body.get("selection_token"))
                 store=_web_store()
-                payload=store.create_business_project(company)
+                if company.get("google_place_id"):
+                    from local_app import web_google_maps
+                    payload,company=web_google_maps.create_reference_project(store,company)
+                else:
+                    payload=store.create_business_project(company)
                 # A project must not disappear because CRM indexing fails.
                 try:
                     from local_app import web_crm

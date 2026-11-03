@@ -94,7 +94,7 @@ class ProSaleTests(unittest.TestCase):
         script=(ROOT/"local_app/web/localaiweb-sales.js").read_text(encoding="utf-8")
         editor=(ROOT/"local_app/web/localaiweb.html").read_text(encoding="utf-8")
         server=(ROOT/"local_app/server.py").read_text(encoding="utf-8")
-        self.assertIn("F<span>O</span>RMA",html)
+        self.assertIn("LocalAiWeb",html)
         self.assertNotIn("53784237900027",html)
         self.assertIn('id="issueQuote"',html)
         self.assertIn('id="quoteValidDays"',html)

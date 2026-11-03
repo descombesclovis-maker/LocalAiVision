@@ -78,3 +78,5 @@ body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn>.studio-publ
  body[data-studio-page="vision"]:not(.nsfw-active) .app{height:calc(100dvh - 78px - env(safe-area-inset-bottom,0px))}
  body[data-studio-page="vision"]:not(.nsfw-active){padding-bottom:0}
 }
+
+body[data-studio-page="sales"] .brand{font-weight:500;letter-spacing:-.02em}body[data-studio-page="sales"] .brand small{letter-spacing:.12em}

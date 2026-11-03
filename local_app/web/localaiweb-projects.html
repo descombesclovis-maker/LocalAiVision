@@ -14,7 +14,7 @@
   <header class="topbar">
     <div class="branding"><span class="logo" aria-hidden="true"><img src="/assets/brand-web.svg" alt=""></span><div><strong>LocalAiWeb</strong><small>Votre espace de création</small></div></div>
     <div class="top-actions"><details class="studio-menu" id="webProjectMenu"><summary>Menu <span aria-hidden="true">⌄</span></summary><div class="studio-menu-panel">
-      <a href="/studio/brands">Identités de marque</a>
+      <a href="/studio/brands">Identités de marque</a><button id="openProspects" type="button">Suggestions de prospection</button>
       <details><summary>Paramètres techniques</summary><div class="studio-menu-section">
         <button id="connectAgent" class="agent-control" type="button">Vérifier la connexion Codex</button>
         <button id="lawUpdateBtn" type="button" class="update-action">Vérifier les mises à jour</button>
@@ -53,6 +53,8 @@
     <div class="dialog-actions"><button id="cancelProject" type="button" class="secondary-action">Annuler</button><button id="confirmProject" type="submit" class="primary-action">Créer mon projet ↗</button></div>
   </form>
 </dialog>
+<dialog id="prospectsDialog" aria-labelledby="prospectsTitle"><h2 id="prospectsTitle">Suggestions de prospection</h2><p id="prospectsStatus" role="status"></p><div id="prospectsList"></div><div class="dialog-actions"><button id="closeProspects" type="button">Fermer</button></div></dialog>
+<script src="/assets/localaiweb-prospects.js" defer></script>
 <script src="/assets/localaiweb-projects.js"></script>
 <script src="/assets/localaiweb-update.js"></script>
 <script src="/assets/localaiweb-agent.js"></script>

@@ -62,8 +62,12 @@ async function check(name,fn){try{await fn();results.checks.push({name,ok:true})
    await context.close();
   }
   if(!results.baseline){
-   const context=await browser.newContext({viewport:{width:1365,height:768}});
+   const context=await browser.newContext({viewport:{width:1365,height:768},recordVideo:{dir:path.join(output,'video'),size:{width:1365,height:768}}});
    const page=await context.newPage();
+   const video=page.video();
+   // Demonstrate actual screens and their transitions, without claiming any
+   // connected AI, Google or financial operation has been performed.
+   for(const [name,route] of pages){await page.goto(base+route,{waitUntil:'domcontentloaded'});await wait(1200)}
    await check('Native menu keyboard open, Escape close, focus restored',async()=>{
     await page.goto(base+'/localaiweb');const summary=page.locator('#webProjectMenu>summary');await summary.focus();await page.keyboard.press('Enter');
     assert.equal(await page.locator('#webProjectMenu').evaluate(x=>x.open),true);
@@ -100,6 +104,7 @@ async function check(name,fn){try{await fn();results.checks.push({name,ok:true})
     // This tests CSS exclusion only. It does not unlock or alter reserved data.
    });
    await context.close();
+   await video.saveAs(path.join(output,'parcours-interface.webm'));
   }
  }catch(error){results.error=error.stack;process.exitCode=1}
  finally{
