@@ -74,7 +74,8 @@ class PreviewToolsTests(unittest.TestCase):
         for button in ('lawInspectBtn','lawBrowserBtn','lawZipBtn'):
             self.assertIn('id="'+button+'"',html)
         self.assertIn('id="lawSiteTools" class="site-tools" hidden',html)
-        self.assertIn("toolbar.hidden=!v.ready",logic)
+        self.assertIn("hidden=!s.ready",logic)
+        logic+=(ROOT/'local_app/web/preview-inspector.js').read_text(encoding='utf-8')
         self.assertIn('dblclick',logic)
         self.assertIn('pointerdown',logic)
         self.assertIn('pointermove',logic)
@@ -82,7 +83,7 @@ class PreviewToolsTests(unittest.TestCase):
         self.assertIn('shiftKey',logic)
         self.assertIn('law-picked',logic)
         self.assertIn('await sendText(text)',logic)
-        self.assertIn('/api/web/open-browser',logic)
+        self.assertIn('noopener,noreferrer',logic)
         self.assertIn('exportSite()',logic)
 
     def test_ready_checks_placeholder_and_real_compiled_site(self):

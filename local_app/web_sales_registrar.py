@@ -140,3 +140,59 @@ def details(root,pid,refresh=False,recovery=None):
             result["order_id"]=reference
             db.execute("UPDATE domains SET state=?,order_id=? WHERE project=?",(state,reference,pid))
         return result
+
+
+def save_mandate(root,store,pid,number,body):
+    """Collect a bounded approval in the trusted UI, without placing an order."""
+    from local_app import web_crm
+    import uuid
+    quote_row=orders._quote(root,pid,number)
+    if body.get("holder_consented") is not True or body.get("billing_verified") is not True:
+        raise ValueError("Consentement du titulaire et coût final à confirmer.")
+    target=store.project_dir(pid)/"site"/".vercel"/"project.json"
+    if not target.is_file():
+        raise ValueError("Relier au préalable le projet Vercel du client.")
+    link=json.loads(target.read_text())
+    offer=registrar_search(body.get("domain"))
+    if not offer.get("available") or not all(type(offer.get(k)) in (int,float) for k in ("price","renewal","years")):
+        raise ValueError("Tarif ou disponibilité non confirmé.")
+    try:total=float(body.get("all_in_usd"))
+    except (TypeError,ValueError):raise ValueError("Coût final requis.") from None
+    if total!=offer["price"]:
+        raise ValueError("Frais ou taxes supplémentaires : coût final non pris en charge. Aucune commande.")
+    contact=body.get("contactInformation")
+    if not isinstance(contact,dict):
+        raise ValueError("Coordonnées du titulaire requises.")
+    evidence=str(body.get("billing_evidence") or "").strip()
+    if not evidence or len(evidence)>300:
+        raise ValueError("Référence de vérification du coût final requise.")
+    folder=orders.setting("LOCALAI_REGISTRAR_MANDATES")
+    area=Path(folder) if folder else Path(root)/"mandates"
+    area=area.resolve();area.mkdir(parents=True,exist_ok=True)
+    if area.is_relative_to(store.root.resolve()):
+        raise ValueError("Le mandat doit être conservé hors des projets.")
+    record={"project":pid,"quote":number,"customer_name":quote_row["customer"]["name"],
+        "domain":offer["domain"],"price_usd":offer["price"],"all_in_usd":total,
+        "renewal_usd":offer["renewal"],"years":offer["years"],"teamId":link["orgId"],
+        "projectId":link["projectId"],"contactInformation":contact,"expires_at":time.time()+3600,
+        "holder_consented":True,"billing_verified":True,"billing_evidence":evidence,"autoRenew":False}
+    with web_crm._LOCK:
+        path=area/(pid+".json")
+        previous=path.read_bytes() if path.exists() else None
+        pending=area/(uuid.uuid4().hex+".tmp")
+        try:
+            pending.write_text(json.dumps(record,ensure_ascii=False))
+            pending.replace(path)
+            if not folder:orders._private_config["LOCALAI_REGISTRAR_MANDATES"]=str(area)
+            result,_=prepare(root,store,pid,number)
+        except Exception:
+            if previous is None:path.unlink(missing_ok=True)
+            else:path.write_bytes(previous)
+            raise
+        finally:pending.unlink(missing_ok=True)
+        data=web_crm._read(root)
+        state=data.setdefault("sales_pipeline",{}).setdefault(pid,{"events":[]})
+        state["events"].append({"action":"domain_mandate","at":time.time(),"domain":offer["domain"],
+                                "total_usd":total,"digest":result["approval"],"autoRenew":False})
+        web_crm._write(root,data)
+    return result

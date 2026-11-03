@@ -2131,6 +2131,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.send_response(status)
             self.send_header("Content-Type","application/json; charset=utf-8")
+            self.send_header("Cross-Origin-Resource-Policy","same-origin")
+            self.send_header("X-Content-Type-Options","nosniff")
             self.send_header("Content-Length",str(len(raw)))
             self.send_header("Cache-Control","no-store")
             self.end_headers()
@@ -2179,9 +2181,40 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json({"error":"Route indisponible sur le dossier commercial."},403)
         return False
 
+    def _preview_boundary(self, path):
+        host=self._sales_host()
+        origin=urlparse(self.headers.get("Origin","")).hostname or ""
+        preview=host.startswith("preview-web-") and host.endswith(".localhost")
+        if preview:
+            pid=host[len("preview-"):-len(".localhost")]
+            if not re.fullmatch(r"web-[a-f0-9]{12}",pid):
+                self.send_json({"error":"Origine invalide."},403)
+                return False
+            if path=="/__inspector.js":
+                self.send_bytes((WEB/"preview-inspector.js").read_bytes(),"text/javascript")
+                return False
+            if path.startswith("/api/") or (path.startswith("/web-preview/") and not path.startswith("/web-preview/"+pid+"/")):
+                self.send_json({"error":"Accès réservé à cet aperçu."},403)
+                return False
+        elif path.startswith("/web-preview/"):
+            parts=path[len("/web-preview/"):].split("/",1)
+            try:pid=web_builder.safe_id(parts[0])
+            except ValueError:
+                self.send_json({"error":"Projet invalide."},400)
+                return False
+            self.send_response(302)
+            self.send_header("Location",f"http://preview-{pid}.localhost:{self.server.server_port}"+self.path)
+            self.end_headers()
+            return False
+        if path.startswith("/api/") and (preview or origin.startswith("preview-web-") or
+                self.headers.get("Origin")=="null" or self.headers.get("Sec-Fetch-Site")=="cross-site"):
+            self.send_json({"error":"API interdite depuis une maquette."},403)
+            return False
+        return True
+
     def do_GET(self):
         u = urlparse(self.path)
-        if not self._sales_surface(u.path):
+        if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
         if u.path=="/localaiweb/vente" and self._sales_host() in ("127.0.0.1","localhost"):
             self.send_response(302)
@@ -2189,6 +2222,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control","no-store")
             self.end_headers()
             return
+        host=self._sales_host()
+        if host.startswith("preview-web-") and host.endswith(".localhost"):
+            pid=host[len("preview-"):-len(".localhost")]
+            if not u.path.startswith("/web-preview/"):
+                u=u._replace(path="/web-preview/"+pid+u.path)
         # The same clear universe selector is served on PC and phone.
         # Keep the original LocalAiVision engine at a dedicated, stable URL.
         if u.path in ("/", "/studio") and parse_qs(u.query).get("studio", [""])[0] != "vision":
@@ -2649,7 +2687,12 @@ class Handler(BaseHTTPRequestHandler):
                 target = (base / web_builder.safe_rel(rel)).resolve()
                 if not target.is_relative_to(base) or not target.is_file():
                     self.send_response(404); self.end_headers(); return
-                self.send_bytes(target.read_bytes(), mimetypes.guess_type(str(target))[0] or "application/octet-stream")
+                content=target.read_bytes()
+                if target.suffix.lower() in (".html",".htm"):
+                    content=content.replace(b"</body>",b'<script src="/__inspector.js"></script></body>')
+                    if b"/__inspector.js" not in content:
+                        content+=b'<script src="/__inspector.js"></script>'
+                self.send_bytes(content, mimetypes.guess_type(str(target))[0] or "application/octet-stream")
             except Exception as e:
                 self.send_json({"error": str(e)}, 400)
             return
@@ -2803,7 +2846,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         u=urlparse(self.path)
-        if not self._sales_surface(u.path):
+        if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/loras/upload":
@@ -2840,7 +2883,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         sales_action = u.path in ("/api/web/sales/action", "/api/web/sales/domain-search",
                                   "/api/web/sales/sign", "/api/web/sales/verify", "/api/web/sales/checkout",
-                                  "/api/web/sales/domain-offer", "/api/web/sales/domain-buy", "/api/web/sales/domain-status",
+                                  "/api/web/sales/domain-mandate", "/api/web/sales/domain-offer", "/api/web/sales/domain-buy", "/api/web/sales/domain-status",
                                   "/api/web/sales/db-link", "/api/web/sales/db-plan", "/api/web/sales/db-apply")
         if sales_action or u.path in ("/api/web/crm/quote/create","/api/web/invoice/issue"):
             if self._sales_host() in ("127.0.0.1","localhost"):
@@ -2864,7 +2907,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(body, dict):
                     raise ValueError("Requête invalide.")
                 if u.path in ("/api/web/sales/sign", "/api/web/sales/verify", "/api/web/sales/checkout",
-                                  "/api/web/sales/domain-offer", "/api/web/sales/domain-buy", "/api/web/sales/domain-status",
+                                  "/api/web/sales/domain-mandate", "/api/web/sales/domain-offer", "/api/web/sales/domain-buy", "/api/web/sales/domain-status",
                                   "/api/web/sales/db-link", "/api/web/sales/db-plan", "/api/web/sales/db-apply"):
                     from local_app import web_sales_orders
                     pid,number = body.get("id"),body.get("quote")
@@ -2893,7 +2936,9 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     if "/domain-" in u.path:
                         from local_app import web_sales_registrar as registrar
-                        if u.path.endswith("domain-offer"):
+                        if u.path.endswith("domain-mandate"):
+                            result=registrar.save_mandate(root,_web_store(),pid,number,body)
+                        elif u.path.endswith("domain-offer"):
                             result,_ = registrar.prepare(root,_web_store(),pid,number)
                         elif u.path.endswith("domain-buy"):
                             result = registrar.buy(root,_web_store(),pid,number,body.get("offer"))

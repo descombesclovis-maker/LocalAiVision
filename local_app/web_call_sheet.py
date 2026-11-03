@@ -200,6 +200,8 @@ def script(desk,preview):
             proof.append(f"Priorité confirmée : « {priority} ». Aucune correspondance explicite dans les titres des pages analysées. Demander ce qu’il faudrait ajouter avant de le chiffrer.")
         sections[-1][1][0]=f"Pour le devis, je retiens « {priority} ». Que faut-il inclure en priorité, et que souhaitez-vous remettre à plus tard ?"
 
+    if desk.get("manual_script"):
+        sections.insert(2,("Version corrigée par le vendeur",[desk["manual_script"]]))
     return sections
 
 

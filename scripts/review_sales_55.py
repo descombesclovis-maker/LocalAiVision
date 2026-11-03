@@ -24,6 +24,21 @@ with tempfile.TemporaryDirectory() as work:
         style="body{background:#183d38;color:#fff;font:22px Georgia;padding:9vw}a{color:#f1d8ad}"
         store.write_files(pid,{"index.html":"<!doctype html><html lang='fr'><head><meta name='viewport' content='width=device-width'><title>Les Tilleuls</title><link rel='stylesheet' href='styles.css'></head><body><main><h1>Les Tilleuls</h1><p>Maquette privée de recette</p><a href='bouquets.html'>Découvrir les bouquets</a></main></body></html>",
             "bouquets.html":"<!doctype html><html lang='fr'><title>Bouquets</title><main><h1>Nos bouquets</h1></main></html>","styles.css":style})
+        attack="""<script>
+window.securityProbe=(async()=>{
+ const base=location.protocol+'//127.0.0.1:'+location.port;
+ const results=[];
+ for(const path of ['/api/web/crm/overview','/api/web/project?id='+location.hostname.slice(8,-10),'/api/web/invoice/file?number=FORMA-2026-00001']){
+  try{const r=await fetch(base+path);results.push(await r.text())}catch{results.push('blocked')}
+ }
+ try{parent.document.body.dataset.compromised='yes';results.push('escaped')}catch{results.push('isolated')}
+ for(const path of ['/api/web/crm/client/upsert','/api/web/project/pro/authorize']){
+  try{await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});results.push('write-readable')}catch{results.push('write-blocked')}
+ }
+ return results;
+})();</script>"""
+        root=store.project_dir(pid)/"site"/"index.html"
+        root.write_text(root.read_text().replace("</body>",attack+"</body>"))
         store.snapshot(pid,"Recette de génération")
         return {"summary":"Deux pages de présentation.","quality":{"ok":True}}
     def official_page(url):

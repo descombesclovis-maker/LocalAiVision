@@ -102,6 +102,7 @@
    const pages=data.pages.length;
    $('pitch').textContent=data.ready?'Feuille de '+data.business+(data.city?' · '+data.city:'')+' · '+pages+' page(s) dans la maquette privée.':'Le dossier sera disponible après une génération réussie.';
 
+   $('manualScript').value=data.manual_script||'';
    const opening=data.call_sheet.find(([title])=>title.startsWith('1 ·'));
    $('openingLine').textContent=opening?.[1][0]||'';
    $('openingLine').hidden=!opening;
@@ -178,6 +179,22 @@
      }catch(e){$('dbStatus').textContent=e.message}
    };
  }
+ const holderLabels={firstName:'Prénom du titulaire',lastName:'Nom',email:'Courriel du titulaire client',phone:'Téléphone international',address1:'Adresse',city:'Ville',state:'Région',zip:'Code postal',country:'Pays (code ISO)',companyName:'Raison sociale'};
+ for(const [key,title] of Object.entries(holderLabels)){
+   const label=document.createElement('label'),input=document.createElement('input');input.name=key;input.required=key!=='companyName';label.textContent=title;label.append(input);$('holderFields').append(label);
+ }
+ $('mandateForm').onsubmit=async e=>{
+   e.preventDefault();offer=null;$('domainBuy').disabled=true;
+   try{
+     const contactInformation=Object.fromEntries([...$('holderFields').querySelectorAll('input')].map(i=>[i.name,i.value.trim()]));
+     offer=await api('/api/web/sales/domain-mandate',{id:projectId,quote:$('providerQuote').value,
+       approval:$('operatorCode').value,confirmed:true,domain:$('candidate').value,
+       contactInformation,all_in_usd:$('mandateTotal').value,billing_evidence:$('mandateEvidence').value,
+       holder_consented:$('holderConsent').checked,billing_verified:$('billingConsent').checked});
+     $('offerDisplay').textContent=offer.domain+' · '+offer.total+' USD · renouvellement '+offer.renewal+' USD · titulaire '+offer.holder;
+     $('domainBuy').disabled=false;
+   }catch(err){$('offerDisplay').textContent=err.message}
+ };
  $('domainOffer').onclick=async()=>{
    offer=null;$('domainBuy').disabled=true;
    try{
@@ -234,6 +251,7 @@
  $('removeTopic').onclick=()=>action('clear_angle');
  $('registryCheck').onclick=()=>action('refresh_registry');
  $('saveBudget').onclick=()=>action('budget',{cost:$('costHT').value});
+ $('saveScript').onclick=()=>action('manual_script',{text:$('manualScript').value});
  $('prepareSale').onclick=()=>action('prepare');
  $('verifyPhone').onclick=()=>{if(confirm('As-tu vérifié que '+desk.phone+' est un numéro professionnel et que cet appel concerne son activité ?'))action('verify_phone',{confirmed:true})};
  $('oppose').onclick=()=>{if(confirm('Inscrire ce contact sur la liste d’opposition et supprimer ses rappels ?'))action('oppose')};

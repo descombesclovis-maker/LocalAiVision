@@ -52,6 +52,12 @@ def dossier(root, store, pid, ready, pages, change=None, revision=None):
                 if not state.get("prepared"):
                     state["prepared"] = True
                     state["events"].append({"action": action, "at": stamp})
+            elif action == "manual_script":
+                text=str(change.get("text") or "").strip()
+                if len(text)>6000 or any(ord(c)<32 and c not in "\n\t" for c in text):
+                    raise ValueError("Script manuel trop long ou invalide.")
+                state["manual_script"]=text
+                state["events"].append({"action":action,"at":stamp,"text":text})
             elif action == "budget":
                 from decimal import Decimal, InvalidOperation
                 try:
@@ -160,7 +166,7 @@ def dossier(root, store, pid, ready, pages, change=None, revision=None):
                  else "presentation_ready" if state.get("prepared") else "draft_site_ready" if ready else "awaiting_site")
         return {"kind": meta.get("project_kind","libre"), "stage": stage, "ready": ready, "name": meta["name"], "pages": pages,
                 "delivery": state.get("delivery") if state.get("checks_revision")==revision else None, "release": state.get("release"),
-                "revision":revision,"angle":state.get("angle"),"public_page":state.get("public_page"),"cost_ht":state.get("cost_ht"),"facts":list(state.get("facts",{}).values()),"page_order":state.get("page_order",[]),
+                "revision":revision,"manual_script":state.get("manual_script",""),"angle":state.get("angle"),"public_page":state.get("public_page"),"cost_ht":state.get("cost_ht"),"facts":list(state.get("facts",{}).values()),"page_order":state.get("page_order",[]),
                 "registry":state.get("registry") or {k:v for k,v in (business.get("official_registry") or {}).items() if k in ("matched","legal_name","siren","naf","source","checked_at")},
                 "address":business.get("address") or "", "website":business.get("website") or "",
                 "website_recorded":bool(business.get("website_recorded") or business.get("website")),

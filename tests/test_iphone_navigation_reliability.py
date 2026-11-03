@@ -45,9 +45,10 @@ class IPhoneReliabilityTests(unittest.TestCase):
     def test_preview_eye_opens_phone_not_pc_and_two_taps_select(self):
         js=source("localaiweb-inspector.js")
         self.assertIn("window.open('/web-preview/'",js)
+        js+=source("preview-inspector.js")
         self.assertIn("ev.pointerType==='touch'",js)
         self.assertIn("doubleTap",js)
-        self.assertIn("api('/api/web/open-browser'",js)  # desktop still works
+        self.assertIn("noopener,noreferrer",js)
 
     def test_other_mobile_workspaces_preserve_navigation(self):
         for name in ("localaiweb.html","localaiweb-projects.html",

@@ -19,7 +19,7 @@
 
  <div id="presentation"><h3>Préparer l’appel</h3><p id="pitch"></p><blockquote id="openingLine"></blockquote><p id="salesSource" class="hint"></p>
  <div class="sales-links"><button id="prepareSale" type="button">Préparer la présentation</button><button id="aiPitch" type="button">Choisir l’ordre de démonstration avec Codex</button><a id="demoSite" target="_blank" rel="noopener" hidden>Ouvrir la démo locale ↗</a></div>
- <section id="callSheet"><h3>Feuille d’appel ciblée</h3><p class="hint">Support vendeur · à utiliser avant le devis</p><a id="printScript" class="back" target="_blank" rel="noopener">Ouvrir la feuille PDF ↗</a><div id="scriptSections"></div>
+ <section id="callSheet"><h3>Feuille d’appel ciblée</h3><p class="hint">Support vendeur · à utiliser avant le devis</p><a id="printScript" class="back" target="_blank" rel="noopener">Ouvrir la feuille PDF ↗</a><div id="scriptSections"></div><details><summary>Corriger mon texte d’appel</summary><label>Version du vendeur<textarea id="manualScript" rows="6" maxlength="6000"></textarea></label><button id="saveScript" type="button">Conserver ma version avec les sources du dossier</button></details>
  <details><summary>Vérifier ou compléter les informations de ce client</summary>
  <button id="registryCheck" type="button">Vérifier l’identité au registre public français</button>
  <div id="officialSite"><p id="siteStatus"></p><button id="scanSite" type="button">Lire la page publique du site officiel</button>
@@ -67,6 +67,12 @@
  <p class="hint">Rattache un domaine <strong>déjà acheté</strong> à un projet Vercel authentifié. Les DNS et la vérification SSL peuvent demander une intervention chez le registrar. Aucune acquisition ni dépense n’est déclenchée par ce bouton.</p>
  <form id="domainLookup"><label>Rechercher un nom exact<input id="candidate" placeholder="exemple.fr" required></label><button>Consulter disponibilité et tarifs</button><p id="registrarResult" role="status"></p></form>
  <details><summary>Acheter pour le client avec mandat</summary><p class="hint">Le devis sélectionné doit être signé et intégralement réglé. Un mandat local fixe le titulaire, l’organisation, la durée, le prix total autorisé et le renouvellement. Le mode test bloque les commandes réelles.</p>
+ <form id="mandateForm"><h3>Autorisation d’achat pour le client</h3><div id="holderFields" class="fields"></div>
+ <label>Coût total vérifié en USD<input id="mandateTotal" type="number" step=".01" required></label>
+ <label>Justificatif du coût final, taxes et frais inclus<input id="mandateEvidence" maxlength="300" required></label>
+ <label><input id="holderConsent" type="checkbox" required>Le client consent à la titularité et à ces conditions, sans renouvellement automatique.</label>
+ <label><input id="billingConsent" type="checkbox" required>Le responsable financier a vérifié que le coût total est égal au prix affiché.</label>
+ <button>Enregistrer l’autorisation et vérifier l’offre</button><p class="hint">Les taxes absentes de la réponse du registrar doivent être vérifiées avec le compte de facturation. Les frais supplémentaires bloquent l’achat.</p></form>
  <button id="domainOffer" type="button">Vérifier le mandat et le prix</button><p id="offerDisplay" role="status"></p>
  <button id="domainBuy" type="button" disabled>Confirmer cet achat</button><button id="domainPoll" type="button">Vérifier la commande</button></details>
  <details><summary>Base de données facultative</summary><p class="hint">Pour un site qui contient déjà des migrations. Vérifie les droits RLS, la sauvegarde et la cible avant toute application.</p><label>Référence du projet Supabase<input id="dbRef" maxlength="20"></label>

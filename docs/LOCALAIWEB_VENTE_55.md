@@ -43,7 +43,7 @@ Stripe doit transmettre les événements bruts à `/api/web/sales/stripe/webhook
 
 ### Mandat d’acquisition
 
-Un administrateur autorisé prépare hors de l’application un fichier privé nommé `<id-projet>.json` dans `LOCALAI_REGISTRAR_MANDATES`. Le client et le payeur doivent avoir approuvé les conditions exactes. Les jetons n’ont pas leur place dans ce fichier. L’opérateur voit l’offre puis confirme juste avant l’achat. Schéma attendu :
+Le formulaire commercial peut préparer ce mandat. Pour les installations administrées, un responsable autorisé peut aussi fournir un fichier privé nommé `<id-projet>.json` dans `LOCALAI_REGISTRAR_MANDATES`. Le client et le payeur doivent avoir approuvé les conditions exactes. Les jetons n’ont pas leur place dans ce fichier. L’opérateur voit l’offre puis confirme juste avant l’achat. Schéma attendu :
 
 | Champs | Contrôle |
 |---|---|
@@ -63,3 +63,13 @@ Si une réponse est perdue après réservation, vérifier la console du prestata
 - Les besoins en SMTP, réservation, administration, sauvegarde/restauration et maintenance dépendent du projet. Leur détection et la recette manuelle ne constituent pas une installation universelle. Aucun compte payant, campagne, restauration ou contrat de maintenance n’est créé automatiquement. Le ZIP et les PDF ne remplacent pas une plateforme agréée de facturation électronique. Le vendeur peut renseigner un coût interne HT pour obtenir une estimation de marge sur la création. Un export comptable JSON est disponible pour la facture. Il ne constitue pas un dépôt sur une plateforme agréée.
 
 Références : [CNIL — prospection téléphonique](https://www.cnil.fr/fr/prospection-commerciale-par-telephone-hors-automate-dappel-quelles-sont-les-regles), [Service Public — démarchage](https://entreprendre.service-public.gouv.fr/actualites/A19003), [mentions obligatoires](https://entreprendre.service-public.gouv.fr/vosdroits/F37351), [facturation électronique](https://www.economie.gouv.fr/actualites/facturation-electronique-entre-entreprises-coup-denvoi-de-la-reforme), [Dropbox Sign](https://developers.hellosign.com/api/signature-request/send/), [Stripe Checkout](https://docs.stripe.com/api/checkout/sessions/create), [webhooks Stripe](https://docs.stripe.com/webhooks/signature), [Vercel Registrar](https://vercel.com/docs/domains/registrar-api), [Supabase CLI](https://supabase.com/docs/reference/cli/supabase-db-push).
+
+## Revue 57
+
+Les aperçus sont servis sur une origine locale propre au projet (`preview-web-…localhost`). Cette origine ne sert aucune API du studio et refuse les chemins d’un autre projet. Les API du studio refusent les requêtes de lecture et d’écriture provenant des aperçus, les origines opaques et les requêtes intersites. L’iframe ne peut ouvrir de fenêtre ni naviguer la page principale. La sélection visuelle utilise un protocole de messages dont la fenêtre source, l’origine du projet, le canal et les données sont contrôlés. Les modules et liens absolus restent sur le site du projet.
+
+Le scénario navigateur exécute une maquette hostile qui tente de lire CRM, projet et facture, d’écrire dans le CRM et d’autoriser une publication. Il contrôle également l’accès à un autre aperçu et l’isolation du document parent, puis sélectionne réellement un titre avec l’inspecteur.
+
+La version rédigée par le vendeur peut être conservée avec les sources du dossier et apparaît dans la feuille PDF. Les données sources ne sont pas remplacées par cette rédaction.
+
+Le formulaire « Autorisation d’achat pour le client » prépare maintenant le mandat privé sans édition de JSON. Il réutilise le devis, le projet Vercel lié et un tarif fraîchement consulté, recueille les coordonnées et les consentements, puis conserve la preuve dans le registre. Les vérifications externes de taxes et de facturation demeurent nécessaires quand le fournisseur ne les expose pas. Les opérations authentifiées ne sont pas certifiées par les tests avec doubles de prestataire.
