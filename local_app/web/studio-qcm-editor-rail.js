@@ -35,7 +35,7 @@ for(const [key,label] of tabs){
  nav.append(b);buttons.set(key,b);
 }
 const topbar=root.querySelector('.preview-header');
-topbar?.append(nav);
+controls.insertBefore(nav,document.getElementById('lawPublishBtn'));
 const content=drawer.querySelector('#qcmDrawerContent'),status=drawer.querySelector('#qcmDrawerStatus');
 let active='pages',seq=0;
 function close(){
@@ -109,3 +109,4 @@ drawer.querySelector('#qcmDrawerClose').addEventListener('click',close);
 drawer.querySelector('#qcmDrawerRefresh').addEventListener('click',()=>void render());
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!drawer.hidden)close()});
 })();
+

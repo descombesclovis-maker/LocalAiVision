@@ -1,0 +1,80 @@
+/* Shared UI contract. Page layout belongs to each page stylesheet.
+   This layer is opt-in and never applies inside the reserved workspace. */
+body[data-studio-page]:not(.nsfw-active) {
+  --ui-bg:#0d0f16; --ui-surface:#151821; --ui-raised:#1c202b;
+  --ui-line:#ffffff20; --ui-text:#f0f1f6; --ui-muted:#a7acbd;
+  --ui-accent:#b89bf6; --ui-cyan:#76dfe1;
+  --ui-space-1:4px; --ui-space-2:8px; --ui-space-3:12px;
+  --ui-space-4:16px; --ui-space-6:24px; --ui-space-8:32px;
+  --ui-radius:12px; --ui-radius-panel:20px; --ui-control:44px;
+  font-family:"Aptos","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  font-size:14px; font-weight:400; line-height:1.5;
+  color:var(--ui-text); -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility; font-synthesis:none;
+}
+body[data-studio-page]:not(.nsfw-active) :is(button,input,select,textarea,summary) {font-family:inherit;font-weight:400;letter-spacing:normal}
+body[data-studio-page]:not(.nsfw-active) :is(h1,h2,h3,h4,strong,b) {font-weight:500}
+body[data-studio-page]:not(.nsfw-active) button {display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center;line-height:1.35}
+body[data-studio-page]:not(.nsfw-active) :is(button,summary,[role="button"]) {min-height:var(--ui-control);cursor:pointer}
+body[data-studio-page]:not(.nsfw-active) :is(button,a,summary,input,select,textarea):focus-visible {outline:2px solid var(--ui-cyan);outline-offset:3px}
+body[data-studio-page]:not(.nsfw-active) button:disabled {cursor:not-allowed;opacity:.5}
+body[data-studio-page]:not(.nsfw-active) svg:not(.studio-scene) {flex-shrink:0}
+body[data-studio-page]:not(.nsfw-active) [hidden] {display:none!important}
+.studio-device-icon,.studio-plus-icon {display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.studio-menu {position:relative;flex:none}
+.studio-menu>summary {list-style:none;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 16px;border:1px solid var(--ui-line);border-radius:var(--ui-radius);background:var(--ui-surface)}
+.studio-menu summary::-webkit-details-marker {display:none}
+.studio-menu-panel {position:absolute;top:calc(100% + 8px);left:0;width:280px;max-width:calc(100vw - 32px);padding:8px;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-raised);box-shadow:0 16px 48px #0006;z-index:1100}
+.studio-menu-panel :is(a,button,summary) {display:flex;width:100%;min-height:44px;align-items:center;justify-content:center;padding:10px 12px;white-space:normal;text-decoration:none;color:var(--ui-text);background:transparent;border:0;border-radius:8px;font-size:13px;text-align:center}
+.studio-menu-panel :is(a,button,summary):hover {background:#ffffff0b}
+.studio-menu-section {display:grid;gap:8px;padding:8px;border-top:1px solid var(--ui-line)}
+.studio-return {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:1px solid var(--ui-line);border-radius:12px;text-decoration:none;color:var(--ui-text);white-space:nowrap}
+/* Transparent navigation reserves its own track. It cannot cover the composer. */
+body[data-studio-page]:not(.nsfw-active):not(.universe-home) {--ui-rail:80px;padding-left:var(--ui-rail)}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock {position:fixed;inset:0 auto 0 0;transform:none;width:var(--ui-rail);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;padding:12px 6px;background:transparent;border:0;border-radius:0;box-shadow:none;backdrop-filter:none;z-index:900}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link {width:64px;min-width:0;height:64px;padding:8px 2px;border-radius:12px;background:transparent;transform:none;color:var(--ui-muted)!important;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link:hover {background:#ffffff09;transform:none;color:var(--ui-text)!important}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link[aria-current="page"] {background:#b89bf614;box-shadow:none;color:#d1bbff!important}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link small {font-size:10px;font-weight:400}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link>span {display:grid;place-items:center;width:24px;height:24px;font-family:"Segoe UI Emoji",sans-serif}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock-link .studio-icon {width:22px;height:22px}
+/* Existing commerce controllers keep their actual forms and IDs. */
+body:is([data-studio-page="clients"],[data-studio-page="sales"],[data-studio-page="brands"]) {background:var(--ui-bg)}
+body:is([data-studio-page="clients"],[data-studio-page="sales"],[data-studio-page="brands"]) :is(.card,.panel,.metric,.client-card,.brand-card) {background:var(--ui-surface);border:1px solid var(--ui-line);border-radius:var(--ui-radius-panel);box-shadow:none}
+body:is([data-studio-page="clients"],[data-studio-page="sales"],[data-studio-page="brands"]) :is(h1,h2) {letter-spacing:-.03em;line-height:1.15}
+body:is([data-studio-page="clients"],[data-studio-page="sales"],[data-studio-page="brands"]) h1 {font-size:clamp(32px,3vw,52px)}
+body:is([data-studio-page="clients"],[data-studio-page="sales"],[data-studio-page="brands"]) :is(.primary,button.primary) {background:#a98bdd;color:#100c18;box-shadow:none;border:1px solid #a98bdd}
+body:is([data-studio-page="clients"],[data-studio-page="sales"],[data-studio-page="brands"]) :is(input,select,textarea) {background:#10131b;border:1px solid var(--ui-line);border-radius:10px;color:var(--ui-text);min-height:44px}
+/* Public Vision only. The original plus and reserved styling are restored
+   automatically when its session switches to nsfw-active. */
+body[data-studio-page="vision"]:not(.nsfw-active) {--ui-accent:var(--ui-cyan)}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.main-topbar,.sidebar,.main) {font-weight:400}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.welcome h1,.welcome h2,.welcome-title) {font-weight:500;letter-spacing:-.03em}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn {width:44px;height:44px;min-width:44px;padding:0;border:1px solid #76dfe170;border-radius:12px;display:grid;place-items:center;box-shadow:none;line-height:1}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn:hover {background:#76dfe114;border-color:var(--ui-cyan)}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn>span,
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn>small {display:none}
+.studio-public-plus {display:none}
+body[data-studio-page="vision"]:not(.nsfw-active) #composerImageBtn>.studio-public-plus {display:block;width:20px;height:20px}
+@media(max-width:780px) {
+  body[data-studio-page]:not(.nsfw-active):not(.universe-home) {--ui-rail:0px;padding-left:0;padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+  body[data-studio-page]:not(.nsfw-active) .qcm-dock {inset:auto 0 0;width:100%;height:calc(76px + env(safe-area-inset-bottom,0px));padding:4px 8px max(4px,env(safe-area-inset-bottom,0px));flex-direction:row;gap:4px;justify-content:space-evenly;background:transparent}
+  body[data-studio-page]:not(.nsfw-active) .qcm-dock-link {width:54px;height:64px}
+  body[data-studio-page="editor"]:not(.nsfw-active) .qcm-dock {display:none}
+  body[data-studio-page="editor"]:not(.nsfw-active) {padding-bottom:0}
+  body[data-studio-page]:not(.nsfw-active) {--ui-control:48px}
+}
+@media(prefers-reduced-motion:reduce) {
+ body[data-studio-page]:not(.nsfw-active) *,body[data-studio-page]:not(.nsfw-active) *::before,body[data-studio-page]:not(.nsfw-active) *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* Keep the transparent mobile navigation in a reserved track, clipping page
+   scrolling above it so neither text nor generation controls sit behind it. */
+@media(max-width:780px){
+ body[data-studio-page="projects"]:not(.nsfw-active){height:100dvh;overflow:hidden;padding-bottom:0}
+ body[data-studio-page="projects"] .workspace{height:calc(100dvh - 78px - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain}
+ body[data-studio-page="clients"]{height:100dvh;overflow:hidden;padding-bottom:0!important}
+ body[data-studio-page="clients"] .shell{height:calc(100dvh - 78px - env(safe-area-inset-bottom,0px));overflow-y:auto}
+ body[data-studio-page="vision"]:not(.nsfw-active) .app{height:calc(100dvh - 78px - env(safe-area-inset-bottom,0px))}
+ body[data-studio-page="vision"]:not(.nsfw-active){padding-bottom:0}
+}

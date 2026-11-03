@@ -2180,7 +2180,8 @@ class Handler(BaseHTTPRequestHandler):
             return True
         assets={"/assets/"+name for name in ("localaiweb-sales.js","localaiweb-sales.css",
             "studio-suite.css","localaiweb-mobile.css","studio-ui-polish.css","studio-activity.css",
-            "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg")}
+            "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg",
+            "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js")}
         routes={"/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
             "/api/web/project/pro/authorize","/api/web/vercel/publish","/api/web/domain/attach",
             "/api/web/invoice/issue","/api/web/invoice/file","/api/web/crm/quote/create",
@@ -3797,3 +3798,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

@@ -6,14 +6,15 @@
 <title>LocalAI Studio · Votre atelier créatif</title>
 <link rel="icon" href="/assets/brand-studio.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/localai-studio.css">
-<link rel="stylesheet" href="/assets/studio-photo-entrance.css">
-<link rel="stylesheet" href="/assets/studio-activity.css">
-<link rel="stylesheet" href="/assets/studio-ui-polish.css">
-<link rel="stylesheet" href="/assets/localai-studio-next.css">
 
-<link rel="stylesheet" href="/assets/studio-qcm-v1.css">
+<link rel="stylesheet" href="/assets/studio-activity.css">
+
+
+
+
+<link rel="stylesheet" href="/assets/studio-system.css">
 </head>
-<body class="universe-home" data-studio-page="home">
+<body class="universe-home" data-studio-page="home" data-studio-shell="off">
 <div class="studio-backdrop" aria-hidden="true"><span class="backdrop-glow one"></span><span class="backdrop-glow two"></span><span class="backdrop-grid"></span></div>
 <main class="universe-shell">
   <header class="universe-topbar">
@@ -22,17 +23,6 @@
       <span><strong>LocalAI <em>Studio</em></strong><small>Création sans compromis</small></span>
     </a>
     <span class="universe-top-hint"><span class="presence-dot" aria-hidden="true"></span> UN STUDIO · DEUX UNIVERS</span>
-    <div class="studio-hub-tools qcm-home-tools">
-      <details><summary class="universe-help-link" aria-label="Ouvrir les outils">◇ Outils <span aria-hidden="true">⌄</span></summary>
-        <div class="qcm-home-menu">
-          <a href="/studio/brands">◇ Identités & marques</a>
-          <a href="/localaiweb">▦ Projets Web</a>
-          <a href="/localaiweb/map">⌖ Carte de prospection</a>
-          <button id="qcmMotionToggle" type="button" aria-pressed="false">Réduire les animations</button>
-          <button id="qcmHomeUpdateCheck" type="button">↻ Vérifier les mises à jour</button>
-          <span id="qcmHomeUpdateStatus" role="status" aria-live="polite" class="qcm-home-update-note"></span>
-        </div></details>
-    </div>
   </header>
   <section class="universe-intro" aria-labelledby="universe-title">
     <span class="universe-eyebrow"><i aria-hidden="true"></i> L'ATELIER DE VOS IDÉES</span>
@@ -87,13 +77,14 @@
       <span class="studio-card-cta">Créer une image ou une vidéo <b aria-hidden="true">↗</b></span>
     </a>
   </section>
-  <div id="qcmHomeRecent" class="qcm-home-recent" aria-live="polite"></div>
+  
   <footer class="universe-footer"><span>LOCALAI STUDIO <i aria-hidden="true">·</i> VOTRE ESPACE PRIVÉ</span><span>Vos conversations et projets restent séparés par univers.</span></footer>
 </main>
 
 <script src="/assets/localai-studio-motion.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
-<script src="/assets/studio-qcm-shell.js" defer></script>
+
 <script src="/assets/studio-qcm-home.js" defer></script>
 </body>
 </html>
+

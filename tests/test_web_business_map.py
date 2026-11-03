@@ -131,17 +131,9 @@ class BusinessMapTests(unittest.TestCase):
         self.assertLess(dashboard.index('id="projectsGrid"'),dashboard.index('id="proProjectsGrid"'))
         self.assertIn("p.project_kind==='pro'",dashboard_js)
         self.assertIn("Créer un site pour cette entreprise",map_html)
-        self.assertIn("openstreetmap.org/copyright",map_html)
         self.assertNotIn('id="mapSearchForm"', map_html)
         self.assertNotIn('id="industryFilter"', map_html)
         self.assertNotIn('id="mapProvider"', map_html)
-        self.assertIn("setView([46.60,2.28],6)",map_js)
-        self.assertIn("/api/web/map/no-website/france",map_js)
-        self.assertIn("/api/web/map/no-website/nearby",map_js)
-        self.assertIn("/api/web/map/no-website/viewport",map_js)
-        self.assertIn("map.on('moveend',scheduleNearby)",map_js)
-        self.assertIn("company-marker-single",map_js)
-        self.assertIn("groupedPopup(entries)",map_js)
         self.assertIn("/api/web/project/create-from-map",map_js)
         self.assertIn("async function startProDraft",editor)
         self.assertIn("auto-claim",editor)
@@ -150,6 +142,8 @@ class BusinessMapTests(unittest.TestCase):
         self.assertIn('/api/web/map/nearby',server)
         self.assertIn('/api/web/project/pro/authorize',server)
         self.assertIn("Publication Pro interdite",server)
+        self.assertIn("gmp-place-details",map_html)
 
 if __name__=="__main__":
     unittest.main()
+

@@ -9,6 +9,7 @@ const page=document.body.dataset.studioPage||'home';
 const isAdult=()=>document.body.classList.contains('nsfw-active');
 // Prefer a native colour glyph. On systems without colour emoji use line art.
 const iconPaths={
+ '🗒️':'M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5',
  '🏠':'M3 11 12 3l9 8 M5 10v11h5v-7h4v7h5V10',
  '💼':'M3 8h18v12H3z M8 8V5h8v3 M3 12q9 5 18 0',
  '🗺️':'M2 6l7-3 6 3 7-3v15l-7 3-6-3-7 3z M9 3v15m6-12v15',
@@ -43,11 +44,15 @@ const links=[
  {id:'web',text:'Projets',symbol:'💼',path:'/localaiweb',keys:['projets','web','site','creer']},
  {id:'map',text:'Carte',symbol:'🗺️',path:'/localaiweb/map',keys:['commerces','carte','maps','prospection']},
  {id:'vision',text:'Vision',symbol:'👁️',path:'/localaivision',keys:['image','photo','video','vision']},
+ {id:'clients',text:'Clients et devis',symbol:'🗒️',path:'/localaiweb/clients',keys:['clients','devis','factures','commercial']},
  {id:'brands',text:'Marques',symbol:'◇',path:'/studio/brands',keys:['identite','marque','branding']},
 ];
+// Commercial actions use an isolated origin. Navigation returns to the Studio
+// origin without widening its API or generated-preview allowlist.
+if(location.hostname==='ventes.localhost')for(const item of links)item.path=location.protocol+'//127.0.0.1:'+location.port+item.path;
 const dock=document.createElement('nav');dock.className='qcm-dock';dock.setAttribute('aria-label','Navigation principale');dock.id='qcmDock';
-dock.innerHTML=links.slice(0,4).map(x=>'<a class="qcm-dock-link" href="'+x.path+'" data-qcm-link="'+x.id+'" title="'+x.text+'"><span aria-hidden="true">'+iconMarkup(x.symbol)+'</span><small>'+x.text+'</small></a>').join('');
-dock.querySelector('[data-qcm-link="'+page+'"]')?.setAttribute('aria-current','page');
+dock.innerHTML=links.filter(x=>x.id!=='brands').map(x=>'<a class="qcm-dock-link" href="'+x.path+'" data-qcm-link="'+x.id+'" title="'+x.text+'"><span aria-hidden="true">'+iconMarkup(x.symbol)+'</span><small>'+x.text+'</small></a>').join('');
+dock.querySelector('[data-qcm-link="'+(['editor','sales'].includes(page)?'web':page)+'"]')?.setAttribute('aria-current','page');
 document.body.append(dock);
 const dialog=document.createElement('dialog');dialog.className='qcm-palette';dialog.setAttribute('aria-label','Palette de commandes');
 dialog.innerHTML='<div class="qcm-command-box"><div class="qcm-command-header"><span aria-hidden="true">⌕</span><input type="search" id="qcmCommandSearch" placeholder="Ouvrir une page ou un outil…" autocomplete="off" aria-label="Rechercher une commande"><button type="button" id="qcmCloseCommands" aria-label="Fermer">×</button></div><div class="qcm-command-list" id="qcmCommandList"></div><p>↑ ↓ pour parcourir · Entrée pour ouvrir · Échap pour fermer</p></div>';
@@ -82,9 +87,12 @@ document.addEventListener('keydown',e=>{
  if(isAdult())return;
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();dialog.open?close():open()}
 },{passive:false});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')for(const menu of document.querySelectorAll('details.studio-menu[open]')){menu.open=false;menu.querySelector('summary')?.focus()}});
+document.addEventListener('pointerdown',event=>{for(const menu of document.querySelectorAll('details.studio-menu[open]'))if(!menu.contains(event.target))menu.open=false});
 const hideForAdult=()=>{dock.hidden=isAdult();if(isAdult())close()};
 hideForAdult();
 if(page==='vision'){
  new MutationObserver(hideForAdult).observe(document.body,{attributes:true,attributeFilter:['class']});
 }
 })();
+

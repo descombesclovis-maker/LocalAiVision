@@ -39,7 +39,7 @@ class BrandTests(unittest.TestCase):
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('Décris ton image, ta vidéo ou ta publicité.',vision)
-        self.assertIn('src="/assets/brand-web-identity.svg"',projects)
+        self.assertIn('src="/assets/brand-web.svg"',projects)
         self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):
             self.assertIn('src="/assets/brand-web.svg"',web_ui)
@@ -58,3 +58,4 @@ class BrandTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

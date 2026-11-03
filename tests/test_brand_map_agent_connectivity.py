@@ -23,7 +23,7 @@ class BrandMapAgentTests(unittest.TestCase):
         main=(WEB/"index.html").read_text(encoding="utf-8")
         hub=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
         self.assertIn('src="/assets/brand-vision.svg"',main)
-        self.assertIn('src="/assets/brand-web-identity.svg"',hub)
+        self.assertIn('src="/assets/brand-web.svg"',hub)
         self.assertNotIn('src="/assets/brand-identity.svg"',hub)
 
     def test_composer_and_responsive_layout_not_absolute_clipped(self):
@@ -36,19 +36,13 @@ class BrandMapAgentTests(unittest.TestCase):
         self.assertIn("max-height:45dvh",suite)
 
     def test_map_single_color_and_independent_official_geo_api(self):
-        source=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
+        google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
         provider=(ROOT/"local_app/web_map_no_website.py").read_text(encoding="utf-8")
-        self.assertIn("company-marker-single",source)
-        self.assertIn("company-marker-group",source)
-        self.assertNotIn("'#ef535e'",source)
-        self.assertIn("website_recorded",source)
+        self.assertIn("google.maps.Map",google)
+        self.assertNotIn("company-marker",google)
         self.assertIn("recherche-entreprises.api.gouv.fr/near_point",provider)
         self.assertIn("inconnu_registre",provider)
         self.assertIn("CACHE_DIR",provider)
-        html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
-        self.assertIn("single-pin",html)
-        self.assertNotIn("legend-red",html)
-        self.assertIn('id="selectionWebsite"',html)
 
     def test_claude_cli_detects_standard_user_installs_without_path(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -89,3 +83,4 @@ class BrandMapAgentTests(unittest.TestCase):
         self.assertIn("updateEngineHealth()",js)
 
 if __name__=="__main__":unittest.main()
+

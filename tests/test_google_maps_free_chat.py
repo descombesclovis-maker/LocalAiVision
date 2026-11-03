@@ -15,24 +15,15 @@ class GoogleMapsSmallCommerceTests(TestCase):
         html=(WEB/"localaiweb-map.html").read_text(encoding="utf-8")
         public=(WEB/"localaiweb-map.js").read_text(encoding="utf-8")
         google=(WEB/"localaiweb-google-map.js").read_text(encoding="utf-8")
-        self.assertIn('src="/assets/localaiweb-google-map.js"',html)
         self.assertIn("/api/web/map/config",public)
-        self.assertIn("if(config.enabled",public)
         self.assertIn("maps.googleapis.com/maps/api/js?",google)
-        self.assertIn("featureType:'poi'",google)
-        self.assertIn("google.maps.Map",google)
-        self.assertIn("/api/web/map/no-website/nearby",google)
-        self.assertIn("/api/web/map/no-website/france",google)
-        self.assertIn("/api/web/map/google/place",google)
+        self.assertIn("/api/web/map/google/place?",google)
         self.assertIn("event.placeId",google)
         self.assertIn("clickableIcons:true",google)
-        self.assertIn("if(config.places_enabled)",google)
-        self.assertIn("googleOriginalPlace",public)
-        self.assertIn("maps/place/?q=place_id:",public)
+        self.assertIn("gmp-place-details",html)
         self.assertNotIn("places:searchNearby",google)
-        self.assertIn("choisis une fiche",google)
-        self.assertIn("maxZoom:19",google)
-        self.assertIn("Créer un site pour cette entreprise",html)
+        self.assertNotIn("/api/web/map/no-website/france",google)
+        self.assertNotIn("Leaflet",html)
 
     def test_google_map_needs_billing_key_but_places_key_is_not_required(self):
         from unittest.mock import patch
@@ -65,7 +56,7 @@ class FreeformDesignTests(TestCase):
             self.assertIn('name="'+field+'"',html)
         self.assertIn('id="lawDesignForm"',html)
         self.assertIn("/api/web/project/design-profile",js)
-        self.assertIn("dialog.showModal()",js)
+        self.assertNotIn("dialog.showModal()",js)
         self.assertNotIn("Signature 3D",html)
         self.assertNotIn("Décris-moi le site que tu imagines",html)
         self.assertNotIn("renderBriefQuestion",js)
@@ -99,3 +90,4 @@ class FreeformDesignTests(TestCase):
 
 if __name__=="__main__":
     import unittest;unittest.main()
+

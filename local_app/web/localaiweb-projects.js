@@ -66,7 +66,7 @@ function emptyCard(kind,query){
  const detail=document.createElement('span');
  detail.textContent=query?'Essaie une recherche plus courte.':
   kind==='pro'?'Crée un projet depuis la carte pour démarrer.':
-  'Clique sur « Nouveau projet » pour créer un site.';
+  'Choisissez « Partir de votre idée » pour créer un site.';
  empty.append(title,detail);return empty;
 }
 function render(){
@@ -151,3 +151,4 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){void load
 window.addEventListener('pageshow',event=>{if(event.persisted){void loadProjects();void refreshActive()}});
 void loadProjects();void refreshActive();
 window.setInterval(()=>{void refreshActive()},5000);
+

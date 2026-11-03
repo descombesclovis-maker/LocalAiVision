@@ -29,10 +29,7 @@ function refreshPublishing(){
   publishButton.textContent=project?.project?.project_kind==='pro'?'Vendre & livrer ↗':url?'Republier ↗':'Publier ↗';
  }
  if(afterPublish){
-  const offer=presentable&&!busy;
-  afterPublish.hidden=!url&&!offer;
-  $('#lawSellReady').hidden=!offer;
-  if(offer)$('#lawSaleDesk').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+  afterPublish.hidden=!url;
   $('#lawCreateCampaign').hidden=!url;
   $('#lawCreateQuote').hidden=!url;
   $('#lawPublishedAddress').hidden=!url;
@@ -277,7 +274,8 @@ async function watchGeneration(id){
          project=await api('/api/web/project?id='+encodeURIComponent(id));
          preview();
          $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
-         stage='ready';
+         if(!chat.children.length)message('Décrivez votre site ou la modification souhaitée. Votre aperçu et vos versions restent accessibles à droite.');
+  stage='ready';
          const salesLink=document.getElementById('lawSalesBtn');
          if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
          generationFeedback(status);
@@ -416,6 +414,7 @@ async function initialize(){
   for(const row of project.chat||[]){
    if(row.role==='user')message(row.text,'user');
   }
+  if(!chat.children.length)message('Décrivez votre site ou la modification souhaitée. Votre aperçu et vos versions restent accessibles à droite.');
   stage='ready';
   const generation=await api('/api/web/generation/status?id='+encodeURIComponent(id));
   if(generation.state==='running'){
@@ -427,9 +426,8 @@ async function initialize(){
   await refreshSales();
   const first=project.project?.initial_generation||{};
   if(project.project?.project_kind==='pro' && !generation.preview_ready &&
-     (first.status==='pending'||first.status==='failed')){
-    const dialog=$('#lawDesignDialog');
-    if(dialog&&!dialog.open)dialog.showModal();
+     first.status==='pending'){
+    await startProDraft(false);
   }
  }catch(error){
   $('#lawChatStatus').textContent='Chargement impossible : '+error.message;
@@ -472,3 +470,4 @@ designForm?.addEventListener('submit',async event=>{
  }finally{submit.disabled=false}
 });
 initialize();
+
