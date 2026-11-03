@@ -26,7 +26,11 @@ function clear(){lastSrc='';lastType='';stage.replaceChildren(empty);actions.hid
 const header=document.querySelector('.topbar-actions');
 const menu=document.querySelector('.studio-navigation');
 const secondary=[...header.children].filter(node=>node.id!=='nsfwGalleryToggle');
+const newDiscussion=document.getElementById('newConversation');
+const plusText=[...newDiscussion.childNodes].find(n=>n.nodeType===3);
+const originalPlus=plusText?.textContent;
 function arrangeMenu(){
+ if(plusText)plusText.textContent=isAdult()?originalPlus:'+ ';
  for(const logo of document.querySelectorAll('img[src*="brand-vision"],img[data-public-master]')){
   if(!logo.dataset.publicMaster){logo.dataset.previousSrc=logo.getAttribute('src');logo.dataset.publicMaster='vision'}
   logo.src=isAdult()?logo.dataset.previousSrc:'/assets/assets/brand-reference/LocalAIVision_Official_Original.png';
