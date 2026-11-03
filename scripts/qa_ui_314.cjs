@@ -37,7 +37,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.equal(await page.locator('#qcmDock').evaluate(x=>x.inert),true);
    assert.equal(await sidebar.locator('#updateBtn,.studio-universe-link').count(),0);
    assert.equal(await sidebar.evaluate(x=>getComputedStyle(x).backgroundColor),'rgb(9, 44, 56)');
-   assert.equal(await sidebar.locator('.nav-glyph').evaluateAll(xs=>xs.every(x=>getComputedStyle(x).display==='none')),true);
+   // Pictograms must now be visible on ordinary menu actions, unlike the two special controls.
+   assert.equal(await sidebar.locator('#navPhoto .nav-glyph').evaluate(e=>getComputedStyle(e).display!=='none'),true);
    const geometry=await sidebar.locator('.studio-navigation>button').evaluateAll(xs=>xs.map(x=>{let r=x.getBoundingClientRect();return {x:r.x,w:r.width,h:r.height}}));
    assert.ok(geometry.every(r=>Math.abs(r.x-geometry[0].x)<1&&Math.abs(r.w-geometry[0].w)<1&&Math.abs(r.h-geometry[0].h)<1));
    assert.equal(await page.evaluate(()=>document.querySelector('#sidebar').contains(document.elementFromPoint(35,300))),true);
