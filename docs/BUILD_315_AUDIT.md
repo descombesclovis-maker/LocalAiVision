@@ -10,7 +10,7 @@ La limite porte sur les appels de rendu du site de démonstration embarqué. Ell
 
 ## Protection de l'espace NSFW
 
-Les fonctions de génération, les prompts, les modèles, les workflows Hunyuan, les samplers, les CFG, les LoRAs et le routage NSFW n'ont pas été modifiés. Le message de réduction est émis uniquement depuis `data-studio-page="editor"` et n'est accepté que par la fenêtre parente de même origine dans le visualiseur 3D. Il n'est pas envoyé depuis l'espace Vision ou NSFW.
+Les fonctions de génération, les prompts, les modèles, les workflows Hunyuan, les samplers, les CFG, les LoRAs et le routage NSFW n'ont pas été modifiés. Le message de réduction est émis uniquement depuis `data-studio-page="editor"`. Il vise l'origine exacte `preview-web-<identifiant>.localhost` du projet, jamais une origine arbitraire. Le visualiseur vérifie la fenêtre parente, l'origine loopback et le port. Il n'est pas envoyé depuis l'espace Vision ou NSFW.
 
 La PR #64 touche la présentation, les recettes CI et le transport HTTP local. Dans `server.py`, seule la capacité d'accueil des connexions passe à 128; les fonctions média ne changent pas. Aucun fichier de modèles ou de workflows ComfyUI n'y figure.
 
@@ -19,18 +19,18 @@ La PR #64 touche la présentation, les recettes CI et le transport HTTP local. D
 | Contrôle | Résultat |
 |---|---|
 | Tests Python | 313 exécutés avec succès ; 1 test Windows ignoré sous Linux |
-| Tests Node | 7 réussis (`node --test tests/*.mjs`) |
+| Tests Node | 10 réussis (`node --test tests/*.mjs`), dont transport et validation des origines |
 | Syntaxe JS modifié | `node --check` réussi pour `studio-activity.js`, `cinematic3d/app.js` et `qa_ui_314.cjs` |
 | Syntaxe Python modifié | `py_compile` réussi pour le fixture navigateur et le test de portée |
 | Diff | `git diff --check` réussi |
 | Hôte | 9,7 GiB de RAM; `nvidia-smi` absent; aucun ComfyUI/Codex connecté |
-| Navigateur local | Playwright présent; exécutable Chromium absent |
+| Navigateur local | Chromium 153 extrait d'une dépendance de test temporaire; 8 scénarios d'interaction réussis |
 
 ## Dernières preuves CI et correction de transport
 
 Le run `41811438336`, au commit `79873a303c4cd82cd03a47334b35ba0dc07318d1`, compile et démarre l'EXE Windows, confirme une fenêtre WebView2 non noire et réussit les contrôles d'icône, de DLL et de transfert de mise à jour. La publication de version est ignorée. Les exports de marque 4096 px sont archivés.
 
-La suite Chromium complète passe, y compris le relais « en attente » puis « rendu actif ». Les diagnostics montrent les deux messages envoyés et reçus avec la bonne origine et la bonne fenêtre parente. L'état d'activité est une fixture explicitement étiquetée : aucun rendu IA/GPU n'est simulé comme un résultat réel.
+Une première exécution Chromium passait lorsque le témoin se trouvait encore sur le document initial de l'iframe. Le vrai aperçu est redirigé vers un sous-domaine local distinct : la restriction initiale à l'origine de l'éditeur empêchait le message d'y parvenir après navigation. La correction vise maintenant l'origine exacte du projet et accepte uniquement son parent loopback de même port, sans supprimer l'isolation des API. Le test attend le véritable contenu du site sur ce sous-domaine avant d'envoyer les deux états. Les huit scénarios passent localement, avec accusés de réception sur l'origine isolée. L'activité média est une fixture étiquetée; aucun rendu IA/GPU n'est présenté comme réel.
 
 Edge révèle ensuite une page Pro dépourvue de sa feuille de style principale, avec un débordement horizontal à 1280 px. La capture conserve cette erreur. Le serveur utilisait la file d'accueil par défaut de cinq connexions; cette révision la porte à 128 pour absorber les rafales de ressources. Un test établit 32 connexions en attente sans refus. La recette navigateur exige désormais que toutes les feuilles de style soient chargées et journalise les échecs de ressources. La correction attend encore sa validation complète Chromium/Edge.
 

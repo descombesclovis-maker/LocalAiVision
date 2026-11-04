@@ -42,6 +42,16 @@ export function effectiveFrameRate(profile, mediaBusy) {
   return mediaBusy ? Math.min(normal, 8) : normal;
 }
 
+export function isTrustedBudgetOrigin(senderOrigin, previewOrigin) {
+  try {
+    const sender = new URL(senderOrigin), preview = new URL(previewOrigin);
+    if (sender.origin === preview.origin) return true;
+    return preview.protocol === 'http:' && /^preview-web-[a-f0-9]{12}\.localhost$/.test(preview.hostname)
+      && sender.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(sender.hostname)
+      && sender.port === preview.port;
+  } catch { return false; }
+}
+
 // Hysteresis: drop resolution sooner than restoring it, and only after sustained pressure.
 export function adaptResolution(scale, averageFrameMs, frameBudgetMs, profile) {
   if (!Number.isFinite(averageFrameMs) || averageFrameMs <= 0) return scale;

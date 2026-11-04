@@ -14,10 +14,10 @@ class WebGpuBudgetTests(unittest.TestCase):
         self.assertIn("type:'localaiweb-resource-budget',mediaBusy", source)
         self.assertIn("location.origin", source)
 
-    def test_preview_accepts_only_same_origin_messages_from_its_parent(self):
+    def test_preview_accepts_only_trusted_loopback_parent_messages(self):
         source = (ROOT / "local_app/web/templates/cinematic3d/app.js").read_text(encoding="utf-8")
         self.assertIn("event.source!==window.parent", source)
-        self.assertIn("event.origin!==window.location.origin", source)
+        self.assertIn("isTrustedBudgetOrigin(event.origin,window.location.origin)", source)
         self.assertIn("localaiweb-resource-budget", source)
         self.assertIn("1000/effectiveFrameRate(state.profile,state.mediaBusy)", source)
         self.assertIn("!state.mediaBusy && elapsed>0", source)

@@ -1,7 +1,7 @@
 // LocalAiWeb Studio — immersive PBR product showcase, Three.js r186.
 // A neutral procedural piece is rendered until a real product GLB is supplied.
 // No commercial product geometry is fabricated from a photograph.
-import {clamp, qualityProfile, renderPixelRatio, adaptResolution, effectiveFrameRate, lerpDamp, smoothstep} from './quality.mjs';
+import {clamp, qualityProfile, renderPixelRatio, adaptResolution, effectiveFrameRate, isTrustedBudgetOrigin, lerpDamp, smoothstep} from './quality.mjs';
 
 const root = document.querySelector('.experience');
 const stage = document.getElementById('three-stage');
@@ -72,10 +72,10 @@ trackEvent(document,'visibilitychange',()=>{
   state.statsCount=0;
   state.statsSum=0;
 });
-// The LocalAiWeb editor reports real ComfyUI activity to its same-origin,
-// sandboxed preview. The preview yields most GPU time while media is rendering.
+// Accept only the editor parent on its trusted loopback origin. Generated
+// previews retain their separate project origin and never gain API access.
 trackEvent(window,'message',event=>{
-  if(event.source!==window.parent||event.origin!==window.location.origin)return;
+  if(event.source!==window.parent||!isTrustedBudgetOrigin(event.origin,window.location.origin))return;
   if(event.data?.type!=='localaiweb-resource-budget'||typeof event.data.mediaBusy!=='boolean')return;
   state.mediaBusy=event.data.mediaBusy;
   state.frameLast=0;

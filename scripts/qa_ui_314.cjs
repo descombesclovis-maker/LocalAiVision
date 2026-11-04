@@ -82,11 +82,9 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.match(await second.locator('.art-caption').innerText(),/illustrative/);
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
-  await check('Editor preview bridge sends queued and active media budgets with same-origin events',async()=>{
+  await check('Editor preview bridge delivers queued and active budgets to the isolated project origin',async()=>{
    const page=await context.newPage();
    try{
-   await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',
-    body:JSON.stringify({ready:false,url:null})}));
    // Labelled activity response fixture; the editor and sandboxed preview remain real.
    await page.addInitScript(()=>{
     if(window!==window.parent)return;
@@ -108,23 +106,15 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     if(window===window.parent)return;
     window.addEventListener('message',event=>{
      if(event.data?.type==='localaiweb-resource-budget')window.parent.postMessage({type:'qa-resource-budget-ack',
-      data:event.data,origin:event.origin,sourceIsParent:event.source===window.parent},'*');
+      data:event.data,origin:event.origin,previewOrigin:location.origin,sourceIsParent:event.source===window.parent},event.origin);
     });
    });
    await page.addInitScript(()=>{window.__resourceBudgetAcks=[];addEventListener('message',event=>{
     if(event.data?.type==='qa-resource-budget-ack')window.__resourceBudgetAcks.push(event.data);
    });});
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
-   await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
+   await page.frameLocator('#lawPreview').getByRole('heading',{name:'Aperçu LocalAiWeb de validation'}).waitFor();
    await page.waitForFunction(()=>window.StudioActivity?.refresh&&document.body.dataset.studioPage==='editor');
-   await page.evaluate(()=>{
-    window.__qaSentBudgets=[];
-    try{
-     const target=document.getElementById('lawPreview').contentWindow;
-     const send=target.postMessage.bind(target);
-     target.postMessage=(message,origin)=>{window.__qaSentBudgets.push(message);return send(message,origin)};
-    }catch(error){window.__qaSpyError=error.message}
-   });
    await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
      await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
@@ -146,7 +136,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     gpuBusy:document.body.dataset.gpuBusy,hidden:document.hidden,
     chip:document.getElementById('studioActivity')?.textContent,
     frameSrc:document.getElementById('lawPreview')?.getAttribute('src'),
-    sent:window.__qaSentBudgets,spyError:window.__qaSpyError,acks:window.__resourceBudgetAcks}));
+    acks:window.__resourceBudgetAcks}));
    await page.waitForFunction(()=>window.__resourceBudgetAcks?.some(entry=>entry.data?.mediaBusy===true),null,{timeout:10000});
    const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.find(entry=>entry.data?.mediaBusy===true));
    const activitySnapshots=await page.evaluate(()=>window.__qaActivitySnapshots);
@@ -155,7 +145,9 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.deepEqual(activeEvent?.data,{type:'localaiweb-resource-budget',mediaBusy:true},
     'The editor preview did not receive the active-render state; messages: '+JSON.stringify(await page.evaluate(()=>window.__resourceBudgetAcks)));
    assert.deepEqual({origin:activeEvent?.origin,sourceIsParent:activeEvent?.sourceIsParent},
-    {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the same-origin editor parent');
+    {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the trusted editor parent');
+   assert.equal(activeEvent.previewOrigin,'http://preview-'+ids.preview+'.localhost:3000',
+    'The recipient must retain its isolated project origin');
    }finally{await page.close()}
   });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{

@@ -32,7 +32,16 @@
    if(document.body.dataset.studioPage!=='editor')return;
    const frame=document.getElementById('lawPreview');
    if(!frame?.contentWindow)return;
-   frame.contentWindow.postMessage({type:'localaiweb-resource-budget',mediaBusy},location.origin);
+   // Generated sites are redirected to a project-specific origin. Never send
+   // activity to an arbitrary frame URL, or weaken that isolation with '*'.
+   try{
+     const source=new URL(frame.getAttribute('src')||'',location.href);
+     const project=source.pathname.match(/^\/web-preview\/(web-[a-f0-9]{12})\//);
+     if(source.origin!==location.origin||!project)return;
+     const target=new URL(location.origin);
+     target.protocol='http:';target.hostname='preview-'+project[1]+'.localhost';
+     frame.contentWindow.postMessage({type:'localaiweb-resource-budget',mediaBusy},target.origin);
+   }catch{}
  }
  function paint(data){
    const media=data?.media||{};

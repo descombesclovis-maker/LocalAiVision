@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeMode, qualityProfile, renderPixelRatio, adaptResolution, effectiveFrameRate, lerpDamp, smoothstep} from '../local_app/web/templates/cinematic3d/quality.mjs';
+import {normalizeMode, qualityProfile, renderPixelRatio, adaptResolution, effectiveFrameRate, isTrustedBudgetOrigin, lerpDamp, smoothstep} from '../local_app/web/templates/cinematic3d/quality.mjs';
+
+test('isolated previews accept only their local editor origin and port',()=>{
+  const preview='http://preview-web-012345abcdef.localhost:3000';
+  assert.equal(isTrustedBudgetOrigin('http://127.0.0.1:3000',preview),true);
+  assert.equal(isTrustedBudgetOrigin('http://localhost:3000',preview),true);
+  for(const sender of ['http://127.0.0.1:3001','https://localhost:3000','http://evil.localhost:3000','https://example.com','null'])
+    assert.equal(isTrustedBudgetOrigin(sender,preview),false,sender);
+  assert.equal(isTrustedBudgetOrigin('http://127.0.0.1:3000','http://preview-web-invalid.localhost:3000'),false);
+});
 
 test('invalid quality modes fall back to automatic instead of introducing unknown settings',()=>{
   assert.equal(normalizeMode('ultra'), 'auto');

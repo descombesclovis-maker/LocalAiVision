@@ -15,7 +15,7 @@
 - [x] Add regression coverage for preview throttling and scope boundaries.
 - [x] Run the full Python suite and Node tests available locally.
 - [ ] Complete Chromium/Edge browser QA in Windows CI.
-- [ ] Visually inspect real browser captures on desktop and mobile before claiming a visual pass.
+- [x] Inspect real home and navigation captures on desktop and mobile. Full-view certification remains conditional on the complete CI results.
 - [x] Compile and start the Windows executable; CI confirms non-blank WebView2 content and retains native-window evidence (run #377). A full visual review on the user's hardware remains outstanding.
 - [ ] Run GPU or ComfyUI benchmarks only where the named hardware and installed models are actually available; report unavailable checks clearly.
 - [ ] Compare all derivative graphics with immutable originals and describe any approximation.
@@ -37,4 +37,4 @@ The existing code already includes project-specific creative direction, multi-pa
 
 ## Latest recorded CI evidence
 
-Run #377 (`41756356521`) compiled and started the Windows EXE, passed the icon/non-blank-window check, Python regression suite and update hand-off. Release publication was skipped. Brand derivatives were exported at 4096 px. The Chromium resource-budget bridge check still fails; Edge is consequently not yet certified. The browser harness now records sent messages, acknowledgements, document state and preview URL in an isolated tab to locate the failure. These fixtures do not exercise a real AI or GPU render.
+Run #377 (`41756356521`) compiled and started the Windows EXE, passed the icon/non-blank-window check, Python regression suite and update hand-off. Release publication was skipped. Brand derivatives were exported at 4096 px. Subsequent diagnostics located the bridge defect: previews use a separate project origin. The corrected bridge targets that exact origin and checks its loopback parent and port. The real isolated preview receives queued and active states in local Chromium; all eight interaction scenarios pass. Current local checks: 313 Python tests (one Windows-only skip), ten Node tests. Windows Chromium/Edge CI must still validate this final correction. These fixtures do not exercise a real AI or GPU render.
