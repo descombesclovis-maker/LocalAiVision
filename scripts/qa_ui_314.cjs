@@ -89,7 +89,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
    await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',
     body:JSON.stringify({ready:true,url:base+'/qa-resource-budget-probe'})}));
-   await page.route('**/qa-resource-budget-probe',route=>route.fulfill({status:200,contentType:'text/html',body:`<!doctype html><script>
+   await page.route('**/qa-resource-budget-probe**',route=>route.fulfill({status:200,contentType:'text/html',body:`<!doctype html><script>
     addEventListener('message',event=>{
      if(event.data?.type==='localaiweb-resource-budget')parent.postMessage({type:'qa-resource-budget-ack',
       data:event.data,origin:event.origin,sourceIsParent:event.source===parent},'*');
