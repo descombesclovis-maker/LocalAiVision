@@ -34,6 +34,14 @@ export function renderPixelRatio(profile, devicePixelRatio = 1, adaptiveScale = 
   return clamp(Math.min(Number(devicePixelRatio) || 1, profile.ratioLimit) * adaptiveScale, .5, 2);
 }
 
+// A composed site preview is secondary to a media render on the same GPU.
+// Keep the preview recognizable and interactive while sharply reducing its
+// render cadence; this never changes ComfyUI or model-generation settings.
+export function effectiveFrameRate(profile, mediaBusy) {
+  const normal = clamp(Number(profile?.targetFPS) || 30, 1, 120);
+  return mediaBusy ? Math.min(normal, 8) : normal;
+}
+
 // Hysteresis: drop resolution sooner than restoring it, and only after sustained pressure.
 export function adaptResolution(scale, averageFrameMs, frameBudgetMs, profile) {
   if (!Number.isFinite(averageFrameMs) || averageFrameMs <= 0) return scale;
