@@ -96,15 +96,20 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     });
     parent.postMessage({type:'qa-resource-budget-probe-ready'},'*');
    <\/script>`}));
-   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
-   await page.evaluate(()=>{window.__resourceBudgetAcks=[];addEventListener('message',event=>{
+   await page.addInitScript(()=>{window.__resourceBudgetAcks=[];window.__resourceProbeReady=false;addEventListener('message',event=>{
     if(event.data?.type==='qa-resource-budget-ack')window.__resourceBudgetAcks.push(event.data);
+    if(event.data?.type==='qa-resource-budget-probe-ready')window.__resourceProbeReady=true;
    });});
+   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
-   await page.waitForFunction(()=>document.getElementById('lawPreview').src.includes('qa-resource-budget-probe'));
-   await page.waitForFunction(()=>document.getElementById('lawPreview').contentWindow.location.href.includes('qa-resource-budget-probe')).catch(()=>{});
-   await page.evaluate(()=>window.StudioActivity.refresh());
-   await page.waitForFunction(()=>window.__resourceBudgetAcks?.length>0);
+   await page.waitForFunction(()=>window.__resourceProbeReady===true);
+   await page.evaluate(async()=>{
+    for(let attempt=0;attempt<50;attempt++){
+     await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
+     if(window.__resourceBudgetAcks.some(entry=>entry.data?.mediaBusy===false))return;
+    }
+   });
+   await page.waitForFunction(()=>window.__resourceBudgetAcks?.some(entry=>entry.data?.mediaBusy===false));
    let messages=await page.evaluate(()=>window.__resourceBudgetAcks.map(entry=>entry.data));
    assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
     "Queued-but-not-running media must not throttle a user's site preview");
