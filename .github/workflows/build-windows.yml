@@ -267,11 +267,11 @@ jobs:
         shell: powershell
         run: |
           $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
-          $env:UI_OUTPUT='build/qa315/chromium/screens'
-          node scripts/qa_ui_313.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:UI_OUTPUT='build/qa315/chromium/interactions'
           node scripts/qa_ui_314.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:UI_OUTPUT='build/qa315/chromium/screens'
+          node scripts/qa_ui_313.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Edge six-resolution and focused functional review
         shell: powershell

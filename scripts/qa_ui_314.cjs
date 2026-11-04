@@ -83,6 +83,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
   await check('Editor preview bridge sends queued and active media budgets with same-origin events',async()=>{
+   const page=await context.newPage();
+   try{
    await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',
     body:JSON.stringify({ready:false,url:null})}));
    // Labelled activity response fixture; the editor and sandboxed preview remain real.
@@ -115,6 +117,14 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
    await page.waitForFunction(()=>window.StudioActivity?.refresh&&document.body.dataset.studioPage==='editor');
+   await page.evaluate(()=>{
+    window.__qaSentBudgets=[];
+    try{
+     const target=document.getElementById('lawPreview').contentWindow;
+     const send=target.postMessage.bind(target);
+     target.postMessage=(message,origin)=>{window.__qaSentBudgets.push(message);return send(message,origin)};
+    }catch(error){window.__qaSpyError=error.message}
+   });
    await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
      await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
@@ -132,6 +142,11 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
      if(window.__resourceBudgetAcks.at(-1)?.data?.mediaBusy===true)return;
     }
    });
+   results.bridgeDiagnostics=await page.evaluate(()=>({page:document.body.dataset.studioPage,
+    gpuBusy:document.body.dataset.gpuBusy,hidden:document.hidden,
+    chip:document.getElementById('studioActivity')?.textContent,
+    frameSrc:document.getElementById('lawPreview')?.getAttribute('src'),
+    sent:window.__qaSentBudgets,spyError:window.__qaSpyError,acks:window.__resourceBudgetAcks}));
    await page.waitForFunction(()=>window.__resourceBudgetAcks?.some(entry=>entry.data?.mediaBusy===true),null,{timeout:10000});
    const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.find(entry=>entry.data?.mediaBusy===true));
    const activitySnapshots=await page.evaluate(()=>window.__qaActivitySnapshots);
@@ -141,6 +156,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     'The editor preview did not receive the active-render state; messages: '+JSON.stringify(await page.evaluate(()=>window.__resourceBudgetAcks)));
    assert.deepEqual({origin:activeEvent?.origin,sourceIsParent:activeEvent?.sourceIsParent},
     {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the same-origin editor parent');
+   }finally{await page.close()}
   });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
    await first.locator('summary').click();await first.getByRole('button',{name:'Supprimer le projet',exact:true}).click();
