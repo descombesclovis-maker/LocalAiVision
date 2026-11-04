@@ -16,7 +16,7 @@
 - [x] Run the full Python suite and Node tests available locally.
 - [ ] Complete Chromium/Edge browser QA in Windows CI.
 - [ ] Visually inspect real browser captures on desktop and mobile before claiming a visual pass.
-- [ ] Compile and start a Windows executable in CI before claiming Windows validation.
+- [ ] Compile, start and visually confirm non-blank WebView2 content in the Windows executable CI before claiming Windows validation.
 - [ ] Run GPU or ComfyUI benchmarks only where the named hardware and installed models are actually available; report unavailable checks clearly.
 - [ ] Compare all derivative graphics with immutable originals and describe any approximation.
 
