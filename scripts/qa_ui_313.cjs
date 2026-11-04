@@ -107,7 +107,8 @@ function fixture(project){
    await check('Pro reference opens its own sales dossier without a forced questionnaire',async()=>{
     const {id:pid}=fixture('pro');await page.goto(base+'/localaiweb/editor?id='+pid);await wait(500);
     assert.equal(await page.locator('#lawDesignDialog').evaluate(x=>x.open),false);
-    assert.match(await page.locator('#lawChatStatus').innerText(),/informations confirmées/);
+    assert.match(await page.locator('#lawChatStatus').innerText(),/Prêt à créer ton site/);
+    // The reference project is valid and saved, but its real status still requires a user brief.
     assert.match(await page.locator('#lawPublishBtn').innerText(),/Vendre & livrer/);
     await page.locator('#lawPublishBtn').click();await page.waitForURL(/ventes\.localhost.*\/localaiweb\/vente/);
     assert.equal(new URL(page.url()).searchParams.get('id'),pid);
