@@ -110,7 +110,7 @@ def main():
 
     # This is the same executable resource reference used by the updater's
     # shortcuts (IconLocation = "$CurrentExe,0"). No real shortcut is changed.
-    with tempfile.TemporaryDirectory(prefix='localai-icon-qa-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='localai-icon-qa-', ignore_cleanup_errors=True) as tmp:
         link=Path(tmp)/'LocalAiStudio-test.lnk'
         script="$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:ICON_QA_LINK);$s.TargetPath=$env:ICON_QA_EXE;$s.IconLocation=$env:ICON_QA_EXE+',0';$s.Save();$r=(New-Object -ComObject WScript.Shell).CreateShortcut($env:ICON_QA_LINK);if($r.TargetPath -ne $env:ICON_QA_EXE -or $r.IconLocation -ne ($env:ICON_QA_EXE+',0')){throw 'Shortcut icon reference mismatch'}"
         subprocess.run(['powershell','-NoProfile','-Command',script],env={**os.environ,'ICON_QA_LINK':str(link),'ICON_QA_EXE':str(exe)},check=True)
