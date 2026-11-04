@@ -87,22 +87,18 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    const activitySnapshots=[];
    await page.route('**/api/studio/activity',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
     contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
-   await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',
-    body:JSON.stringify({ready:true,url:base+'/qa-resource-budget-probe'})}));
-   await page.route('**/qa-resource-budget-probe**',route=>route.fulfill({status:200,contentType:'text/html',body:`<!doctype html><script>
-    addEventListener('message',event=>{
-     if(event.data?.type==='localaiweb-resource-budget')parent.postMessage({type:'qa-resource-budget-ack',
-      data:event.data,origin:event.origin,sourceIsParent:event.source===parent},'*');
+   await page.addInitScript(()=>{
+    if(window===window.parent)return;
+    window.addEventListener('message',event=>{
+     if(event.data?.type==='localaiweb-resource-budget')window.parent.postMessage({type:'qa-resource-budget-ack',
+      data:event.data,origin:event.origin,sourceIsParent:event.source===window.parent},'*');
     });
-    parent.postMessage({type:'qa-resource-budget-probe-ready'},'*');
-   <\/script>`}));
-   await page.addInitScript(()=>{window.__resourceBudgetAcks=[];window.__resourceProbeReady=false;addEventListener('message',event=>{
+   });
+   await page.addInitScript(()=>{window.__resourceBudgetAcks=[];addEventListener('message',event=>{
     if(event.data?.type==='qa-resource-budget-ack')window.__resourceBudgetAcks.push(event.data);
-    if(event.data?.type==='qa-resource-budget-probe-ready')window.__resourceProbeReady=true;
    });});
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
-   await page.waitForFunction(()=>window.__resourceProbeReady===true);
    await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
      await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
