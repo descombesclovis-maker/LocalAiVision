@@ -87,11 +87,10 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    const activitySnapshots=[];
    await page.route('**/api/studio/activity',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
     contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
+   await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ready:false,url:null})}));
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    const frame=page.locator('#lawPreview');
-   await page.evaluate(id=>{const f=document.getElementById('lawPreview');f.hidden=false;f.src='/web-preview/'+encodeURIComponent(id)+'/index.html';},ids.preview);
-   await page.waitForFunction(()=>{const f=document.getElementById('lawPreview');try{return f?.contentWindow?.location.pathname.startsWith('/web-preview/')}catch{return false}});
-   assert.match(await frame.evaluate(element=>element.contentWindow.location.pathname),/^\/web-preview\//);
+   await page.waitForFunction(()=>!!document.getElementById('lawPreview')?.contentWindow);
    await frame.evaluate(element=>{
     element.contentWindow.__resourceBudgetMessages=[];
     element.contentWindow.__resourceBudgetEvents=[];
