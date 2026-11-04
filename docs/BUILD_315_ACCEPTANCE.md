@@ -26,7 +26,7 @@
 - A separate Build 315 branch was created locally from that exact commit. The changes keep their draft pull request targeted at the PR #63 base branch.
 - Baseline Python suite: 308 tests, all passing; one Windows-only test skipped on this Linux host.
 - The cinematic 3D quality helper tests pass (6 tests), including the 8 FPS media-busy cap.
-- Final local baseline after the change: 311 Python tests pass, with one Windows-only skip; 10 Node tests pass. Two touched browser JavaScript files pass `node --check`; `git diff --check` is clean.
+- Final local baseline after the change: 312 Python tests pass, with one Windows-only skip; 10 Node tests pass. Three touched browser JavaScript files pass `node --check`; `git diff --check` is clean.
 - This host reports 9.7 GiB RAM, no `nvidia-smi`, no local ComfyUI at `127.0.0.1:8188`, and no LocalAiStudio server at `127.0.0.1:3000`. It cannot provide an RTX 3060 generation benchmark or a live model-generation example.
 - The reference Windows executable run `41740621667` succeeded on the Build 314 commit. That is a reference artifact, not a Build 315 compilation.
 - Playwright is available but its Chromium binary is not. Browser QA must be performed in CI or reported unavailable; source-level tests are not a visual pass.
