@@ -153,8 +153,28 @@ def main():
             hwnd=found[0]
             icon=user.SendMessageW(hwnd,0x7F,1,0) or user.GetClassLongPtrW(hwnd,-14)
             verify(icon,'native-window-taskbar')
-            # The titlebar/taskbar icon is taken from this same top-level HWND.
-            time.sleep(1)
+            # A visible native frame can precede WebView2's first paint. Wait
+            # for actual non-blank client pixels before calling this a UI proof.
+            user.ShowWindow.argtypes=[W.HWND,ctypes.c_int]
+            user.GetClientRect.argtypes=[W.HWND,ctypes.POINTER(W.RECT)]
+            user.ClientToScreen.argtypes=[W.HWND,ctypes.POINTER(W.POINT)]
+            user.SetForegroundWindow.argtypes=[W.HWND]
+            user.ShowWindow(hwnd,3)
+            user.SetForegroundWindow(hwnd)
+            painted=False
+            deadline=time.monotonic()+60
+            while time.monotonic()<deadline:
+                rect=W.RECT();origin=W.POINT(0,0)
+                user.GetClientRect(hwnd,ctypes.byref(rect));user.ClientToScreen(hwnd,ctypes.byref(origin))
+                capture=ImageGrab.grab(bbox=(origin.x,origin.y,origin.x+rect.right,origin.y+rect.bottom))
+                stats=ImageStat.Stat(capture.convert('L'))
+                if stats.mean[0]>2 and stats.stddev[0]>8:
+                    painted=True;capture.save(output/'native-window-content.png');break
+                time.sleep(.5)
+            if not painted:
+                capture.save(output/'native-window-blank.png')
+                raise RuntimeError('The native window icon is correct, but its WebView content stayed blank.')
+            results['checks']['native-content-painted']={'passed':True,'luma_mean':stats.mean[0],'luma_stddev':stats.stddev[0]}
             ImageGrab.grab(all_screens=True).save(output/'windows-desktop.png')
             results['checks']['native-desktop-capture']={'passed':True}
         finally:
