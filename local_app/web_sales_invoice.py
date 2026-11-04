@@ -14,6 +14,8 @@ import json
 import re
 import threading
 
+from local_app.business_time import business_date, timezone_name
+
 BRAND="FORMA"
 SELLER_DEFAULT={"name":"","siret":""}  # Never invent a legal seller or SIRET.
 DISCOUNT=Decimal("0.30")
@@ -156,7 +158,7 @@ def issue(store,project_id,invoice_store,seller,customer,item_ids,
         worked=date.fromisoformat(service_date)
     except ValueError:
         raise ValueError("Date de prestation invalide (AAAA-MM-JJ).") from None
-    if worked>date.today():
+    if worked>business_date():
         raise ValueError("La date de prestation doit correspondre à une réalisation effective (pas une date future).")
     try:days=int(due_days)
     except (ValueError,TypeError):days=30
@@ -177,7 +179,7 @@ def issue(store,project_id,invoice_store,seller,customer,item_ids,
         registry=folder/"invoice-sequence.json"
         try:sequence=json.loads(registry.read_text(encoding="utf-8")) if registry.exists() else {}
         except (ValueError,OSError):raise RuntimeError("Registre des factures endommagé : ne pas émettre de numéro en double.")
-        current=date.today()
+        current=business_date()
         key=str(current.year)
         number=int(sequence.get(key) or 0)+1
         invoice_id=f"FORMA-{current.year}-{number:05d}"

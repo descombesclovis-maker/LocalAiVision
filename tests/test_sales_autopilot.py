@@ -83,6 +83,28 @@ class SalesTests(TestCase):
             orders.checkout(self.crm,self.pid,number)
             self.assertEqual(checkout.call_count,1)
 
+    def test_signature_uses_quote_business_zone_across_midnight_and_dst(self):
+        from datetime import datetime, timezone
+        from local_app import business_time
+        for day in ['2026-06-30T22:30:00', '2026-03-29T01:30:00', '2026-10-25T01:30:00']:
+            now = datetime.fromisoformat(day).replace(tzinfo=timezone.utc)
+            with self.subTest(day=day), patch.dict(os.environ, {'LOCALAI_BUSINESS_TIMEZONE':'Europe/Paris'}), patch.object(business_time, 'datetime', wraps=datetime) as clock:
+                clock.now.return_value = now
+                number = self.quote()
+                quote = orders._quote(self.crm, self.pid, number)
+                self.assertEqual(quote['business_timezone'], 'Europe/Paris')
+                ref = hashlib.sha256(number.encode()).hexdigest()[:40]
+                with patch.object(orders, '_request', return_value={'signature_request':{'signature_request_id':ref}}):
+                    orders.signature_request(self.crm, self.pid, number)
+                record = {'signature_request_id':ref, 'is_complete':True,
+                    'metadata':{'sales_mode':'test', 'quote_number':number,
+                        'quote_sha256':hashlib.sha256(crm.quote_file(self.crm, number).read_bytes()).hexdigest()},
+                    'signatures':[{'status_code':'signed', 'signer_email_address':CLIENT['email'], 'signed_at':int(now.timestamp())}]}
+                # A changed application zone must not reinterpret an issued quote.
+                with patch.dict(os.environ, {'LOCALAI_BUSINESS_TIMEZONE':'UTC'}), patch.object(orders, '_request', return_value={'signature_request':record}):
+                    rows = orders.verify_acceptance(self.crm, self.pid, number)
+                    self.assertTrue(any(row['quote']==number for row in rows))
+
     def event(self, kind, ident, body):
         raw=json.dumps({"type":kind,"id":ident,"livemode":False,"data":{"object":body}}).encode()
         ts=str(int(time.time()))
