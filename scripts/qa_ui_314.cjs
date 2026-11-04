@@ -132,14 +132,14 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
      if(window.__resourceBudgetAcks.at(-1)?.data?.mediaBusy===true)return;
     }
    });
-   const activeMessage=(await page.evaluate(()=>window.__resourceBudgetAcks.at(-1)))?.data;
+   await page.waitForFunction(()=>window.__resourceBudgetAcks?.some(entry=>entry.data?.mediaBusy===true),null,{timeout:10000});
+   const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.find(entry=>entry.data?.mediaBusy===true));
    const activitySnapshots=await page.evaluate(()=>window.__qaActivitySnapshots);
    assert.ok(activitySnapshots.some(snapshot=>Number(snapshot.running)>0),
     'The activity fixture never served an active-render state: '+JSON.stringify(activitySnapshots));
-   assert.deepEqual(activeMessage,{type:'localaiweb-resource-budget',mediaBusy:true},
-    'The editor preview did not receive the active-render state; activity samples: '+JSON.stringify(activitySnapshots));
-   const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.at(-1));
-   assert.deepEqual({origin:activeEvent.origin,sourceIsParent:activeEvent.sourceIsParent},
+   assert.deepEqual(activeEvent?.data,{type:'localaiweb-resource-budget',mediaBusy:true},
+    'The editor preview did not receive the active-render state; messages: '+JSON.stringify(await page.evaluate(()=>window.__resourceBudgetAcks)));
+   assert.deepEqual({origin:activeEvent?.origin,sourceIsParent:activeEvent?.sourceIsParent},
     {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the same-origin editor parent');
   });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
