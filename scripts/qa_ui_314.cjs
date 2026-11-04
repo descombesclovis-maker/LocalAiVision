@@ -83,10 +83,23 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
   await check('Editor preview bridge sends queued and active media budgets with same-origin events',async()=>{
-   let media={count:2,running:0,queued:2,preparing:0};
-   const activitySnapshots=[];
-   await page.route('**/api/studio/activity**',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
-    contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
+   // Labelled activity response fixture; the editor and sandboxed preview remain real.
+   await page.addInitScript(()=>{
+    if(window!==window.parent)return;
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+    window.__qaMedia={count:2,running:0,queued:2,preparing:0};
+    window.__qaActivitySnapshots=[];
+    const realFetch=window.fetch.bind(window);
+    window.fetch=(input,init)=>{
+     const url=typeof input==='string'?input:input?.url||'';
+     if(new URL(url,location.href).pathname==='/api/studio/activity'){
+      const media={...window.__qaMedia};window.__qaActivitySnapshots.push(media);
+      return Promise.resolve(new Response(JSON.stringify({count:media.count,jobs:[],media}),
+       {status:200,headers:{'Content-Type':'application/json'}}));
+     }
+     return realFetch(input,init);
+    };
+   });
    await page.addInitScript(()=>{
     if(window===window.parent)return;
     window.addEventListener('message',event=>{
@@ -99,8 +112,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    });});
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
-   // Playwright may leave a headless tab hidden; this scenario represents the visible editor window.
-   await page.evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,get:()=>false}));
+   await page.waitForFunction(()=>window.StudioActivity?.refresh&&document.body.dataset.studioPage==='editor');
    await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
      await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
@@ -111,7 +123,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    let messages=await page.evaluate(()=>window.__resourceBudgetAcks.map(entry=>entry.data));
    assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
     "Queued-but-not-running media must not throttle a user's site preview");
-   media.count=1;media.running=1;media.queued=0;media.preparing=0;
+   await page.evaluate(()=>{window.__qaMedia.count=1;window.__qaMedia.running=1;window.__qaMedia.queued=0;window.__qaMedia.preparing=0});
    await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
      await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
@@ -119,8 +131,9 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     }
    });
    const activeMessage=(await page.evaluate(()=>window.__resourceBudgetAcks.at(-1)))?.data;
+   const activitySnapshots=await page.evaluate(()=>window.__qaActivitySnapshots);
    assert.ok(activitySnapshots.some(snapshot=>Number(snapshot.running)>0),
-    'The activity route never served an active-render state: '+JSON.stringify(activitySnapshots));
+    'The activity fixture never served an active-render state: '+JSON.stringify(activitySnapshots));
    assert.deepEqual(activeMessage,{type:'localaiweb-resource-budget',mediaBusy:true},
     'The editor preview did not receive the active-render state; activity samples: '+JSON.stringify(activitySnapshots));
    const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.at(-1));
