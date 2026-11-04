@@ -10,29 +10,31 @@ La limite porte sur les appels de rendu du site de démonstration embarqué. Ell
 
 ## Protection de l'espace NSFW
 
-Les fichiers de génération, les prompts, les modèles, les workflows Hunyuan, les samplers, les CFG, les LoRAs et le routage NSFW n'ont pas été modifiés. Le message de réduction est émis uniquement depuis `data-studio-page="editor"` et n'est accepté que par la fenêtre parente de même origine dans le visualiseur 3D. Il n'est pas envoyé depuis l'espace Vision ou NSFW.
+Les fonctions de génération, les prompts, les modèles, les workflows Hunyuan, les samplers, les CFG, les LoRAs et le routage NSFW n'ont pas été modifiés. Le message de réduction est émis uniquement depuis `data-studio-page="editor"` et n'est accepté que par la fenêtre parente de même origine dans le visualiseur 3D. Il n'est pas envoyé depuis l'espace Vision ou NSFW.
 
-La liste des fichiers de la PR #64 comprend uniquement le workflow CI, le relais d'activité, le visualiseur WebGL, les tests de cadence et de portée, ainsi que la documentation Build 315. Aucun fichier de modèles ou de workflows n'y figure.
+La PR #64 touche la présentation, les recettes CI et le transport HTTP local. Dans `server.py`, seule la capacité d'accueil des connexions passe à 128; les fonctions média ne changent pas. Aucun fichier de modèles ou de workflows ComfyUI n'y figure.
 
 ## Vérifications locales
 
 | Contrôle | Résultat |
 |---|---|
-| Tests Python | 312 réussis ; 1 test Windows ignoré sous Linux |
-| Tests Node | 10 réussis |
+| Tests Python | 313 exécutés avec succès ; 1 test Windows ignoré sous Linux |
+| Tests Node | 7 réussis (`node --test tests/*.mjs`) |
 | Syntaxe JS modifié | `node --check` réussi pour `studio-activity.js`, `cinematic3d/app.js` et `qa_ui_314.cjs` |
 | Syntaxe Python modifié | `py_compile` réussi pour le fixture navigateur et le test de portée |
 | Diff | `git diff --check` réussi |
 | Hôte | 9,7 GiB de RAM; `nvidia-smi` absent; aucun ComfyUI/Codex connecté |
 | Navigateur local | Playwright présent; exécutable Chromium absent |
 
-## Contrôles CI en attente
+## Dernières preuves CI et correction de transport
 
-Le run #358 a compilé l'EXE, réussi les contrôles d'icône, le démarrage serveur et le transfert d'auto-update. Mais l'image de la fenêtre WebView2 était noire. Le premier contrôle de peinture a accepté à tort le fond presque noir de la fenêtre (luminance moyenne 10,2/255; seulement 0,48 % des pixels dépassaient le niveau 40). Cette capture invalide la preuve visuelle Windows de ce run. Le contrôle a été resserré pour exiger au moins 2 % de pixels réellement visibles et pour conserver le journal de démarrage; le run #359 doit confirmer une fenêtre réellement affichée ou révéler l'erreur de démarrage.
+Le run `41811438336`, au commit `79873a303c4cd82cd03a47334b35ba0dc07318d1`, compile et démarre l'EXE Windows, confirme une fenêtre WebView2 non noire et réussit les contrôles d'icône, de DLL et de transfert de mise à jour. La publication de version est ignorée. Les exports de marque 4096 px sont archivés.
 
-Le run #359 doit également terminer les recettes Chromium et Edge, avec les six résolutions et le contrôle du signal média « en attente » puis « en cours » dans le vrai éditeur local. Les résultats et captures ne seront consignés comme preuves qu'après la fin de ce run.
+La suite Chromium complète passe, y compris le relais « en attente » puis « rendu actif ». Les diagnostics montrent les deux messages envoyés et reçus avec la bonne origine et la bonne fenêtre parente. L'état d'activité est une fixture explicitement étiquetée : aucun rendu IA/GPU n'est simulé comme un résultat réel.
 
-Les résultats et les captures de ce run ne seront consignés comme preuves qu'après la fin des travaux GitHub Actions. Aucun résultat de CI n'est supposé dans ce rapport.
+Edge révèle ensuite une page Pro dépourvue de sa feuille de style principale, avec un débordement horizontal à 1280 px. La capture conserve cette erreur. Le serveur utilisait la file d'accueil par défaut de cinq connexions; cette révision la porte à 128 pour absorber les rafales de ressources. Un test établit 32 connexions en attente sans refus. La recette navigateur exige désormais que toutes les feuilles de style soient chargées et journalise les échecs de ressources. La correction attend encore sa validation complète Chromium/Edge.
+
+Les captures d'accueil ordinateur et mobile ont été inspectées : les deux photographies, les cartes et les textes s'affichent. Cela ne certifie pas toutes les vues ni tous les moteurs de génération.
 
 ## Capacités préexistantes constatées dans le dépôt
 

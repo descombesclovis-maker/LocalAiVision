@@ -11,7 +11,7 @@ const data=fs.mkdtempSync(path.join(os.tmpdir(),'studio-ui-313-'));
 const server=spawn(process.env.PYTHON||'python',['-m','local_app.server'],{
  cwd:root,env:{...process.env,LOCALVISIONAI_DATA:data,LOCALVISIONAI_SKIP_SETUP:'1',LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY:'',LOCALAIWEB_GOOGLE_PLACES_API_KEY:''},stdio:['ignore','pipe','pipe']});
 const log=fs.createWriteStream(path.join(output,'server.log'));server.stdout.pipe(log);server.stderr.pipe(log);
-const results={baseline:!!process.env.UI_BASELINE,resolutions:[],checks:[],limitations:[
+const results={baseline:!!process.env.UI_BASELINE,resolutions:[],checks:[],assetFailures:[],limitations:[
  'Google live map requires configured browser/server keys and authorized API usage.',
  'Codex generation, ComfyUI media, payment/signature/publication and Windows WebView2/DPI are not certified by this UI test.'
 ]};
@@ -36,8 +36,10 @@ function fixture(project){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,reducedMotion:'reduce'});
    const page=await context.newPage();
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   page.on('requestfailed',request=>{if(['stylesheet','script'].includes(request.resourceType()))results.assetFailures.push({url:request.url(),error:request.failure()?.errorText})});
    for(const [name,route] of pages){
     await page.goto(base+route,{waitUntil:'domcontentloaded'});await wait(800);
+    await page.waitForFunction(()=>Array.from(document.querySelectorAll('link[rel="stylesheet"]')).every(link=>Boolean(link.sheet)),null,{timeout:15000});
     if(name==='projects-free')await page.locator('[data-qcm-filter="free"]').click();
     await page.screenshot({path:path.join(output,`${name}-${width}x${height}.png`),fullPage:true});
     const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,bodyScroll:document.body.scrollWidth}));
