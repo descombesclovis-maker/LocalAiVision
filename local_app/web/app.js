@@ -515,7 +515,14 @@ function publicPhotoFaithfulness(prompt,negative,task,profile){
  const currentNegative=String(negative||'');
  if(task!=='image'||profile==='nsfw')return {prompt:source,negative:currentNegative,exactPrompt:false};
  const animal=/(?:^|[^a-z\p{L}])(?:chien|chiens|chiot|chiots|chat|chats|chaton|chatons|cheval|chevaux|lapin|lapins|oiseau|oiseaux|renard|renards|dog|dogs|puppy|puppies|cat|cats|kitten|kittens|horse|horses|rabbit|rabbits|bird|birds|fox|foxes)(?=$|[^a-z\p{L}])/iu.test(source);
- const human=/(?:^|[^a-z\p{L}])(?:personne|personnes|humain|humaine|humains|femme|femmes|homme|hommes|enfant|enfants|bébé|bébés|photographe|photographer|person|people|human|woman|women|man|men|child|children|mains?|hands?|bras|arms?|doigts?|fingers?|selfie|pov)(?=$|[^a-z\p{L}])/iu.test(source);
+ // Classify human mentions in their local clause. Exclusions are not subjects:
+ // "sans personne", "without human hands" and "ni mains" stay animal-only.
+ // A later positive clause ("mais avec une femme") still requests a human.
+ const mentions=source.matchAll(/\b(?:personnes?|humain(?:e|es|s)?|femmes?|hommes?|enfants?|bébés?|photographes?|photographers?|persons?|people|humans?|women|woman|men|man|children|child|mains?|hands?|bras|arms?|doigts?|fingers?|selfie|pov)\b/giu);
+ const human=[...mentions].some(match=>{
+   const clause=source.slice(0,match.index).split(/[,;.!?]|\b(?:mais|but|avec|with|et|and)\b/iu).pop();
+   return !/(?:\b(?:sans|without|no|aucun(?:e|es|s)?|ni)|pas\s+de|pas\s+d['’])\s*(?:[\p{L}'’-]+\s+){0,4}$/iu.test(clause);
+ });
  if(!animal||human)return {prompt:source,negative:currentNegative,exactPrompt:false};
  // Skip generic server-side human/anatomy/hands enhancement when the prompt
  // clearly contains only an animal. This avoids steering an SDXL workflow
@@ -544,7 +551,7 @@ async function startGeneration(task,model,promptText,previewStyle=null){
   const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);
   const photo=publicPhotoFaithfulness(creativePrompt,$('#settingNegative').value,task,c.profile);
   if(photo.exactPrompt)settings.exact_prompt=true;
-  const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:photo.prompt,negative:photo.negative,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length){const warnings=(task==='image'&&c.profile!=='nsfw')
+  const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,...(c.profile==='nsfw'?{}:{original_prompt:promptText}),prompt:photo.prompt,negative:photo.negative,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length){const warnings=(task==='image'&&c.profile!=='nsfw')
     ?d.warnings.filter(line=>!/\bqwen\b|\bollama\b|moteur de discussion|\bllm\b/i.test(line))
     :d.warnings;
     if(warnings.length)addMessage(id,{role:'assistant',text:warnings.join('\n')});}await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{window.StudioAds?.endGeneration?.(task);$('#send').disabled=false}
