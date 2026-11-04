@@ -88,8 +88,11 @@ function fixture(project){
     await page.locator('#createProject').click();await page.locator('#projectName').fill('Projet réel de recette');await page.locator('#confirmProject').click();
     await page.waitForURL(/editor\?id=web-/);await wait(600);
     const pid=new URL(page.url()).searchParams.get('id');assert.ok((await api('/api/web/projects')).projects.some(x=>x.id===pid));
-    await page.locator('#lawPreviewTitle').dblclick();await page.locator('.qcm-project-title-input').fill('Projet recette renommé');await page.keyboard.press('Enter');
-    await wait(300);assert.equal((await api('/api/web/project?id='+pid)).project.name,'Projet recette renommé');
+    await page.locator('#lawPreviewTitle').dblclick();await page.locator('.qcm-project-title-input').fill('Projet recette renommé');
+    const renamed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/web/project/rename'&&response.request().method()==='POST');
+    await page.keyboard.press('Enter');assert.equal((await renamed).ok(),true);
+    await page.waitForFunction(()=>document.getElementById('lawPreviewTitle').textContent==='Projet recette renommé');
+    assert.equal((await api('/api/web/project?id='+pid)).project.name,'Projet recette renommé');
    });
    await check('Viewport handlers and splitter keyboard preserve live components',async()=>{
     for(const mode of ['tablet','mobile','desktop']){await page.locator('[data-view="'+mode+'"]').click();assert.ok(await page.locator('#lawPreviewStage').evaluate((x,m)=>x.classList.contains(m),mode))}
