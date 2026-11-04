@@ -11,12 +11,12 @@
 ## Acceptance checklist
 
 - [x] Audit the LocalAiWeb brief, direction, architecture, generation, preview, build and recovery path before changing it.
-- [ ] Keep changes narrow, preserve project boundaries and the exact original user brief.
+- [x] Keep changes narrow, preserve project boundaries and the exact original user brief.
 - [x] Add regression coverage for preview throttling and scope boundaries.
 - [x] Run the full Python suite and Node tests available locally.
 - [ ] Complete Chromium/Edge browser QA in Windows CI.
 - [ ] Visually inspect real browser captures on desktop and mobile before claiming a visual pass.
-- [ ] Compile, start and visually confirm non-blank WebView2 content in the Windows executable CI before claiming Windows validation.
+- [x] Compile and start the Windows executable; CI confirms non-blank WebView2 content and retains native-window evidence (run #377). A full visual review on the user's hardware remains outstanding.
 - [ ] Run GPU or ComfyUI benchmarks only where the named hardware and installed models are actually available; report unavailable checks clearly.
 - [ ] Compare all derivative graphics with immutable originals and describe any approximation.
 
@@ -34,3 +34,7 @@
 ## Known baseline boundary
 
 The existing code already includes project-specific creative direction, multi-page checks, compiled-site checks, optional browser review, persistent generation-status records and recovery messaging, and adaptive 3D quality helpers. Those were present in the audited base; they are not new Build 315 improvements. The new preview cadence gate is limited to the LocalAiWeb editor and cinematic template.
+
+## Latest recorded CI evidence
+
+Run #377 (`41756356521`) compiled and started the Windows EXE, passed the icon/non-blank-window check, Python regression suite and update hand-off. Release publication was skipped. Brand derivatives were exported at 4096 px. The Chromium resource-budget bridge check still fails; Edge is consequently not yet certified. The browser harness now records sent messages, acknowledgements, document state and preview URL in an isolated tab to locate the failure. These fixtures do not exercise a real AI or GPU render.
