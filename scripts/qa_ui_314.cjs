@@ -89,7 +89,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    const frame=page.locator('#lawPreview');
-   await page.waitForFunction(()=>{const f=document.getElementById('lawPreview');return f&&!f.hidden&&f.contentDocument?.readyState==='complete'});
+   await page.evaluate(id=>{const f=document.getElementById('lawPreview');f.hidden=false;f.src='/web-preview/'+encodeURIComponent(id)+'/index.html';},ids.preview);
+   await page.waitForFunction(()=>{const f=document.getElementById('lawPreview');return f&&!f.hidden&&f.src.includes('/web-preview/')&&f.contentDocument?.readyState==='complete'});
    await frame.evaluate(element=>{
     element.contentWindow.__resourceBudgetMessages=[];
     element.contentWindow.addEventListener('message',event=>{
