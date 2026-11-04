@@ -107,7 +107,7 @@ function updateCreationModeGuide(){
  if(guide)guide.innerHTML=isolated
    ?'<b>NSFW · Hunyuan</b> <span>HunyuanImage 2.1 · HunyuanVideo 1.5 T2V/I2V · prompt direct.</span>'
    :'<b>Création standard</b> <span>RealVisXL V5 · Wan 2.1 · chat local.</span>';
- if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):'Écris ton message…';
+ if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):(document.body.classList.contains('vision-ad-guided')||$('#studioAdOpen')?.classList.contains('active')?'Décris ta publicité…':$('#navPhoto')?.classList.contains('active')?'Décris ta photo…':$('#navVideo')?.classList.contains('active')?'Décris ta vidéo…':'Écris ton message…');
  const isolatedLinks=$('#nsfwLibraryLinks');
  if(isolatedLinks)isolatedLinks.classList.toggle('hidden',!nsfwUnlocked());
  updateSettingsVisibility();
@@ -169,13 +169,70 @@ function chooseIsolatedCreationMode(mode){
  const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'hunyuan15-i2v':'hunyuan15-t2v');
  if(!lastHealth?.media?.[component]?.ready)installComponent(component);
 }
+function requestNsfwPin(){
+ const dialog=$('#nsfwUnlockDialog');
+ if(!dialog)return Promise.resolve(false);
+ if(dialog.open)return Promise.resolve(false);
+ const fields=[...dialog.querySelectorAll('.nsfw-pin-digit')];
+ const form=dialog.querySelector('form');
+ const warning=dialog.querySelector('#nsfwPinError');
+ return new Promise(resolve=>{
+  let settled=false;
+  function finish(ok){
+   if(settled)return;
+   settled=true;
+   form.removeEventListener('submit',submit);
+   dialog.removeEventListener('close',cancel);
+   fields.forEach(f=>{f.value=''});
+   if(dialog.open)dialog.close();
+   resolve(ok);
+  }
+  function cancel(){finish(false)}
+  function submit(event){
+   event.preventDefault();
+   const entered=fields.map(x=>x.value).join('');
+   if(!/^\d{4}$/.test(entered)){warning.textContent='Saisis les quatre chiffres du code.';return}
+   if(entered!=='2905'){
+    // Retain the existing PIN contract; changing the dialog must never unlock
+    // a session on an invalid code or store the PIN in browser storage.
+    fields.forEach(f=>f.value='');warning.textContent='Code d’accès incorrect.';fields[0].focus();return;
+   }
+   finish(true);
+  }
+  fields.forEach((field,index)=>{
+   field.value='';
+   field.oninput=()=>{
+    field.value=field.value.replace(/\D/g,'').slice(-1);
+    warning.textContent='';
+    if(field.value&&index<3)fields[index+1].focus();
+   };
+   field.onkeydown=event=>{
+    if(event.key==='Backspace'&&!field.value&&index>0){fields[index-1].focus();fields[index-1].value=''}
+    if(event.key==='ArrowLeft'&&index>0){event.preventDefault();fields[index-1].focus()}
+    if(event.key==='ArrowRight'&&index<3){event.preventDefault();fields[index+1].focus()}
+   };
+   field.onpaste=event=>{
+    event.preventDefault();const digits=(event.clipboardData?.getData('text')||'').replace(/\D/g,'').slice(0,4);
+    [...digits].forEach((d,i)=>{fields[i].value=d});fields[Math.min(3,digits.length)].focus();warning.textContent='';
+   };
+  });
+  warning.textContent='';
+  form.addEventListener('submit',submit);
+  dialog.addEventListener('close',cancel);
+  dialog.showModal();fields[0].focus();
+ });
+}
 function enterNsfwWorkspace(){
  if(!nsfwUnlocked()){
-  const code=window.prompt('Espace réservé aux adultes. Saisis le code d’accès :');
-  if(code===null)return;
-  if(String(code).trim()!=='2905'){toast('Code d’accès incorrect.');return}
-  try{sessionStorage.setItem('lva_nsfw_gate','true')}catch{toast('Impossible d’ouvrir la session privée.');return}
-  toast('Espace adulte ouvert pour cette session.');
+  void requestNsfwPin().then(valid=>{
+   if(!valid)return;
+   try{sessionStorage.setItem('lva_nsfw_gate','true')}
+   catch{toast('Impossible d’ouvrir la session privée.');return}
+   toast('Espace adulte ouvert pour cette session.');
+   enterNsfwWorkspace();
+   document.dispatchEvent(new Event('localai:nsfw-entered'));
+  });
+  return;
  }
  nsfwGalleryVisible=true;
  renderProfileLabels();createConversationForProfile('nsfw');
@@ -288,12 +345,45 @@ function resultUrl(x){return x.ad_url||'/api/view?filename='+encodeURIComponent(
 function renderMessage(m){
  const wrap=document.createElement('div');wrap.className='message '+(m.role==='user'?'user':'assistant');if(m.loading)wrap.dataset.loading='1';
  if(m.text||m.streaming){const b=document.createElement('div');b.className='bubble'+(m.streaming?' streaming':'');if(m.role==='assistant'&&!m.streaming)renderAssistantText(b,m.text);else b.textContent=m.text||'';wrap.appendChild(b)}
- if(m.loading){if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=m.mediaType==='video'?'Génération de la vidéo…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
- if(m.result){const f=document.createElement('div');f.className='generation-frame';const src=resultUrl(m.result),video=/\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'');f.innerHTML=video?'<video class="result-media" controls src="'+src+'"></video>':'<img class="result-media" src="'+src+'">';wrap.appendChild(f)}
+ if(m.loading){if(!document.body.classList.contains('nsfw-active')&&document.body.dataset.studioPage==='vision'&&!m.chatLoading){
+  // The viewer paints a single preview; this marker never renders a chat card.
+  const pending=document.createElement('span');pending.className='vision-output-pending';
+  pending.dataset.kind=m.mediaType==='video'?'video':'image';pending.hidden=true;wrap.appendChild(pending);
+ }else if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=m.mediaType==='video'?'Génération de la vidéo…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
+ if(m.result){const src=resultUrl(m.result),video=/\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'');
+  if(!document.body.classList.contains('nsfw-active')&&document.body.dataset.studioPage==='vision'){
+   const ref=document.createElement('span');ref.className='vision-output-ref';ref.hidden=true;
+   ref.dataset.src=src;ref.dataset.kind=video?'video':'image';wrap.appendChild(ref);
+  }else{
+   const f=document.createElement('div');f.className='generation-frame';
+   f.innerHTML=video?'<video class="result-media" controls src="'+src+'"></video>':'<img class="result-media" src="'+src+'">';wrap.appendChild(f);
+  }
+ }
  $('#messages').appendChild(wrap);return wrap;
 }
 function scrollBottom(){requestAnimationFrame(()=>{$('#chat').scrollTop=$('#chat').scrollHeight})}
 function addMessage(id,m){const c=conversationFor(id);c.messages.push(m);c.updatedAt=new Date().toISOString();if(c.title==='Nouvelle conversation'&&m.role==='user')c.title=m.text.slice(0,48)+(m.text.length>48?'…':'');save();renderConversationList($('#conversationSearch').value);if(id===activeConversationId){$('#welcome').classList.add('hidden');renderMessage(m);scrollBottom()}}
+// A successful media render is not a failed Qwen chat session. Remove only
+// nonblocking chat diagnostics produced after the latest user prompt; keep
+// real ComfyUI rendering failures, cancellations and previous conversation history.
+function clearIrrelevantChatWarningsAfterMedia(id){
+ if(document.body.classList.contains('nsfw-active'))return;
+ const c=conversationFor(id);
+ const lastPrompt=c.messages.findLastIndex(m=>m.role==='user');
+ if(lastPrompt<0)return;
+ const irrelevant=/\bqwen\b|\bollama\b|ia locale indisponible|connexion (?:au )?(?:chat|llm)|moteur de discussion indisponible/i;
+ const filtered=c.messages.filter((m,index)=>index<=lastPrompt||!((m.error||m.text)&&!m.result&&irrelevant.test(String(m.text||''))));
+ if(filtered.length===c.messages.length)return;
+ c.messages=filtered;c.updatedAt=new Date().toISOString();save();
+ if(id===activeConversationId){
+  document.querySelectorAll('#messages .message').forEach(el=>{
+   const v=el.querySelector('.bubble')?.textContent||'';
+   if(irrelevant.test(v))el.remove();
+  });
+ }
+ const toastNode=document.getElementById('toast');
+ if(toastNode&&irrelevant.test(toastNode.textContent||''))toastNode.classList.remove('show');
+}
 function removeLoading(id){const c=conversationFor(id);c.messages=c.messages.filter(m=>!m.loading);c.updatedAt=new Date().toISOString();save();if(id===activeConversationId)$('#messages').querySelectorAll('.message[data-loading="1"]').forEach(x=>x.remove())}
 
 function modelsFor(task){return workflows.filter(w=>task==='image'?w.kind==='image':w.kind==='video'||w.kind==='video-heavy')}
@@ -340,6 +430,7 @@ function studioMediaIntent(text){
 async function sendMessage(){
  if($('#send').disabled)return;
  const text=$('#prompt').value.trim();if(!text)return;
+ if(window.StudioAds?.handleDraftMessage?.(text))return;
  if(!activeConversationId)createBlankConversation();
  const conv=conversationFor(activeConversationId);
  const intent=studioMediaIntent(text);
@@ -370,7 +461,8 @@ async function sendMessage(){
      const premium=workflowById(bestWorkflowId(ISOLATED_IMAGE_WORKFLOW));
      // Use installed production-quality engine, not the old SDXL baseline,
      // but never trigger a heavyweight install just by entering normal chat.
-     model=premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
+     const selected=conv.settings?.image?workflowById(conv.settings.image):null;
+     model=selected||(premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW)));
    }
    if(task==='video'){
      const wantsI2V=mode==='i2v'&&!!imageData;
@@ -381,7 +473,7 @@ async function sendMessage(){
  if(task){conv.messages[conv.messages.length-1].mediaRequest=true;save()}
  if(!task){await startChat(conv,text);return}
  if(!model)model=selectedModelForConversation(conv,task,text);
- if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche.'});return}
+ if(!model){window.StudioAds?.endGeneration?.(task);addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche.'});return}
  await startGeneration(task,model,text)
 }
 function numberSetting(id){const e=$(id);if(!e)return null;const raw=e.value.trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null}
@@ -415,6 +507,25 @@ async function waitForMediaPreparation(ticket){
    }
  }
 }
+// Preserve animal-only photo briefs without hallucinating a photographer's
+// hands. The original user prompt stays untouched in conversation/history.
+// This is a targeted conditioning safeguard, NOT a visual-quality guarantee.
+function publicPhotoFaithfulness(prompt,negative,task,profile){
+ const source=String(prompt||'');
+ const currentNegative=String(negative||'');
+ if(task!=='image'||profile==='nsfw')return {prompt:source,negative:currentNegative,exactPrompt:false};
+ const animal=/(?:^|[^a-z\p{L}])(?:chien|chiens|chiot|chiots|chat|chats|chaton|chatons|cheval|chevaux|lapin|lapins|oiseau|oiseaux|renard|renards|dog|dogs|puppy|puppies|cat|cats|kitten|kittens|horse|horses|rabbit|rabbits|bird|birds|fox|foxes)(?=$|[^a-z\p{L}])/iu.test(source);
+ const human=/(?:^|[^a-z\p{L}])(?:personne|personnes|humain|humaine|humains|femme|femmes|homme|hommes|enfant|enfants|bébé|bébés|photographe|photographer|person|people|human|woman|women|man|men|child|children|mains?|hands?|bras|arms?|doigts?|fingers?|selfie|pov)(?=$|[^a-z\p{L}])/iu.test(source);
+ if(!animal||human)return {prompt:source,negative:currentNegative,exactPrompt:false};
+ // Skip generic server-side human/anatomy/hands enhancement when the prompt
+ // clearly contains only an animal. This avoids steering an SDXL workflow
+ // toward fingers or a first-person camera viewpoint.
+ const camera=/(grand[ -]?angle|wide[ -]?angle)/i.test(source)?' Use a real wide-angle lens composition, from an external camera.':'';
+ const fidelity='Animal-only photographic composition: show the described animal and its setting. No person or human limbs in frame. Natural fur details, consistent animal anatomy, true-to-life textures and physically consistent lighting.'+camera;
+ const unwanted='human hands, human arms, fingers, photographer in frame, selfie perspective, first-person hands, foreground hands, extra people, warped animal paws, artificial smoothing';
+ return {prompt:source+'\n\n'+fidelity,negative:[currentNegative,unwanted].filter(Boolean).join(', '),exactPrompt:true};
+}
+
 async function startGeneration(task,model,promptText,previewStyle=null){
  const id=activeConversationId,c=conversationFor(id);c.messages.push({role:'assistant',loading:true,mediaType:task});c.updatedAt=new Date().toISOString();save();if(id===activeConversationId){renderMessage(c.messages[c.messages.length-1]);scrollBottom()}$('#send').disabled=true;
  try{const useReference=!!imageData&&model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW);const settings=readGenerationSettings(task);
@@ -422,14 +533,24 @@ async function startGeneration(task,model,promptText,previewStyle=null){
     // Hidden legacy drafts never override new requests. A deliberate
     // advertiser-selected social format remains authoritative however.
     const campaignAspect=window.StudioAds?.activeAspect?.(task);
-    Object.assign(settings,{quality:'workflow',steps:null,width:null,height:null,
+    const standardPhotoQuality = task==='image'
+      ? (/hunyuan/i.test([model.id,...(model.models||[])].join(' ')) ? 'balanced' : 'quality')
+      : 'workflow';
+    Object.assign(settings,{quality:c.profile==='nsfw'?'workflow':standardPhotoQuality,steps:null,width:null,height:null,
       fps:null,duration:null,aspect:campaignAspect||'auto',count:1,technical_quality:true,
       prompt_translation:false});
   }
-  settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_T2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_I2V_WORKFLOW)].includes(model.id)?selectedLoras:[];const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:creativePrompt,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{window.StudioAds?.endGeneration?.(task);$('#send').disabled=false}
+  settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_T2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_I2V_WORKFLOW)].includes(model.id)?selectedLoras:[];
+  const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);
+  const photo=publicPhotoFaithfulness(creativePrompt,$('#settingNegative').value,task,c.profile);
+  if(photo.exactPrompt)settings.exact_prompt=true;
+  const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:photo.prompt,negative:photo.negative,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length){const warnings=(task==='image'&&c.profile!=='nsfw')
+    ?d.warnings.filter(line=>!/\bqwen\b|\bollama\b|moteur de discussion|\bllm\b/i.test(line))
+    :d.warnings;
+    if(warnings.length)addMessage(id,{role:'assistant',text:warnings.join('\n')});}await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{window.StudioAds?.endGeneration?.(task);$('#send').disabled=false}
 }
 function outputFiles(h){const files=[];for(const o of Object.values(h.outputs||{}))for(const key of ['videos','gifs','images'])for(const file of o[key]||[]){if(file?.filename&&!files.some(x=>x.filename===file.filename&&x.subfolder===file.subfolder))files.push(file)}return files}
-async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed&&!files.length)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){addMessage(id,{role:'assistant',result:file});addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
+async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed&&!files.length)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){addMessage(id,{role:'assistant',result:file});if(task==='image'&&conversationFor(id).profile!=='nsfw')clearIrrelevantChatWarningsAfterMedia(id);addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
 
 window.onStudioAdvert=(result,id,originalPrompt)=>{
  if(!result?.url||!result?.filename)return;
@@ -500,7 +621,7 @@ async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
  $('#installMotion').textContent=h.media?.['hunyuan15-t2v']?.ready?'HunyuanVideo 1.5 T2V installé ✓':'Installer HunyuanVideo 1.5 T2V';
  $('#installI2V').textContent=h.media?.['hunyuan15-i2v']?.ready?'HunyuanVideo 1.5 I2V installé ✓':'Installer HunyuanVideo 1.5 I2V';
  for(const id of ['#retrySetup','#installImage','#installVideo','#installIsolatedImage','#installMotion','#installI2V']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
- if(h.startup?.state==='error')$('#enginePanel').open=true
+ // A diagnostic is accessible explicitly from advanced settings; never auto-open a panel.
 }catch(e){
  healthFailures++;
  if(healthFailures>=3){
@@ -527,7 +648,7 @@ function setup(){
   $('#accordionLoras').scrollIntoView({block:'nearest',behavior:'instant'});
   void refreshLoras();
  };
- $('#nsfwGalleryClose').onclick=()=>{nsfwGalleryVisible=false;renderNsfwGallery()};$('#nsfwGalleryToggle').onclick=()=>{nsfwGalleryVisible=true;renderNsfwGallery()};$('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
+ $('#nsfwGalleryClose').onclick=()=>{nsfwGalleryVisible=false;renderNsfwGallery()};$('#nsfwGalleryToggle').onclick=()=>{nsfwGalleryVisible=true;renderNsfwGallery()};$('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>{window.StudioAds?.cancelChat?.();const privateMode=document.body.classList.contains('nsfw-active')&&nsfwUnlocked();createBlankConversation(privateMode?'nsfw':'auto');$('#prompt').placeholder=privateMode?'Décris ta création…':'Écris ton message…'};$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
  $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos NSFW','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos NSFW','nsfw');
  $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=enterNsfwWorkspace;$('#studioPhotoVideo').onclick=()=>activateStudio('standard');$('#studioNsfw').onclick=()=>activateStudio('nsfw');$('#websitesWorkspace').onclick=()=>{window.location.href='/localaiweb'};$('#automationsWorkspace').onclick=()=>openFutureWorkspace('automations');$('#composerImageBtn').onclick=composerAddImage;document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
  const updateButton=$('#updateBtn');

@@ -1,0 +1,110 @@
+/* Build 315.1 — unified public Vision background; the input is a proper panel. */
+body[data-studio-page="vision"]:not(.nsfw-active){
+  --vision-chat-surface:#092c38;
+  --vision-composer-surface:#102632;
+  background-color:var(--vision-chat-surface)!important;
+  isolation:isolate;
+}
+/* Full-viewport light fields: no clipping at the rail, chat or viewer boundaries. */
+body[data-studio-page="vision"]:not(.nsfw-active)::before{
+  content:"";position:fixed;inset:-22vmax;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 34% 28% at 15% 55%,#0f8fa236,transparent 76%),
+    radial-gradient(ellipse 35% 39% at 73% 26%,#1cc7dd27,transparent 80%),
+    linear-gradient(162deg,transparent 38%,#16a8b316 39%,#1cbbca38 39.2%,transparent 39.7%),
+    linear-gradient(168deg,transparent 56%,#58e6ea0b 56.4%,#3ae0ef2a 56.6%,transparent 57.1%),
+    linear-gradient(152deg,transparent 68%,#27b5da15 68.3%,#1dcae627 68.55%,transparent 69.1%);
+  background-size:100% 100%;
+  transform:translate3d(-1.5%,0,0) scale(1.04);
+  opacity:.72;
+  animation:vision3151-rays 29s ease-in-out infinite alternate;
+}
+body[data-studio-page="vision"]:not(.nsfw-active)::after{
+  content:"";position:fixed;inset:-18vmax;z-index:0;pointer-events:none;
+  background:
+   radial-gradient(ellipse 26% 35% at 11% 85%,#24f0ea2b,transparent 78%),
+   radial-gradient(ellipse 30% 30% at 86% 68%,#31d5f024,transparent 82%),
+   radial-gradient(ellipse 34% 22% at 46% 96%,#15586f51,transparent 85%);
+  transform:translate3d(0,0,0);opacity:.65;
+  animation:vision3151-aurora 35s ease-in-out infinite alternate;
+}
+@keyframes vision3151-rays{to{transform:translate3d(2%,-1%,0) scale(1.04);opacity:.95}}
+@keyframes vision3151-aurora{to{transform:translate3d(-1.8%,-1.5%,0);opacity:.84}}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.app,.main,.content,#chat,.composer-wrap){
+  background:transparent!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .app{
+  position:relative;isolation:isolate;z-index:1;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{
+  background:#061824!important;/* distinct from sidebar/chat */
+  border-bottom:1px solid #44b2cf25;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar{
+  background:#092c38ef!important;
+  border-color:#2a829744!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #chat{
+  border-right:0!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer{
+  background:transparent!important;
+}
+/* Depth in the preview panel is subtle, not a new hard-edged background. */
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-stage{
+  box-shadow:0 26px 90px #00131f82,inset 0 1px 0 #a3f8ff16;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-stage::before{
+  content:"";position:absolute;inset:-24% -8% 0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 42% 35% at 48% 50%,#35deed16,transparent 80%);
+  transform:perspective(800px) rotateX(18deg) scale(1.08);
+  animation:vision3151-stage 22s ease-in-out infinite alternate;
+}
+@keyframes vision3151-stage{to{transform:perspective(800px) rotateX(11deg) scale(1.1);opacity:.72}}
+/* Composer is intentionally narrower than chat; side margins reveal ambient chat. */
+body[data-studio-page="vision"]:not(.nsfw-active) .composer-wrap{
+  background:transparent!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .content .composer{
+  background:var(--vision-composer-surface)!important;
+  border:1px solid #4283987a!important;
+  border-radius:19px!important;
+  box-shadow:0 12px 34px #010d1754,inset 0 1px 0 #c1faff10!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .content #prompt{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  color:#e8f7ff!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .content .composer:focus-within{
+  border-color:#4283987a!important;
+  box-shadow:0 12px 34px #010d1754,inset 0 1px 0 #c1faff10!important;
+  outline:0!important;/* no cyan focus rectangle */
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .content #prompt:focus,
+body[data-studio-page="vision"]:not(.nsfw-active) .content #prompt:focus-visible{
+  border:0!important;box-shadow:none!important;outline:0!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-splitter{
+  top:0!important;bottom:0!important;
+  background:linear-gradient(90deg,transparent calc(50% - .5px),#5cb6c144 calc(50% - .5px),#5cb6c144 calc(50% + .5px),transparent calc(50% + .5px));
+}
+/* Top-left of the rail: same vertical alignment as the Web hamburger. */
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar #openSidebar{
+  position:fixed!important;left:calc((var(--ui-rail,80px) - 44px)/2)!important;
+  top:14px!important;width:44px;height:44px;z-index:1100;
+  border-color:#22859e88!important;background:#0c2938ed!important;
+}
+@media(max-width:780px){
+ body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar #openSidebar{left:12px!important;top:12px!important}
+}
+body[data-studio-page="vision"]:not(.nsfw-active):is([data-gpu-busy="true"],[data-motion-paused="true"])::before,
+body[data-studio-page="vision"]:not(.nsfw-active):is([data-gpu-busy="true"],[data-motion-paused="true"])::after,
+body[data-studio-page="vision"]:not(.nsfw-active):is([data-gpu-busy="true"],[data-motion-paused="true"]) .qcm-vision-stage::before{
+ animation-play-state:paused!important;
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page="vision"]:not(.nsfw-active)::before,
+ body[data-studio-page="vision"]:not(.nsfw-active)::after,
+ body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-stage::before{animation:none!important}
+}
+@media(max-width:900px){body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-splitter{display:none!important}}

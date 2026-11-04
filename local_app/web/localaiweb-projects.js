@@ -6,6 +6,18 @@ const dialog=document.getElementById('createDialog');
 let projects=[],loading=false,projectFetching=false,activeJobs=new Map(),previousActive=new Set();
 const shortDate=t=>{if(!t)return 'Non modifié';try{return new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'short',year:'numeric'}).format(new Date(Number(t)*1000))}catch{return 'Date indisponible'}};
 const validProject=id=>/^web-[a-f0-9]{12}$/.test(id||'');
+// Phase-based indication, NEVER a pretend timer. The backend's active endpoint
+// exposes phase/detail, not a precise percentage. Mark as an estimate.
+function estimatedBuildPercent(job){
+ const exact=Number(job?.progress_percent ?? job?.percent);
+ if(job&&(job.progress_percent!==undefined||job.percent!==undefined)&&Number.isFinite(exact))
+  return Math.max(0,Math.min(99,Math.round(exact)));
+ const phase=String(job?.phase||'').toLowerCase();
+ const stages={planning:14,images:32,assets:36,building:64,implementation:64,
+  checking:84,review:84,testing:88,qa:88,preview:93,finalizing:94};
+ return stages[phase]??9;
+}
+
 const openProject=id=>{
  if(!validProject(id)){status.textContent='Ce projet possède un identifiant invalide. Il n’a pas été ouvert.';return}
  // Direct, stable deep link; browser Back always returns to this library.
@@ -46,6 +58,7 @@ function card(p,index){
  const name=document.createElement('span');name.className='card-name';name.textContent=p.name||'Sans nom';
  const meta=document.createElement('div');meta.className='card-meta';
  const live=activeJobs.get(p.id);
+ if(live)wrapper.classList.add('is-generating');
  const state=document.createElement('span');state.className='card-state';
  state.textContent=live?'◌ Création en cours':p.status==='published'?'● Publié':'● Projet enregistré';
  if(live){state.classList.add('is-generating');button.classList.add('is-generating')}
@@ -59,7 +72,7 @@ function card(p,index){
   openProject(p.id);
  });
  const menu=document.createElement('details');menu.className='project-context';
- const summary=document.createElement('summary');summary.textContent='…';
+ const summary=document.createElement('summary');summary.innerHTML='<span class="project-menu-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
  summary.setAttribute('aria-label','Actions du projet '+String(p.name||'Sans nom'));
  const panel=document.createElement('div');panel.className='project-context-panel';
  const copy=document.createElement('button');copy.type='button';copy.textContent="Copier le prompt d'origine";
@@ -80,6 +93,25 @@ function card(p,index){
   deleteDialog.showModal();document.getElementById('cancelDeleteProject').focus();
  });
  panel.append(copy,remove);menu.append(summary,panel);wrapper.append(button,menu);
+ if(live){
+  const pct=estimatedBuildPercent(live);
+  const overlay=document.createElement('div');overlay.className='project-generation-overlay';
+  const ring=document.createElement('div');ring.className='project-generation-ring';
+  ring.style.setProperty('--project-fill',pct+'%');
+  ring.setAttribute('role','progressbar');ring.setAttribute('aria-valuemin','0');
+  ring.setAttribute('aria-valuemax','100');ring.setAttribute('aria-valuenow',String(pct));
+  ring.setAttribute('aria-label','Étapes de création du site, avancement estimé');
+  const inner=document.createElement('div');inner.className='project-generation-ring-inner';
+  const value=document.createElement('span');value.className='project-generation-value';value.textContent=pct+' %';
+  const hint=document.createElement('small');hint.className='project-generation-hint';hint.textContent='estimé';
+  inner.append(value,hint);ring.append(inner);
+  const title=document.createElement('strong');title.className='project-generation-title';
+  title.textContent='Maquette en création';
+  const info=document.createElement('span');info.className='project-generation-phase';
+  info.textContent=String(live.detail||'L’agent travaille sur votre site…').slice(0,100);
+  overlay.append(ring,title,info);wrapper.append(overlay);
+ }
+
  return wrapper;
 }
 function emptyCard(kind,query){
@@ -138,7 +170,7 @@ async function refreshActive(){
   const next=new Map(rows.filter(j=>validProject(j.id)).map(j=>[j.id,j]));
   const done=Array.from(previousActive).some(id=>!next.has(id));
   const changed=next.size!==activeJobs.size||
-    Array.from(next).some(([id,job])=>activeJobs.get(id)?.detail!==job.detail);
+    Array.from(next).some(([id,job])=>activeJobs.get(id)?.detail!==job.detail||activeJobs.get(id)?.phase!==job.phase||activeJobs.get(id)?.progress_percent!==job.progress_percent);
   activeJobs=next;previousActive=new Set(next.keys());
   if(done)await loadProjects();
   else if(changed&&!document.querySelector('.project-context[open]')&&!deleteDialog.open)render();

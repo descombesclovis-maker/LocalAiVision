@@ -1,0 +1,95 @@
+/* Build 315.2 — public LocalAiVision precision polish; no reserved workspace changes. */
+body[data-studio-page="vision"]:not(.nsfw-active){--vision-panel:#092c38;--vision-ink:#082531;--vision-scroll:#56c9d7}
+/* One visual background from the rail through chat and live viewer. Keep header dark. */
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#chat,.sidebar,.qcm-vision-viewer,.qcm-vision-viewer>header,.qcm-vision-viewer>footer){
+ background:transparent!important;background-color:transparent!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{
+ background:#061824!important;background-color:#061824!important;z-index:52;
+}
+/* Keep ALL light layers behind content; no dark rectangle over live-preview heading. */
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer>header{
+ border:0!important;box-shadow:none!important;backdrop-filter:none!important;
+ isolation:auto!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer>footer{
+ border:0!important;box-shadow:none!important;backdrop-filter:none!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer>footer a{
+ background:#092c38a8!important;border:1px solid #63bec94b!important;color:#d8f9ff!important;
+ box-shadow:inset 0 1px 0 #9cfcff12!important;
+ backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-viewer>footer a:hover{
+ background:#0d3d4fdb!important;border-color:#85dfea8a!important;
+}
+/* Current menu contents are preserved. The top-layer menu starts BELOW header. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open{
+ position:fixed!important;inset:76px auto 0 0!important;
+ width:min(330px,88vw)!important;height:calc(100dvh - 76px)!important;
+ max-height:calc(100dvh - 76px)!important;
+ margin:0!important;transform:none!important;
+ background:var(--vision-panel)!important;background-color:var(--vision-panel)!important;
+ border-top:0!important;border-left:0!important;
+ border-right:1px solid #4ab6c42e!important;border-radius:0 0 15px 0!important;
+ box-shadow:18px 16px 50px #020e1888!important;
+ overflow-y:auto;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .sidebar[popover]::backdrop{
+ background:#031a26a0!important;
+}
+/* Top rail MUST NOT cover header hamburger or its click target. */
+@media(min-width:781px){
+ body[data-studio-page="vision"]:not(.nsfw-active) .qcm-dock,
+ body[data-studio-page="projects"]:not(.nsfw-active) .qcm-dock,
+ body[data-studio-page="editor"]:not(.nsfw-active) .qcm-dock{
+  inset:76px auto 0 0!important;height:calc(100dvh - 76px)!important;
+ }
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar #openSidebar{
+ cursor:pointer!important;pointer-events:auto!important;
+}
+/* Render only once in the preview. Chat stores metadata + user messages. */
+body[data-studio-page="vision"]:not(.nsfw-active) .message:has(>.vision-output-ref),
+body[data-studio-page="vision"]:not(.nsfw-active) .message:has(>.vision-output-pending),
+body[data-studio-page="vision"]:not(.nsfw-active) .message:has(>.generation-frame>.result-media){display:none!important}
+.vision-preview-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#d5fbfe;z-index:2}
+.vision-preview-loading strong{font-size:16px;font-weight:550}.vision-preview-loading small{color:#a1d3db;font-size:12px}
+.vision-preview-spinner{width:64px;height:64px;border-radius:50%;border:4px solid #3d91a14a;
+ border-top-color:#68edf3;border-right-color:#39c3d4;box-shadow:0 0 30px #4bcbdd27;
+ animation:vision-final-spin 1s linear infinite;}
+@keyframes vision-final-spin{to{transform:rotate(360deg)}}
+/* Vector-only, cyan on public Vision — no native colourful emoji. */
+body[data-studio-page="vision"]:not(.nsfw-active) :is(.qcm-dock,.qcm-command-item,.qcm-vision-modes,.studio-navigation) .studio-icon,
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-professional-icon{
+ display:block;width:23px;height:23px;fill:none;stroke:#6de6ef;stroke-width:1.75;
+ stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 2px #00c7e52c);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-modes button>span{
+ font-size:0;display:grid;place-items:center;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-vision-modes button>span .vision-professional-icon{
+ width:27px;height:27px;
+}
+/* Usable 10 px scrollbar with translucent track and visible thumb. */
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#chat,#sidebar,.nav-scroll,#conversationsList,.qcm-vision-stage,.studio-navigation){
+ scrollbar-color:#45aabdad transparent;
+ scrollbar-width:auto;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#chat,#sidebar,.nav-scroll,#conversationsList,.qcm-vision-stage,.studio-navigation)::-webkit-scrollbar{width:10px;height:10px}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#chat,#sidebar,.nav-scroll,#conversationsList,.qcm-vision-stage,.studio-navigation)::-webkit-scrollbar-track{background:transparent}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#chat,#sidebar,.nav-scroll,#conversationsList,.qcm-vision-stage,.studio-navigation)::-webkit-scrollbar-thumb{
+ background:linear-gradient(180deg,#164f62,#329aaa);border:2px solid transparent;background-clip:padding-box;
+ border-radius:100px;min-height:42px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) :is(#chat,#sidebar,.nav-scroll,#conversationsList,.qcm-vision-stage,.studio-navigation)::-webkit-scrollbar-thumb:hover{
+ background-color:#50c9d8;
+}
+@media(max-width:780px){
+ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open{
+  inset:64px auto 0 0!important;height:calc(100dvh - 64px)!important;
+  max-height:calc(100dvh - 64px)!important;
+ }
+}
+@media(prefers-reduced-motion:reduce){.vision-preview-spinner{animation:none}}
+body[data-studio-page="vision"]:not(.nsfw-active):is([data-gpu-busy="true"],[data-motion-paused="true"]) .vision-preview-spinner{animation-duration:2s}

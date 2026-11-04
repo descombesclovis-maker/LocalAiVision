@@ -1,0 +1,208 @@
+/* Build 315.3 — app-facing visual refinements, no ComfyUI/LoRA pipeline changes.
+   Header spans the whole desktop width, including the 80px navigation rail. */
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{
+ position:relative!important;
+ width:calc(100% + var(--ui-rail,80px))!important;
+ margin-left:calc(-1 * var(--ui-rail,80px))!important;
+ padding-left:calc(var(--ui-rail,80px) + 20px)!important;
+ background:#061824!important;
+ background-color:#061824!important;
+ z-index:52!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar #openSidebar{
+ position:fixed!important;left:18px!important;top:14px!important;
+ width:44px!important;height:44px!important;z-index:1100!important;
+ pointer-events:auto!important;cursor:pointer!important;
+}
+/* The top-layer popover now covers the top-left header area. Preserve content. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open{
+ position:fixed!important;inset:0 auto 0 0!important;
+ width:min(330px,88vw)!important;height:100dvh!important;
+ max-height:100dvh!important;margin:0!important;
+ border-radius:0 0 15px 0!important;
+ padding-top:18px!important;
+ overflow-y:auto!important;
+ background:linear-gradient(155deg,#092e3ded,#062737f5)!important;
+ backdrop-filter:blur(18px)!important;
+ -webkit-backdrop-filter:blur(18px)!important;
+}
+/* Vector, animated, borderless public menu logo — EXE/ICO unchanged. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .sidebar-head .brand-mark{
+ width:58px;height:58px;flex:none;background:none!important;
+ border:0!important;border-radius:0!important;box-shadow:none!important;
+ overflow:visible!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .sidebar-head .brand-mark img{
+ display:block;width:100%;height:100%;object-fit:contain;
+ filter:drop-shadow(0 0 9px #46dcf53d);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .sidebar-head .brand{
+ padding-bottom:16px;gap:7px;min-width:0;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .sidebar-head .brand b{font-size:16px}
+/* The landing has no redundant four-button shortcut strip. */
+body[data-studio-page="vision"]:not(.nsfw-active) #welcome .qcm-vision-modes{display:none!important}
+/* Gallery colour palette is cyan, not the legacy purple. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery{--gallery-cyan:#5ee0ee;color:#e9fcff}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery h2{color:#ebfdff}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery :is(.gallery-header p,.gallery-caption p){color:#b9d3db}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery .gallery-controls button{
+ background:#103847cf!important;color:#d4faff!important;
+ border:1px solid #3aa1b459!important;border-radius:12px;
+ transition:background .16s,border-color .16s;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery .gallery-controls button.active{
+ background:#17687a!important;color:white!important;border-color:#6de7f4!important;
+ box-shadow:0 0 20px #26c8dd32;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery .gallery-card{
+ background:#0b2632c7!important;border:1px solid #48a9b44d!important;border-radius:17px;
+ box-shadow:0 15px 40px #0215224a;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery .gallery-card :is(button,a){
+ background:#124658b8!important;border:1px solid #4bb5c478!important;color:#defaff!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-gallery .gallery-card :is(button,a):hover{
+ background:#1d6172df!important;border-color:#7cf3f5!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionActiveGenerations{
+ padding:14px 0;display:grid;gap:14px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionActiveGenerations[hidden]{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionActiveGenerations h3{
+ color:#c6f5fb;font-size:15px;font-weight:600;letter-spacing:.03em;margin:0 0 4px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-card{
+ display:grid;grid-template-columns:minmax(165px,260px) minmax(0,1fr);
+ background:#0b2b37db!important;border:1px solid #48b5c460!important;
+ border-radius:18px;overflow:hidden;color:#e6fdff;min-height:180px;
+ box-shadow:0 14px 40px #00192365;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-preview{
+ position:relative;min-height:180px;display:grid;place-items:center;
+ background:radial-gradient(ellipse at 45% 28%,#1b718176,transparent 72%),#071c29;
+ overflow:hidden;isolation:isolate;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-preview::before{
+ content:"";inset:0;position:absolute;z-index:-1;
+ background:linear-gradient(130deg,transparent 36%,#53b8c730 39%,transparent 41%);
+ opacity:.6;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-preview img{
+ width:100%;height:100%;position:absolute;inset:0;object-fit:cover;
+ filter:blur(7px) brightness(.52) saturate(.7);transform:scale(1.06);
+}
+/* Real ComfyUI percentage fills the arc. Unknown progress shows an animated
+   spinner with no invented numerical ETA. */
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle{
+ width:100px;height:100px;border-radius:50%;display:grid;place-items:center;z-index:1;
+ background:conic-gradient(from -90deg,#5de6ef var(--vision-progress-angle,0deg),#3995a64a var(--vision-progress-angle,0deg));
+ box-shadow:0 0 33px #3ad2ec32;position:relative;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle::before{
+ content:"";position:absolute;inset:8px;border-radius:50%;background:#092735;
+ box-shadow:inset 0 0 24px #1b74805c;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle strong{
+ font-size:20px;font-weight:650;z-index:1;color:#e7feff;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle[data-unknown="true"]{
+ background:conic-gradient(from 0deg,transparent,#52edfb,transparent 65%);
+ animation:vision-progress-rotate 1.9s linear infinite;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle[data-unknown="true"] strong{
+ animation:vision-progress-counter 1.9s linear infinite;
+}
+@keyframes vision-progress-rotate{to{transform:rotate(360deg)}}
+@keyframes vision-progress-counter{to{transform:rotate(-360deg)}}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-info{
+ padding:18px;display:flex;flex-direction:column;justify-content:center;gap:10px;
+ min-width:0;font-size:13px;color:#c7e9ee;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-info :is(p,small){margin:0;color:#bad4db}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-info progress{
+ width:min(100%,400px);height:8px;accent-color:#42dbef;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-info button{
+ align-self:flex-start;color:#defbff;background:#164856;border:1px solid #52b2bd;
+ border-radius:10px;padding:10px 14px;cursor:pointer;
+}
+@media(max-width:780px){
+ body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{
+  margin-left:0!important;width:100%!important;padding-left:65px!important;
+ }
+ body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar #openSidebar{left:12px!important;top:12px!important}
+ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open{
+  inset:0 auto 0 0!important;height:100dvh!important;max-height:100dvh!important;
+ }
+ body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-card{grid-template-columns:1fr}
+}
+/* Public NSFW entry dialog; the actual private workspace remains unchanged. */
+#nsfwUnlockDialog.nsfw-unlock-dialog{
+ width:min(440px,calc(100vw - 28px));max-width:calc(100vw - 28px);
+ border:1px solid #39b4c78a;border-radius:25px;
+ padding:0;color:#ecfcff;background:#051d2c;
+ box-shadow:0 30px 110px #000b,0 0 64px #2cbbd440;
+ overflow:hidden;isolation:isolate;
+}
+#nsfwUnlockDialog::backdrop{background:#020c16c9;backdrop-filter:blur(9px)}
+#nsfwUnlockDialog .nsfw-unlock-panel{
+ display:flex;align-items:center;flex-direction:column;gap:14px;
+ padding:42px 32px 32px;position:relative;isolation:isolate;
+ background:
+   radial-gradient(circle at 50% 6%,#30bdd23d,transparent 45%),
+   linear-gradient(155deg,#06344c,#061624);
+}
+#nsfwUnlockDialog .nsfw-unlock-panel::before{
+ content:"";position:absolute;z-index:-1;inset:-20%;pointer-events:none;
+ background:linear-gradient(150deg,transparent 28%,#40f0ff2b 29%,transparent 30%),
+   linear-gradient(168deg,transparent 62%,#40e7fa36 63%,transparent 64%);
+ transform:translate3d(-2%,0,0);
+ animation:vision315-pin-light 18s ease-in-out infinite alternate;
+}
+@keyframes vision315-pin-light{to{transform:translate3d(5%,-3%,0);opacity:.65}}
+#nsfwUnlockDialog .nsfw-pin-close{position:absolute;right:17px;top:14px;border:0;background:transparent;color:#aae9ed;font-size:26px;cursor:pointer}
+#nsfwUnlockDialog .nsfw-unlock-lock{
+ width:98px;height:98px;display:grid;place-items:center;
+ border-radius:50%;color:#8df6ff;
+ border:1px solid #4ce1ed8c;
+ background:radial-gradient(circle,#0b65786e,#042333 72%);
+ box-shadow:0 0 38px #35d5ec6c,inset 0 0 35px #2ac4d52e;
+}
+#nsfwUnlockDialog .nsfw-unlock-lock svg{width:53px;height:53px;filter:drop-shadow(0 0 8px #54ddf3a8)}
+#nsfwUnlockDialog h2{margin:6px 0 0;font-size:23px;text-align:center;letter-spacing:-.025em}
+#nsfwUnlockDialog #nsfwUnlockHelp{margin:0;color:#b7dce4;font-size:13px;text-align:center}
+#nsfwUnlockDialog .nsfw-pin-digits{display:flex;gap:11px;justify-content:center;margin:11px 0 2px}
+#nsfwUnlockDialog .nsfw-pin-digit{
+ width:58px;height:65px;border:1px solid #59b6c69b;border-radius:13px;
+ background:#092f42d9;color:#e9feff;text-align:center;
+ font-size:27px;font-weight:600;outline:none;box-shadow:inset 0 2px 18px #001824a8;
+}
+#nsfwUnlockDialog .nsfw-pin-digit:focus-visible{outline:2px solid #6aebf4;outline-offset:2px;border-color:#9af6ff}
+#nsfwUnlockDialog #nsfwPinError{color:#ffc7c7;font-size:12px;min-height:19px;margin:0;text-align:center}
+#nsfwUnlockDialog .nsfw-pin-submit{
+ min-height:48px;padding:10px 27px;border:1px solid #6af5ff;border-radius:12px;
+ background:linear-gradient(110deg,#0c91aa,#42c7d5);color:#fff;font-weight:600;
+ cursor:pointer;box-shadow:0 0 23px #2fb8d356;
+}
+#nsfwUnlockDialog .nsfw-pin-submit:hover{background:linear-gradient(110deg,#16a9c2,#61e1ee)}
+@media(max-width:400px){#nsfwUnlockDialog .nsfw-pin-digit{width:50px;height:59px}#nsfwUnlockDialog .nsfw-unlock-panel{padding:42px 16px 28px}}
+@media(prefers-reduced-motion:reduce){
+ #nsfwUnlockDialog .nsfw-unlock-panel::before,
+ body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle[data-unknown="true"],
+ body[data-studio-page="vision"]:not(.nsfw-active) .vision-progress-circle[data-unknown="true"] strong{animation:none!important}
+}
+body[data-studio-page="vision"]:is([data-gpu-busy="true"],[data-motion-paused="true"]) #nsfwUnlockDialog .nsfw-unlock-panel::before{animation-play-state:paused}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .studio-nav-entry svg{
+ stroke:#72ebf2!important;fill:none!important;filter:drop-shadow(0 0 2px #27d2e53a);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionActiveGenerations{
+ margin:16px 0 26px!important;
+ border:1px solid #52c2d069!important;
+ border-radius:18px!important;
+ background:linear-gradient(150deg,#0a3341cb,#081e2cce)!important;
+ box-shadow:0 20px 50px #01182555!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-info :is(label,strong){color:#d4f9ff!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-active-info progress{accent-color:#46d8e8!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-cancel-job{border-color:#6ac2ccab!important;background:#164b59!important;color:#eefeff!important}

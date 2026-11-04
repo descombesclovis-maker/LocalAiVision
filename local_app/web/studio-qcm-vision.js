@@ -32,19 +32,19 @@ const originalPlus=plusText?.textContent;
 // Restore the reserved workspace's original identity on mode switch.
 const favicon=document.querySelector('link[rel~="icon"]');
 const originalFavicon=favicon?{href:favicon.getAttribute('href'),type:favicon.getAttribute('type')}:null;
-const officialFavicon='/assets/assets/brand-reference/LocalAIVision_Official_Original.png';
+const officialFavicon='/assets/assets/custom-brand/vision-animated.svg';
 function arrangeMenu(){
  if(plusText)plusText.textContent=isAdult()?originalPlus:'+ ';
  for(const logo of document.querySelectorAll('img[src*="brand-vision"],img[data-public-master]')){
   if(!logo.dataset.publicMaster){logo.dataset.previousSrc=logo.getAttribute('src');logo.dataset.publicMaster='vision'}
-  logo.src=isAdult()?logo.dataset.previousSrc:'/assets/assets/brand-reference/LocalAIVision_Official_Original.png';
+  logo.src=isAdult()?logo.dataset.previousSrc:'/assets/assets/custom-brand/vision-animated.svg';
  }
 
  const adult=isAdult();
  if(favicon&&originalFavicon){
   const expected=adult?originalFavicon.href:officialFavicon;
   if(favicon.getAttribute('href')!==expected)favicon.setAttribute('href',expected);
-  const type=adult?originalFavicon.type:'image/png';
+  const type=adult?originalFavicon.type:'image/svg+xml';
   if(type&&favicon.getAttribute('type')!==type)favicon.setAttribute('type',type);
  }
  for(const node of secondary){
@@ -52,18 +52,33 @@ function arrangeMenu(){
   const parent=adult||excluded?header:menu;
   if(node.parentElement!==parent)parent.append(node);
  }
+ // History precedes LoRA in the public sidebar. All handlers/IDs remain intact.
+ const history=document.getElementById('historyBtn');
+ const lora=document.getElementById('visionAdvancedToggle');
+ if(!adult&&history?.parentElement===menu&&lora?.parentElement===menu)menu.insertBefore(history,lora);
 }
 function update(){
  arrangeMenu();
  if(isAdult()){viewer.hidden=true;clear();return}
  viewer.hidden=false;
- const items=[...messages.querySelectorAll('.generation-frame .result-media')];
+ const items=[...messages.querySelectorAll('.vision-output-ref,.vision-output-pending,.generation-frame .result-media')];
  const item=items.at(-1);
- if(!item){if(lastSrc)clear();return}
- const url=item.getAttribute('src')||'';
+ if(!item){if(lastSrc||stage.querySelector('.vision-preview-loading'))clear();return}
+ if(item.classList.contains('vision-output-pending')){
+  lastSrc='';lastType='';actions.hidden=true;
+  heading.textContent=item.dataset.kind==='video'?'Vidéo en cours…':'Photo en cours…';
+  if(!stage.querySelector('.vision-preview-loading')){
+   const spinner=document.createElement('div');spinner.className='vision-preview-loading';
+   spinner.setAttribute('role','status');spinner.setAttribute('aria-live','polite');
+   spinner.innerHTML='<span class="vision-preview-spinner" aria-hidden="true"></span><strong>Création en cours…</strong><small>Le résultat apparaîtra ici.</small>';
+   stage.replaceChildren(spinner);
+  }
+  return;
+ }
+ const url=item.dataset.src||item.getAttribute('src')||'';
  if(!url||!/^(\/|https?:\/\/)/.test(url))return;
  let resolved;try{resolved=new URL(url,location.href);if(resolved.origin!==location.origin)return}catch{return}
- const mediaType=item.tagName.toLowerCase()==='video'?'video':'image';
+ const mediaType=item.dataset.kind|| (item.tagName.toLowerCase()==='video'?'video':'image');
  if(lastSrc===resolved.href&&lastType===mediaType)return;
  lastSrc=resolved.href;lastType=mediaType;
  const node=document.createElement(mediaType==='video'?'video':'img');
@@ -79,25 +94,8 @@ new MutationObserver(update).observe(messages,{subtree:true,childList:true,attri
 new MutationObserver(update).observe(document.body,{attributes:true,attributeFilter:['class']});
 update();
 // Public mode shortcuts point to existing application controls.
-const welcome=document.getElementById('welcome');
-if(welcome){
- const modes=document.createElement('div');modes.className='qcm-vision-modes';
- const items=[['Photo','navPhoto','📷'],['Vidéo','navVideo','🎬'],['Publicité','studioAdOpen','⭐'],['Mes créations','navCreations','🎨']];
- for(const [label,target,glyph] of items){
-   const navGlyph=document.getElementById(target)?.querySelector('.nav-glyph');
-   if(navGlyph){
-     const publicIcon=document.createElement('span');publicIcon.className='public-mode-icon';
-     publicIcon.innerHTML=window.studioIconMarkup(glyph);
-     navGlyph.append(publicIcon);
-   }
-   const b=document.createElement('button');b.type='button';b.dataset.qcmTarget=target;
-   b.innerHTML='<span aria-hidden="true">'+window.studioIconMarkup(glyph)+'</span><strong></strong><small>↗</small>';
-   b.querySelector('strong').textContent=label;
-   b.addEventListener('click',()=>{if(!isAdult())document.getElementById(target)?.click()});
-   modes.append(b);
- }
- welcome.append(modes);
-}
+// The landing has only the brand introduction and the conversation composer.
+// Actual Photo/Video/Advertising/Creations controls live in the existing sidebar.
 const splitter=document.createElement('div');splitter.className='qcm-vision-splitter';
 splitter.tabIndex=0;splitter.setAttribute('role','separator');splitter.setAttribute('aria-label','Redimensionner la discussion et l’aperçu');
 splitter.setAttribute('aria-orientation','vertical');

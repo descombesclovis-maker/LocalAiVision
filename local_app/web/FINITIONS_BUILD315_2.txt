@@ -1,0 +1,9 @@
+Build 315.2 (prévisualisation) :
+- App Vision publique : médias générés rendus UNIQUEMENT dans l’aperçu (une seule image décodée) ; le chat conserve le prompt et un marqueur historique. Chargement dans le volet droit.
+- Menus déroulants restaurés : enlèvement de la zone du dock qui couvrait les hamburgers ; aucun élément du menu existant retiré.
+- Chat, barre latérale, en-tête Aperçu Live et actions harmonisés avec l’ambiance cyan, scrollbar utilisable.
+- Icônes publiques Vision vectorielles cyan, icônes des autres univers inchangées.
+- Après une photo effectivement produite, masquage des seuls diagnostics Qwen/LLM non pertinents du dernier échange (erreurs ComfyUI conservées).
+- Public photo : profil de qualité auto ajusté (équilibré Hunyuan / qualité SDXL), sauf réglages experts. Cette modification est à benchmarker sur la RTX 3060 ; aucun modèle ni nœud ComfyUI modifié dans l’EXE.
+- Logos actuels restent les SVG vectoriels sans cadre, originaux et ICO inchangés. Le rendu artistique réel dépend toujours de la qualité des sources.
+- NSFW et moteur backend non modifiés.

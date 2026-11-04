@@ -3,6 +3,12 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/vision-generation.css"><link rel="stylesheet" href="/assets/studio-natural-vision.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-ui-polish.css"><link rel="stylesheet" href="/assets/studio-adult-workspace.css"><link rel="stylesheet" href="/assets/studio-qcm-v1.css"><link rel="stylesheet" href="/assets/studio-qcm-vision.css"><link rel="stylesheet" href="/assets/studio-qcm-library.css">
 <link rel="stylesheet" href="/assets/studio-system.css">
+<link rel="stylesheet" href="/assets/studio-custom-brand.css">
+<link rel="stylesheet" href="/assets/studio-vision-composer-polish.css">
+<link rel="stylesheet" href="/assets/studio-vision-final-polish.css">
+<link rel="stylesheet" href="/assets/studio-vision-315-3.css">
+<link rel="stylesheet" href="/assets/studio-vision-315-4.css">
+<link rel="stylesheet" href="/assets/studio-vision-315-5.css">
 </head>
 <body class="is-landing" data-studio-page="vision">
 <div class="app">
@@ -214,22 +220,23 @@
  <header><div><b>Créations</b><small>Images et vidéos de cet espace uniquement</small></div><button type="button" id="nsfwGalleryClose" aria-label="Fermer la colonne des créations">×</button></header>
  <div id="nsfwGalleryList" class="nsfw-gallery-list"></div>
 </aside>
-<dialog id="studioAdDialog" class="studio-ad-dialog" aria-labelledby="studioAdTitle">
- <form id="studioAdForm">
- <header class="studio-ad-header"><div><span>LOCALAI STUDIO · PUBLICITÉ</span><h2 id="studioAdTitle">Créer une publicité</h2></div><button id="studioAdClose" type="button" aria-label="Fermer">×</button></header>
- <p class="studio-ad-intro">Utilise la véritable identité de ton client pour générer une photo ou une vidéo publicitaire. Son logo sera ajouté précisément après la génération.</p>
- <div class="studio-ad-fields">
- <label class="studio-ad-wide">Identité de l’entreprise <select id="studioAdBrand" required><option value="">Choisir une marque enregistrée…</option></select></label>
- <a class="studio-ad-manage" href="/studio/brands">Gérer les marques et importer un logo ↗</a>
- <label>Type de création<select id="studioAdType"><option value="image">Image publicitaire</option><option value="video">Vidéo publicitaire</option></select></label>
- <label>Format<select id="studioAdFormat"><option value="portrait">9:16 · Reels / Stories</option><option value="square">1:1 · Publication</option><option value="landscape">16:9 · Site / YouTube</option></select></label>
- <label>Objectif<select id="studioAdGoal"><option value="presentation">Présenter l’entreprise</option><option value="product">Mettre en valeur un produit</option><option value="booking">Obtenir des réservations</option><option value="offer">Présenter une offre</option></select></label>
- <label class="studio-ad-wide">Idée de publicité<textarea id="studioAdIdea" rows="3" required placeholder="Ex. : un salon de coiffure élégant, plans cinématographiques, clients souriants…"></textarea></label>
- </div>
- <div class="studio-ad-foot"><p id="studioAdError" role="status"></p><button type="button" id="studioAdCancel">Annuler</button><button type="submit" id="studioAdCreate">Créer la publicité ↗</button></div>
- </form>
+<!-- Brand advertisements are now briefed in the main conversation, not a popup. -->
+<dialog id="nsfwUnlockDialog" class="nsfw-unlock-dialog" aria-labelledby="nsfwUnlockTitle" aria-describedby="nsfwUnlockHelp">
+  <form method="dialog" class="nsfw-unlock-panel" autocomplete="off">
+    <button type="button" class="nsfw-pin-close" aria-label="Fermer la fenêtre de déverrouillage" onclick="this.closest('dialog').close()">×</button>
+    <div class="nsfw-unlock-lock" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="14" y="28" width="36" height="29" rx="8" stroke="currentColor" stroke-width="3"/><path d="M22 28v-9a10 10 0 0 1 20 0v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="42" r="3" fill="currentColor"/><path d="M32 45v5" stroke="currentColor" stroke-width="3"/></svg></div>
+    <h2 id="nsfwUnlockTitle">Espace NSFW verrouillé</h2>
+    <p id="nsfwUnlockHelp">Entrez le code à 4 chiffres pour y accéder.</p>
+    <div class="nsfw-pin-digits" role="group" aria-label="Code d’accès à quatre chiffres">
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Premier chiffre" autocomplete="off" required>
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Deuxième chiffre" autocomplete="off" required>
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Troisième chiffre" autocomplete="off" required>
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Quatrième chiffre" autocomplete="off" required>
+    </div>
+    <p id="nsfwPinError" role="alert" aria-live="assertive"></p>
+    <button type="submit" class="nsfw-pin-submit">Déverrouiller <span aria-hidden="true">→</span></button>
+  </form>
 </dialog>
-
 <div class="modal-backdrop hidden" id="modelModal">
   <div class="model-modal step-modal" role="dialog" aria-modal="true">
     <div class="modal-head">

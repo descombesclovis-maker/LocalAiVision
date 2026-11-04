@@ -11,8 +11,8 @@
   "theme_color": "#100f19",
   "icons": [
     {
-      "src": "/assets/assets/brand-reference/LocalAIWeb_Official_Original.png",
-      "sizes": "724x724",
+      "src": "/assets/assets/custom-brand/web-pwa.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }

@@ -133,11 +133,11 @@ body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(button,
 body[data-studio-page="vision"]:not(.nsfw-active) #newConversation span{font-size:14px;font-weight:400}
 /* Original artwork stays intact; a luminance mask keeps the reflection inside
    its bright material rather than washing over the entire square. */
-body[data-studio-page]:not(.nsfw-active) .identity-frame{position:relative;display:inline-flex;flex:none;overflow:hidden;border-radius:10px;width:48px;height:48px;--logo-mask:url('/assets/assets/brand-reference/LocalAIWeb_Official_Original.png')}
+body[data-studio-page]:not(.nsfw-active) .identity-frame{position:relative;display:inline-flex;flex:none;overflow:hidden;border-radius:10px;width:48px;height:48px;--logo-mask:url('/assets/assets/custom-brand/web-animated.svg')}
 body[data-studio-page]:not(.nsfw-active) .identity-frame img{width:100%;height:100%;object-fit:contain}
-body[data-studio-page]:not(.nsfw-active) .identity-frame::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 35%,#ffffffa8 48%,transparent 60%);background-size:300% 100%;mask-image:var(--logo-mask);mask-mode:luminance;mask-size:contain;mask-repeat:no-repeat;animation:studio314-reflection 7s ease-in-out infinite}
-body[data-studio-page]:not(.nsfw-active) .identity-frame.studio-identity{width:60px;height:60px;--logo-mask:url('/assets/assets/brand-reference/LocalAIStudio_Official_Original.png')}
-body[data-studio-page]:not(.nsfw-active) .identity-frame.vision-identity-frame{--logo-mask:url('/assets/assets/brand-reference/LocalAIVision_Official_Original.png')}
+body[data-studio-page]:not(.nsfw-active) .identity-frame::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 35%,#ffffffa8 48%,transparent 60%);background-size:300% 100%;mask-image:var(--logo-mask);mask-mode:alpha;mask-size:contain;mask-repeat:no-repeat;animation:studio314-reflection 7s ease-in-out infinite}
+body[data-studio-page]:not(.nsfw-active) .identity-frame.studio-identity{width:60px;height:60px;--logo-mask:url('/assets/assets/custom-brand/studio-animated.svg')}
+body[data-studio-page]:not(.nsfw-active) .identity-frame.vision-identity-frame{--logo-mask:url('/assets/assets/custom-brand/vision-animated.svg')}
 body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"]) *::after,body[data-studio-page]:not(.nsfw-active):is([data-motion-paused="true"],[data-gpu-busy="true"]) *::before{animation-play-state:paused!important}
 @keyframes studio314-reflection{0%,20%{background-position:140% 0}70%,100%{background-position:-60% 0}}
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation>*{margin:0!important}

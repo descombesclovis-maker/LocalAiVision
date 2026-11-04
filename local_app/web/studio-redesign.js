@@ -3,7 +3,49 @@
  'use strict';
  const byId=id=>document.getElementById(id);
  const prompt=byId('prompt'),welcome=byId('welcome'),messages=byId('messages');
- const navEntries=['navCreations','navPhoto','navVideo','navNsfw'];
+ const navEntries=['navCreations','navPhoto','navVideo','navNsfw','studioAdOpen'];
+ // Keep the original Studio landing intact: dedicated modes only replace its
+ // *presentation*, never the saved conversation or media library.
+ const originalWelcome=[...welcome.childNodes].map(node=>node.cloneNode(true));
+ const modeCopy={
+   image:{title:'Création de photographies',message:'Décris la photo que tu souhaites créer. Précise le sujet, l’environnement, l’éclairage ou le style recherché pour obtenir le résultat que tu imagines.',placeholder:'Décris ta photo…',nav:'navPhoto'},
+   video:{title:'Création de vidéos',message:'Décris la vidéo que tu souhaites réaliser. Précise les personnages, les mouvements, le décor ou les mouvements de caméra pour donner vie à ton idée.',placeholder:'Décris ta vidéo…',nav:'navVideo'},
+   advert:{title:'Création de publicités',message:'Décris la publicité que tu souhaites créer. Je t’aiderai à préciser la marque, le produit, le format et le style pour réaliser une publicité adaptée à ton projet. Pour commencer, quelle marque ou entreprise souhaites-tu promouvoir ?',placeholder:'Décris ta publicité…',nav:'studioAdOpen'},
+   nsfw:{title:'Espace NSFW',message:'Bienvenue dans votre espace de création privé. Décrivez le contenu que vous souhaitez réaliser et personnalisez vos paramètres de génération selon vos préférences.',placeholder:'Décris ta création…',nav:'navNsfw'}
+ };
+ // A dedicated mode is an empty canvas. A completed chat is never erased:
+ // createBlankConversation saves a new thread and previous ones stay in History.
+ function clearModeCanvas(mode,{preserveConversation=false,message}={}){
+   if(!preserveConversation){
+     const current=activeConversationId?conversations[activeConversationId]:null;
+     if(!current||current.profile==='nsfw'||(current.messages||[]).length){createBlankConversation('auto')}
+     else openConversation(activeConversationId); // removes a previous gallery DOM
+   }else if(activeConversationId){
+     openConversation(activeConversationId); // NSFW gate already created private thread
+   }
+   if(activeGalleryPoll){clearInterval(activeGalleryPoll);activeGalleryPoll=null}
+   const copy=modeCopy[mode];if(!copy)return;
+   document.body.dataset.visionMode=mode;
+   const panel=document.createElement('div');panel.className='vision-mode-intro';
+   panel.dataset.mode=mode;
+   const glyph=document.querySelector('#'+copy.nav+' .nav-glyph svg')?.cloneNode(true);
+   if(glyph){glyph.classList.add('vision-mode-intro-icon');glyph.setAttribute('aria-hidden','true');panel.append(glyph)}
+   const heading=document.createElement('h2');heading.textContent=copy.title;
+   const description=document.createElement('p');description.textContent=message||copy.message;
+   panel.append(heading,description);
+   welcome.replaceChildren(panel);
+   welcome.classList.add('vision-onboarding');
+   welcome.classList.remove('hidden','welcome-exiting');
+   messages.replaceChildren();
+   darkMode(); // dedicated mode uses the dark/cyan workspace, NOT the landing
+   prompt.value='';prompt.placeholder=copy.placeholder;
+   prompt.style.height='';
+   document.getElementById('chat').scrollTop=0;
+   activeNav(copy.nav);
+   hideSidebar();
+ }
+ window.LocalAiVisionSelectMode=clearModeCanvas;
+
  let pendingAsset=null;
  let activeGalleryPoll=null;
  function activeNav(id){
@@ -18,6 +60,10 @@
    document.body.classList.add('is-chatting');
  }
  function home(){
+   document.body.dataset.visionMode='home';
+   welcome.replaceChildren(...originalWelcome.map(node=>node.cloneNode(true)));
+   welcome.classList.remove('vision-onboarding');
+   window.StudioAds?.cancelChat?.();
    // Opening a new empty thread never discards existing saved conversations.
    const current=activeConversationId?conversations[activeConversationId]:null;
    if(!current || current.profile==='nsfw' || (current.messages||[]).length) {
@@ -33,32 +79,34 @@
    messages.replaceChildren();
    document.body.classList.remove('is-chatting','show-diagnostics');
    document.body.classList.add('is-landing');
-   prompt.value='';prompt.blur();
+   prompt.value='';prompt.placeholder='Écris ton message…';prompt.blur();
    byId('generationSettings')?.classList.add('hidden');
    byId('settingsBtn')?.classList.remove('active');
    activeNav('');
    hideSidebar();
  }
  function startMode(mode){
+   window.StudioAds?.cancelChat?.();
    if(mode==='nsfw'){
-     enterNsfwWorkspace();
+     enterNsfwWorkspace(); // Preserves the existing PIN gate and all private settings.
      const current=activeConversationId?conversations[activeConversationId]:null;
-     if(current?.profile!=='nsfw')return; // Locked: preserve authorization gate.
-   }else{
-     const current=activeConversationId?conversations[activeConversationId]:null;
-     if(!current || current.profile==='nsfw')createBlankConversation('auto');
-     byId('taskMode').value=mode;
-     updateSettingsVisibility();
-     updateCreationModeGuide();
+     if(current?.profile!=='nsfw')return; // The locked gate will signal after authorization.
+     clearModeCanvas('nsfw',{preserveConversation:true});
+     return;
    }
-   darkMode();welcome.classList.add('hidden');
-   activeNav(mode==='image'?'navPhoto':mode==='video'?'navVideo':'navNsfw');
-   hideSidebar();prompt.focus();
+   clearModeCanvas(mode);
+   byId('taskMode').value=mode;
+   updateSettingsVisibility();
+   updateCreationModeGuide();
+   prompt.placeholder=modeCopy[mode].placeholder;
+   prompt.focus();
  }
  function gallery(){
+   window.StudioAds?.cancelChat?.();
    if(activeGalleryPoll){window.clearInterval(activeGalleryPoll);activeGalleryPoll=null}
+   document.body.dataset.visionMode='creations';
    darkMode();welcome.classList.add('hidden');
-   activeNav('navCreations');hideSidebar();
+   activeNav('navCreations');hideSidebar();prompt.placeholder='Écris ton message…';
    let type='all';
    const scope='standard';
    const root=document.createElement('section');root.className='studio-gallery library-view';
@@ -83,6 +131,7 @@
    activeBox.hidden=true;
    root.append(bar,activeBox,grid);
    messages.replaceChildren(root);
+   byId('chat').scrollTop=0;
    let refreshing=false;
    async function refreshActiveMedia(){
      if(refreshing||!root.isConnected||document.hidden)return;
@@ -105,14 +154,23 @@
          if(job.preview_ready){
            const image=document.createElement('img');
            image.src='/api/studio/media/preview?id='+encodeURIComponent(job.prompt_id)+'&t='+Date.now();
-           image.alt='Première image réellement transmise par ComfyUI';
+           image.alt='Aperçu ComfyUI flouté pendant le calcul';
            image.loading='lazy';
            preview.append(image);
-         }else{
-           const spinner=document.createElement('div');spinner.className='vision-preview-wait';
-           spinner.innerHTML='<span class="vision-preview-spinner" aria-hidden="true"></span><strong>Première image en attente</strong><small>Elle apparaîtra si le modèle fournit un aperçu en cours de calcul.</small>';
-           preview.append(spinner);
          }
+         const ring=document.createElement('div');ring.className='vision-progress-circle';
+         const known=Number.isInteger(job.percent)&&job.max_steps>0;
+         if(known){
+           const percent=Math.max(0,Math.min(100,job.percent));
+           ring.style.setProperty('--vision-progress-angle',(percent*3.6)+'deg');
+           ring.setAttribute('aria-label','Progression ComfyUI : '+percent+' %');
+         }else{
+           ring.dataset.unknown='true';
+           ring.setAttribute('aria-label','Préparation en cours, progression non disponible');
+         }
+         const display=document.createElement('strong');
+         display.textContent=known?Math.max(0,Math.min(100,job.percent))+' %':'…';
+         ring.append(display);preview.append(ring);
          const details=document.createElement('div');details.className='vision-active-info';
          const name=document.createElement('strong');
          name.textContent=job.state==='preparing'?'Préparation '+(job.kind==='video'?'de la vidéo':'de l’image'):job.kind==='video'?'Vidéo en cours':'Image en cours';
@@ -239,6 +297,11 @@
    }catch(error){feedback.textContent='Import impossible : '+error.message}
    finally{btn.disabled=false}
  });
+ document.addEventListener('localai:nsfw-entered',()=>{
+   // Called only after successful authorization; never expose a private welcome
+   // or touch the NSFW generation pipelines while locked.
+   clearModeCanvas('nsfw',{preserveConversation:true});
+ });
  byId('navCreations')?.addEventListener('click',gallery);
  byId('navPhoto')?.addEventListener('click',()=>startMode('image'));
  byId('navVideo')?.addEventListener('click',()=>startMode('video'));
@@ -254,11 +317,25 @@
      byId('generationSettings')?.scrollIntoView({block:'nearest',behavior:'instant'});
    hideSidebar();
  });
- byId('studioAdOpen')?.addEventListener('click',()=>activeNav('studioAdOpen'));
  byId('homeBtn')?.addEventListener('click',home);
  byId('newConversation')?.addEventListener('click',()=>{
    // Legacy handler creates the conversation; do not register a second one.
-   window.setTimeout(()=>{darkMode();welcome.classList.add('hidden');activeNav('');prompt.focus()},0);
+   const mode=document.body.dataset.visionMode;
+   window.setTimeout(()=>{
+     if(mode==='image'||mode==='video'){
+       clearModeCanvas(mode,{preserveConversation:true});
+       byId('taskMode').value=mode;
+       updateCreationModeGuide();
+     }else if(mode==='advert'){
+       window.StudioAds?.startChat?.({reuseConversation:true});
+     }else if(mode==='nsfw'){
+       clearModeCanvas('nsfw',{preserveConversation:true});
+     }else{
+       document.body.dataset.visionMode='chat';
+       darkMode();welcome.classList.add('hidden');activeNav('');
+     }
+     prompt.focus();
+   },0);
  });
  prompt?.addEventListener('focus',()=>{
    if(document.body.classList.contains('is-landing')){
@@ -280,7 +357,7 @@
  // Existing JS updates #welcome classes; keep the color scheme consistent
  // when a saved thread opens, including after the asynchronous initial refresh.
  const watch=new MutationObserver(()=>{
-   if(!welcome.classList.contains('hidden') && !welcome.classList.contains('welcome-exiting')) {
+   if(document.body.dataset.visionMode==='home' && !welcome.classList.contains('hidden') && !welcome.classList.contains('welcome-exiting')) {
      document.body.classList.add('is-landing');
      document.body.classList.remove('is-chatting');
    }else{
@@ -309,6 +386,9 @@
      open.textContent=chat.title||'Nouvelle conversation';
      open.title='Reprendre cette conversation';
      open.addEventListener('click',()=>{
+       document.body.dataset.visionMode='history';
+       welcome.replaceChildren(...originalWelcome.map(node=>node.cloneNode(true)));
+       welcome.classList.remove('vision-onboarding');
        openConversation(chat.id);darkMode();welcome.classList.add('hidden');
        historyDialog.close();activeNav('');prompt.focus();
      });
@@ -334,43 +414,10 @@
  }).catch(()=>{
    if(!userInteracted){if(requestedCreations)gallery();else home()}
  });
- // Real engine health, no fake 'connected' status. The repair action
- // delegates to the existing resumable engine installer after user consent.
- const recovery=byId('engineRecovery'),recoveryText=byId('engineRecoveryText');
- const recoveryButton=byId('engineRecoveryButton');
- async function updateEngineHealth(){
-   try{
-     const response=await fetch('/api/health',{cache:'no-store'});
-     if(!response.ok)throw Error('Serveur local HTTP '+response.status);
-     const data=await response.json();
-     const ready=!!data.online && !!data.llm?.online;
-     const running=data.startup?.state==='running';
-     recovery.hidden=ready&&!running;
-     if(running){
-       recoveryText.textContent=data.startup?.message||'Préparation des moteurs en cours…';
-       recoveryButton.disabled=true;recoveryButton.textContent='Installation en cours…';
-     }else if(!ready){
-       const missing=[!data.online?'ComfyUI photo/vidéo':'',
-                     !data.llm?.online?'Qwen conversation':''].filter(Boolean);
-       recoveryText.textContent=data.startup?.error
-         ?'Moteurs non disponibles : '+String(data.startup.error).slice(0,110)
-         :'Moteurs à démarrer : '+missing.join(' · ')+'.';
-       recoveryButton.disabled=false;recoveryButton.textContent='Démarrer / réparer ↗';
-     }
-   }catch(error){
-     recovery.hidden=false;recoveryText.textContent='Diagnostic local impossible : '+error.message;
-     recoveryButton.disabled=true;
-   }
- }
- recoveryButton.addEventListener('click',()=>{
-   if(recoveryButton.disabled)return;
-   if(window.confirm('Démarrer ou réparer les moteurs locaux ? Des modèles et dépendances peuvent être téléchargés. Les fichiers déjà présents sont conservés.')){
-     byId('retrySetup')?.click();
-     recoveryButton.disabled=true;recoveryText.textContent='Préparation demandée…';
-     window.setTimeout(updateEngineHealth,2400);
-   }
- });
- window.setInterval(()=>{if(!document.hidden)updateEngineHealth()},14000);
- updateEngineHealth();
+ // Media services already start on demand when the first message is sent.
+ // Do not display a Qwen health banner or require a window.confirm before
+ // every photo request. Explicit repair is still available in Diagnostics.
+ const recovery=byId('engineRecovery');
+ if(recovery){recovery.hidden=true;recovery.setAttribute('aria-hidden','true')}
  if(!welcome.classList.contains('hidden'))document.body.classList.add('is-landing');
 })();
