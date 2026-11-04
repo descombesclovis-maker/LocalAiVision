@@ -18,7 +18,7 @@ La liste des fichiers de la PR #64 comprend uniquement le workflow CI, le relais
 
 | Contrôle | Résultat |
 |---|---|
-| Tests Python | 311 réussis ; 1 test Windows ignoré sous Linux |
+| Tests Python | 312 réussis ; 1 test Windows ignoré sous Linux |
 | Tests Node | 10 réussis |
 | Syntaxe JS modifié | `node --check` réussi pour `studio-activity.js`, `cinematic3d/app.js` et `qa_ui_314.cjs` |
 | Syntaxe Python modifié | `py_compile` réussi pour le fixture navigateur et le test de portée |
@@ -28,7 +28,9 @@ La liste des fichiers de la PR #64 comprend uniquement le workflow CI, le relais
 
 ## Contrôles CI en attente
 
-Le workflow Build 315 déclenche pour la branche de base de la PR #63. Il compile et démarre le nouvel EXE Windows, vérifie les icônes, attend une vraie première peinture non vide de WebView2 et teste l'auto-update, puis exécute la suite d'interaction dans Chromium et Edge. La recette inclut les six résolutions et un contrôle du signal média « en attente » puis « en cours » dans le vrai éditeur local.
+Le run #358 a compilé l'EXE, réussi les contrôles d'icône, le démarrage serveur et le transfert d'auto-update. Mais l'image de la fenêtre WebView2 était noire. Le premier contrôle de peinture a accepté à tort le fond presque noir de la fenêtre (luminance moyenne 10,2/255; seulement 0,48 % des pixels dépassaient le niveau 40). Cette capture invalide la preuve visuelle Windows de ce run. Le contrôle a été resserré pour exiger au moins 2 % de pixels réellement visibles et pour conserver le journal de démarrage; le run #359 doit confirmer une fenêtre réellement affichée ou révéler l'erreur de démarrage.
+
+Le run #359 doit également terminer les recettes Chromium et Edge, avec les six résolutions et le contrôle du signal média « en attente » puis « en cours » dans le vrai éditeur local. Les résultats et captures ne seront consignés comme preuves qu'après la fin de ce run.
 
 Les résultats et les captures de ce run ne seront consignés comme preuves qu'après la fin des travaux GitHub Actions. Aucun résultat de CI n'est supposé dans ce rapport.
 
