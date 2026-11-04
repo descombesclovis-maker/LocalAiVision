@@ -35,11 +35,12 @@
    frame.contentWindow.postMessage({type:'localaiweb-resource-budget',mediaBusy},location.origin);
  }
  function paint(data){
-   mediaBusy=Number(data?.media?.count||0)>0;
-   document.body.dataset.gpuBusy=String(mediaBusy);
+   const media=data?.media||{};
+   mediaBusy=Number(media.running||0)>0||Number(media.preparing||0)>0;
+   document.body.dataset.gpuBusy=String(Number(media.count||0)>0);
    syncPreviewBudget();
    const jobs=Array.isArray(data?.jobs)?data.jobs.filter(x=>safeId(x.id)):[],
-      media=data?.media||{},mediaCount=Number(media.count)||0,
+      mediaCount=Number(media.count)||0,
       toggle=chip.querySelector('#studioActivityToggle'),copy=chip.querySelector('.studio-activity-copy'),
       count=chip.querySelector('.studio-activity-count');
    chip.classList.toggle('has-media',mediaCount>0);
