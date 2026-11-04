@@ -84,8 +84,9 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   });
   await check('Only active or preparing media work throttles the embedded 3D preview',async()=>{
    let media={count:2,running:0,queued:2,preparing:0};
-   await page.route('**/api/studio/activity',route=>route.fulfill({status:200,
-    contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})}));
+   const activitySnapshots=[];
+   await page.route('**/api/studio/activity',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
+    contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    const frame=page.locator('#lawPreview');
    await page.waitForFunction(()=>{const f=document.getElementById('lawPreview');return f&&!f.hidden&&f.contentDocument?.readyState==='complete'});
@@ -100,7 +101,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    let messages=await frame.evaluate(element=>element.contentWindow.__resourceBudgetMessages);
    assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
     "Queued-but-not-running media must not throttle a user's site preview");
-   media={count:1,running:1,queued:0,preparing:0};
+   media.count=1;media.running=1;media.queued=0;media.preparing=0;
    const activeMessage=await frame.evaluate(async element=>{
     const messages=element.contentWindow.__resourceBudgetMessages;
     for(let attempt=0;attempt<50;attempt++){
@@ -111,8 +112,10 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     }
     return messages.at(-1);
    });
+   assert.ok(activitySnapshots.some(snapshot=>Number(snapshot.running)>0),
+    'The activity route never served an active-render state: '+JSON.stringify(activitySnapshots));
    assert.deepEqual(activeMessage,{type:'localaiweb-resource-budget',mediaBusy:true},
-    'A real ComfyUI render must yield GPU time from the preview');
+    'The editor preview did not receive the active-render state; activity samples: '+JSON.stringify(activitySnapshots));
    assert.equal(await frame.evaluate(element=>element.contentWindow.location.origin),new URL(base).origin);
   });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
