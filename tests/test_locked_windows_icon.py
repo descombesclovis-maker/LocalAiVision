@@ -57,8 +57,10 @@ class LockedWindowsIconTests(unittest.TestCase):
         source = (ROOT / 'scripts/verify_windows_icon.py').read_text(encoding='utf-8')
         self.assertIn("deadline=time.monotonic()+60", source)
         self.assertIn('stats.stddev[0]>8', source)
+        self.assertIn('visible_fraction>=0.02', source)
         self.assertIn("native-window-content.png", source)
         self.assertIn("native-window-blank.png", source)
+        self.assertIn("native-startup.log", source)
         self.assertIn('WebView content stayed blank', source)
 
 
