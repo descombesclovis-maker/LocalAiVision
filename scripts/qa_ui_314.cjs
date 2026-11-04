@@ -85,7 +85,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   await check('Editor preview bridge sends queued and active media budgets with same-origin events',async()=>{
    let media={count:2,running:0,queued:2,preparing:0};
    const activitySnapshots=[];
-   await page.route('**/api/studio/activity',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
+   await page.route('**/api/studio/activity**',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
     contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
    await page.addInitScript(()=>{
     if(window===window.parent)return;
@@ -99,6 +99,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    });});
    await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
    await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
+   // Playwright may leave a headless tab hidden; this scenario represents the visible editor window.
+   await page.evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,get:()=>false}));
    await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
      await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
