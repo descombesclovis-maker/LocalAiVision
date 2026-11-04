@@ -1,5 +1,20 @@
 import base64, io, json, re, shutil, time, uuid, zipfile
 from pathlib import Path
+import hashlib
+import threading
+from functools import wraps
+from local_app.atomic_storage import atomic_write
+
+_STORAGE_LOCK = threading.RLock()
+
+
+def _locked(method):
+    @wraps(method)
+    def call(*args, **kwargs):
+        with _STORAGE_LOCK:
+            return method(*args, **kwargs)
+    return call
+
 from local_app import web_briefing
 
 ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.env','.example'}
@@ -76,21 +91,32 @@ class LocalAiWebStore:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.llm_generate = llm_generate
+        # Recover before exposing any projects after an interrupted process.
+        with _STORAGE_LOCK:
+            for project in self.root.iterdir():
+                if project.is_dir() and not project.is_symlink():
+                    self._recover_transaction(project)
 
     def project_dir(self, project_id):
-        return self.root / safe_id(project_id)
+        path = self.root / safe_id(project_id)
+        if path.is_symlink() or not path.resolve().is_relative_to(self.root.resolve()):
+            raise ValueError('Répertoire de projet invalide.')
+        return path
 
+    @_locked
     def meta(self, project_id):
         path = self.project_dir(project_id) / 'project.json'
         if not path.is_file():
             raise FileNotFoundError('Projet LocalAiWeb introuvable.')
         return json.loads(path.read_text(encoding='utf-8'))
 
+    @_locked
     def write_meta(self, project_id, meta):
         root = self.project_dir(project_id)
         root.mkdir(parents=True, exist_ok=True)
-        (root / 'project.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')
+        atomic_write(root / 'project.json', json.dumps(meta, ensure_ascii=False, indent=2).encode('utf-8'))
 
+    @_locked
     def text_files(self, project_id):
         site = self.project_dir(project_id) / 'site'
         out = {}
@@ -113,51 +139,141 @@ class LocalAiWebStore:
                 pass
         return out
 
+    @staticmethod
+    def _recover_transaction(project):
+        journal = project / '.site-transaction'
+        manifest = journal / 'manifest.json'
+        if not manifest.exists():
+            # Incomplete journal preparation cannot have changed live files.
+            if journal.exists():
+                shutil.rmtree(journal)
+            return
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+        site = project / 'site'
+        if not data.get('committed'):
+            originals = []
+            for row in data['files']:
+                rel = safe_rel(row['path'])
+                target = site / rel
+                if target.is_symlink() or not target.resolve().is_relative_to(site.resolve()):
+                    raise ValueError('Récupération refusée : chemin de projet invalide.')
+                raw = None
+                if row['existed']:
+                    source = journal / 'originals' / rel
+                    if source.is_symlink() or not source.resolve().is_relative_to(journal.resolve()):
+                        raise ValueError('Sauvegarde transactionnelle invalide.')
+                    raw = source.read_bytes()
+                    if hashlib.sha256(raw).hexdigest() != row['sha256']:
+                        raise ValueError('Sauvegarde transactionnelle endommagée ; fichiers conservés.')
+                originals.append((target, raw))
+            # Validate all backups first; corruption must not cause half a rollback.
+            for target, raw in originals:
+                if raw is not None:
+                    atomic_write(target, raw)
+                elif target.exists():
+                    target.unlink()
+        shutil.rmtree(journal)
+
+    def _write_binary_files(self, project_id, files, replace=False, all_assets=False):
+        site = self.project_dir(project_id) / 'site'
+        site.mkdir(parents=True, exist_ok=True)
+        # Validate the entire request before changing any live file.
+        changes = {}
+        for rel, body in files.items():
+            p = safe_rel(rel)
+            target = site / p
+            if (p.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in p.parts)
+                    or target.is_symlink() or not target.resolve().is_relative_to(site.resolve())):
+                raise ValueError('Chemin protégé ou invalide : ' + str(rel))
+            changes[p.as_posix()] = body
+        with _STORAGE_LOCK:
+            project = self.project_dir(project_id)
+            self._recover_transaction(project)
+            if replace:
+                for old in site.rglob('*'):
+                    rel = old.relative_to(site)
+                    if any(part in IGNORED_DIRS for part in rel.parts) or old.name in PRIVATE_NAMES:
+                        continue
+                    if old.is_file() and (all_assets or old.suffix.lower() in ALLOWED_TEXT_EXTENSIONS):
+                        changes.setdefault(rel.as_posix(), None)
+            journal = project / '.site-transaction'
+            journal.mkdir()
+            rows = []
+            try:
+                for rel in changes:
+                    old = site / rel
+                    row = {'path': rel, 'existed': old.is_file()}
+                    if old.is_symlink() or not old.resolve().is_relative_to(site.resolve()):
+                        raise ValueError('Lien symbolique interdit dans une transaction.')
+                    if row['existed']:
+                        raw = old.read_bytes()
+                        atomic_write(journal / 'originals' / rel, raw)
+                        row['sha256'] = hashlib.sha256(raw).hexdigest()
+                    rows.append(row)
+                manifest = {'committed': False, 'files': rows}
+                atomic_write(journal / 'manifest.json', json.dumps(manifest).encode())
+                for rel, raw in changes.items():
+                    target = site / rel
+                    if raw is None:
+                        target.unlink(missing_ok=True)
+                    else:
+                        atomic_write(target, raw)
+                manifest['committed'] = True
+                atomic_write(journal / 'manifest.json', json.dumps(manifest).encode())
+            except BaseException:
+                self._recover_transaction(project)
+                raise
+            shutil.rmtree(journal)
+        return self.text_files(project_id)
+
     def write_files(self, project_id, files, replace=False):
         if not isinstance(files, dict) or not files:
             raise ValueError('Aucun fichier à enregistrer.')
         if len(files) > MAX_PROJECT_FILES:
             raise ValueError('Trop de fichiers dans ce projet.')
-        site = self.project_dir(project_id) / 'site'
-        site.mkdir(parents=True, exist_ok=True)
-        if replace:
-            for old in list(site.rglob('*')):
-                try:
-                    rel_parts = old.relative_to(site).parts
-                except Exception:
-                    rel_parts = ()
-                if any(part in IGNORED_DIRS for part in rel_parts) or old.name in PRIVATE_NAMES:
-                    continue
-                if old.is_file() and old.suffix.lower() in ALLOWED_TEXT_EXTENSIONS:
-                    try:
-                        old.unlink()
-                    except OSError:
-                        pass
+        prepared = {}
         for rel, body in files.items():
             p = safe_rel(rel)
             if p.suffix.lower() not in ALLOWED_TEXT_EXTENSIONS:
                 continue
-            text = str(body or '')
-            if len(text.encode('utf-8')) > MAX_FILE_BYTES:
+            raw = str(body or '').encode('utf-8')
+            if len(raw) > MAX_FILE_BYTES:
                 raise ValueError('Fichier trop volumineux : ' + str(rel))
-            target = (site / p).resolve()
-            if not target.is_relative_to(site.resolve()):
-                raise ValueError('Chemin invalide.')
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(text, encoding='utf-8')
-        return self.text_files(project_id)
+            prepared[p.as_posix()] = raw
+        return self._write_binary_files(project_id, prepared, replace=replace)
 
     def snapshot(self, project_id, label='Version automatique'):
-        files = self.text_files(project_id)
-        if not files:
-            return None
-        versions = self.project_dir(project_id) / 'versions'
-        versions.mkdir(parents=True, exist_ok=True)
-        vid = time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6]
-        payload = {'id': vid, 'created_at': time.time(), 'label': str(label or 'Version automatique')[:120], 'files': files}
-        (versions / (vid + '.json')).write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
-        return {k:v for k,v in payload.items() if k != 'files'}
+        with _STORAGE_LOCK:
+            files = self.text_files(project_id)
+            site = self.project_dir(project_id) / 'site'
+            paths = [p for p in site.rglob('*') if p.is_file() and not p.is_symlink()
+                     and not any(part in IGNORED_DIRS for part in p.relative_to(site).parts)
+                     and p.name not in PRIVATE_NAMES]
+            if not paths:
+                return None
+            versions = self.project_dir(project_id) / 'versions'
+            versions.mkdir(parents=True, exist_ok=True)
+            vid = time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6]
+            pending = versions / (vid + '.zip.pending')
+            hashes = {}
+            try:
+                with zipfile.ZipFile(pending, 'w', zipfile.ZIP_DEFLATED) as archive:
+                    for path in sorted(paths):
+                        rel = path.relative_to(site).as_posix()
+                        raw = path.read_bytes()
+                        hashes[rel] = hashlib.sha256(raw).hexdigest()
+                        archive.writestr(rel, raw)
+                raw = pending.read_bytes()
+                atomic_write(versions / (vid + '.zip'), raw)
+                payload = {'id': vid, 'created_at': time.time(), 'label': str(label or 'Version automatique')[:120],
+                           'files': files, 'archive': vid + '.zip', 'archive_sha256': hashlib.sha256(raw).hexdigest(),
+                           'checksums': hashes, 'schema': 2}
+                atomic_write(versions / (vid + '.json'), json.dumps(payload, ensure_ascii=False).encode('utf-8'))
+            finally:
+                pending.unlink(missing_ok=True)
+            return {k:v for k,v in payload.items() if k not in ('files', 'checksums')}
 
+    @_locked
     def versions(self, project_id):
         root = self.project_dir(project_id) / 'versions'
         out = []
@@ -165,11 +281,12 @@ class LocalAiWebStore:
             for path in root.glob('*.json'):
                 try:
                     data = json.loads(path.read_text(encoding='utf-8'))
-                    out.append({k:v for k,v in data.items() if k != 'files'})
+                    out.append({k:v for k,v in data.items() if k not in ('files', 'checksums')})
                 except Exception:
                     pass
         return sorted(out, key=lambda x:x.get('created_at',0), reverse=True)
 
+    @_locked
     def assets(self, project_id):
         site = self.project_dir(project_id) / 'site'
         root = site / 'assets'
@@ -180,6 +297,7 @@ class LocalAiWebStore:
                     out.append({'path': path.relative_to(site).as_posix(), 'size': path.stat().st_size})
         return out
 
+    @_locked
     def chat_history(self, project_id):
         path = self.project_dir(project_id) / 'chat.json'
         if not path.is_file():
@@ -202,12 +320,13 @@ class LocalAiWebStore:
         meta['original_prompt'] = text
         self.write_meta(project_id, meta)
 
+    @_locked
     def append_chat(self, project_id, role, text):
         rows = self.chat_history(project_id)
         rows.append({'role': str(role or 'assistant'), 'text': str(text or '')[:12000], 'time': time.time()})
         rows = rows[-200:]
         path = self.project_dir(project_id) / 'chat.json'
-        path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+        atomic_write(path, json.dumps(rows, ensure_ascii=False, indent=2).encode('utf-8'))
         return rows
 
     def payload(self, project_id):
@@ -670,15 +789,32 @@ class LocalAiWebStore:
                 'file_count': len(files), 'asset_count': len(self.assets(project_id))}
 
 
+    @_locked
     def restore(self, project_id, version_id):
         path = self.project_dir(project_id) / 'versions' / (safe_id(version_id)+'.json')
         if not path.is_file(): raise FileNotFoundError('Version introuvable.')
         self.snapshot(project_id, 'Avant restauration')
         data = json.loads(path.read_text(encoding='utf-8'))
-        self.write_files(project_id, data.get('files') or {}, replace=True)
+        if data.get('schema') == 2:
+            archive_name = data.get('archive')
+            if archive_name != version_id + '.zip':
+                raise ValueError('Archive de version invalide.')
+            raw = (path.parent / archive_name).read_bytes()
+            if hashlib.sha256(raw).hexdigest() != data.get('archive_sha256'):
+                raise ValueError('Archive endommagée ; restauration annulée.')
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                files = {str(safe_rel(name)): archive.read(name) for name in archive.namelist()}
+            hashes = {name: hashlib.sha256(body).hexdigest() for name, body in files.items()}
+            if hashes != data.get('checksums'):
+                raise ValueError('Intégrité des ressources invalide ; restauration annulée.')
+            self._write_binary_files(project_id, files, replace=True, all_assets=True)
+        else:
+            # Keep existing text-only versions readable without migration.
+            self.write_files(project_id, data.get('files') or {}, replace=True)
         meta=self.meta(project_id);meta['updated_at']=time.time();meta['last_summary']='Version restaurée';self.write_meta(project_id,meta)
         return self.payload(project_id)
 
+    @_locked
     def export_zip(self, project_id):
         root = self.project_dir(project_id) / 'site'
         memory = io.BytesIO()
