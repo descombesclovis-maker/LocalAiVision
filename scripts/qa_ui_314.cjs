@@ -82,6 +82,32 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.match(await second.locator('.art-caption').innerText(),/illustrative/);
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
+  await check('Only active or preparing media work throttles the embedded 3D preview',async()=>{
+   let media={count:2,running:0,queued:2,preparing:0};
+   await page.route('**/api/studio/activity',route=>route.fulfill({status:200,
+    contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})}));
+   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
+   const frame=page.locator('#lawPreview');
+   await page.waitForFunction(()=>{const f=document.getElementById('lawPreview');return f&&!f.hidden&&f.contentDocument?.readyState==='complete'});
+   await frame.evaluate(element=>{
+    element.contentWindow.__resourceBudgetMessages=[];
+    element.contentWindow.addEventListener('message',event=>{
+     element.contentWindow.__resourceBudgetMessages.push(event.data);
+    });
+   });
+   await page.evaluate(()=>window.StudioActivity.refresh());
+   await page.waitForFunction(()=>document.getElementById('lawPreview').contentWindow.__resourceBudgetMessages?.length>0);
+   let messages=await frame.evaluate(element=>element.contentWindow.__resourceBudgetMessages);
+   assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
+    "Queued-but-not-running media must not throttle a user's site preview");
+   media={count:1,running:1,queued:0,preparing:0};
+   await page.evaluate(()=>window.StudioActivity.refresh());
+   await page.waitForFunction(()=>document.getElementById('lawPreview').contentWindow.__resourceBudgetMessages?.length>1);
+   messages=await frame.evaluate(element=>element.contentWindow.__resourceBudgetMessages);
+   assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:true},
+    'A real ComfyUI render must yield GPU time from the preview');
+   assert.equal(await frame.evaluate(element=>element.contentWindow.location.origin),new URL(base).origin);
+  });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
    await first.locator('summary').click();await first.getByRole('button',{name:'Supprimer le projet',exact:true}).click();
    assert.equal(await page.locator('#deleteProjectName').innerText(),'Recette 314 — prompt exact');
