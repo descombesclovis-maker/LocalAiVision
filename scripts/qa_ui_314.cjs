@@ -87,39 +87,41 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    const activitySnapshots=[];
    await page.route('**/api/studio/activity',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
     contentType:'application/json',body:JSON.stringify({count:media.count,jobs:[],media})});});
-   await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ready:false,url:null})}));
-   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
-   const frame=page.locator('#lawPreview');
-   await page.waitForFunction(()=>!!document.getElementById('lawPreview')?.contentWindow);
-   await frame.evaluate(element=>{
-    element.contentWindow.__resourceBudgetMessages=[];
-    element.contentWindow.__resourceBudgetEvents=[];
-    element.contentWindow.addEventListener('message',event=>{
-     element.contentWindow.__resourceBudgetMessages.push(event.data);
-     element.contentWindow.__resourceBudgetEvents.push({origin:event.origin,sourceIsParent:event.source===element.contentWindow.parent});
+   await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',
+    body:JSON.stringify({ready:true,url:base+'/qa-resource-budget-probe'})}));
+   await page.route('**/qa-resource-budget-probe',route=>route.fulfill({status:200,contentType:'text/html',body:`<!doctype html><script>
+    addEventListener('message',event=>{
+     if(event.data?.type==='localaiweb-resource-budget')parent.postMessage({type:'qa-resource-budget-ack',
+      data:event.data,origin:event.origin,sourceIsParent:event.source===parent},'*');
     });
-   });
+    parent.postMessage({type:'qa-resource-budget-probe-ready'},'*');
+   <\/script>`}));
+   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
+   await page.evaluate(()=>{window.__resourceBudgetAcks=[];addEventListener('message',event=>{
+    if(event.data?.type==='qa-resource-budget-ack')window.__resourceBudgetAcks.push(event.data);
+   });});
+   await page.waitForFunction(()=>document.getElementById('lawPreview')?.contentWindow);
+   await page.waitForFunction(()=>document.getElementById('lawPreview').src.includes('qa-resource-budget-probe'));
+   await page.waitForFunction(()=>document.getElementById('lawPreview').contentWindow.location.href.includes('qa-resource-budget-probe')).catch(()=>{});
    await page.evaluate(()=>window.StudioActivity.refresh());
-   await page.waitForFunction(()=>document.getElementById('lawPreview').contentWindow.__resourceBudgetMessages?.length>0);
-   let messages=await frame.evaluate(element=>element.contentWindow.__resourceBudgetMessages);
+   await page.waitForFunction(()=>window.__resourceBudgetAcks?.length>0);
+   let messages=await page.evaluate(()=>window.__resourceBudgetAcks.map(entry=>entry.data));
    assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
     "Queued-but-not-running media must not throttle a user's site preview");
    media.count=1;media.running=1;media.queued=0;media.preparing=0;
-   const activeMessage=await frame.evaluate(async element=>{
-    const messages=element.contentWindow.__resourceBudgetMessages;
+   await page.evaluate(async()=>{
     for(let attempt=0;attempt<50;attempt++){
-     await window.parent.StudioActivity.refresh();
-     await new Promise(resolve=>setTimeout(resolve,120));
-     const latest=messages.at(-1);
-     if(latest?.mediaBusy===true)return latest;
+     await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
+     if(window.__resourceBudgetAcks.at(-1)?.data?.mediaBusy===true)return;
     }
-    return messages.at(-1);
    });
+   const activeMessage=(await page.evaluate(()=>window.__resourceBudgetAcks.at(-1)))?.data;
    assert.ok(activitySnapshots.some(snapshot=>Number(snapshot.running)>0),
     'The activity route never served an active-render state: '+JSON.stringify(activitySnapshots));
    assert.deepEqual(activeMessage,{type:'localaiweb-resource-budget',mediaBusy:true},
     'The editor preview did not receive the active-render state; activity samples: '+JSON.stringify(activitySnapshots));
-   assert.deepEqual(await frame.evaluate(element=>element.contentWindow.__resourceBudgetEvents.at(-1)),
+   const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.at(-1));
+   assert.deepEqual({origin:activeEvent.origin,sourceIsParent:activeEvent.sourceIsParent},
     {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the same-origin editor parent');
   });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
