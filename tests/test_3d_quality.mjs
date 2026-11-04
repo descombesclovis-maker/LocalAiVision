@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeMode, qualityProfile, renderPixelRatio, adaptResolution, lerpDamp, smoothstep} from '../local_app/web/templates/cinematic3d/quality.mjs';
+import {normalizeMode, qualityProfile, renderPixelRatio, adaptResolution, effectiveFrameRate, lerpDamp, smoothstep} from '../local_app/web/templates/cinematic3d/quality.mjs';
 
 test('invalid quality modes fall back to automatic instead of introducing unknown settings',()=>{
   assert.equal(normalizeMode('ultra'), 'auto');
@@ -28,6 +28,14 @@ test('adaptive resolution lowers quality under sustained overload and recovers s
   assert.ok(recovered>slower);
   assert.ok(recovered<=1);
   assert.equal(adaptResolution(.8,40,42,profile),.8);
+});
+test('the embedded site preview yields GPU time to real media generation and restores its normal cadence',()=>{
+  const desktop=qualityProfile('quality',{mobile:false});
+  const mobile=qualityProfile('balanced',{mobile:true});
+  assert.equal(effectiveFrameRate(desktop,false),60);
+  assert.equal(effectiveFrameRate(desktop,true),8);
+  assert.equal(effectiveFrameRate(mobile,true),8);
+  assert.equal(effectiveFrameRate(mobile,false),30);
 });
 test('frame-independent damping and smoothstep are bounded',()=>{
   assert.equal(lerpDamp(5,5,.016),5);
