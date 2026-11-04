@@ -83,6 +83,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
   await check('Editor preview bridge sends queued and active media budgets with same-origin events',async()=>{
+   await page.route('**/api/web/preview/status**',route=>route.fulfill({status:200,contentType:'application/json',
+    body:JSON.stringify({ready:false,url:null})}));
    // Labelled activity response fixture; the editor and sandboxed preview remain real.
    await page.addInitScript(()=>{
     if(window!==window.parent)return;
