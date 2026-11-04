@@ -101,10 +101,17 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
     "Queued-but-not-running media must not throttle a user's site preview");
    media={count:1,running:1,queued:0,preparing:0};
-   await page.evaluate(()=>window.StudioActivity.refresh());
-   await page.waitForFunction(()=>document.getElementById('lawPreview').contentWindow.__resourceBudgetMessages?.length>1);
-   messages=await frame.evaluate(element=>element.contentWindow.__resourceBudgetMessages);
-   assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:true},
+   const activeMessage=await frame.evaluate(async element=>{
+    const messages=element.contentWindow.__resourceBudgetMessages;
+    for(let attempt=0;attempt<50;attempt++){
+     await window.parent.StudioActivity.refresh();
+     await new Promise(resolve=>setTimeout(resolve,120));
+     const latest=messages.at(-1);
+     if(latest?.mediaBusy===true)return latest;
+    }
+    return messages.at(-1);
+   });
+   assert.deepEqual(activeMessage,{type:'localaiweb-resource-budget',mediaBusy:true},
     'A real ComfyUI render must yield GPU time from the preview');
    assert.equal(await frame.evaluate(element=>element.contentWindow.location.origin),new URL(base).origin);
   });
