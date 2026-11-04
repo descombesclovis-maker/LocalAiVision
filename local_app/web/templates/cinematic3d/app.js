@@ -1,7 +1,7 @@
 // LocalAiWeb Studio — immersive PBR product showcase, Three.js r186.
 // A neutral procedural piece is rendered until a real product GLB is supplied.
 // No commercial product geometry is fabricated from a photograph.
-import {clamp, qualityProfile, renderPixelRatio, adaptResolution, lerpDamp, smoothstep} from './quality.mjs';
+import {clamp, qualityProfile, renderPixelRatio, adaptResolution, effectiveFrameRate, isTrustedBudgetOrigin, lerpDamp, smoothstep} from './quality.mjs';
 
 const root = document.querySelector('.experience');
 const stage = document.getElementById('three-stage');
@@ -16,7 +16,7 @@ const pathKey = 'localaiweb-scene-quality:' + window.location.pathname;
 const prefersMotion = () => !motion.matches;
 const state = {
   started:false, destroyed:false, visible:true, active:!document.hidden,
-  contextLost:false, mode:'auto', profile:null, adaptiveScale:1,
+  contextLost:false, mediaBusy:false, mode:'auto', profile:null, adaptiveScale:1,
   progress:0, pointerX:0, pointerY:0, width:0, height:0,
   renderer:null, scene:null, camera:null, rig:null, object:null,
   mixer:null, procedural:[], environmentTarget:null, frameLast:0, nextFrameDue:0,
@@ -67,6 +67,17 @@ trackEvent(window,'pointermove',e=>{
 },{passive:true});
 trackEvent(document,'visibilitychange',()=>{
   state.active=!document.hidden;
+  state.frameLast=0;
+  state.nextFrameDue=0;
+  state.statsCount=0;
+  state.statsSum=0;
+});
+// Accept only the editor parent on its trusted loopback origin. Generated
+// previews retain their separate project origin and never gain API access.
+trackEvent(window,'message',event=>{
+  if(event.source!==window.parent||!isTrustedBudgetOrigin(event.origin,window.location.origin))return;
+  if(event.data?.type!=='localaiweb-resource-budget'||typeof event.data.mediaBusy!=='boolean')return;
+  state.mediaBusy=event.data.mediaBusy;
   state.frameLast=0;
   state.nextFrameDue=0;
   state.statsCount=0;
@@ -330,7 +341,7 @@ function updateScene(time,dt){
 
 function frame(timeMs){
   if(state.destroyed||state.contextLost||!state.active||!state.visible)return;
-  const minFrameGap=1000/state.profile.targetFPS;
+  const minFrameGap=1000/effectiveFrameRate(state.profile,state.mediaBusy);
   // Hold a stable 60/30 Hz *timeline* (not every Nth 120/144 Hz refresh).
   // This avoids unnecessary 48 FPS oscillation on high-refresh displays.
   const deadline=state.nextFrameDue||timeMs;
@@ -342,7 +353,7 @@ function frame(timeMs){
   updateScene(timeMs/1000,dt);
   state.renderer.render(state.scene,state.camera);
   if(!root.classList.contains('has-webgl'))root.classList.add('has-webgl');
-  if(elapsed>0 && elapsed<130){
+  if(!state.mediaBusy && elapsed>0 && elapsed<130){
     state.statsSum+=elapsed;
     state.statsCount++;
     if(state.statsCount>=48){

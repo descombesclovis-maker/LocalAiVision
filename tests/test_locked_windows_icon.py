@@ -53,6 +53,16 @@ class LockedWindowsIconTests(unittest.TestCase):
             self.assertIn('--icon "build\\branding\\LocalAiStudio.ico"', source)
             self.assertIn('build\\branding\\LocalAiStudio.ico;local_app\\assets', source)
 
+    def test_windows_evidence_waits_for_nonblank_webview_content(self):
+        source = (ROOT / 'scripts/verify_windows_icon.py').read_text(encoding='utf-8')
+        self.assertIn("deadline=time.monotonic()+60", source)
+        self.assertIn('stats.stddev[0]>8', source)
+        self.assertIn('visible_fraction>=0.02', source)
+        self.assertIn("native-window-content.png", source)
+        self.assertIn("native-window-blank.png", source)
+        self.assertIn("native-startup.log", source)
+        self.assertIn('WebView content stayed blank', source)
+
 
 if __name__ == '__main__':
     unittest.main()

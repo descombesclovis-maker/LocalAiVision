@@ -2,7 +2,7 @@
 (()=>{
  'use strict';
  if(!document.body)return;
- let chip=null,panel=null,previous=new Map(),requesting=false,expanded=false;
+ let chip=null,panel=null,previous=new Map(),requesting=false,expanded=false,mediaBusy=false;
  const safeId=id=>/^web-[a-f0-9]{12}$/.test(id||'');
  const dest=id=>'/localaiweb/editor?id='+encodeURIComponent(id);
  function setup(){
@@ -26,10 +26,30 @@
    const sec=Math.max(0,Math.trunc(Number(seconds)||0));
    return sec<60?sec+' s':Math.floor(sec/60)+' min '+String(sec%60).padStart(2,'0')+' s';
  }
+ function syncPreviewBudget(){
+   // This is deliberately limited to the LocalAiWeb editor. The isolated
+   // NSFW workspace never receives these preview-only resource messages.
+   if(document.body.dataset.studioPage!=='editor')return;
+   const frame=document.getElementById('lawPreview');
+   if(!frame?.contentWindow)return;
+   // Generated sites are redirected to a project-specific origin. Never send
+   // activity to an arbitrary frame URL, or weaken that isolation with '*'.
+   try{
+     const source=new URL(frame.getAttribute('src')||'',location.href);
+     const project=source.pathname.match(/^\/web-preview\/(web-[a-f0-9]{12})\//);
+     if(source.origin!==location.origin||!project)return;
+     const target=new URL(location.origin);
+     target.protocol='http:';target.hostname='preview-'+project[1]+'.localhost';
+     frame.contentWindow.postMessage({type:'localaiweb-resource-budget',mediaBusy},target.origin);
+   }catch{}
+ }
  function paint(data){
-   document.body.dataset.gpuBusy=String(Number(data?.media?.count||0)>0);
+   const media=data?.media||{};
+   mediaBusy=Number(media.running||0)>0||Number(media.preparing||0)>0;
+   document.body.dataset.gpuBusy=String(Number(media.count||0)>0);
+   syncPreviewBudget();
    const jobs=Array.isArray(data?.jobs)?data.jobs.filter(x=>safeId(x.id)):[],
-      media=data?.media||{},mediaCount=Number(media.count)||0,
+      mediaCount=Number(media.count)||0,
       toggle=chip.querySelector('#studioActivityToggle'),copy=chip.querySelector('.studio-activity-copy'),
       count=chip.querySelector('.studio-activity-count');
    chip.classList.toggle('has-media',mediaCount>0);
@@ -88,6 +108,7 @@
  const syncVisibility=()=>{document.body.dataset.motionPaused=String(document.hidden)};
  syncVisibility();document.addEventListener('visibilitychange',syncVisibility);
  setup();
+ document.querySelector('#lawPreview')?.addEventListener('load',syncPreviewBudget);
  void update();
  window.setInterval(update,4200);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void update()});

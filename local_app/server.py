@@ -3794,9 +3794,15 @@ def stop_engines():
             proc.kill()
 
 
+class StudioHTTPServer(ThreadingHTTPServer):
+    # A page loads many CSS, script and image files concurrently. The default
+    # backlog of five can drop loopback connections during Windows/Edge bursts.
+    request_queue_size = 128
+
+
 def main():
     print(f"LocalVisionAI -> http://{HOST}:{PORT}", flush=True)
-    server=ThreadingHTTPServer((HOST,PORT),Handler)
+    server=StudioHTTPServer((HOST,PORT),Handler)
     if os.environ.get('LOCALVISIONAI_SKIP_SETUP') != '1':
         start_setup()
     try:

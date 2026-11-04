@@ -110,7 +110,7 @@ def main():
 
     # This is the same executable resource reference used by the updater's
     # shortcuts (IconLocation = "$CurrentExe,0"). No real shortcut is changed.
-    with tempfile.TemporaryDirectory(prefix='localai-icon-qa-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='localai-icon-qa-', ignore_cleanup_errors=True) as tmp:
         link=Path(tmp)/'LocalAiStudio-test.lnk'
         script="$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:ICON_QA_LINK);$s.TargetPath=$env:ICON_QA_EXE;$s.IconLocation=$env:ICON_QA_EXE+',0';$s.Save();$r=(New-Object -ComObject WScript.Shell).CreateShortcut($env:ICON_QA_LINK);if($r.TargetPath -ne $env:ICON_QA_EXE -or $r.IconLocation -ne ($env:ICON_QA_EXE+',0')){throw 'Shortcut icon reference mismatch'}"
         subprocess.run(['powershell','-NoProfile','-Command',script],env={**os.environ,'ICON_QA_LINK':str(link),'ICON_QA_EXE':str(exe)},check=True)
@@ -153,12 +153,39 @@ def main():
             hwnd=found[0]
             icon=user.SendMessageW(hwnd,0x7F,1,0) or user.GetClassLongPtrW(hwnd,-14)
             verify(icon,'native-window-taskbar')
-            # The titlebar/taskbar icon is taken from this same top-level HWND.
-            time.sleep(1)
+            # A visible native frame can precede WebView2's first paint. Wait
+            # for actual non-blank client pixels before calling this a UI proof.
+            user.ShowWindow.argtypes=[W.HWND,ctypes.c_int]
+            user.GetClientRect.argtypes=[W.HWND,ctypes.POINTER(W.RECT)]
+            user.ClientToScreen.argtypes=[W.HWND,ctypes.POINTER(W.POINT)]
+            user.SetForegroundWindow.argtypes=[W.HWND]
+            user.ShowWindow(hwnd,3)
+            user.SetForegroundWindow(hwnd)
+            painted=False
+            deadline=time.monotonic()+60
+            while time.monotonic()<deadline:
+                rect=W.RECT();origin=W.POINT(0,0)
+                user.GetClientRect(hwnd,ctypes.byref(rect));user.ClientToScreen(hwnd,ctypes.byref(origin))
+                capture=ImageGrab.grab(bbox=(origin.x,origin.y,origin.x+rect.right,origin.y+rect.bottom))
+                luma=capture.convert('L')
+                stats=ImageStat.Stat(luma)
+                visible_fraction=sum(luma.histogram()[40:])/max(1,capture.width*capture.height)
+                # The window background is near-black (#090909); its fill and
+                # anti-aliased edges must not count as a successfully painted UI.
+                if stats.mean[0]>2 and stats.stddev[0]>8 and visible_fraction>=0.02:
+                    painted=True;capture.save(output/'native-window-content.png');break
+                time.sleep(.5)
+            if not painted:
+                capture.save(output/'native-window-blank.png')
+                raise RuntimeError('The native window icon is correct, but its WebView content stayed blank.')
+            results['checks']['native-content-painted']={'passed':True,'luma_mean':stats.mean[0],'luma_stddev':stats.stddev[0],'visible_fraction_over_40':visible_fraction}
             ImageGrab.grab(all_screens=True).save(output/'windows-desktop.png')
             results['checks']['native-desktop-capture']={'passed':True}
         finally:
             subprocess.run(['taskkill','/PID',str(proc.pid),'/T','/F'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+            startup_log=Path(env['LOCALVISIONAI_DATA'])/'logs'/'startup.log'
+            if startup_log.is_file():
+                (output/'native-startup.log').write_text(startup_log.read_text(encoding='utf-8',errors='replace'),encoding='utf-8')
     (output/'results.json').write_text(json.dumps(results,indent=2),encoding='utf-8')
     print(json.dumps(results,indent=2))
 

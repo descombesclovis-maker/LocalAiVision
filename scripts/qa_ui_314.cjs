@@ -82,6 +82,74 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.match(await second.locator('.art-caption').innerText(),/illustrative/);
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
+  await check('Editor preview bridge delivers queued and active budgets to the isolated project origin',async()=>{
+   const page=await context.newPage();
+   try{
+   // Labelled activity response fixture; the editor and sandboxed preview remain real.
+   await page.addInitScript(()=>{
+    if(window!==window.parent)return;
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+    window.__qaMedia={count:2,running:0,queued:2,preparing:0};
+    window.__qaActivitySnapshots=[];
+    const realFetch=window.fetch.bind(window);
+    window.fetch=(input,init)=>{
+     const url=typeof input==='string'?input:input?.url||'';
+     if(new URL(url,location.href).pathname==='/api/studio/activity'){
+      const media={...window.__qaMedia};window.__qaActivitySnapshots.push(media);
+      return Promise.resolve(new Response(JSON.stringify({count:media.count,jobs:[],media}),
+       {status:200,headers:{'Content-Type':'application/json'}}));
+     }
+     return realFetch(input,init);
+    };
+   });
+   await page.addInitScript(()=>{
+    if(window===window.parent)return;
+    window.addEventListener('message',event=>{
+     if(event.data?.type==='localaiweb-resource-budget')window.parent.postMessage({type:'qa-resource-budget-ack',
+      data:event.data,origin:event.origin,previewOrigin:location.origin,sourceIsParent:event.source===window.parent},event.origin);
+    });
+   });
+   await page.addInitScript(()=>{window.__resourceBudgetAcks=[];addEventListener('message',event=>{
+    if(event.data?.type==='qa-resource-budget-ack')window.__resourceBudgetAcks.push(event.data);
+   });});
+   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(ids.preview));
+   await page.frameLocator('#lawPreview').getByRole('heading',{name:'Aperçu LocalAiWeb de validation'}).waitFor();
+   await page.waitForFunction(()=>window.StudioActivity?.refresh&&document.body.dataset.studioPage==='editor');
+   await page.evaluate(async()=>{
+    for(let attempt=0;attempt<50;attempt++){
+     await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
+     if(window.__resourceBudgetAcks.some(entry=>entry.data?.mediaBusy===false))return;
+    }
+   });
+   await page.waitForFunction(()=>window.__resourceBudgetAcks?.some(entry=>entry.data?.mediaBusy===false));
+   let messages=await page.evaluate(()=>window.__resourceBudgetAcks.map(entry=>entry.data));
+   assert.deepEqual(messages.at(-1),{type:'localaiweb-resource-budget',mediaBusy:false},
+    "Queued-but-not-running media must not throttle a user's site preview");
+   await page.evaluate(()=>{window.__qaMedia.count=1;window.__qaMedia.running=1;window.__qaMedia.queued=0;window.__qaMedia.preparing=0});
+   await page.evaluate(async()=>{
+    for(let attempt=0;attempt<50;attempt++){
+     await window.StudioActivity.refresh();await new Promise(resolve=>setTimeout(resolve,120));
+     if(window.__resourceBudgetAcks.at(-1)?.data?.mediaBusy===true)return;
+    }
+   });
+   results.bridgeDiagnostics=await page.evaluate(()=>({page:document.body.dataset.studioPage,
+    gpuBusy:document.body.dataset.gpuBusy,hidden:document.hidden,
+    chip:document.getElementById('studioActivity')?.textContent,
+    frameSrc:document.getElementById('lawPreview')?.getAttribute('src'),
+    acks:window.__resourceBudgetAcks}));
+   await page.waitForFunction(()=>window.__resourceBudgetAcks?.some(entry=>entry.data?.mediaBusy===true),null,{timeout:10000});
+   const activeEvent=await page.evaluate(()=>window.__resourceBudgetAcks.find(entry=>entry.data?.mediaBusy===true));
+   const activitySnapshots=await page.evaluate(()=>window.__qaActivitySnapshots);
+   assert.ok(activitySnapshots.some(snapshot=>Number(snapshot.running)>0),
+    'The activity fixture never served an active-render state: '+JSON.stringify(activitySnapshots));
+   assert.deepEqual(activeEvent?.data,{type:'localaiweb-resource-budget',mediaBusy:true},
+    'The editor preview did not receive the active-render state; messages: '+JSON.stringify(await page.evaluate(()=>window.__resourceBudgetAcks)));
+   assert.deepEqual({origin:activeEvent?.origin,sourceIsParent:activeEvent?.sourceIsParent},
+    {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the trusted editor parent');
+   assert.equal(activeEvent.previewOrigin,'http://preview-'+ids.preview+'.localhost:3000',
+    'The recipient must retain its isolated project origin');
+   }finally{await page.close()}
+  });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
    await first.locator('summary').click();await first.getByRole('button',{name:'Supprimer le projet',exact:true}).click();
    assert.equal(await page.locator('#deleteProjectName').innerText(),'Recette 314 — prompt exact');

@@ -11,7 +11,7 @@ const data=fs.mkdtempSync(path.join(os.tmpdir(),'studio-ui-313-'));
 const server=spawn(process.env.PYTHON||'python',['-m','local_app.server'],{
  cwd:root,env:{...process.env,LOCALVISIONAI_DATA:data,LOCALVISIONAI_SKIP_SETUP:'1',LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY:'',LOCALAIWEB_GOOGLE_PLACES_API_KEY:''},stdio:['ignore','pipe','pipe']});
 const log=fs.createWriteStream(path.join(output,'server.log'));server.stdout.pipe(log);server.stderr.pipe(log);
-const results={baseline:!!process.env.UI_BASELINE,resolutions:[],checks:[],limitations:[
+const results={baseline:!!process.env.UI_BASELINE,resolutions:[],checks:[],assetFailures:[],limitations:[
  'Google live map requires configured browser/server keys and authorized API usage.',
  'Codex generation, ComfyUI media, payment/signature/publication and Windows WebView2/DPI are not certified by this UI test.'
 ]};
@@ -36,8 +36,10 @@ function fixture(project){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,reducedMotion:'reduce'});
    const page=await context.newPage();
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   page.on('requestfailed',request=>{if(['stylesheet','script'].includes(request.resourceType()))results.assetFailures.push({url:request.url(),error:request.failure()?.errorText})});
    for(const [name,route] of pages){
     await page.goto(base+route,{waitUntil:'domcontentloaded'});await wait(800);
+    await page.waitForFunction(()=>Array.from(document.querySelectorAll('link[rel="stylesheet"]')).every(link=>Boolean(link.sheet)),null,{timeout:15000});
     if(name==='projects-free')await page.locator('[data-qcm-filter="free"]').click();
     await page.screenshot({path:path.join(output,`${name}-${width}x${height}.png`),fullPage:true});
     const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,bodyScroll:document.body.scrollWidth}));
@@ -86,8 +88,11 @@ function fixture(project){
     await page.locator('#createProject').click();await page.locator('#projectName').fill('Projet réel de recette');await page.locator('#confirmProject').click();
     await page.waitForURL(/editor\?id=web-/);await wait(600);
     const pid=new URL(page.url()).searchParams.get('id');assert.ok((await api('/api/web/projects')).projects.some(x=>x.id===pid));
-    await page.locator('#lawPreviewTitle').dblclick();await page.locator('.qcm-project-title-input').fill('Projet recette renommé');await page.keyboard.press('Enter');
-    await wait(300);assert.equal((await api('/api/web/project?id='+pid)).project.name,'Projet recette renommé');
+    await page.locator('#lawPreviewTitle').dblclick();await page.locator('.qcm-project-title-input').fill('Projet recette renommé');
+    const renamed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/web/project/rename'&&response.request().method()==='POST');
+    await page.keyboard.press('Enter');assert.equal((await renamed).ok(),true);
+    await page.waitForFunction(()=>document.getElementById('lawPreviewTitle').textContent==='Projet recette renommé');
+    assert.equal((await api('/api/web/project?id='+pid)).project.name,'Projet recette renommé');
    });
    await check('Viewport handlers and splitter keyboard preserve live components',async()=>{
     for(const mode of ['tablet','mobile','desktop']){await page.locator('[data-view="'+mode+'"]').click();assert.ok(await page.locator('#lawPreviewStage').evaluate((x,m)=>x.classList.contains(m),mode))}
@@ -107,7 +112,9 @@ function fixture(project){
    await check('Pro reference opens its own sales dossier without a forced questionnaire',async()=>{
     const {id:pid}=fixture('pro');await page.goto(base+'/localaiweb/editor?id='+pid);await wait(500);
     assert.equal(await page.locator('#lawDesignDialog').evaluate(x=>x.open),false);
+    await page.waitForFunction(()=>document.getElementById('lawChatStatus')?.textContent.includes('informations confirmées'));
     assert.match(await page.locator('#lawChatStatus').innerText(),/informations confirmées/);
+    // The reference project is valid and saved, but still asks the user to confirm the brief.
     assert.match(await page.locator('#lawPublishBtn').innerText(),/Vendre & livrer/);
     await page.locator('#lawPublishBtn').click();await page.waitForURL(/ventes\.localhost.*\/localaiweb\/vente/);
     assert.equal(new URL(page.url()).searchParams.get('id'),pid);

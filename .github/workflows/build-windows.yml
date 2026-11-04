@@ -8,7 +8,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish"]
+    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish", "fix/studio-314-completion-motion-ui"]
 
 concurrency:
   group: studio-build-${{ github.event.pull_request.number || github.ref }}
@@ -260,36 +260,36 @@ jobs:
         shell: powershell
         run: |
           python -m pip install pillow reportlab
-          npm install --prefix "$env:RUNNER_TEMP/studio314-qa" playwright@1.62.1
-          $env:NODE_PATH="$env:RUNNER_TEMP/studio314-qa/node_modules"
-          node "$env:RUNNER_TEMP/studio314-qa/node_modules/playwright/cli.js" install chromium ffmpeg
+          npm install --prefix "$env:RUNNER_TEMP/studio315-qa" playwright@1.62.1
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
+          node "$env:RUNNER_TEMP/studio315-qa/node_modules/playwright/cli.js" install chromium ffmpeg
       - name: Chromium six-resolution and focused functional review
         shell: powershell
         run: |
-          $env:NODE_PATH="$env:RUNNER_TEMP/studio314-qa/node_modules"
-          $env:UI_OUTPUT='build/qa314/chromium/screens'
-          node scripts/qa_ui_313.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:UI_OUTPUT='build/qa314/chromium/interactions'
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
+          $env:UI_OUTPUT='build/qa315/chromium/interactions'
           node scripts/qa_ui_314.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:UI_OUTPUT='build/qa315/chromium/screens'
+          node scripts/qa_ui_313.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Edge six-resolution and focused functional review
         shell: powershell
         run: |
-          $env:NODE_PATH="$env:RUNNER_TEMP/studio314-qa/node_modules"
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
           $env:UI_BROWSER_CHANNEL='msedge'
-          $env:UI_OUTPUT='build/qa314/edge/screens'
+          $env:UI_OUTPUT='build/qa315/edge/screens'
           node scripts/qa_ui_313.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:UI_OUTPUT='build/qa314/edge/interactions'
+          $env:UI_OUTPUT='build/qa315/edge/interactions'
           node scripts/qa_ui_314.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain actual screenshots, videos and results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: LocalAiStudio-Build314-VisualQA
-          path: build/qa314/
+          name: LocalAiStudio-Build315-VisualQA
+          path: build/qa315/
           if-no-files-found: error
 
   brand-exports:
