@@ -8,7 +8,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish", "fix/studio-314-completion-motion-ui"]
+    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish", "fix/studio-314-completion-motion-ui", "codex/studio-315-premium-stabilisation"]
 
 concurrency:
   group: studio-build-${{ github.event.pull_request.number || github.ref }}
@@ -42,6 +42,7 @@ jobs:
           $version = $match.Groups[1].Value
           $tag = "build-$env:GITHUB_RUN_NUMBER"
           @{
+            product_build = "316"
             version = $version
             build_tag = $tag
             commit = $env:GITHUB_SHA
@@ -50,8 +51,15 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
+      - name: Record source and resource integrity
+        run: |
+          python scripts/build_source_manifest.py
+          python -m pip freeze > build-dependencies.txt
+
       - name: Run regression tests
-        run: python -m unittest discover -s tests -v
+        run: |
+          python -m unittest discover -s tests -v
+          node --test tests/test_public_photo_faithfulness.cjs
 
       - name: Prepare branded Windows icon and PE metadata
         run: python scripts/prepare_windows_brand.py
@@ -203,6 +211,9 @@ jobs:
           Copy-Item ACTIVER_ACCES_TELEPHONE.bat release\ACTIVER_ACCES_TELEPHONE.bat
           Copy-Item OUVRIR_DANS_NAVIGATEUR.bat release\OUVRIR_DANS_NAVIGATEUR.bat
           Copy-Item MOBILE_SETUP.md release\MOBILE_SETUP.md
+          Copy-Item local_app\data\build_info.json release\build_info.json
+          Copy-Item local_app\data\source_manifest.json release\source_manifest.json
+          Copy-Item build-dependencies.txt release\build-dependencies.txt
           Compress-Archive -Path release\* -DestinationPath LocalVisionAI-Windows.zip -Force
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path LocalVisionAI-Windows.zip))

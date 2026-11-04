@@ -80,8 +80,8 @@ class MapAndAds(TestCase):
     def test_ad_aspect_is_enforced_without_expert_panel(self):
         ads=(WEB/"studio-ads.js").read_text(encoding="utf-8")
         core=(WEB/"app.js").read_text(encoding="utf-8")
-        self.assertIn("window.StudioAds.activeAspect=activeAspect",ads)
-        self.assertIn("window.StudioAds.endGeneration=endGeneration",ads)
+        self.assertIn("function activeAspect(task)",ads)
+        self.assertIn("getBrands,activeAspect,endGeneration",ads)
         self.assertIn("campaignAspect||'auto'",core)
         self.assertIn("StudioAds?.endGeneration?.(task)",core)
 

@@ -12,23 +12,23 @@ VISION = "/assets/assets/brand-reference/LocalAIVision_Official_Original.png"
 
 
 class Completion314Tests(unittest.TestCase):
-    def test_three_locked_originals_exist_and_are_used_by_pages(self):
+    def test_locked_originals_remain_and_customized_vectors_are_used_by_pages(self):
         for name in ["Studio", "Web", "Vision"]:
             path = BRAND / ("LocalAI" + name + "_Official_Original.png")
             self.assertTrue(path.is_file(), path)
             self.assertGreater(path.stat().st_size, 10000)
-        self.assertIn(STUDIO, (WEB / "localai-studio.html").read_text(encoding="utf-8"))
-        self.assertIn(STUDIO, (WEB / "studio-brands.html").read_text(encoding="utf-8"))
-        self.assertIn(WEB_LOGO, (WEB / "localaiweb.html").read_text(encoding="utf-8"))
-        self.assertIn(VISION, (WEB / "studio-qcm-vision.js").read_text(encoding="utf-8"))
+        self.assertIn("/assets/assets/custom-brand/studio-animated.svg", (WEB / "localai-studio.html").read_text(encoding="utf-8"))
+        self.assertIn("/assets/assets/custom-brand/studio-animated.svg", (WEB / "studio-brands.html").read_text(encoding="utf-8"))
+        self.assertIn("/assets/assets/custom-brand/web-animated.svg", (WEB / "localaiweb.html").read_text(encoding="utf-8"))
+        self.assertIn("/assets/assets/custom-brand/vision-animated.svg", (WEB / "studio-qcm-vision.js").read_text(encoding="utf-8"))
 
-    def test_web_and_vision_installable_icons_are_official_untouched_pngs(self):
+    def test_web_and_vision_use_customized_512px_installable_icons(self):
         web = json.loads((WEB / "localaiweb.webmanifest").read_text(encoding="utf-8"))
         vision = json.loads((WEB / "manifest.webmanifest").read_text(encoding="utf-8"))
-        for manifest, icon in [(web, WEB_LOGO), (vision, VISION)]:
+        for manifest, icon in [(web, "/assets/assets/custom-brand/web-pwa.png"), (vision, "/assets/assets/custom-brand/vision-pwa.png")]:
             self.assertEqual(manifest["icons"][0]["src"], icon)
             self.assertEqual(manifest["icons"][0]["type"], "image/png")
-            self.assertEqual(manifest["icons"][0]["sizes"], "724x724")
+            self.assertEqual(manifest["icons"][0]["sizes"], "512x512")
             self.assertEqual(manifest["icons"][0]["purpose"], "any")
 
     def test_public_vision_only_two_text_only_teal_menu_actions(self):

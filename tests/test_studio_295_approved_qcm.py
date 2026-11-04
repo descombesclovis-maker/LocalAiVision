@@ -120,7 +120,7 @@ class ApprovedQcmV1(TestCase):
     def test_vision_uses_real_results_only_and_never_modifies_adult_ui(self):
         js=(WEB/"studio-qcm-vision.js").read_text(encoding="utf-8")
         css=(WEB/"studio-qcm-vision.css").read_text(encoding="utf-8")
-        self.assertIn("messages.querySelectorAll('.generation-frame .result-media')",js)
+        self.assertIn("messages.querySelectorAll('.vision-output-ref,.vision-output-pending,.generation-frame .result-media')",js)
         self.assertIn("isAdult()",js)
         self.assertIn("viewer.hidden=true;clear();return",js)
         self.assertIn("body.nsfw-active .qcm-vision-viewer",css)
