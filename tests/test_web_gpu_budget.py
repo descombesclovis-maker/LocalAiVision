@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class WebGpuBudgetTests(unittest.TestCase):
     def test_parent_sends_preview_only_budget_from_live_media_state(self):
         source = (ROOT / "local_app/web/studio-activity.js").read_text(encoding="utf-8")
-        self.assertIn("Number(data?.media?.count||0)>0", source)
+        self.assertIn("Number(media.running||0)>0||Number(media.preparing||0)>0", source)
         self.assertIn("document.body.dataset.studioPage!=='editor'", source)
         self.assertIn("type:'localaiweb-resource-budget',mediaBusy", source)
         self.assertIn("location.origin", source)
