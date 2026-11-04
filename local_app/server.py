@@ -411,7 +411,8 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "3.1.0"
+VERSION = "3.1.6"
+PRODUCT_BUILD = "316"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -436,7 +437,7 @@ _STYLE_PATTERNS = (
 
 
 def build_info():
-    info = {'version': VERSION, 'build_tag': 'source', 'commit': '', 'run_number': 0}
+    info = {'version': VERSION, 'product_build': PRODUCT_BUILD, 'build_tag': 'source', 'commit': '', 'run_number': 0}
     try:
         saved = json.loads(BUILD_INFO_PATH.read_text(encoding='utf-8-sig'))
         if isinstance(saved, dict):
@@ -1923,6 +1924,14 @@ def run_generation(body):
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
                 results.append(result)
+                if 'original_prompt' in body and settings.get('reserved_profile') != 'nsfw':
+                    try:
+                        from local_app import generation_provenance
+                        generation_provenance.submitted(DATA, result['prompt_id'], build=build_info(),
+                            workflow=wf, graph=current, original_prompt=body.get('original_prompt', source_prompt),
+                            effective_prompt=prompt, negative=negative, settings=settings)
+                    except (OSError, ValueError, TypeError) as trace_error:
+                        warnings.append('Rendu accepté, mais sa provenance n’a pas pu être enregistrée : ' + str(trace_error))
             except Exception as exc:
                 if not results:
                     raise
@@ -2111,6 +2120,12 @@ def history(prompt_id):
     if prompt_id in result:
         from local_app import comfy_progress
         info=result[prompt_id]
+        from local_app import generation_provenance
+        try:
+            if generation_provenance.complete(DATA, prompt_id, info):
+                info['provenance_url'] = '/api/studio/media/provenance?id=' + quote(prompt_id)
+        except (OSError, ValueError, TypeError) as exc:
+            info['provenance_error'] = str(exc)
         failed=info.get("status",{}).get("status_str") in ("error","failed")
         comfy_progress.mark(prompt_id,"error" if failed else "done")
     if prompt_id not in result:
@@ -2330,7 +2345,17 @@ class Handler(BaseHTTPRequestHandler):
                 filename=q.get("filename",[""])[0]; sub=q.get("subfolder",[""])[0]; typ=q.get("type",["output"])[0]
                 params=f"?filename={quote(filename)}&subfolder={quote(sub)}&type={quote(typ)}"
                 with urlopen(COMFY+"/view"+params,timeout=60) as r:
-                    self.send_bytes(r.read(),r.headers.get_content_type())
+                    raw = r.read()
+                    pid = q.get('provenance_id',[''])[0]
+                    if pid:
+                        try:
+                            from local_app import generation_provenance
+                            generation_provenance.record_output_bytes(DATA,pid,filename,sub,raw)
+                        except (OSError,ValueError):
+                            # The media stays available; its trace keeps an explicit
+                            # not_measured hash instead of claiming a checksum.
+                            pass
+                    self.send_bytes(raw,r.headers.get_content_type())
             except Exception as e: self.send_json({"error":str(e)},502)
             return
         if u.path == "/api/web/capabilities":
@@ -2505,6 +2530,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/api/studio/activity":
             self.send_json(_studio_activity_status())
+            return
+        if u.path == "/api/studio/media/provenance":
+            try:
+                from local_app import generation_provenance
+                pid = parse_qs(u.query).get('id',[''])[0]
+                self.send_json(generation_provenance.read(DATA,pid))
+            except (OSError,ValueError):
+                self.send_json({'error':'Provenance publique introuvable.'},404)
             return
         if u.path == "/api/studio/media/jobs":
             try: self.send_json(studio_media_jobs())
