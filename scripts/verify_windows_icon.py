@@ -167,18 +167,25 @@ def main():
                 rect=W.RECT();origin=W.POINT(0,0)
                 user.GetClientRect(hwnd,ctypes.byref(rect));user.ClientToScreen(hwnd,ctypes.byref(origin))
                 capture=ImageGrab.grab(bbox=(origin.x,origin.y,origin.x+rect.right,origin.y+rect.bottom))
-                stats=ImageStat.Stat(capture.convert('L'))
-                if stats.mean[0]>2 and stats.stddev[0]>8:
+                luma=capture.convert('L')
+                stats=ImageStat.Stat(luma)
+                visible_fraction=sum(luma.histogram()[40:])/max(1,capture.width*capture.height)
+                # The window background is near-black (#090909); its fill and
+                # anti-aliased edges must not count as a successfully painted UI.
+                if stats.mean[0]>2 and stats.stddev[0]>8 and visible_fraction>=0.02:
                     painted=True;capture.save(output/'native-window-content.png');break
                 time.sleep(.5)
             if not painted:
                 capture.save(output/'native-window-blank.png')
                 raise RuntimeError('The native window icon is correct, but its WebView content stayed blank.')
-            results['checks']['native-content-painted']={'passed':True,'luma_mean':stats.mean[0],'luma_stddev':stats.stddev[0]}
+            results['checks']['native-content-painted']={'passed':True,'luma_mean':stats.mean[0],'luma_stddev':stats.stddev[0],'visible_fraction_over_40':visible_fraction}
             ImageGrab.grab(all_screens=True).save(output/'windows-desktop.png')
             results['checks']['native-desktop-capture']={'passed':True}
         finally:
             subprocess.run(['taskkill','/PID',str(proc.pid),'/T','/F'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+            startup_log=Path(env['LOCALVISIONAI_DATA'])/'logs'/'startup.log'
+            if startup_log.is_file():
+                (output/'native-startup.log').write_text(startup_log.read_text(encoding='utf-8',errors='replace'),encoding='utf-8')
     (output/'results.json').write_text(json.dumps(results,indent=2),encoding='utf-8')
     print(json.dumps(results,indent=2))
 
