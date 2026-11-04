@@ -82,7 +82,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.match(await second.locator('.art-caption').innerText(),/illustrative/);
    await page.screenshot({path:path.join(output,'project-context-and-photos.png')});
   });
-  await check('Only active or preparing media work throttles the embedded 3D preview',async()=>{
+  await check('Editor preview bridge sends queued and active media budgets with same-origin events',async()=>{
    let media={count:2,running:0,queued:2,preparing:0};
    const activitySnapshots=[];
    await page.route('**/api/studio/activity',route=>{activitySnapshots.push({...media});return route.fulfill({status:200,
@@ -94,8 +94,10 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.match(await frame.evaluate(element=>element.contentWindow.location.pathname),/^\/web-preview\//);
    await frame.evaluate(element=>{
     element.contentWindow.__resourceBudgetMessages=[];
+    element.contentWindow.__resourceBudgetEvents=[];
     element.contentWindow.addEventListener('message',event=>{
      element.contentWindow.__resourceBudgetMessages.push(event.data);
+     element.contentWindow.__resourceBudgetEvents.push({origin:event.origin,sourceIsParent:event.source===element.contentWindow.parent});
     });
    });
    await page.evaluate(()=>window.StudioActivity.refresh());
@@ -118,7 +120,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
     'The activity route never served an active-render state: '+JSON.stringify(activitySnapshots));
    assert.deepEqual(activeMessage,{type:'localaiweb-resource-budget',mediaBusy:true},
     'The editor preview did not receive the active-render state; activity samples: '+JSON.stringify(activitySnapshots));
-   assert.equal(await frame.evaluate(element=>element.contentWindow.location.origin),new URL(base).origin);
+   assert.deepEqual(await frame.evaluate(element=>element.contentWindow.__resourceBudgetEvents.at(-1)),
+    {origin:new URL(base).origin,sourceIsParent:true},'Budget events must come from the same-origin editor parent');
   });
   await check('Named confirmation, cancellation and deletion target only the selected identifier',async()=>{
    await first.locator('summary').click();await first.getByRole('button',{name:'Supprimer le projet',exact:true}).click();
