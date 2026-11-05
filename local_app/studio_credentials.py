@@ -30,10 +30,22 @@ class _Blob(ctypes.Structure):
 
 
 def _location() -> Path:
-    base = os.environ.get("LOCALVISIONAI_DATA") or str(
-        Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "LocalVisionAI"
-    )
-    return Path(base) / "connections" / _FILENAME
+    # Never eagerly evaluate Path.home(): tests and minimal Windows processes
+    # may not provide HOME/USERPROFILE, even when LOCALAPPDATA is available.
+    data_dir = os.environ.get("LOCALVISIONAI_DATA")
+    if data_dir:
+        root = Path(data_dir)
+    elif os.environ.get("LOCALAPPDATA"):
+        root = Path(os.environ["LOCALAPPDATA"]) / "LocalVisionAI"
+    else:
+        try:
+            root = Path.home() / "LocalVisionAI"
+        except RuntimeError:
+            # An artificial environment with no user profile is not a valid
+            # location for persistent credentials. Read as unconfigured and
+            # refuse saving until the user profile is available.
+            raise OSError("Profil utilisateur Windows indisponible.")
+    return root / "connections" / _FILENAME
 
 
 def _protect(raw: bytes, *, decrypt=False) -> bytes:
@@ -106,12 +118,18 @@ def read_key(kind: str) -> str:
     if override:
         return override
     with _LOCK:
-        return _load().get(kind, "")
+        try:
+            return _load().get(kind, "")
+        except OSError:
+            return ""
 
 
 def status() -> dict:
     with _LOCK:
-        data = _load()
+        try:
+            data = _load()
+        except OSError:
+            data = {}
         return {
             key: {"configured": bool(os.environ.get(env, "").strip() or data.get(key)),
                   "environment_override": bool(os.environ.get(env, "").strip())}
