@@ -23,19 +23,21 @@ _socket_thread = None
 _endpoint = ""
 _preview = {}
 
-def register(prompt_id, kind="video"):
+def register(prompt_id, kind="video", *, started_at=None):
     key = str(prompt_id or "")
     if not key:
         return
     with _lock:
+        if key in _jobs:
+            return  # Monitoring the same accepted task must not reset its state.
         _jobs[key] = {"prompt_id": key, "kind": kind, "state": "queued",
-                      "started_at": time.time(), "step": 0,
+                      "started_at": started_at if started_at is not None else time.time(), "step": 0,
                       "max_steps": 0, "node": None, "percent": None}
 
 def update(prompt_id, *, value=None, maximum=None, node=None, state=None):
     with _lock:
         job = _jobs.get(str(prompt_id or ""))
-        if job is None:
+        if job is None or job['state'] in ('done','cancelled','error'):
             return
         if state:
             job["state"] = state
@@ -53,6 +55,8 @@ def update(prompt_id, *, value=None, maximum=None, node=None, state=None):
 def mark(prompt_id, state):
     with _lock:
         if prompt_id in _jobs:
+            if _jobs[prompt_id]['state'] in ('done','cancelled','error'):
+                return  # Ignore late progress/history events after a terminal receipt.
             _jobs[prompt_id]["state"] = state
             if state in ("done","cancelled","error"):
                 _preview.pop(prompt_id,None)

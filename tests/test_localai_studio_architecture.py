@@ -157,12 +157,13 @@ class StudioArchitectureTests(unittest.TestCase):
         script=(WEB/"studio-ads.js").read_text(encoding="utf-8")
         core=(WEB/"app.js").read_text(encoding="utf-8")
         brands=(WEB/"studio-brands.html").read_text(encoding="utf-8")
-        for control in ("studioAdOpen","studioAdDialog","studioAdBrand",
-                        "studioAdFormat","studioAdType","studioAdCreate"):
+        for control in ("studioAdOpen",):
             self.assertIn('id="'+control+'"',vision)
         for control in ("brandName","brandLogo","brandSave","brandList"):
             self.assertIn('id="'+control+'"',brands)
-        self.assertIn("window.StudioAds={enhancePrompt,finishMedia,getBrands}",script)
+        self.assertIn("window.StudioAds={enhancePrompt,finishMedia,getBrands,activeAspect,endGeneration,handleDraftMessage,startChat,cancelChat}",script)
+        self.assertIn("StudioAds?.handleDraftMessage?.(text)",core)
+        self.assertNotIn('id="studioAdDialog"',vision)
         self.assertIn("window.onStudioAdvert=",core)
         self.assertIn("x.ad_url||'/api/view",core)
         self.assertIn("onStudioAdvertError",core)

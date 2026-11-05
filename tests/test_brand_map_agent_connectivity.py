@@ -23,7 +23,7 @@ class BrandMapAgentTests(unittest.TestCase):
         main=(WEB/"index.html").read_text(encoding="utf-8")
         hub=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
         self.assertIn('src="/assets/brand-vision.svg"',main)
-        self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',hub)
+        self.assertIn('src="/assets/assets/custom-brand/web-animated.svg"',hub)
         self.assertNotIn('src="/assets/brand-identity.svg"',hub)
 
     def test_composer_and_responsive_layout_not_absolute_clipped(self):
@@ -61,7 +61,7 @@ class BrandMapAgentTests(unittest.TestCase):
         editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")
         hub=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
         self.assertIn("selectedProvider()",source)
-        self.assertIn("/api/web/capabilities",source)
+        self.assertIn("/api/web/agent/status?provider=",source)
         self.assertIn("/api/web/integrations/connect",source)
         self.assertIn('id="connectAgent"',editor)
         self.assertIn('id="connectAgent"',hub)
@@ -78,9 +78,9 @@ class BrandMapAgentTests(unittest.TestCase):
         page=(WEB/"index.html").read_text(encoding="utf-8")
         js=(WEB/"studio-redesign.js").read_text(encoding="utf-8")
         self.assertIn('id="engineRecoveryButton"',page)
-        self.assertIn("byId('retrySetup')?.click()",js)
-        self.assertIn("window.confirm(",js)
-        self.assertIn("updateEngineHealth()",js)
+        self.assertIn("byId('diagnosticsAction')?.addEventListener",js)
+        self.assertNotIn("window.confirm(",js)
+        self.assertIn("byId('enginePanel')",js)
 
 if __name__=="__main__":unittest.main()
 

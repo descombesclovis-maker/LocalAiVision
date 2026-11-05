@@ -11,7 +11,7 @@
    chip.id='studioActivity';chip.className='studio-activity';
    chip.hidden=true;
    chip.innerHTML='<button id="studioActivityToggle" class="studio-activity-toggle" type="button" aria-expanded="false" aria-controls="studioActivityPanel"><span class="studio-activity-spinner" aria-hidden="true"></span><span class="studio-activity-copy">Création d’un site…</span><span class="studio-activity-count"></span></button><div id="studioActivityPanel" class="studio-activity-panel" hidden></div>';
-   document.body.append(chip);
+   (document.querySelector('body[data-studio-page="vision"] .topbar-actions')||document.querySelector('.law-global-header')||document.body).append(chip);
    panel=chip.querySelector('#studioActivityPanel');
    chip.querySelector('#studioActivityToggle').addEventListener('click',()=>{
      expanded=!expanded;panel.hidden=!expanded;chip.querySelector('#studioActivityToggle').setAttribute('aria-expanded',String(expanded));
@@ -55,8 +55,8 @@
    chip.classList.toggle('has-media',mediaCount>0);
    if(!jobs.length&&!mediaCount){
      if(previous.size){
-       copy.textContent=media.unavailable?'État du moteur indisponible':previous.has('vision')?'Génération terminée':'Création terminée · Voir le projet';
-       count.textContent='✓';
+       copy.textContent=media.unavailable?'État du moteur indisponible':previous.has('vision')?'Vérifier le résultat dans Mes créations':'Vérifier l’état du projet';
+       count.textContent='';
        chip.hidden=false;
        const first=Array.from(previous.values())[0];
        if(safeId(first?.id))toggle.onclick=()=>{window.location.assign(dest(first.id));};
@@ -69,6 +69,7 @@
    }
    toggle.onclick=null;
    chip.hidden=false;
+   window.StudioProgress?.render(chip.querySelector('.studio-activity-spinner'),jobs[0]||{},{web:!mediaCount});
    previous=new Map(jobs.map(job=>[job.id,job]));
    if(mediaCount)previous.set('vision',{id:'vision'});
    copy.textContent=mediaCount&&!jobs.length?'Génération photo / vidéo en cours…':
@@ -101,7 +102,16 @@
      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
      try{
        const response=await fetch('/api/studio/activity',{cache:'no-store',signal:controller.signal});
-       if(response.ok)paint(await response.json());
+       if(response.ok){
+        const data=await response.json();paint(data);
+        if(data.media?.count&&!document.body.classList.contains('nsfw-active')){
+          const response=await fetch('/api/studio/media/jobs',{cache:'no-store',signal:controller.signal});
+          if(response.ok){const result=await response.json();const job=result.jobs?.[0]||{};
+            window.StudioProgress?.render(chip.querySelector('.studio-activity-spinner'),job);
+            document.dispatchEvent(new CustomEvent('studio:media-progress',{detail:{jobs:result.jobs||[]}}));
+          }
+        }
+       }
      }finally{clearTimeout(timeout)}
    }catch{}finally{requesting=false}
  }

@@ -1,5 +1,19 @@
 /* QCM V1 home: real latest Web projects, settings and update status. */
 (()=>{'use strict';
+ const brandButton=document.getElementById('homeBrandChoose');
+ const showBrand=brand=>{
+   if(!brand)return;
+   document.getElementById('homeBrandName').textContent=brand.name;
+   document.getElementById('homeBrandDescription').textContent=brand.sector||brand.description||'Votre identité de marque active';
+   const logo=document.getElementById('homeBrandLogo');logo.src=brand.logo_url||'/assets/assets/custom-brand/studio-animated.svg';logo.alt='Logo '+brand.name;
+   const card=document.querySelector('.brand-universe');
+   if(/^#[0-9a-f]{6}$/i.test(brand.primary_color)&&/^#[0-9a-f]{6}$/i.test(brand.secondary_color))card.style.background='linear-gradient(115deg,'+brand.primary_color+','+brand.secondary_color+')';
+   brandButton.textContent='Changer de marque';
+ };
+ if(brandButton){
+   window.StudioBrandPicker.all().then(rows=>showBrand(rows.find(b=>b.id===window.StudioBrandPicker.selected()))).catch(()=>{});
+   brandButton.addEventListener('click',async()=>{const b=await window.StudioBrandPicker.choose(window.StudioBrandPicker.selected());if(b){window.StudioBrandPicker.activate(b);showBrand(b)}});
+ }
  const recent=document.getElementById('qcmHomeRecent');
  if(recent){
    fetch('/api/web/projects',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('API');return r.json()})

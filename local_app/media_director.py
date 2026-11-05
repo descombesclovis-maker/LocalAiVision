@@ -127,3 +127,19 @@ def enhance_video_continuity(prompt: str, negative: str | None, kind: str, techn
     original_negative=str(negative or "").strip()
     neg=original_negative if VIDEO_NEGATIVE_HINT in original_negative else (original_negative+", "+VIDEO_NEGATIVE_HINT).strip(", ")
     return result,neg
+
+
+def public_plan(prompt, workflow_kind, current=None):
+    """Public defaults, applied before text overrides. Private callers use plan().
+
+    49 latent frames at 12 FPS previously yielded 4.08 s despite a 3 s workflow.
+    Keep a 16 FPS time base and explicitly derive frames from the public duration.
+    This is timing consistency, not a claim of improved motion quality.
+    """
+    settings=dict(current or {})
+    if workflow_kind in ("hunyuan15", "hunyuan15-i2v-step"):
+        if settings.get("fps") is None:
+            settings["fps"]=16
+        if settings.get("duration") is None:
+            settings["duration"]=3
+    return plan(prompt, workflow_kind, settings)

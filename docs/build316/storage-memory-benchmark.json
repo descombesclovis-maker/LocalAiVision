@@ -1,0 +1,23 @@
+{
+  "scope": "Linux synthetic storage benchmark; Python allocations, not process RSS, RAM/VRAM or GPU performance.",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "media_bytes": 33554432,
+  "before_commit": "48a6f8d8dccd8e35bac38e0ac644ebf1ec39d0e3",
+  "before_function_sha256": "42faecea3ddb6d1b6d297f931dd4a8b0d6e10d078aa608f5782fa463bf5ab47f",
+  "after_source_sha256": "17c2a3d37f670727936c9cc2e5e0189c4e687c52352634428096fb4c3ba78cf4",
+  "runs": [
+    {
+      "variant": "before_streaming",
+      "elapsed_seconds": 1.5827,
+      "python_allocations_peak_bytes": 114942291,
+      "snapshot_created": true
+    },
+    {
+      "variant": "after_streaming",
+      "elapsed_seconds": 1.0913,
+      "python_allocations_peak_bytes": 3800400,
+      "snapshot_created": true
+    }
+  ]
+}

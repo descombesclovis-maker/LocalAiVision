@@ -1,6 +1,7 @@
 {
-  "version": "3.1.0",
+  "version": "3.1.6",
   "build_tag": "source",
   "commit": "source",
-  "run_number": 0
+  "run_number": 0,
+  "product_build": "316"
 }

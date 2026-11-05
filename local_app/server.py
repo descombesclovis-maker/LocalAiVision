@@ -9,6 +9,7 @@ try:
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
+from local_app import private_access, media_journal
 from local_app import web_sales_orders
 web_sales_orders.isolate_config()
 _sales_attempts = []
@@ -118,6 +119,11 @@ def _web_generation_status(project_id):
         result["preview_ready"] = False
     return result
 
+def web_delivery_report(store,pid):
+    from local_app import web_delivery
+    return web_delivery.current(store,pid)
+
+
 def _sales_ready(meta, generation):
     quality=meta.get("last_agent_quality") or {}
     finished=(generation["state"]=="done" or
@@ -162,6 +168,10 @@ def _sales_dossier(pid, change=None):
             raise ValueError("Le site a changé depuis la publication. Refaire la recette.")
         if meta.get("project_kind")=="pro" and not current["release"]:
             raise ValueError("Publication de cette version à vérifier dans le dossier.")
+        from local_app import web_delivery
+        delivery_report = web_delivery.current(store,pid)
+        if not delivery_report.get('ready_to_deliver'):
+            raise ValueError('Livraison non validée : ' + ', '.join(delivery_report.get('blocking_reasons',[])))
         change={"action":"verified_handover","evidence":web_sales_delivery.verify(store,pid)}
     elif change and change.get("action")=="verified_handover":
         raise ValueError("Action interne.")
@@ -257,6 +267,8 @@ _media_requests={}
 def _media_request_get(ticket):
     with _media_request_lock:
         row=_media_requests.get(str(ticket or ""))
+        if row is None:
+            row=media_journal.load(DATA,str(ticket or ''))
         return dict(row) if row else None
 
 def _media_request_pending():
@@ -279,6 +291,7 @@ def _media_request_worker(ticket,body):
                 record.update(state="cancelled" if cancelled else "queued",
                               prompt_ids=ids,warnings=answer.get("warnings",[]),
                               finished_at=time.time())
+                media_journal.save(DATA,record)
         if cancelled:
             for pid in ids:
                 try: cancel_studio_media(pid)
@@ -289,6 +302,7 @@ def _media_request_worker(ticket,body):
             if record:
                 record.update(state="cancelled" if record.get("cancel_requested") else "error",
                               error=str(exc)[:650],finished_at=time.time())
+                media_journal.save(DATA,record)
 
 def _media_request_start(body):
     if not isinstance(body,dict) or not body.get("workflow") or not str(body.get("prompt") or "").strip():
@@ -297,9 +311,15 @@ def _media_request_start(body):
     profile=str(body.get("workflow") or "").lower()
     kind="video" if any(t in profile for t in ("video","wan","weaving","t2v","i2v")) else "image"
     with _media_request_lock:
-        _media_requests[ticket]={"ticket":ticket,"state":"preparing",
-                                 "kind":kind,"phase":"Préparation du moteur et du modèle…",
-                                 "started_at":time.time(),"cancel_requested":False}
+        record={"ticket":ticket,"state":"preparing",
+                "kind":kind,"phase":"Préparation du moteur et du modèle…",
+                "started_at":time.time(),"cancel_requested":False,
+                "private":(body.get("settings") or {}).get("reserved_profile")=="nsfw"}
+        saved,created=media_journal.reserve(DATA,body,record)
+        if not created:
+            existing=_media_request_get(saved['ticket']) or saved
+            return {"ok":True,"ticket":saved['ticket'],"state":existing['state'],"already_submitted":True}
+        _media_requests[ticket]=saved
     threading.Thread(target=_media_request_worker,args=(ticket,body),
                      name="LocalAiVisionPrepare-"+ticket[-8:],daemon=True).start()
     return {"ok":True,"ticket":ticket,"state":"preparing"}
@@ -311,6 +331,7 @@ def cancel_media_preparation(ticket):
             raise ValueError("Préparation terminée ou introuvable.")
         record["cancel_requested"]=True
         record.update(state="cancelled",finished_at=time.time())
+        media_journal.save(DATA,record)
     return {"ok":True,"cancelled":str(ticket),"message":"Annulation demandée. La préparation déjà lancée peut se terminer sans créer de vidéo."}
 
 _studio_media_status_cache={"at":0.0,"value":{"count":0,"running":0,"queued":0}}
@@ -411,7 +432,8 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "3.1.0"
+VERSION = "3.1.6"
+PRODUCT_BUILD = "316"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -436,7 +458,7 @@ _STYLE_PATTERNS = (
 
 
 def build_info():
-    info = {'version': VERSION, 'build_tag': 'source', 'commit': '', 'run_number': 0}
+    info = {'version': VERSION, 'product_build': PRODUCT_BUILD, 'build_tag': 'source', 'commit': '', 'run_number': 0}
     try:
         saved = json.loads(BUILD_INFO_PATH.read_text(encoding='utf-8-sig'))
         if isinstance(saved, dict):
@@ -1049,16 +1071,16 @@ def prepare_visual_request(prompt, selected_style='none', negative=None, reserve
 
     if technical_quality:
         if effective_style == 'photo':
-            quality = 'high detail, coherent anatomy, accurate hands, realistic texture, natural lighting, sharp focus, clean edges, low artifacts'
+            quality = 'natural photographic detail, realistic material texture, physically plausible lighting, natural sharpness, clean edges, low artifacts'
         elif effective_style in ('illustration', 'comic', 'watercolor'):
-            quality = 'high detail, coherent anatomy, accurate hands, clean linework, consistent shapes, sharp focus, low artifacts'
+            quality = 'high detail, clean linework, consistent shapes, sharp focus, low artifacts'
         else:
-            quality = 'high detail, coherent anatomy, accurate hands, clean edges, sharp focus, consistent shapes, low artifacts'
+            quality = 'high detail, clean edges, natural sharpness, consistent shapes, low artifacts'
         prepared += '\n\nTechnical quality only: ' + quality + '.'
 
     neg = negative
     if technical_quality and not (negative or '').strip():
-        neg = 'lowres, blurry, compression artifacts, watermark, unwanted text, malformed hands, fused fingers, extra fingers, missing fingers, extra limbs, duplicate limbs, broken anatomy, rendering artifacts'
+        neg = 'lowres, blurry, compression artifacts, watermark, unwanted text, rendering artifacts'
     return prepared, neg, effective_style
 
 def http_json(url, method="GET", payload=None, timeout=20, headers=None):
@@ -1872,7 +1894,8 @@ def run_generation(body):
         # workflow; never silently generate a 3-second low-res draft from a
         # 10-second request. User-specified values take priority over defaults.
         from local_app import media_director
-        settings = media_director.plan(source_prompt, workflows.profile(api), settings)
+        planner = media_director.plan if settings.get("reserved_profile") == "nsfw" else media_director.public_plan
+        settings = planner(source_prompt, workflows.profile(api), settings)
         source_negative = body.get('negative')
         if settings.get('prompt_translation'):
             _ensure_chat_components()
@@ -1919,10 +1942,25 @@ def run_generation(body):
                     record=_media_request_get(ticket)
                     if not record or record.get("cancel_requested"):
                         raise RuntimeError("Génération annulée avant son lancement.")
+                if settings.get('reserved_profile') == 'nsfw':
+                    submission_token=private_access.begin_submission(DATA)
                 result = queue_prompt(current)
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
                 results.append(result)
+                if settings.get('reserved_profile') == 'nsfw':
+                    private_access.register_job(DATA,result['prompt_id'])
+                    private_access.finish_submission(DATA,submission_token)
+                if ticket:
+                    media_journal.accepted(DATA,ticket,result['prompt_id'])
+                if 'original_prompt' in body and settings.get('reserved_profile') != 'nsfw':
+                    try:
+                        from local_app import generation_provenance
+                        generation_provenance.submitted(DATA, result['prompt_id'], build=build_info(),
+                            workflow=wf, graph=current, original_prompt=body.get('original_prompt', source_prompt),
+                            effective_prompt=prompt, negative=negative, settings=settings)
+                    except (OSError, ValueError, TypeError) as trace_error:
+                        warnings.append('Rendu accepté, mais sa provenance n’a pas pu être enregistrée : ' + str(trace_error))
             except Exception as exc:
                 if not results:
                     raise
@@ -2040,8 +2078,25 @@ def queue_prompt(api):
         comfy_progress.register(result["prompt_id"],"video" if video else "image")
     return result
 
+def _confirmed_render_state(info):
+    """An existing history row may still be partial; require engine evidence."""
+    status = info.get('status') or {}
+    messages = status.get('messages') or []
+    if any(isinstance(message, (list, tuple)) and message and
+           message[0] == 'execution_interrupted' for message in messages):
+        return 'cancelled'
+    if status.get('status_str') in ('error', 'failed'):
+        return 'error'
+    if status.get('completed'):
+        return 'done'
+    return None
+
+
 def studio_media_jobs():
     from local_app import comfy_progress
+    for recovered in media_journal.monitorable(DATA):
+        if comfy_progress.status(recovered['prompt_id']) is None:
+            comfy_progress.register(recovered['prompt_id'],recovered['kind'],started_at=recovered.get('started_at'))
     records=comfy_progress.statuses()
     if not records and not _media_request_pending():
         return {"jobs":[],"count":0}
@@ -2061,6 +2116,9 @@ def studio_media_jobs():
     for item in records:
         pid=item["prompt_id"]
         if item["state"] in ("done","cancelled","error"):
+            # WebSocket failures/interruption can precede an HTTP history poll.
+            # Persist them before dropping the in-memory task from the drawer.
+            media_journal.render_finished(DATA,pid,item["state"])
             continue
         if running is None:
             item["phase"]="Connexion ComfyUI indisponible"
@@ -2074,9 +2132,10 @@ def studio_media_jobs():
         else:
             try:
                 result=comfy_get("/history/"+quote(pid))
-                if pid in result:
-                    is_error=result[pid].get("status",{}).get("status_str") in ("error","failed")
-                    comfy_progress.mark(pid,"error" if is_error else "done")
+                state = _confirmed_render_state(result[pid]) if pid in result else None
+                if state:
+                    comfy_progress.mark(pid,state)
+                    media_journal.render_finished(DATA,pid,state)
                     continue
             except (OSError,ValueError,TypeError):
                 pass
@@ -2102,6 +2161,7 @@ def cancel_studio_media(prompt_id):
     else:
         raise ValueError("Tâche non présente dans la file ComfyUI. Son état a peut-être changé.")
     comfy_progress.mark(pid,"cancelled")
+    media_journal.render_finished(DATA,pid,"cancelled")
     _studio_media_status_cache["at"]=0
     return {"ok":True,"cancelled":pid}
 
@@ -2111,8 +2171,18 @@ def history(prompt_id):
     if prompt_id in result:
         from local_app import comfy_progress
         info=result[prompt_id]
-        failed=info.get("status",{}).get("status_str") in ("error","failed")
-        comfy_progress.mark(prompt_id,"error" if failed else "done")
+        if private_access.private_job(DATA,prompt_id):
+            private_access.register_outputs(DATA,prompt_id,info)
+        from local_app import generation_provenance
+        try:
+            if generation_provenance.complete(DATA, prompt_id, info):
+                info['provenance_url'] = '/api/studio/media/provenance?id=' + quote(prompt_id)
+        except (OSError, ValueError, TypeError) as exc:
+            info['provenance_error'] = str(exc)
+        state = _confirmed_render_state(info)
+        if state:
+            comfy_progress.mark(prompt_id,state)
+            media_journal.render_finished(DATA,prompt_id,state)
     if prompt_id not in result:
         queue = comfy_get('/queue')
         active = queue.get('queue_running', []) + queue.get('queue_pending', [])
@@ -2133,7 +2203,7 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def send_json(self, data, status=200):
+    def send_json(self, data, status=200, headers=None):
         raw = json.dumps(data, ensure_ascii=False).encode()
         try:
             self.send_response(status)
@@ -2142,6 +2212,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("X-Content-Type-Options","nosniff")
             self.send_header("Content-Length",str(len(raw)))
             self.send_header("Cache-Control","no-store")
+            for key,value in (headers or {}).items():self.send_header(key,value)
             self.end_headers()
             self._write_response(raw)
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
@@ -2182,12 +2253,14 @@ class Handler(BaseHTTPRequestHandler):
         assets={"/assets/"+name for name in ("localaiweb-sales.js","localaiweb-sales.css",
             "studio-suite.css","localaiweb-mobile.css","studio-ui-polish.css","studio-activity.css",
             "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg",
-            "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js")}
-        routes={"/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
+            "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js",
+            "client-delivery.js","client-delivery.css")}
+        assets.add("/assets/assets/custom-brand/web-animated.svg")
+        routes={"/localaiweb/livraisons","/localaiweb/clients","/api/web/projects","/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
             "/api/web/project/pro/authorize","/api/web/vercel/publish","/api/web/domain/attach",
             "/api/web/invoice/issue","/api/web/invoice/file","/api/web/crm/quote/create",
             "/api/web/crm/quote/file","/api/studio/activity"}
-        if path in routes or path in assets or path.startswith("/api/web/sales/"):
+        if path in routes or path in assets or path.startswith("/api/web/sales/") or path.startswith("/api/web/delivery/"):
             return True
         self.send_json({"error":"Route indisponible sur le dossier commercial."},403)
         return False
@@ -2229,13 +2302,43 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _private_authorized(self):
+        return private_access.session(self.headers.get('Cookie','')) is not None
+
+    def _require_private(self):
+        if self._private_authorized():return True
+        self.send_json({'error':'Session privée requise ou expirée.'},403)
+        return False
+
+    def _private_job_allowed(self,pid):
+        try:
+            if private_access.uncertain_submission(DATA) or private_access.private_job(DATA,pid):return self._require_private()
+            return True
+        except (OSError,ValueError):
+            self.send_json({'error':'Index privé indisponible ; accès refusé.'},503)
+            return False
+
+    def _private_file_allowed(self,filename,subfolder='',kind='output'):
+        try:
+            if private_access.uncertain_submission(DATA):return self._require_private()
+            # Resolve outputs before serving them, even if the private tab has
+            # not polled its completion yet. Do not expose private history.
+            for pid in private_access.pending_jobs(DATA):
+                data=comfy_get('/history/'+quote(pid))
+                if pid in data:private_access.register_outputs(DATA,pid,data[pid])
+            if private_access.private_file(DATA,filename,subfolder,kind):return self._require_private()
+            return True
+        except (OSError,ValueError):
+            self.send_json({'error':'Confidentialité du média non vérifiable ; accès refusé.'},503)
+            return False
+
     def do_GET(self):
         u = urlparse(self.path)
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
-        if u.path=="/localaiweb/vente" and self._sales_host() in ("127.0.0.1","localhost"):
+        if u.path in ("/localaiweb/vente","/localaiweb/clients","/localaiweb/livraisons") and self._sales_host() in ("127.0.0.1","localhost"):
             self.send_response(302)
-            self.send_header("Location",f"http://ventes.localhost:{self.server.server_port}/localaiweb/vente?"+u.query)
+            self.send_header("Location",f"http://ventes.localhost:{self.server.server_port}/localaiweb/livraisons?"+u.query)
             self.send_header("Cache-Control","no-store")
             self.end_headers()
             return
@@ -2321,6 +2424,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path.startswith("/api/history/"):
             pid = u.path.split("/",3)[3]
+            if not self._private_job_allowed(pid):return
             try: self.send_json(history(pid))
             except Exception as e: self.send_json({"error":str(e)},502)
             return
@@ -2328,10 +2432,25 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(u.query)
             try:
                 filename=q.get("filename",[""])[0]; sub=q.get("subfolder",[""])[0]; typ=q.get("type",["output"])[0]
+                if not self._private_file_allowed(filename,sub,typ):return
                 params=f"?filename={quote(filename)}&subfolder={quote(sub)}&type={quote(typ)}"
                 with urlopen(COMFY+"/view"+params,timeout=60) as r:
-                    self.send_bytes(r.read(),r.headers.get_content_type())
+                    raw = r.read()
+                    pid = q.get('provenance_id',[''])[0]
+                    if pid:
+                        try:
+                            from local_app import generation_provenance
+                            generation_provenance.record_output_bytes(DATA,pid,filename,sub,raw,typ)
+                        except (OSError,ValueError):
+                            # The media stays available; its trace keeps an explicit
+                            # not_measured hash instead of claiming a checksum.
+                            pass
+                    self.send_bytes(raw,r.headers.get_content_type())
             except Exception as e: self.send_json({"error":str(e)},502)
+            return
+        if u.path == "/api/web/agent/status":
+            provider = parse_qs(u.query).get("provider", ["codex"])[0]
+            self.send_json({"integrations": integrations_cli.coding_agent_status(provider)})
             return
         if u.path == "/api/web/capabilities":
             online, _detail = comfy_online()
@@ -2401,6 +2520,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(web_prospects.daily())
             except Exception as exc:
                 self.send_json({"error":str(exc)},503)
+            return
+        if u.path == "/api/studio/settings/status":
+            try:
+                from local_app import studio_credentials
+                self.send_json({"ok":True,"maps":studio_credentials.status(),
+                    "agents":integrations_cli.status(False)})
+            except (OSError,ValueError,RuntimeError) as exc:
+                self.send_json({"error":"État des connexions indisponible : "+str(exc)},503)
             return
         if u.path == "/api/web/map/config":
             from local_app import web_google_maps
@@ -2503,28 +2630,49 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
+        if u.path == "/api/private/session":
+            self.send_json(private_access.session(self.headers.get('Cookie','')) or {'authenticated':False})
+            return
         if u.path == "/api/studio/activity":
             self.send_json(_studio_activity_status())
             return
+        if u.path == "/api/studio/media/provenance":
+            try:
+                from local_app import generation_provenance
+                pid = parse_qs(u.query).get('id',[''])[0]
+                self.send_json(generation_provenance.read(DATA,pid))
+            except (OSError,ValueError):
+                self.send_json({'error':'Provenance publique introuvable.'},404)
+            return
         if u.path == "/api/studio/media/jobs":
-            try: self.send_json(studio_media_jobs())
+            try:
+                result=studio_media_jobs()
+                if not self._private_authorized():
+                    result['jobs']=[row for row in result['jobs'] if not private_access.uncertain_submission(DATA)
+                                    and not private_access.private_job(DATA,row.get('prompt_id'))
+                                    and not (_media_request_get(row.get('request_ticket')) or {}).get('private')]
+                    result['count']=len(result['jobs'])
+                self.send_json(result)
             except Exception as exc: self.send_json({"error":str(exc)},503)
             return
         if u.path == "/api/studio/media/request/status":
             ticket=parse_qs(u.query).get("ticket",[""])[0]
             record=_media_request_get(ticket)
-            if record: self.send_json({"request":record})
+            if record and record.get('private') and not self._require_private():return
+            if record: self.send_json({'request':record})
             else: self.send_json({"error":"Préparation inconnue ou expirée."},404)
             return
         if u.path == "/api/studio/media/job":
             from local_app import comfy_progress
             pid=parse_qs(u.query).get("id",[""])[0]
+            if not self._private_job_allowed(pid):return
             job=comfy_progress.status(pid)
             self.send_json({"job":job} if job else {"error":"Tâche inconnue."},200 if job else 404)
             return
         if u.path == "/api/studio/media/preview":
             from local_app import comfy_progress
             pid=parse_qs(u.query).get("id",[""])[0]
+            if not self._private_job_allowed(pid):return
             output=comfy_progress.get_preview(pid)
             if output is None:
                 self.send_response(404);self.end_headers()
@@ -2554,6 +2702,29 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_bytes(file.read_bytes(),"video/mp4" if file.suffix==".mp4" else "image/png")
             except (ValueError,FileNotFoundError):
                 self.send_json({"error":"Publicité introuvable."},404)
+            return
+        if u.path.startswith('/api/web/delivery/'):
+            if not self._delivery_access():return
+            try:
+                from local_app import client_delivery
+                args=parse_qs(u.query);pid=args.get('id',[''])[0]
+                root=LOCALAIWEB_DATA/'deliveries';store=_web_store()
+                if u.path=='/api/web/delivery/list':
+                    self.send_json({'dossiers':client_delivery.listing(root,store)});return
+                if u.path=='/api/web/delivery/archive':
+                    from local_app import web_crm
+                    store.meta(pid)
+                    archive=web_crm.snapshot(LOCALAIWEB_DATA/'crm',store)
+                    docs=[{'number':x['quote_number'],'download':'/api/web/crm/quote/file?number='+x['quote_number']} for x in archive['quotes'] if x.get('project_id')==pid]
+                    docs.extend({'number':x['invoice_number'],'download':'/api/web/invoice/file?number='+x['invoice_number']} for x in archive['invoices'] if x.get('project_id')==pid)
+                    self.send_json({'documents':docs});return
+                if u.path=='/api/web/delivery/dossier':
+                    self.send_json(client_delivery.snapshot(root,store,pid));return
+                if u.path=='/api/web/delivery/document':
+                    number=args.get('number',[''])[0]
+                    self.send_bytes(client_delivery.document(root,store,pid,number),'application/pdf');return
+                self.send_json({'error':'Route de livraison inconnue.'},404)
+            except (OSError,ValueError,RuntimeError) as exc:self.send_json({'error':str(exc)},400)
             return
         if u.path == "/api/web/generations/active":
             self.send_json(_web_active_generations())
@@ -2588,6 +2759,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_bytes(image.read_bytes(), "image/png")
             except Exception as e:
                 self.send_json({"error": str(e)}, 404)
+            return
+        if u.path == "/api/web/project/acceptance":
+            try:
+                from local_app import web_acceptance
+                pid=parse_qs(u.query).get('id',[''])[0]
+                store=_web_store();store.meta(pid)
+                self.send_json({'contract':web_acceptance.describe(store,pid),'delivery':web_delivery_report(store,pid)})
+            except (OSError,ValueError) as exc:self.send_json({'error':str(exc)},400)
+            return
+        if u.path == "/api/web/project/delivery":
+            try:
+                from local_app import web_delivery
+                self.send_json(web_delivery.current(_web_store(), parse_qs(u.query).get('id',[''])[0]))
+            except (OSError,ValueError):
+                self.send_json({'error':'Rapport de livraison indisponible.'},400)
             return
         if u.path == "/api/web/preview/status":
             try:
@@ -2725,13 +2911,10 @@ class Handler(BaseHTTPRequestHandler):
             p = WEB / "localaiweb-map.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
             return
-        if u.path == "/localaiweb/vente":
-            p = WEB / "localaiweb-sales.html"
-            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
-            return
-        if u.path == "/localaiweb/clients":
-            p = WEB / "localaiweb-clients.html"
-            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+        if u.path in ("/localaiweb/vente","/localaiweb/clients","/localaiweb/livraisons"):
+            if self._sales_host()!='ventes.localhost':
+                self.send_json({'error':'Ouvrir Livraison client sur le poste local.'},403);return
+            self.send_bytes((WEB/'client-delivery.html').read_bytes(),'text/html; charset=utf-8')
             return
         if u.path == "/localaiweb/editor":
             p = WEB / "localaiweb.html"
@@ -2763,6 +2946,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_bytes(data,c)
             return
         self.send_response(404); self.end_headers()
+
+    def _delivery_access(self, mutation=False):
+        # Dedicated origin never serves generated project code. Local declarations
+        # require a same-origin custom header, no financial provider action is sent.
+        if (self._sales_host()!='ventes.localhost' or self.client_address[0] not in ('127.0.0.1','::1')
+            or self.headers.get('Sec-Fetch-Site')=='cross-site'
+            or (mutation and self.headers.get('X-LocalAI-Delivery')!='1')):
+            self.send_json({'error':'Action réservée à Livraison client sur le poste local.'},403)
+            return False
+        return True
 
     def _sales_operator(self, body):
         import hmac
@@ -2876,6 +3069,8 @@ class Handler(BaseHTTPRequestHandler):
         u=urlparse(self.path)
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
+        if u.path.startswith('/api/private/') and not self._authorized_media_request():return
+        if u.path=='/api/web/project/acceptance' and not self._authorized_media_request():return
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/loras/upload":
             self._upload_existing_lora()
@@ -2886,6 +3081,31 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and not self._authorized_brand_request():
+            return
+        if u.path.startswith('/api/web/delivery/'):
+            if not self._delivery_access(mutation=True):return
+            import sqlite3
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 0<length<=100000:raise ValueError('Taille de dossier invalide.')
+                body=json.loads(self.rfile.read(length))
+                if not isinstance(body,dict):raise ValueError('Dossier invalide.')
+                from local_app import client_delivery
+                root=LOCALAIWEB_DATA/'deliveries';store=_web_store();pid=body.get('id')
+                if u.path=='/api/web/delivery/action':
+                    self.send_json(client_delivery.action(root,store,pid,body));return
+                if u.path in ('/api/web/delivery/prepare','/api/web/delivery/download'):
+                    download=u.path.endswith('/download')
+                    result=client_delivery.package(root,store,pid,body.get('revision'),download=download,expected_version=body.get('version'))
+                    if not download:self.send_json(result);return
+                    name,data=result
+                    self.send_response(200);self.send_header('Content-Type','application/zip')
+                    self.send_header('Content-Disposition','attachment; filename="'+name+'"')
+                    self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store')
+                    self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self._write_response(data);return
+                self.send_json({'error':'Action inconnue.'},404)
+            except (OSError,ValueError,RuntimeError,KeyError,TypeError,AttributeError,sqlite3.Error) as exc:
+                self.send_json({'error':str(exc)},400)
             return
         length=int(self.headers.get("Content-Length","0"))
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
@@ -2926,10 +3146,62 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 16000:
                 self.send_json({"error":"Taille de requête incorrecte."}, 400)
                 return
+        if u.path=='/api/web/project/acceptance' and not 0 < length <= 12000:
+            self.send_json({'error':'Taille incorrecte.'},413);return
+        if u.path.startswith('/api/private/') and not 0 < length <= 2_000_000:
+            self.send_json({'error':'Taille incorrecte.'},413);return
+        if u.path=="/api/studio/settings/google":
+            if self.headers.get("X-LocalAI-Settings")!="1" or not 0<length<=4096:
+                self.send_json({"error":"Action de configuration locale refusée."},403)
+                return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path=="/api/studio/settings/google":
+            try:
+                if not isinstance(body,dict):raise ValueError("Paramètres invalides.")
+                from local_app import studio_credentials
+                result=studio_credentials.modify(
+                    str(body.get("kind") or ""),str(body.get("action") or ""),str(body.get("value") or ""))
+                self.send_json({"ok":True,"maps":result})
+            except (OSError,ValueError,RuntimeError) as exc:
+                self.send_json({"error":str(exc)},400)
+            return
+        if u.path == '/api/web/project/acceptance':
+            if not 0 < length <= 12000:
+                self.send_json({'error':'Taille incorrecte.'},413);return
+            try:
+                from local_app import web_acceptance
+                pid=body.get('id');store=_web_store();store.meta(pid)
+                result=web_acceptance.record(store,pid,body)
+                self.send_json({'contract':result,'delivery':web_delivery_report(store,pid)})
+            except (OSError,ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
+            return
+        if u.path == '/api/private/unlock':
+            try:
+                token,expires=private_access.unlock(body.get('code',''))
+                self.send_json({'authenticated':True,'expires_at':expires},headers={
+                    'Set-Cookie':private_access.COOKIE+'='+token+'; HttpOnly; SameSite=Strict; Path=/'})
+            except (ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},403)
+            return
+        if u.path == '/api/private/lock':
+            private_access.revoke(self.headers.get('Cookie',''))
+            self.send_json({'authenticated':False},headers={'Set-Cookie':private_access.COOKIE+'=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'})
+            return
+        if u.path == '/api/private/index':
+            if not self._require_private():return
+            try:self.send_json({'indexed':private_access.index_legacy(DATA,body.get('files'))})
+            except (ValueError,OSError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
+            return
+        if isinstance(body,dict):
+            if u.path in ('/api/studio/media/start','/api/generate') and (body.get('settings') or {}).get('reserved_profile')=='nsfw':
+                if not self._require_private():return
+            if body.get('filename') and not self._private_file_allowed(body['filename'],body.get('subfolder',''),body.get('type','output')):return
+            if u.path=='/api/studio/media/cancel':
+                record=_media_request_get(body.get('ticket')) or {}
+                if record.get('private') and not self._require_private():return
+                if not self._private_job_allowed(body.get('prompt_id')):return
         if sales_action:
             try:
                 if not isinstance(body, dict):

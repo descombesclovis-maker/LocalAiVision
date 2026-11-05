@@ -95,3 +95,67 @@ body[data-studio-page="projects"]:is([data-gpu-busy="true"],[data-motion-paused=
  body[data-studio-page="projects"] .project-path:focus-visible{transform:none}
  body[data-studio-page="projects"] .project-context[open] .project-context-panel{animation:none}
 }
+
+/* Build 315.1 — small, optically centered ellipsis on a dark translucent chip. */
+body[data-studio-page="projects"] .project-context{right:5px;top:5px;z-index:6}
+body[data-studio-page="projects"] .project-context>summary{
+  box-sizing:border-box;width:44px;height:44px;min-height:44px!important;
+  display:flex;align-items:center;justify-content:center;gap:3px;
+  position:relative;isolation:isolate;cursor:pointer;
+  border:0!important;border-radius:14px;background:transparent!important;
+  font-size:0;line-height:1;padding:0;
+}
+body[data-studio-page="projects"] .project-context>summary::before{
+  content:"";position:absolute;inset:7px 6px;z-index:-1;
+  border-radius:11px;border:1px solid #d1d1e01a;
+  background:#0a0f19bc;box-shadow:0 3px 12px #0004;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:background-color .2s,border-color .2s;
+}
+body[data-studio-page="projects"] .project-context>summary:hover::before,
+body[data-studio-page="projects"] .project-context[open]>summary::before{
+  background:#121624eb;border-color:#b497dc4d;
+}
+body[data-studio-page="projects"] .project-menu-dots{
+  display:flex;align-items:center;justify-content:center;gap:3px;
+}
+body[data-studio-page="projects"] .project-menu-dots i{
+  display:block;width:3.2px;height:3.2px;border-radius:50%;background:#dad6e9;
+}
+body[data-studio-page="projects"] .project-context-panel{top:42px}
+/* Active generation: entire card + preview blurred, progress ring stays sharp. */
+body[data-studio-page="projects"] .card.is-generating{isolation:isolate}
+body[data-studio-page="projects"] .card.is-generating>.card-open{
+  filter:blur(5px) brightness(.58);transform:scale(1.025);
+}
+body[data-studio-page="projects"] .card.is-generating::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(140deg,#09081749,#090817a9);
+}
+body[data-studio-page="projects"] .project-generation-overlay{
+  position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:11px;
+  pointer-events:none;text-align:center;color:#fcf7ff;
+  padding:16px 20px;
+}
+body[data-studio-page="projects"] .project-generation-ring{
+  --project-fill:12%;width:100px;height:100px;border-radius:50%;padding:6px;
+  background:conic-gradient(from -90deg,#d7aaff 0%,#a15aff var(--project-fill),#ffffff23 var(--project-fill),#ffffff23 100%);
+  box-shadow:0 0 35px #b566ff30,0 10px 32px #0009;
+  transition:background .2s ease;
+  display:grid;place-items:center;
+}
+body[data-studio-page="projects"] .project-generation-ring-inner{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;height:100%;border-radius:50%;background:#110e20ec;
+  border:1px solid #ffffff16;
+}
+body[data-studio-page="projects"] .project-generation-value{
+  font-size:24px;font-weight:600;line-height:1.15;letter-spacing:-.03em;
+}
+body[data-studio-page="projects"] .project-generation-hint{
+  font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#cfbddd;
+}
+body[data-studio-page="projects"] .project-generation-title{font-size:13px;font-weight:550;text-shadow:0 2px 8px #000}
+body[data-studio-page="projects"] .project-generation-phase{font-size:11px;max-width:245px;color:#ddd1e6;text-shadow:0 2px 7px #000}
+@media(prefers-reduced-motion:reduce){body[data-studio-page="projects"] .project-generation-ring{transition:none}}

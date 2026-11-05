@@ -5,6 +5,8 @@ import re
 import time
 from urllib.request import Request, urlopen
 
+from local_app.business_time import business_date, timezone_name
+
 from local_app import web_crm as crm
 
 
@@ -75,7 +77,7 @@ def dossier(root, store, pid, ready, pages, change=None, revision=None):
                     raise ValueError("Choisis la nature et la source de l’information.")
                 value=crm._field(change.get("value"),480)
                 day=date.fromisoformat(str(change.get("day") or ""))
-                if not value or day>date.today() or change.get("confirmed") is not True:
+                if not value or day>business_date() or change.get("confirmed") is not True:
                     raise ValueError("Saisis une information professionnelle vérifiée, sa date et sa source.")
                 entry={"category":category,"value":value,"source":source,"day":day.isoformat()}
                 state.setdefault("facts",{})[category]=entry
@@ -120,7 +122,7 @@ def dossier(root, store, pid, ready, pages, change=None, revision=None):
                     raise ValueError("Résultat d’appel inconnu.")
                 note = crm._field(change.get("note"), 800)
                 due = crm._field(change.get("due"), 10)
-                if due and date.fromisoformat(due) < date.today():
+                if due and date.fromisoformat(due) < business_date():
                     raise ValueError("Choisis une date de rappel présente ou future.")
                 if outcome == "rappel" and not due:
                     raise ValueError("La date de rappel est requise.")

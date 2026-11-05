@@ -27,6 +27,9 @@ function render(){
  if(entry.ready){
   button.textContent=provider==='codex'?'● Codex connecté':'● Claude connecté';
   button.title='Agent authentifié. Cliquer pour revérifier la connexion.';
+ }else if(entry.installed&&['timeout','check_failed','launch_failed'].includes(entry.state)){
+  button.textContent='↻ Vérifier '+(provider==='codex'?'Codex':'Claude');
+  button.title=entry.detail||'Vérification indisponible.';
  }else if(entry.installed){
   button.textContent=provider==='codex'?'○ Connecter Codex':'○ Connecter Claude';
   button.title='Ouvrir une fenêtre d’authentification sur cet ordinateur.';
@@ -40,7 +43,9 @@ function render(){
 async function check(){
  if(saving)return;
  try{
-  const result=await api('/api/web/capabilities');
+  const provider=selectedProvider();
+  const result=await api('/api/web/agent/status?provider='+encodeURIComponent(provider));
+  if(provider!==selectedProvider())return;
   state=result.integrations||{};
   render();
  }catch(error){
@@ -83,7 +88,7 @@ selector?.addEventListener('change',async()=>{
 button.addEventListener('click',async()=>{
  if(saving)return;
  const provider=selectedProvider(),entry=state[provider]||{};
- if(entry.ready){await check();feedback('Connexion vérifiée : '+(provider==='codex'?'Codex':'Claude Code'));return}
+ if(entry.ready||['timeout','check_failed','launch_failed'].includes(entry.state)){await check();feedback(state[provider]?.detail||'État revérifié.');return}
  if(!entry.installed){
   const docs=provider==='codex'?'https://developers.openai.com/codex/cli':
                                  'https://code.claude.com/docs/en/setup';

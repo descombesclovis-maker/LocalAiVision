@@ -2,20 +2,21 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d0f16"><link rel="icon" href="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png" type="image/png">
+<meta name="theme-color" content="#0d0f16"><link rel="icon" href="/assets/assets/custom-brand/web-animated.svg" type="image/svg+xml">
 <title>LocalAiWeb — Carte des entreprises</title>
 <link rel="stylesheet" href="/assets/localaiweb-map.css">
 <link rel="stylesheet" href="/assets/studio-qcm-v1.css">
 <link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-system.css">
 <link rel="manifest" href="/assets/localaiweb.webmanifest">
+<link rel="stylesheet" href="/assets/studio-custom-brand.css">
 </head>
 <body data-studio-page="map">
-<header class="map-topbar"><a class="map-return" href="/localaiweb">← Projets</a><div class="map-brand"><img src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png" alt="" width="28" height="28"><strong>Carte des entreprises</strong></div><a class="studio-return" href="/studio">LocalAiStudio</a></header>
+<header class="map-topbar"><a class="map-return" href="/localaiweb">← Projets</a><div class="map-brand"><img src="/assets/assets/custom-brand/web-animated.svg" alt="" width="28" height="28"><strong>Carte des entreprises</strong></div><a class="studio-return" href="/studio">LocalAiStudio</a></header>
 <main class="map-layout">
  <section class="map-area" aria-label="Carte officielle Google Maps, vue initiale France">
   <div id="businessMap" aria-label="Carte Google Maps"></div>
-  <div id="mapUnavailable" class="map-unavailable" hidden><div><span class="map-eyebrow">CARTE DES ENTREPRISES</span><h1>Connecter Google Maps</h1><p id="mapFailureReason"></p><p>Activez Maps JavaScript API et Places UI Kit pour la fiche officielle, ainsi que Places API pour la création de projets. Utilisez des clés distinctes et leurs restrictions adaptées.</p><button id="mapRetry" type="button">Réessayer</button></div></div>
+  <div id="mapUnavailable" class="map-unavailable" hidden><div><span class="map-eyebrow">CARTE DES ENTREPRISES</span><h1>Connecter Google Maps</h1><p id="mapFailureReason"></p><p>Activez Maps JavaScript API et Places UI Kit pour la fiche officielle, ainsi que Places API pour la création de projets. Utilisez des clés distinctes et leurs restrictions adaptées.</p><a class="map-settings-link" href="/studio?connections=maps">Configurer les clés Google Maps ↗</a> <button id="mapRetry" type="button">Réessayer</button></div></div>
  </section>
  <aside id="mapSelection" class="google-selection" hidden aria-label="Fiche officielle Google et action LocalAiWeb">
   <header><button id="mapClose" type="button" aria-label="Fermer la fiche">×</button></header>

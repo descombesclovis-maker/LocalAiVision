@@ -16,7 +16,22 @@ const LEGACY_OMNI_I2V_WORKFLOW='Isolated HY-OmniWeaving I2V.json';
 let isolatedTaskMode=loadJSON('lva_isolated_task_mode','image');
 let isolatedVideoMode=loadJSON('lva_isolated_video_mode','t2v');
 let nsfwGalleryVisible=true;
-function nsfwUnlocked(){try{return sessionStorage.getItem('lva_nsfw_gate')==='true'}catch{return false}}
+let privateSessionExpiresAt=0;
+function nsfwUnlocked(){try{return Date.now()<privateSessionExpiresAt&&sessionStorage.getItem('lva_nsfw_gate')==='true'}catch{return false}}
+async function indexPrivateHistory(){
+ const files=[...library.filter(item=>item.profile==='nsfw'),...Object.values(conversations).filter(c=>c.profile==='nsfw').flatMap(c=>(c.messages||[]).filter(m=>m.result).map(m=>m.result))]
+   .filter(item=>item.filename&&!item.ad_url).map(({filename,subfolder,type})=>({filename,subfolder:subfolder||'',type:type||'output'}));
+ const unique=[...new Map(files.map(file=>[JSON.stringify(file),file])).values()];
+ if(unique.length)await api('/api/private/index',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({files:unique})});
+}
+async function restorePrivateSession(){
+ try{
+  const state=await api('/api/private/session');
+  privateSessionExpiresAt=state.authenticated?state.expires_at*1000:0;
+  if(privateSessionExpiresAt){sessionStorage.setItem('lva_nsfw_gate','true');await indexPrivateHistory()}
+  else sessionStorage.removeItem('lva_nsfw_gate');
+ }catch{privateSessionExpiresAt=0}
+}
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
@@ -25,7 +40,7 @@ Réponds en français sauf si l’utilisateur demande une autre langue. Garde le
 
 Pour les questions générales, utilise tes connaissances internes sans simuler une recherche Internet. N’invente pas un fait pour paraître sûr : si une information est réellement incertaine, dis-le brièvement. Quand l’utilisateur expose un problème, ne te contente pas de l’expliquer : propose spontanément la solution la plus adaptée et l’étape suivante concrète.
 
-Adapte la longueur à la demande. Par défaut, écris comme dans une vraie conversation : phrases fluides, paragraphes courts, pas d’introduction scolaire ni de conclusion automatique. Utilise le Markdown naturellement : **mots importants en gras**, petites listes seulement quand elles aident, et quelques émojis bien choisis quand ils rendent la réponse plus vivante — jamais à chaque phrase.
+Adapte la longueur à la demande. Par défaut, écris comme dans une vraie conversation : phrases fluides, paragraphes courts, pas d’introduction scolaire ni de conclusion automatique. Utilise le Markdown naturellement : **mots importants en gras**, petites listes seulement quand elles aident, et des émojis et symboles expressifs (✨ 🎨 💡 ✅ 📌 🔍) quand ils aident à comprendre ou rendent l'échange chaleureux, sans en mettre artificiellement à chaque phrase. Tu peux fournir des liens HTTP(S) en Markdown quand tu connais une adresse fiable ; n'invente jamais de liens et ne prétends pas avoir ouvert les pages.
 
 Ne prétends pas avoir consulté Internet, un fichier ou une application si ce n’est pas réellement le cas.`;
 const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo','▣']};
@@ -46,16 +61,42 @@ function displayModelName(w){return modelAliases[w.id]||w.name}
 function profileLabel(key){return modelAliases['profile:'+key]||PROFILE_DEFAULTS[key]?.label||key}
 function profileSub(key){return PROFILE_DEFAULTS[key]?.sub||''}
 
-const APPLE_EMOJI_AVAILABLE=(()=>{try{return !!document.fonts?.check('16px "Apple Color Emoji"')}catch{return false}})();
+// Native system emoji work offline in the Windows desktop build.
 const EMOJI_SEGMENTER=(()=>{try{return typeof Intl!=='undefined'&&Intl.Segmenter?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null}catch{return null}})();
 function isEmojiCluster(s){try{return /\p{Extended_Pictographic}/u.test(s)||/[#*0-9]\uFE0F?\u20E3/u.test(s)}catch{return false}}
-function emojiCodepoints(s){return Array.from(s).map(ch=>ch.codePointAt(0).toString(16).toLowerCase()).join('-')}
 function appendEmojiAwareText(parent,text){
- const parts=EMOJI_SEGMENTER?[...EMOJI_SEGMENTER.segment(String(text||''))].map(x=>x.segment):Array.from(String(text||''));let plain='';
- const flush=()=>{if(plain){parent.appendChild(document.createTextNode(plain));plain=''}};
- for(const part of parts){if(!isEmojiCluster(part)){plain+=part;continue}flush();if(APPLE_EMOJI_AVAILABLE){const span=document.createElement('span');span.className='emoji-native-apple';span.textContent=part;parent.appendChild(span);continue}const img=document.createElement('img');img.className='emoji-3d';img.alt=part;img.title=part;img.loading='lazy';img.decoding='async';img.src='https://cdn.jsdelivr.net/gh/shuding/fluentui-emoji-unicode/assets/'+emojiCodepoints(part)+'_3d.png';img.onerror=()=>{const fallback=document.createElement('span');fallback.className='emoji-native-fallback';fallback.textContent=part;img.replaceWith(fallback)};parent.appendChild(img)}flush();
+ const parts=EMOJI_SEGMENTER?[...EMOJI_SEGMENTER.segment(String(text||''))].map(x=>x.segment):Array.from(String(text||''));
+ let plain='';const flush=()=>{if(plain){parent.appendChild(document.createTextNode(plain));plain=''}};
+ for(const part of parts){
+  if(!isEmojiCluster(part)){plain+=part;continue}
+  flush();const span=document.createElement('span');
+  span.className='emoji-native';span.textContent=part;parent.appendChild(span);
+ }
+ flush();
 }
-function appendInlineMarkup(parent,text){const re=/(\*\*[^*]+\*\*|`[^`]+`)/g;let last=0;for(const match of text.matchAll(re)){if(match.index>last)appendEmojiAwareText(parent,text.slice(last,match.index));const token=match[0],node=document.createElement(token.startsWith('**')?'strong':'code');if(token.startsWith('**'))appendEmojiAwareText(node,token.slice(2,-2));else node.textContent=token.slice(1,-1);parent.appendChild(node);last=match.index+token.length}if(last<text.length)appendEmojiAwareText(parent,text.slice(last))}
+function appendInlineMarkup(parent,text){
+ // Text-only DOM construction: clickable HTTP(S) links, emphasis and code, no HTML injection.
+ const re=/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]{1,160}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>"']+)/g;
+ let last=0;
+ for(const match of String(text||'').matchAll(re)){
+  if(match.index>last)appendEmojiAwareText(parent,text.slice(last,match.index));
+  const token=match[0];let node,suffix='';
+  if(token.startsWith('**')){node=document.createElement('strong');appendEmojiAwareText(node,token.slice(2,-2))}
+  else if(token.startsWith('`')){node=document.createElement('code');node.textContent=token.slice(1,-1)}
+  else{
+   const md=token.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+   let url=md?md[2]:token,label=md?md[1]:token;
+   if(!md){const m=url.match(/[.,;:!?]+$/);if(m){suffix=m[0];url=url.slice(0,-suffix.length);label=url}}
+   node=document.createElement('a');
+   try{const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error('Unsafe URL');node.href=parsed.href;node.target='_blank';node.rel='noopener noreferrer';appendEmojiAwareText(node,label)}
+   catch{node=document.createElement('span');appendEmojiAwareText(node,label)}
+  }
+  parent.appendChild(node);if(suffix)appendEmojiAwareText(parent,suffix);
+  last=match.index+token.length;
+ }
+ if(last<text.length)appendEmojiAwareText(parent,text.slice(last));
+}
+
 function renderAssistantText(el,text){el.textContent='';const lines=String(text||'').replace(/\r/g,'').split('\n');let list=null;for(const raw of lines){const line=raw.trimEnd(),bullet=line.match(/^\s*[-*]\s+(.+)/);if(bullet){if(!list){list=document.createElement('ul');list.className='md-list';el.appendChild(list)}const li=document.createElement('li');appendInlineMarkup(li,bullet[1]);list.appendChild(li);continue}list=null;if(!line.trim()){const gap=document.createElement('div');gap.className='md-gap';el.appendChild(gap);continue}const heading=line.match(/^#{1,3}\s+(.+)/),p=document.createElement(heading?'div':'p');p.className=heading?'md-heading':'md-paragraph';appendInlineMarkup(p,heading?heading[1]:line);el.appendChild(p)}}
 function dismissKeyboard(){const p=$('#prompt');if(document.activeElement===p)p.blur()}
 function setChatAnswering(active){document.querySelector('.composer')?.classList.toggle('chat-answering',!!active)}
@@ -107,7 +148,7 @@ function updateCreationModeGuide(){
  if(guide)guide.innerHTML=isolated
    ?'<b>NSFW · Hunyuan</b> <span>HunyuanImage 2.1 · HunyuanVideo 1.5 T2V/I2V · prompt direct.</span>'
    :'<b>Création standard</b> <span>RealVisXL V5 · Wan 2.1 · chat local.</span>';
- if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):'Écris ton message…';
+ if(prompt)prompt.placeholder=isolated?(isolatedTaskMode==='image'?'Décris l’image souhaitée…':isolatedVideoMode==='i2v'?'Décris le mouvement à appliquer à l’image…':'Décris la vidéo souhaitée…'):(document.body.classList.contains('vision-ad-guided')||$('#studioAdOpen')?.classList.contains('active')?'Décris ta publicité…':$('#navPhoto')?.classList.contains('active')?'Décris ta photo…':$('#navVideo')?.classList.contains('active')?'Décris ta vidéo…':'Écris ton message…');
  const isolatedLinks=$('#nsfwLibraryLinks');
  if(isolatedLinks)isolatedLinks.classList.toggle('hidden',!nsfwUnlocked());
  updateSettingsVisibility();
@@ -169,13 +210,76 @@ function chooseIsolatedCreationMode(mode){
  const component=isolatedTaskMode==='image'?'isolated-image':(isolatedVideoMode==='i2v'?'hunyuan15-i2v':'hunyuan15-t2v');
  if(!lastHealth?.media?.[component]?.ready)installComponent(component);
 }
+function requestNsfwPin(){
+ const dialog=$('#nsfwUnlockDialog');
+ if(!dialog)return Promise.resolve(false);
+ if(dialog.open)return Promise.resolve(false);
+ const fields=[...dialog.querySelectorAll('.nsfw-pin-digit')];
+ const form=dialog.querySelector('form');
+ const warning=dialog.querySelector('#nsfwPinError');
+ return new Promise(resolve=>{
+  let settled=false;
+  function finish(ok){
+   if(settled)return;
+   settled=true;
+   form.removeEventListener('submit',submit);
+   dialog.removeEventListener('close',cancel);
+   fields.forEach(f=>{f.value=''});
+   if(dialog.open)dialog.close();
+   resolve(ok);
+  }
+  function cancel(){finish(false)}
+  async function submit(event){
+   event.preventDefault();
+   const entered=fields.map(x=>x.value).join('');
+   if(!/^\d{4}$/.test(entered)){warning.textContent='Saisis les quatre chiffres du code.';return}
+   const button=form.querySelector('[type="submit"]');if(button?.disabled)return;
+   if(button)button.disabled=true;
+   try{
+    const state=await api('/api/private/unlock',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({code:entered})});
+    if(settled)return;
+    privateSessionExpiresAt=state.expires_at*1000;
+    await indexPrivateHistory();
+   }catch(error){
+    privateSessionExpiresAt=0;
+    fields.forEach(f=>f.value='');warning.textContent=error.message;fields[0].focus();return;
+   }finally{if(button)button.disabled=false}
+   finish(true);
+  }
+  fields.forEach((field,index)=>{
+   field.value='';
+   field.oninput=()=>{
+    field.value=field.value.replace(/\D/g,'').slice(-1);
+    warning.textContent='';
+    if(field.value&&index<3)fields[index+1].focus();
+   };
+   field.onkeydown=event=>{
+    if(event.key==='Backspace'&&!field.value&&index>0){fields[index-1].focus();fields[index-1].value=''}
+    if(event.key==='ArrowLeft'&&index>0){event.preventDefault();fields[index-1].focus()}
+    if(event.key==='ArrowRight'&&index<3){event.preventDefault();fields[index+1].focus()}
+   };
+   field.onpaste=event=>{
+    event.preventDefault();const digits=(event.clipboardData?.getData('text')||'').replace(/\D/g,'').slice(0,4);
+    [...digits].forEach((d,i)=>{fields[i].value=d});fields[Math.min(3,digits.length)].focus();warning.textContent='';
+   };
+  });
+  warning.textContent='';
+  form.addEventListener('submit',submit);
+  dialog.addEventListener('close',cancel);
+  dialog.showModal();fields[0].focus();
+ });
+}
 function enterNsfwWorkspace(){
  if(!nsfwUnlocked()){
-  const code=window.prompt('Espace réservé aux adultes. Saisis le code d’accès :');
-  if(code===null)return;
-  if(String(code).trim()!=='2905'){toast('Code d’accès incorrect.');return}
-  try{sessionStorage.setItem('lva_nsfw_gate','true')}catch{toast('Impossible d’ouvrir la session privée.');return}
-  toast('Espace adulte ouvert pour cette session.');
+  void requestNsfwPin().then(valid=>{
+   if(!valid)return;
+   try{sessionStorage.setItem('lva_nsfw_gate','true')}
+   catch{toast('Impossible d’ouvrir la session privée.');return}
+   toast('Espace adulte ouvert pour cette session.');
+   enterNsfwWorkspace();
+   document.dispatchEvent(new Event('localai:nsfw-entered'));
+  });
+  return;
  }
  nsfwGalleryVisible=true;
  renderProfileLabels();createConversationForProfile('nsfw');
@@ -281,19 +385,77 @@ function renderConversationList(filter=''){
  for(const c of rows){const row=document.createElement('div');row.className='conversation-row';const b=document.createElement('button');b.className='conversation-item'+(activeConversationId===c.id?' active':'');const n=['image','video'].filter(k=>c.settings?.[k]).length;b.innerHTML='<span class="conversation-icon">◌</span><span class="conversation-main"><span class="conversation-title">'+esc(titleForConversation(c))+'</span><span class="conversation-meta">'+(c.profile&&c.profile!=='auto'?esc(profileLabel(c.profile)):n?`${n} modèle${n>1?'s':''} imposé${n>1?'s':''}`:'Sélection automatique')+'</span></span><i class="conversation-dot '+(n?'ready':'')+'"></i>';b.onclick=()=>openConversation(c.id);const controls=document.createElement('span');controls.className='conversation-controls';const rename=document.createElement('button');rename.className='tiny-action';rename.title='Renommer';rename.textContent='✎';rename.onclick=e=>{e.stopPropagation();renameConversation(c.id)};const del=document.createElement('button');del.className='tiny-action';del.title='Supprimer';del.textContent='×';del.onclick=e=>{e.stopPropagation();deleteConversation(c.id)};controls.append(rename,del);row.append(b,controls);box.appendChild(row)}
 }
 function renameConversation(id){const c=conversationFor(id),next=prompt('Renommer la conversation',titleForConversation(c));if(next===null)return;const clean=next.trim();if(!clean)return;c.title=clean;c.updatedAt=new Date().toISOString();save();renderConversationList($('#conversationSearch').value)}
-function deleteConversation(id){const c=conversationFor(id);if(!confirm('Supprimer « '+titleForConversation(c)+' » ?'))return;delete conversations[id];if(activeConversationId===id){activeConversationId=null;const next=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(next)openConversation(next.id);else createBlankConversation()}save();renderConversationList($('#conversationSearch').value)}
+function deleteConversation(id){
+ const c=conversationFor(id);
+ if(!confirm('Supprimer « '+titleForConversation(c)+' » ? Les créations existantes resteront dans Mes créations.'))return;
+ // Avoid orphaning media that users have hidden from the gallery but kept in this chat.
+ if(c.profile!=='nsfw'){
+  let lastPrompt='';
+  for(const m of c.messages||[]){
+   if(m.role==='user'&&m.text)lastPrompt=m.text;
+   if(!m.result)continue;
+   const existing=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(m.result));
+   if(existing)existing.galleryHidden=false;
+   else library.unshift({...m.result,_id:crypto.randomUUID(),profile:'auto',kind:['.mp4','.webm','.mov','.mkv'].some(ext=>(m.result.filename||'').toLowerCase().endsWith(ext))?'video':'image',prompt:lastPrompt,createdAt:new Date().toISOString()});
+  }
+  renderLibraryCounts();notifyPublicLibraryChanged();
+ }
+ delete conversations[id];
+ if(activeConversationId===id){activeConversationId=null;const next=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(next)openConversation(next.id);else createBlankConversation()}
+ save();renderConversationList($('#conversationSearch').value);
+}
 function openConversation(id){const c=conversationFor(id);if(c.profile==='nsfw'&&!nsfwUnlocked()){enterNsfwWorkspace();return}activeConversationId=id;renderConversationList($('#conversationSearch').value);$('#welcome').classList.toggle('hidden',c.messages.length>0);const box=$('#messages');box.innerHTML='';c.messages.forEach(renderMessage);syncModelSelectors();renderProfileLabels();scrollBottom();hideSidebar()}
 
-function resultUrl(x){return x.ad_url||'/api/view?filename='+encodeURIComponent(x.filename||'')+'&subfolder='+encodeURIComponent(x.subfolder||'')+'&type='+encodeURIComponent(x.type||'output')}
+function resultUrl(x){return x.ad_url||'/api/view?filename='+encodeURIComponent(x.filename||'')+'&subfolder='+encodeURIComponent(x.subfolder||'')+'&type='+encodeURIComponent(x.type||'output')+(x.provenance_id?'&provenance_id='+encodeURIComponent(x.provenance_id):'')}
 function renderMessage(m){
  const wrap=document.createElement('div');wrap.className='message '+(m.role==='user'?'user':'assistant');if(m.loading)wrap.dataset.loading='1';
  if(m.text||m.streaming){const b=document.createElement('div');b.className='bubble'+(m.streaming?' streaming':'');if(m.role==='assistant'&&!m.streaming)renderAssistantText(b,m.text);else b.textContent=m.text||'';wrap.appendChild(b)}
- if(m.loading){if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=m.mediaType==='video'?'Génération de la vidéo…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
- if(m.result){const f=document.createElement('div');f.className='generation-frame';const src=resultUrl(m.result),video=/\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'');f.innerHTML=video?'<video class="result-media" controls src="'+src+'"></video>':'<img class="result-media" src="'+src+'">';wrap.appendChild(f)}
+ if(m.loading){if(!document.body.classList.contains('nsfw-active')&&document.body.dataset.studioPage==='vision'&&!m.chatLoading){
+  // The viewer paints a single preview; this marker never renders a chat card.
+  const pending=document.createElement('span');pending.className='vision-output-pending';
+  pending.dataset.kind=m.mediaType==='video'?'video':'image';pending.dataset.promptIds=JSON.stringify(m.prompt_ids||[]);pending.hidden=true;wrap.appendChild(pending);
+ }else if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=m.mediaType==='video'?'Génération de la vidéo…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
+ if(m.unverifiedOutput&&!document.body.classList.contains('nsfw-active')){
+  const retry=document.createElement('button');retry.type='button';retry.className='output-verification-retry';
+  retry.textContent='Vérifier à nouveau le fichier';
+  const owner=activeConversationId;
+  retry.addEventListener('click',async()=>{retry.disabled=true;retry.textContent='Vérification du fichier…';try{await retryPublicOutput(owner,m)}catch(e){toast(e.message)}finally{retry.disabled=false;retry.textContent='Vérifier à nouveau le fichier'}});
+  wrap.append(retry);
+ }
+ if(m.result){const src=resultUrl(m.result),video=/\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'');
+  if(!document.body.classList.contains('nsfw-active')&&document.body.dataset.studioPage==='vision'){
+   const ref=document.createElement('span');ref.className='vision-output-ref';ref.hidden=true;
+   ref.dataset.src=src;ref.dataset.kind=video?'video':'image';wrap.appendChild(ref);
+  }else{
+   const f=document.createElement('div');f.className='generation-frame';
+   f.innerHTML=video?'<video class="result-media" controls src="'+src+'"></video>':'<img class="result-media" src="'+src+'">';wrap.appendChild(f);
+  }
+ }
  $('#messages').appendChild(wrap);return wrap;
 }
 function scrollBottom(){requestAnimationFrame(()=>{$('#chat').scrollTop=$('#chat').scrollHeight})}
 function addMessage(id,m){const c=conversationFor(id);c.messages.push(m);c.updatedAt=new Date().toISOString();if(c.title==='Nouvelle conversation'&&m.role==='user')c.title=m.text.slice(0,48)+(m.text.length>48?'…':'');save();renderConversationList($('#conversationSearch').value);if(id===activeConversationId){$('#welcome').classList.add('hidden');renderMessage(m);scrollBottom()}}
+// A successful media render is not a failed Qwen chat session. Remove only
+// nonblocking chat diagnostics produced after the latest user prompt; keep
+// real ComfyUI rendering failures, cancellations and previous conversation history.
+function clearIrrelevantChatWarningsAfterMedia(id){
+ if(document.body.classList.contains('nsfw-active'))return;
+ const c=conversationFor(id);
+ const lastPrompt=c.messages.findLastIndex(m=>m.role==='user');
+ if(lastPrompt<0)return;
+ const irrelevant=/\bqwen\b|\bollama\b|ia locale indisponible|connexion (?:au )?(?:chat|llm)|moteur de discussion indisponible/i;
+ const filtered=c.messages.filter((m,index)=>index<=lastPrompt||!((m.error||m.text)&&!m.result&&irrelevant.test(String(m.text||''))));
+ if(filtered.length===c.messages.length)return;
+ c.messages=filtered;c.updatedAt=new Date().toISOString();save();
+ if(id===activeConversationId){
+  document.querySelectorAll('#messages .message').forEach(el=>{
+   const v=el.querySelector('.bubble')?.textContent||'';
+   if(irrelevant.test(v))el.remove();
+  });
+ }
+ const toastNode=document.getElementById('toast');
+ if(toastNode&&irrelevant.test(toastNode.textContent||''))toastNode.classList.remove('show');
+}
 function removeLoading(id){const c=conversationFor(id);c.messages=c.messages.filter(m=>!m.loading);c.updatedAt=new Date().toISOString();save();if(id===activeConversationId)$('#messages').querySelectorAll('.message[data-loading="1"]').forEach(x=>x.remove())}
 
 function modelsFor(task){return workflows.filter(w=>task==='image'?w.kind==='image':w.kind==='video'||w.kind==='video-heavy')}
@@ -318,16 +480,76 @@ function createConversation(){const c=createBlankConversation();c.settings.image
 function advanceModelStep(){if(modalStep===1){if(!modalSelection.image){$('#modalError').textContent='Sélectionne un modèle photo avant de continuer.';return}setModalStep(2);return}if(!modalSelection.video){$('#modalError').textContent='Sélectionne un modèle vidéo avant de créer la conversation.';return}createConversation()}
 
 function renderLibraryCounts(){
- const standard=library.filter(x=>x.profile!=='nsfw'),isolated=library.filter(x=>x.profile==='nsfw');
+ const standard=library.filter(x=>x.profile!=='nsfw'&&!x.galleryHidden),isolated=library.filter(x=>x.profile==='nsfw');
  const p=standard.filter(x=>x.kind==='image').length,v=standard.filter(x=>x.kind==='video').length;
  if($('#photoCount'))$('#photoCount').textContent=p||'';
  if($('#videoCount'))$('#videoCount').textContent=v||'';
  if($('#nsfwPhotoCount'))$('#nsfwPhotoCount').textContent=isolated.filter(x=>x.kind==='image').length||'';
  if($('#nsfwVideoCount'))$('#nsfwVideoCount').textContent=isolated.filter(x=>x.kind==='video').length||'';
 }
-function addLibrary(result,kind,promptText,profile='auto'){library.unshift({...result,_id:crypto.randomUUID(),kind,prompt:promptText,profile,createdAt:new Date().toISOString()});save();renderLibraryCounts();renderNsfwGallery()}
-async function deleteLibraryItem(id){const item=library.find(x=>x._id===id);if(!item)return;if(!confirm('Supprimer ce fichier généré ?'))return;try{if(item.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:item.filename})});else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:item.filename,subfolder:item.subfolder||'',type:item.type||'output'})})}catch(e){toast('Entrée retirée, fichier non supprimé : '+e.message)}library=library.filter(x=>x._id!==id);save();renderLibraryCounts();renderLibrary(item.kind,item.profile==='nsfw'?(item.kind==='image'?'Photos espace isolé':'Vidéos espace isolé'):(item.kind==='image'?'Mes photos générées':item.kind==='video'?'Mes vidéos générées':'Mes retouches générées'),item.profile==='nsfw'?'nsfw':'standard')}
-function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
+function mediaIdentity(entry){
+ return JSON.stringify([entry?.ad_url||'',entry?.filename||'',entry?.subfolder||'',entry?.type||'output']);
+}
+function notifyPublicLibraryChanged(){
+ document.dispatchEvent(new Event('studio:library-changed'));
+}
+function addLibrary(result,kind,promptText,profile='auto'){
+ const existing=profile!=='nsfw'?library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(result)):null;
+ if(existing){existing.galleryHidden=false;existing.prompt=existing.prompt||promptText;existing.kind=kind}
+ else library.unshift({...result,_id:crypto.randomUUID(),kind,prompt:promptText,profile,createdAt:new Date().toISOString()});
+ save();renderLibraryCounts();renderNsfwGallery();
+ if(profile!=='nsfw')notifyPublicLibraryChanged();
+}
+// Regular gallery removal is reversible. It never deletes the underlying file or chat result.
+async function deleteLibraryItem(id){
+ const item=library.find(x=>x._id===id);if(!item)return false;
+ if(item.profile==='nsfw'){
+  if(!confirm('Supprimer ce fichier généré ?'))return false;
+  try{
+   if(item.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:item.filename})});
+   else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:item.filename,subfolder:item.subfolder||'',type:item.type||'output'})});
+  }catch(e){toast('Entrée retirée, fichier non supprimé : '+e.message)}
+  library=library.filter(x=>x._id!==id);save();renderLibraryCounts();
+  renderLibrary(item.kind,item.kind==='image'?'Photos espace isolé':'Vidéos espace isolé','nsfw');
+  return true;
+ }
+ if(!confirm('Retirer cette création de « Mes créations » ? Elle restera récupérable depuis sa conversation.'))return false;
+ item.galleryHidden=true;save();renderLibraryCounts();notifyPublicLibraryChanged();
+ toast('Création retirée de la galerie, toujours disponible dans le chat.');
+ if(document.querySelector('#messages > .library-view:not(.studio-gallery)'))renderLibrary(item.kind,item.kind==='image'?'Mes photos générées':'Mes vidéos générées','standard');
+ return true;
+}
+function restorePublicLibraryItem(result,kind,promptText=''){
+ if(!result||!result.filename&&!result.ad_url||document.body.classList.contains('nsfw-active'))return false;
+ let entry=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(result));
+ if(entry){entry.galleryHidden=false}
+ else{entry={...result,_id:crypto.randomUUID(),profile:'auto',kind,prompt:promptText,createdAt:new Date().toISOString(),galleryHidden:false};library.unshift(entry)}
+ save();renderLibraryCounts();notifyPublicLibraryChanged();toast('Création restaurée dans Mes créations.');return true;
+}
+async function deletePublicOutputPermanently(result){
+ if(!result||document.body.classList.contains('nsfw-active'))return false;
+ const key=mediaIdentity(result);
+ const owned=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===key)||result;
+ if(!confirm('SUPPRESSION DÉFINITIVE : supprimer le fichier et ses références dans toutes les conversations ? Cette action est irréversible.'))return false;
+ try{
+  if(owned.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:owned.filename})});
+  else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:owned.filename,subfolder:owned.subfolder||'',type:owned.type||'output'})});
+ }catch(e){toast('Fichier non supprimé : '+e.message);return false}
+ library=library.filter(x=>x.profile==='nsfw'||mediaIdentity(x)!==key);
+ for(const conv of Object.values(conversations)){
+  if(conv.profile==='nsfw')continue;
+  let changed=false;
+  for(const m of conv.messages||[]){
+   if(m.result&&mediaIdentity(m.result)===key){delete m.result;m.permanentlyDeleted=true;if(!m.text)m.text='Création définitivement supprimée.';changed=true}
+  }
+  if(changed)conv.updatedAt=new Date().toISOString();
+ }
+ save();renderLibraryCounts();notifyPublicLibraryChanged();
+ if(activeConversationId&&conversations[activeConversationId]?.profile!=='nsfw')openConversation(activeConversationId);
+ toast('Fichier et références supprimés définitivement.');return true;
+}
+window.VisionPublicArchive={restore:restorePublicLibraryItem,permanentDelete:deletePublicOutputPermanently,identity:mediaIdentity};
+function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'&&!x.galleryHidden));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
 
 function studioMediaIntent(text){
  const plain=String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -340,18 +562,19 @@ function studioMediaIntent(text){
 async function sendMessage(){
  if($('#send').disabled)return;
  const text=$('#prompt').value.trim();if(!text)return;
+ if(window.StudioAds?.handleDraftMessage?.(text))return;
  if(!activeConversationId)createBlankConversation();
  const conv=conversationFor(activeConversationId);
  const intent=studioMediaIntent(text);
  addMessage(activeConversationId,{role:'user',text});
  $('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();
  const mode=$('#taskMode').value;
- let task=mode==='i2v'?'video':intent.task||(mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode);
+ let task=mode==='chat'?null:mode==='i2v'?'video':mode==='auto'?explicitGenerationRequest(text):mode;
  if(mode==='i2v'&&!imageData){addMessage(activeConversationId,{role:'assistant',text:'Ajoute une image avec le bouton + Image avant de lancer une animation I2V.'});return}
  let model=null;
  // Adult briefs should use the appropriate existing isolated workflows, not
  // the weak regular Wan preset or an unrelated stale Photo tab.
- if(intent.adult&&conv.profile!=='nsfw'){
+ if(mode!=='chat'&&intent.adult&&conv.profile!=='nsfw'){
    if(!nsfwUnlocked()){
      addMessage(activeConversationId,{role:'assistant',text:'Pour créer dans l’espace adulte, ouvre NSFW dans le menu latéral et active-le une fois sur cet appareil. Ta demande reste enregistrée ; tu peux la renvoyer après activation.'});
      return;
@@ -370,18 +593,20 @@ async function sendMessage(){
      const premium=workflowById(bestWorkflowId(ISOLATED_IMAGE_WORKFLOW));
      // Use installed production-quality engine, not the old SDXL baseline,
      // but never trigger a heavyweight install just by entering normal chat.
-     model=premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW));
+     const selected=conv.settings?.image?workflowById(conv.settings.image):null;
+     model=selected||(premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_IMAGE_WORKFLOW)));
    }
    if(task==='video'){
      const wantsI2V=mode==='i2v'&&!!imageData;
      const premium=workflowById(bestWorkflowId(wantsI2V?ISOLATED_I2V_WORKFLOW:ISOLATED_VIDEO_WORKFLOW));
-     model=wantsI2V?premium:(premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW)));
+     const selected=conv.settings?.video?workflowById(conv.settings.video):null;
+     model=wantsI2V?premium:(selected||premium); // Public video never silently falls back to Wan.
    }
  }
  if(task){conv.messages[conv.messages.length-1].mediaRequest=true;save()}
  if(!task){await startChat(conv,text);return}
  if(!model)model=selectedModelForConversation(conv,task,text);
- if(!model){addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche.'});return}
+ if(!model){window.StudioAds?.endGeneration?.(task);addMessage(activeConversationId,{role:'assistant',text:'Aucun modèle n’est configuré pour cette tâche.'});return}
  await startGeneration(task,model,text)
 }
 function numberSetting(id){const e=$(id);if(!e)return null;const raw=e.value.trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null}
@@ -415,6 +640,32 @@ async function waitForMediaPreparation(ticket){
    }
  }
 }
+// Preserve animal-only photo briefs without hallucinating a photographer's
+// hands. The original user prompt stays untouched in conversation/history.
+// This is a targeted conditioning safeguard, NOT a visual-quality guarantee.
+function publicPhotoFaithfulness(prompt,negative,task,profile){
+ const source=String(prompt||'');
+ const currentNegative=String(negative||'');
+ if(task!=='image'||profile==='nsfw')return {prompt:source,negative:currentNegative,exactPrompt:false};
+ const animal=/(?:^|[^a-z\p{L}])(?:chien|chiens|chiot|chiots|chat|chats|chaton|chatons|cheval|chevaux|lapin|lapins|oiseau|oiseaux|renard|renards|dog|dogs|puppy|puppies|cat|cats|kitten|kittens|horse|horses|rabbit|rabbits|bird|birds|fox|foxes)(?=$|[^a-z\p{L}])/iu.test(source);
+ // Classify human mentions in their local clause. Exclusions are not subjects:
+ // "sans personne", "without human hands" and "ni mains" stay animal-only.
+ // A later positive clause ("mais avec une femme") still requests a human.
+ const mentions=source.matchAll(/\b(?:personnes?|humain(?:e|es|s)?|femmes?|hommes?|enfants?|bébés?|photographes?|photographers?|persons?|people|humans?|women|woman|men|man|children|child|mains?|hands?|bras|arms?|doigts?|fingers?|selfie|pov)\b/giu);
+ const human=[...mentions].some(match=>{
+   const clause=source.slice(0,match.index).split(/[,;.!?]|\b(?:mais|but|avec|with|et|and)\b/iu).pop();
+   return !/(?:\b(?:sans|without|no|aucun(?:e|es|s)?|ni)|pas\s+de|pas\s+d['’])\s*(?:[\p{L}'’-]+\s+){0,4}$/iu.test(clause);
+ });
+ if(!animal||human)return {prompt:source,negative:currentNegative,exactPrompt:false};
+ // Skip generic server-side human/anatomy/hands enhancement when the prompt
+ // clearly contains only an animal. This avoids steering an SDXL workflow
+ // toward fingers or a first-person camera viewpoint.
+ const camera=/(grand[ -]?angle|wide[ -]?angle)/i.test(source)?' Use a real wide-angle lens composition, from an external camera.':'';
+ const fidelity='Animal-only photographic composition: show the described animal and its setting. No person or human limbs in frame. Natural fur details, consistent animal anatomy, true-to-life textures and physically consistent lighting.'+camera;
+ const unwanted='human hands, human arms, fingers, photographer in frame, selfie perspective, first-person hands, foreground hands, extra people, warped animal paws, artificial smoothing';
+ return {prompt:source+'\n\n'+fidelity,negative:[currentNegative,unwanted].filter(Boolean).join(', '),exactPrompt:true};
+}
+
 async function startGeneration(task,model,promptText,previewStyle=null){
  const id=activeConversationId,c=conversationFor(id);c.messages.push({role:'assistant',loading:true,mediaType:task});c.updatedAt=new Date().toISOString();save();if(id===activeConversationId){renderMessage(c.messages[c.messages.length-1]);scrollBottom()}$('#send').disabled=true;
  try{const useReference=!!imageData&&model.id===bestWorkflowId(ISOLATED_I2V_WORKFLOW);const settings=readGenerationSettings(task);
@@ -422,22 +673,67 @@ async function startGeneration(task,model,promptText,previewStyle=null){
     // Hidden legacy drafts never override new requests. A deliberate
     // advertiser-selected social format remains authoritative however.
     const campaignAspect=window.StudioAds?.activeAspect?.(task);
-    Object.assign(settings,{quality:'workflow',steps:null,width:null,height:null,
+    const standardPhotoQuality = task==='image'
+      ? (/hunyuan/i.test([model.id,...(model.models||[])].join(' ')) ? 'balanced' : 'quality')
+      : 'workflow';
+    Object.assign(settings,{quality:c.profile==='nsfw'?'workflow':standardPhotoQuality,steps:null,width:null,height:null,
       fps:null,duration:null,aspect:campaignAspect||'auto',count:1,technical_quality:true,
       prompt_translation:false});
   }
-  settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_T2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_I2V_WORKFLOW)].includes(model.id)?selectedLoras:[];const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,prompt:creativePrompt,negative:$('#settingNegative').value,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length)addMessage(id,{role:'assistant',text:d.warnings.join('\n')});await waitResults(d.prompt_ids||[d.prompt_id].filter(Boolean),id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{window.StudioAds?.endGeneration?.(task);$('#send').disabled=false}
+  settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_T2V_WORKFLOW),bestWorkflowId(LEGACY_OMNI_I2V_WORKFLOW)].includes(model.id)?selectedLoras:[];
+  const creativePrompt=c.profile==='nsfw'?promptText:(window.StudioAds?.enhancePrompt(promptText,task)||promptText);
+  const photo=publicPhotoFaithfulness(creativePrompt,$('#settingNegative').value,task,c.profile);
+  if(photo.exactPrompt)settings.exact_prompt=true;
+  const ticket=await api('/api/studio/media/start',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({workflow:model.id,...(c.profile==='nsfw'?{}:{original_prompt:promptText,request_key:crypto.randomUUID()}),prompt:photo.prompt,negative:photo.negative,image:useReference?imageData:null,image_name:useReference?imageName:null,video:null,video_name:null,mask:null,settings})});const d=await waitForMediaPreparation(ticket.ticket);if(d.warnings?.length){const warnings=(task==='image'&&c.profile!=='nsfw')
+    ?d.warnings.filter(line=>!/\bqwen\b|\bollama\b|moteur de discussion|\bllm\b/i.test(line))
+    :d.warnings;
+    if(warnings.length)addMessage(id,{role:'assistant',text:warnings.join('\n')});}
+  const acceptedIds=d.prompt_ids||[d.prompt_id].filter(Boolean);
+  const loading=c.messages.filter(m=>m.loading&&!m.chatLoading).at(-1);
+  if(loading){loading.prompt_ids=acceptedIds;save();if(id===activeConversationId){const marker=document.querySelector('#messages .vision-output-pending');if(marker)marker.dataset.promptIds=JSON.stringify(acceptedIds)}}
+  await waitResults(acceptedIds,id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{window.StudioAds?.endGeneration?.(task);$('#send').disabled=false}
+}
+const publicOutputChecks=new WeakSet();
+async function verifyPublicOutput(file,id,model,promptText,task,previewStyle=null){
+ const message={role:'assistant',text:'Vérification du fichier…',
+  unverifiedOutput:{file:{...file},kind:task,model:{id:model.id,kind:model.kind},prompt:promptText,previewStyle,
+   advertContext:file.ad_url?null:window.StudioAds?.captureCampaign?.()||null}};
+ // Save a recoverable receipt before decoding: a reload must not lose the output.
+ addMessage(id,message);
+ if(id===activeConversationId){const marker=document.querySelector('#messages .vision-output-pending');if(marker)marker.dataset.phase='validation'}
+ try{await retryPublicOutput(id,message);return true}catch{return false}
+}
+async function retryPublicOutput(id,message){
+ const pending=message.unverifiedOutput;if(!pending||publicOutputChecks.has(message))return;
+ const conv=conversationFor(id);if(conv.profile==='nsfw')return;
+ publicOutputChecks.add(message);
+ try{
+  const file={...pending.file};
+  if(!window.StudioMediaValidation)throw Error('Le contrôle de lecture est indisponible. Actualise l’application.');
+  file.technical_validation=await window.StudioMediaValidation.verify(resultUrl(file),/\.(mp4|webm|mov|mkv|avi)$/i.test(file.filename||'')?'video':'image');
+  message.result=file;message.error=false;message.text='';delete message.unverifiedOutput;
+  const kind=resultKindForModel(pending.model);
+  if(!library.some(item=>item.filename===file.filename&&(item.subfolder||'')===(file.subfolder||'')&&(item.type||'output')===(file.type||'output')))
+   addLibrary(file,kind,pending.prompt,conv.profile||'auto');
+  if(pending.previewStyle){stylePreviews[pending.previewStyle]={...file,workflow:pending.model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}
+  if(pending.kind==='image')clearIrrelevantChatWarningsAfterMedia(id);
+  if(!file.ad_url)void window.StudioAds?.finishMedia(file,pending.model,pending.kind,id,pending.prompt,pending.advertContext);
+ }catch(error){pending.file.technical_validation={verified:false,scope:'browser_check',error:error.message,checked_at:new Date().toISOString()};message.error=true;message.text='Fichier non validé : '+error.message;throw error}
+ finally{publicOutputChecks.delete(message);save();if(id===activeConversationId)openConversation(id)}
 }
 function outputFiles(h){const files=[];for(const o of Object.values(h.outputs||{}))for(const key of ['videos','gifs','images'])for(const file of o[key]||[]){if(file?.filename&&!files.some(x=>x.filename===file.filename&&x.subfolder===file.subfolder))files.push(file)}return files}
-async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed&&!files.length)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){addMessage(id,{role:'assistant',result:file});addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
+async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){if(conversationFor(id).profile!=='nsfw'&&h.provenance_url)file.provenance_id=pid;if(conversationFor(id).profile!=='nsfw'){
+ await verifyPublicOutput(file,id,model,promptText,task,previewStyle);
+ continue;
+ }
+ addMessage(id,{role:'assistant',result:file});if(task==='image'&&conversationFor(id).profile!=='nsfw')clearIrrelevantChatWarningsAfterMedia(id);addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
 
-window.onStudioAdvert=(result,id,originalPrompt)=>{
+window.onStudioAdvert=async(result,id,originalPrompt)=>{
  if(!result?.url||!result?.filename)return;
  const file={filename:result.filename,ad_url:result.url,subfolder:'',type:'output'};
+ if(!await verifyPublicOutput(file,id,{id:'advert-export',kind:result.kind},originalPrompt,result.kind))return;
  addMessage(id,{role:'assistant',text:'Publicité avec le logo de '+(result.brand||'la marque')+' prête : version exportable.'});
- addMessage(id,{role:'assistant',result:file});
- addLibrary(file,result.kind==='video'?'video':'image',originalPrompt,
-            conversationFor(id).profile||'auto');
+
 };
 window.onStudioAdvertError=(message,id)=>{
  addMessage(id,{role:'assistant',error:true,text:message});
@@ -500,7 +796,7 @@ async function pollHealth(){if(pollingHealth)return;pollingHealth=true;try{
  $('#installMotion').textContent=h.media?.['hunyuan15-t2v']?.ready?'HunyuanVideo 1.5 T2V installé ✓':'Installer HunyuanVideo 1.5 T2V';
  $('#installI2V').textContent=h.media?.['hunyuan15-i2v']?.ready?'HunyuanVideo 1.5 I2V installé ✓':'Installer HunyuanVideo 1.5 I2V';
  for(const id of ['#retrySetup','#installImage','#installVideo','#installIsolatedImage','#installMotion','#installI2V']){const e=$(id);if(e)e.disabled=h.startup?.state==='running'}
- if(h.startup?.state==='error')$('#enginePanel').open=true
+ // A diagnostic is accessible explicitly from advanced settings; never auto-open a panel.
 }catch(e){
  healthFailures++;
  if(healthFailures>=3){
@@ -527,7 +823,7 @@ function setup(){
   $('#accordionLoras').scrollIntoView({block:'nearest',behavior:'instant'});
   void refreshLoras();
  };
- $('#nsfwGalleryClose').onclick=()=>{nsfwGalleryVisible=false;renderNsfwGallery()};$('#nsfwGalleryToggle').onclick=()=>{nsfwGalleryVisible=true;renderNsfwGallery()};$('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>createBlankConversation('auto');$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
+ $('#nsfwGalleryClose').onclick=()=>{nsfwGalleryVisible=false;renderNsfwGallery()};$('#nsfwGalleryToggle').onclick=()=>{nsfwGalleryVisible=true;renderNsfwGallery()};$('#openSidebar').onclick=showSidebar;$('#closeSidebar').onclick=hideSidebar;$('#newConversation').onclick=()=>{window.StudioAds?.cancelChat?.();const privateMode=document.body.classList.contains('nsfw-active')&&nsfwUnlocked();createBlankConversation(privateMode?'nsfw':'auto');$('#prompt').placeholder=privateMode?'Décris ta création…':'Écris ton message…'};$('#closeModal').onclick=closeModelModal;$('#modelModal').addEventListener('click',e=>{if(e.target.id==='modelModal')closeModelModal()});$('#stepValidate').onclick=advanceModelStep;document.querySelectorAll('[data-search]').forEach(input=>input.addEventListener('input',e=>renderOptions(e.target.dataset.search,e.target.value)));$('#conversationSearch').oninput=e=>renderConversationList(e.target.value);$('#send').onclick=sendMessage;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('#prompt').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,220)+'px';styleWorkflowSummary()});const setSettingsOpen=open=>{const panel=$('#generationSettings');panel.classList.toggle('hidden',!open);$('#settingsBtn').classList.toggle('active',!!open);if(open){updateSettingsVisibility();styleWorkflowSummary()}};$('#settingsBtn').onclick=()=>setSettingsOpen($('#generationSettings').classList.contains('hidden'));$('#closeSettings').onclick=()=>setSettingsOpen(false);
  $('#photosLibrary').onclick=()=>renderLibrary('image','Mes photos générées','standard');$('#videosLibrary').onclick=()=>renderLibrary('video','Mes vidéos générées','standard');if($('#nsfwPhotosLibrary'))$('#nsfwPhotosLibrary').onclick=()=>renderLibrary('image','Photos NSFW','nsfw');if($('#nsfwVideosLibrary'))$('#nsfwVideosLibrary').onclick=()=>renderLibrary('video','Vidéos NSFW','nsfw');
  $('#modelAuto').onclick=()=>createConversationForProfile('auto');$('#modelRealistic').onclick=()=>createConversationForProfile('companion-realistic');$('#modelNsfw').onclick=enterNsfwWorkspace;$('#studioPhotoVideo').onclick=()=>activateStudio('standard');$('#studioNsfw').onclick=()=>activateStudio('nsfw');$('#websitesWorkspace').onclick=()=>{window.location.href='/localaiweb'};$('#automationsWorkspace').onclick=()=>openFutureWorkspace('automations');$('#composerImageBtn').onclick=composerAddImage;document.querySelectorAll('[data-rename-profile]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();renameProfile(btn.dataset.renameProfile)});
  const updateButton=$('#updateBtn');
@@ -583,6 +879,6 @@ function setup(){
  // v2.1: remove the old reserved red theme and clear a stale style once so a
  // previous watercolor preset cannot silently alter a new prompt.
  document.body.classList.remove('reserved-theme');localStorage.removeItem('lva_reserved_profile');if(!localStorage.getItem('lva_v21_prompt_fidelity')){graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));localStorage.setItem('lva_v21_prompt_fidelity','1')}
- for(const c of Object.values(conversations)){normalizeConversation(c);c.messages=c.messages.filter(m=>!m.loading)}save();window.localAiVisionInitialRefresh=refresh();setInterval(pollHealth,6000);
+ for(const c of Object.values(conversations)){normalizeConversation(c);c.messages=c.messages.filter(m=>!m.loading)}save();window.localAiVisionInitialRefresh=restorePrivateSession().then(refresh);setInterval(pollHealth,6000);
 }
 setup();

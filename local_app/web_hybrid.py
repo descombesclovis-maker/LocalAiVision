@@ -31,7 +31,11 @@ def select_coding_agent(provider, status, *, allow_local_fallback=False):
     for candidate in agents:
         if bool((status.get(candidate) or {}).get('ready')):
             return candidate
-    target = 'Codex (ChatGPT Plus)' if requested in ('auto','codex') else 'Claude Code'
+    entry=status.get('codex' if requested=='auto' else requested) or {}
+    if entry.get('state') in ('timeout','check_failed','launch_failed'):
+        raise RuntimeError('État de l’agent impossible à vérifier : '+str(entry.get('detail') or '')+
+                           ' Réessaie la vérification. Les projets et la session restent conservés.')
+    target = 'Codex (ChatGPT Plus)'  if requested in ('auto','codex') else 'Claude Code'
     raise RuntimeError(
         'Agent de création non connecté : ' + target +
         '. Ouvre la connexion dans LocalAiWeb puis authentifie-toi : '
@@ -346,6 +350,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     # Avoid several redundant prompts and spend the budget writing code.
     instruction = developer_brief(full_brief, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
+    from local_app import web_acceptance
+    instruction += '\n' + web_acceptance.instructions()
     # Studio quality is project-specific and persisted, not a cosmetic button.
     # This is fed to BOTH Codex and Claude so a selected cinematic/3D art
     # direction actually influences the site's real source files.
@@ -519,6 +525,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         'issues': [f['id'] for f in report['findings']],
         'repairs': repair_count,
     }
+    from local_app import web_delivery
+    delivery = web_delivery.save(store, project_id, report, visual)
+    meta['delivery_status'] = {'ready_to_deliver':delivery['ready_to_deliver'],
+                               'blocking_reasons':delivery['blocking_reasons'],
+                               'revision':delivery['revision']}
     store.write_meta(project_id, meta)
     feedback = meta['last_summary']
     if not report['ok']:
@@ -532,8 +543,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         feedback += '\nVérification navigateur : ordinateur, tablette et téléphone contrôlés.'
     elif visual['status'] == 'deferred_first_preview':
         feedback += '\nSite compilé et contrôlé. La revue visuelle navigateur sera effectuée lors des améliorations.'
+    if not delivery['ready_to_deliver']:
+        feedback += '\nAperçu disponible ; livraison non validée : ' + ', '.join(delivery['blocking_reasons'])
     store.append_chat(project_id, 'assistant', feedback)
     payload = store.payload(project_id)
+    payload['delivery'] = delivery
     payload['summary'] = feedback
     payload['quality'] = report['preflight']
     payload['hybrid_validation'] = {**report, 'visual': visual,

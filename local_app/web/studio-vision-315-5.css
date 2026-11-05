@@ -1,0 +1,17 @@
+/* Build 315.5 — nonintrusive on-demand engine startup + user message clarity.
+   Reserved/NSFW interface and pipelines are deliberately excluded. */
+body[data-studio-page="vision"]:not(.nsfw-active) #engineRecovery{
+ display:none!important;visibility:hidden!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #messages .message.user>.bubble{
+ background:linear-gradient(130deg,#075568,#0d8298)!important;
+ border:1px solid #52cfdf60!important;
+ color:#f3fcff!important;
+ box-shadow:inset 0 1px 0 #a1f6ff19,0 3px 16px #00151a22!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #messages .message.user>.bubble::selection{
+ background:#31c7db;color:#031b26;
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page="vision"]:not(.nsfw-active) #messages .message.user>.bubble{transition:none!important}
+}

@@ -1,0 +1,242 @@
+{
+  "reference_commit": "b2666902b008a82fc91c98839467782fba106e7c",
+  "source": "LocalAiStudio_Build315_5_Sources_Web.zip",
+  "archive_sha256": "f91e6dd40999d940daeefa6fecbea82618e69aa17e3db6b8693f4b092fcccd1d",
+  "files": [
+    {
+      "path": "local_app/web/FINITIONS_BUILD315_1.txt",
+      "status": "added",
+      "sha256": "61634fd05f33a7ef5e69dfe9ac4eebb211c2644591f70f6f463afc144563cf46"
+    },
+    {
+      "path": "local_app/web/FINITIONS_BUILD315_2.txt",
+      "status": "added",
+      "sha256": "e07a1901133845751550de7a6535595bcdd39b2f2cc1bfae56b4f71a296568f3"
+    },
+    {
+      "path": "local_app/web/app.js",
+      "status": "modified",
+      "sha256": "46279748f594e9961a3a3a188b43b8961ec9eed03c56711ab9d66c4b4f4a12e1"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/README.txt",
+      "status": "added",
+      "sha256": "f9a1e2a38369908fa2fcf3f2cd2e6d981a342e630efbd4737f0ba26b3171e7a4"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/studio-animated.svg",
+      "status": "added",
+      "sha256": "b07757d521e150dcdd43036225ba0516121fb18ecc17f17075702b1092b7e701"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/studio-pwa.png",
+      "status": "added",
+      "sha256": "ed3e2cf85e4144dab5a5e940686655bb470ecfc789ce8fc50f9a332356579716"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/studio-static.svg",
+      "status": "added",
+      "sha256": "24143bf8bb53052ea5eddd4cfa9849aba6ba7c39dea4ac959b5d0668f156ddd7"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/vision-animated.svg",
+      "status": "added",
+      "sha256": "42e6970aa553b463e92a89198b93cde68f8da3d8bb39d698be1573cb1912f86f"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/vision-pwa.png",
+      "status": "added",
+      "sha256": "811fc1ae53a5fac79ce777f391406b49460cc50c24008c7cc59c4f6b6a0f6158"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/vision-static.svg",
+      "status": "added",
+      "sha256": "4404fb66deb456201ba2bd1307fc9af7ce0cc225e1070a82c3fcd8aaa07a9a2b"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/web-animated.svg",
+      "status": "added",
+      "sha256": "3402ffc075fd1474716774a0c1adcc4e4c32ebd1ffa86d5427b3753ee8c42a84"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/web-pwa.png",
+      "status": "added",
+      "sha256": "9c5ff505d29af0edad1522439c74f9511511972b98f984dbee19d075e9c8d800"
+    },
+    {
+      "path": "local_app/web/assets/custom-brand/web-static.svg",
+      "status": "added",
+      "sha256": "f6bea45915b318fc5bc72ce1ac64735313c7e77e9bfe022e06ca3dc5f117084c"
+    },
+    {
+      "path": "local_app/web/icons/advertising.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/gallery.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/home.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/map.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/photo.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/projects.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/settings.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/icons/video.svg",
+      "status": "added",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local_app/web/index.html",
+      "status": "modified",
+      "sha256": "1b7273bd3f0a54ea0678beccea602fb46b699a3c38df958b0fe08d57283888dc"
+    },
+    {
+      "path": "local_app/web/localai-studio.html",
+      "status": "modified",
+      "sha256": "cea7a3cf120b54a93d62ee2d36b4ca42eff286932f7debd51e2557bd39b713b9"
+    },
+    {
+      "path": "local_app/web/localaiweb-clients.html",
+      "status": "modified",
+      "sha256": "73901667342bb8675d25a4d572e07eb508b0236719022cfea09d5e85547e5fea"
+    },
+    {
+      "path": "local_app/web/localaiweb-map.html",
+      "status": "modified",
+      "sha256": "073ca69fe461cac3f2106c02e9ce73c22e338b784f3f2f0a6598566709460afa"
+    },
+    {
+      "path": "local_app/web/localaiweb-projects.css",
+      "status": "modified",
+      "sha256": "5b25f5499945b714999ba2b39671db7856acbe71f38b4d35ae14082617605ac2"
+    },
+    {
+      "path": "local_app/web/localaiweb-projects.html",
+      "status": "modified",
+      "sha256": "9fd937b8c46e0f2339800b5795da3b2fab0ada8ecc08981e20bac328680da9dc"
+    },
+    {
+      "path": "local_app/web/localaiweb-projects.js",
+      "status": "modified",
+      "sha256": "c64b0ddf708386163a463af61686491ceb5f08956870b28ae96bff0a4bf43747"
+    },
+    {
+      "path": "local_app/web/localaiweb-sales.html",
+      "status": "modified",
+      "sha256": "d4618b134c10552df47cccb5dbd535982c1d2ac2f9c44c4a611d7a93aa5b4bfa"
+    },
+    {
+      "path": "local_app/web/localaiweb.html",
+      "status": "modified",
+      "sha256": "f649b22a3484c4245f4f4937f17801518ec6e9cd749178b28c773dd315de5b8b"
+    },
+    {
+      "path": "local_app/web/localaiweb.webmanifest",
+      "status": "modified",
+      "sha256": "9403fb618260c18e059143f844429c6cb3130a9c9733dc8b4c5d9faaa2b35b1d"
+    },
+    {
+      "path": "local_app/web/manifest.webmanifest",
+      "status": "modified",
+      "sha256": "11a17603cb6cb1935af4ab6c30c637159d2f90c7907bc1a1cd2755953ab3d0bc"
+    },
+    {
+      "path": "local_app/web/studio-ads.js",
+      "status": "modified",
+      "sha256": "a24545ef675b187f08fba7490912142fe13d84b84a97ab3cf5cf43ada02b3f39"
+    },
+    {
+      "path": "local_app/web/studio-brands.html",
+      "status": "modified",
+      "sha256": "10a880c6f10d5183626a24fa8a93d5099dff5156a2bd4c4aa099307aa9b133e9"
+    },
+    {
+      "path": "local_app/web/studio-custom-brand.css",
+      "status": "added",
+      "sha256": "b7ff82fcaf1da0fcde7cd22bfb9952b90f3a11a335ac920e9bdec315a8d5316e"
+    },
+    {
+      "path": "local_app/web/studio-home-fullbleed.css",
+      "status": "added",
+      "sha256": "7a043feaa7c5e8e2177cea2a9aedb7359274ff2d1b876e0f8798b2f8b572829b"
+    },
+    {
+      "path": "local_app/web/studio-qcm-shell.js",
+      "status": "modified",
+      "sha256": "f0bf789f9b470d1ebf0038f2a78fe71d90e37c853071145351e2b15dc14b711f"
+    },
+    {
+      "path": "local_app/web/studio-qcm-vision.js",
+      "status": "modified",
+      "sha256": "900616fc6fa47e6f709940aa6abe5db548050c3b9b1fcd9e42af9f19ba415e80"
+    },
+    {
+      "path": "local_app/web/studio-redesign.js",
+      "status": "modified",
+      "sha256": "48ede2e4697a5e9b0dbc67064f4db66ee0688018232b6f45fc3795296c2e9415"
+    },
+    {
+      "path": "local_app/web/studio-system.css",
+      "status": "modified",
+      "sha256": "6fd52234d81833c66976a493e786c9ae2783c1b23f493b8e4e9491cf75f009a1"
+    },
+    {
+      "path": "local_app/web/studio-vision-315-3.css",
+      "status": "added",
+      "sha256": "39e64edcf29b70214361586e57c3cc16df251af76535b03986776c5fdb2c6906"
+    },
+    {
+      "path": "local_app/web/studio-vision-315-4.css",
+      "status": "added",
+      "sha256": "4b728fa497196e46b9b963a67905e70fc08a6710c02fba8b23d7db6548cdfbeb"
+    },
+    {
+      "path": "local_app/web/studio-vision-315-5.css",
+      "status": "added",
+      "sha256": "4a30d689dc6f2c58608e890891248dfcc3ee7f1a6702950456a32e28d387ecd3"
+    },
+    {
+      "path": "local_app/web/studio-vision-composer-polish.css",
+      "status": "added",
+      "sha256": "945f9e0d8c746d075dda7dded2c65a36386511209d268cfea53fcc7445342157"
+    },
+    {
+      "path": "local_app/web/studio-vision-final-polish.css",
+      "status": "added",
+      "sha256": "1b83200afed114a2d0ba7fc707ea2526f94616bd8873517f8e2eef8bd192b2fc"
+    },
+    {
+      "path": "local_app/web/studio-web-menu-interactions.css",
+      "status": "added",
+      "sha256": "4ce9952d67903487d488fa929d1914181dbe9e921f6de9f79be81eac07adbd23"
+    },
+    {
+      "path": "local_app/web/studio-web-sidebar-menu.css",
+      "status": "added",
+      "sha256": "74275aab52a9c5cb676cc29282348186b89e434d75304a4c04ef27c8efb4152d"
+    }
+  ]
+}

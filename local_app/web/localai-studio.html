@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#090b13"><meta name="description" content="LocalAI Studio : sites web ambitieux, images et vidéos locales. Deux univers et une seule expérience.">
 <title>LocalAI Studio · Votre atelier créatif</title>
-<link rel="icon" href="/assets/assets/brand-reference/LocalAIStudio_Official_Original.png" type="image/png">
+<link rel="icon" href="/assets/assets/custom-brand/studio-animated.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/localai-studio.css">
 
 <link rel="stylesheet" href="/assets/studio-activity.css">
@@ -13,16 +13,21 @@
 
 
 <link rel="stylesheet" href="/assets/studio-system.css">
+<link rel="stylesheet" href="/assets/studio-custom-brand.css">
+<link rel="stylesheet" href="/assets/studio-home-fullbleed.css">
+<link rel="stylesheet" href="/assets/studio-audit-1.css">
+<link rel="stylesheet" href="/assets/studio-connections.css">
 </head>
 <body class="universe-home" data-studio-page="home" data-studio-shell="off">
 <div class="studio-backdrop" aria-hidden="true"><span class="backdrop-glow one"></span><span class="backdrop-glow two"></span><span class="backdrop-grid"></span></div>
 <main class="universe-shell">
   <header class="universe-topbar">
     <a class="universe-brand" href="/studio" aria-label="LocalAI Studio, accueil">
-      <span class="studio-master-mark identity-frame studio-identity"><img src="/assets/assets/brand-reference/LocalAIStudio_Official_Original.png" alt="" width="42" height="42"></span>
+      <span class="studio-master-mark identity-frame studio-identity"><img src="/assets/assets/custom-brand/studio-animated.svg" alt="" width="42" height="42"></span>
       <span><strong>LocalAI <em>Studio</em></strong><small>Création sans compromis</small></span>
     </a>
     <span class="universe-top-hint"><span class="presence-dot" aria-hidden="true"></span> UN STUDIO · DEUX UNIVERS</span>
+    <button id="studioConnectionsButton" class="studio-settings-gear" type="button" aria-label="Ouvrir les connexions et clés API" title="Connexions et clés API"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2.4h4l.6 2.2 2 .8 2-1.1 2.8 2.8-1.1 2 .8 2 2.2.6v4l-2.2.6-.8 2 1.1 2-2.8 2.8-2-1.1-2 .8L14 23h-4l-.6-2.2-2-.8-2 1.1-2.8-2.8 1.1-2-.8-2-2.2-.6v-4l2.2-.6.8-2-1.1-2 2.8-2.8 2 1.1 2-.8Z"/><circle cx="12" cy="12.1" r="3.2"/></svg></button>
   </header>
   <section class="universe-intro" aria-labelledby="universe-title">
     <span class="universe-eyebrow"><i aria-hidden="true"></i> L'ATELIER DE VOS IDÉES</span>
@@ -31,24 +36,32 @@
   </section>
   <section class="universe-choices" aria-label="Choisir votre univers de création">
     <a class="universe-card web-universe" href="/localaiweb">
-      <span class="studio-card-title"><span class="identity-frame"><img src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png" alt=""></span>LocalAiWeb</span>
-      <div class="studio-photo-frame web-photo"><img class="studio-scene studio-photo" src="/assets/presentation/web-1600.webp" srcset="/assets/presentation/web-1600.webp 1600w, /assets/presentation/web-4096.webp 4096w" sizes="(min-width:2400px) 1000px,(min-width:701px) 46vw,90vw" alt="Espace de création numérique éclairé en violet" width="1600" height="900" decoding="async"><span class="photo-disclosure">Photographie illustrative</span></div>
+      <span class="studio-card-title"><span class="identity-frame"><img src="/assets/assets/custom-brand/web-animated.svg" alt=""></span>LocalAiWeb</span>
+      <div class="studio-photo-frame web-photo"><img class="studio-scene studio-photo" src="/assets/presentation/web-1600.webp" srcset="/assets/presentation/web-1600.webp 1600w, /assets/presentation/web-4096.webp 4096w" sizes="(min-width:2400px) 1000px,(min-width:701px) 46vw,90vw" alt="Espace de création numérique éclairé en violet" width="1600" height="900" decoding="async"></div>
       <span class="studio-card-cta">Créer un site web <b aria-hidden="true">↗</b></span>
     </a>
     <a class="universe-card vision-universe" href="/localaivision">
-      <span class="studio-card-title"><span class="identity-frame vision-identity-frame"><img src="/assets/assets/brand-reference/LocalAIVision_Official_Original.png" alt=""></span>LocalAiVision</span>
-      <div class="studio-photo-frame vision-photo"><img class="studio-scene studio-photo" src="/assets/presentation/vision-1600.webp" srcset="/assets/presentation/vision-1600.webp 1600w, /assets/presentation/vision-4096.webp 3933w" sizes="(min-width:2400px) 1000px,(min-width:701px) 46vw,90vw" alt="Poste professionnel de montage vidéo" width="1600" height="900" decoding="async"><span class="photo-disclosure">Photographie illustrative</span></div>
+      <span class="studio-card-title"><span class="identity-frame vision-identity-frame"><img src="/assets/assets/custom-brand/vision-animated.svg" alt=""></span>LocalAiVision</span>
+      <div class="studio-photo-frame vision-photo"><img class="studio-scene studio-photo" src="/assets/presentation/vision-1600.webp" srcset="/assets/presentation/vision-1600.webp 1600w, /assets/presentation/vision-4096.webp 3933w" sizes="(min-width:2400px) 1000px,(min-width:701px) 46vw,90vw" alt="Poste professionnel de montage vidéo" width="1600" height="900" decoding="async"></div>
       <span class="studio-card-cta">Créer une image ou une vidéo <b aria-hidden="true">↗</b></span>
     </a>
+    <section class="brand-universe" aria-label="Identités de marque">
+      <img class="brand-cover" src="/assets/presentation/brand-identity-1600.webp?v=tech-cyan-violet-316" alt="" loading="eager" decoding="async">
+      <img id="homeBrandLogo" class="brand-card-logo" src="/assets/assets/custom-brand/studio-animated.svg" alt="">
+      <div class="brand-card-copy"><h2 id="homeBrandName">Identités de marque</h2><p id="homeBrandDescription">Vos logos, vos couleurs et votre identité. Un même repère pour vos sites et publicités.</p><div class="brand-card-actions"><a href="/studio/brands">Gérer mes marques ↗</a><button id="homeBrandChoose" type="button">Sélectionner une marque</button></div></div>
+    </section>
   </section>
   
   <footer class="universe-footer"><span>LOCALAI STUDIO <i aria-hidden="true">·</i> VOTRE ESPACE PRIVÉ</span><span>Vos conversations et projets restent séparés par univers.</span></footer>
 </main>
 
+<script src="/assets/studio-brand-picker.js" defer></script>
 <script src="/assets/localai-studio-motion.js" defer></script>
+<script src="/assets/studio-progress.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 
 <script src="/assets/studio-qcm-home.js" defer></script>
+<script src="/assets/studio-connections.js" defer></script>
 </body>
 </html>
 

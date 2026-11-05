@@ -15,6 +15,8 @@ import threading
 import uuid
 import time
 
+from local_app.business_time import business_date, timezone_name
+
 from local_app import web_sales_invoice as sales
 
 _LOCK=threading.RLock()
@@ -192,7 +194,7 @@ def snapshot(root,store):
                "business":p.get("business",{})}
               for p in projects if p.get("project_kind")=="pro" and p["id"] not in assigned]
     stages={stage:sum(c["stage"]==stage for c in clients) for stage in STAGES}
-    today=date.today().isoformat()
+    today=business_date().isoformat()
     followups=sorted(
         ({"id":c["id"],"name":c["name"],"due":c["next_contact"],"stage":c["stage"]}
          for c in clients if c.get("next_contact") and c["next_contact"]<=today
@@ -272,14 +274,14 @@ def create_quote(root,store,request):
             client=_upsert(data,store,{"name":customer_name,"project_id":project_id,
                 "address":customer.get("address"),"email":customer.get("email"),
                 "siret":customer.get("siret"),"stage":"proposal"})
-        today=date.today()
+        today=business_date()
         count=int(data["quote_sequence"].get(str(today.year),0))+1
         number=f"DEV-{today.year}-{count:05d}"
         record={"quote_number":number,"project_id":project_id,"client_id":client["id"],
                 "project_name":store.meta(project_id).get("name",""),
                 "scope":_field(request.get("scope"),900),"recurring":_field(request.get("recurring"),600),
                 "discount_pct":request.get("discount_pct",30),
-                "issued_at":today.isoformat(),"valid_until":(today+timedelta(days=days)).isoformat(),
+                "business_timezone":timezone_name(),"issued_at":today.isoformat(),"valid_until":(today+timedelta(days=days)).isoformat(),
                 "seller":parties["seller"],"customer":parties["customer"],"items":lines,
                 "subtotal_eur":str(sales.money(subtotal)),"vat_eur":str(vat),
                 "total_eur":str(total),"vat_mode":parties["vat_mode"],

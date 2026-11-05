@@ -1,0 +1,68 @@
+/* Audit humain 1: layout overrides scoped to the public workspace. */
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-height:86px;height:86px;padding:6px 16px!important;position:fixed!important;overflow:visible!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #openSidebar{position:static!important;grid-column:1;grid-row:1;justify-self:start}
+body[data-studio-page="vision"]:not(.nsfw-active) #homeBtn{position:static!important;transform:none!important;grid-column:2;grid-row:1;display:flex!important;flex-direction:column;gap:0!important;align-items:center;margin:0!important;padding:0!important;font-size:14px!important;line-height:1.25}
+body[data-studio-page="vision"]:not(.nsfw-active) #homeBtn img{width:45px!important;height:45px!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .topbar-actions{grid-column:3;grid-row:1;justify-self:end;min-width:0;gap:5px!important;max-width:100%}
+body[data-studio-page="vision"]:not(.nsfw-active) #studioActivity{position:relative!important;inset:auto!important;width:auto;max-width:180px;filter:none}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-activity-toggle{background:#123340;border-color:#58cbd466;font-size:11px;padding:6px;min-height:40px}
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-activity-panel{position:absolute;right:0;top:100%;width:min(310px,88vw)}
+.vision-chat-intro>svg{width:64px;height:64px;fill:none;stroke:#67e8f9;stroke-width:1.4;filter:drop-shadow(0 0 9px #22d3ee60);animation:studioChatGlow 4s ease-in-out infinite}
+.vision-chat-intro p{max-width:480px;margin:14px auto;line-height:1.7}
+.vision-chat-intro svg.inline-menu{display:inline-block;width:19px;height:19px;vertical-align:middle;stroke:currentColor;fill:none;stroke-width:2}
+@keyframes studioChatGlow{50%{opacity:.7}}
+.studio-progress{--progress-color:#65e4ef;position:relative;width:110px;height:110px;display:grid;place-items:center;flex:none;color:var(--progress-color);filter:drop-shadow(0 0 8px #27bed72b)}
+.studio-progress-meter{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke-width:3;transform:rotate(-90deg)}
+.studio-progress-track{stroke:#ffffff17}.studio-progress-arc{stroke:var(--progress-color);stroke-linecap:round;stroke-dasharray:100;transition:stroke-dashoffset .45s ease}
+.studio-progress[data-unknown="true"] .studio-progress-meter{animation:studioMeterSpin 2.5s linear infinite}
+.studio-progress-value{font-size:22px;font-weight:600;align-self:center;padding-bottom:8px}.studio-progress-hint{position:absolute;top:60%;font-size:9px;letter-spacing:.03em}
+#studioActivity .studio-progress{width:38px;height:38px}#studioActivity .studio-progress-value{font-size:10px;padding-bottom:0}#studioActivity .studio-progress-hint{display:none}
+.vision-preview-loading .studio-progress{margin:0 auto 16px}
+.studio-brand-button{display:inline-flex;align-items:center;gap:7px;border:1px solid #73cdd54a;border-radius:9px;padding:8px 10px;background:#142632;color:#dffbff;cursor:pointer;font:inherit;font-size:12px;max-width:230px}
+.studio-brand-button img{width:22px;height:22px;object-fit:contain}.studio-brand-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body[data-studio-page="vision"]:not([data-vision-mode="advert"]) #visionBrandButton,body.nsfw-active #visionBrandButton{display:none!important}
+.studio-brand-dialog{width:min(540px,90vw);max-height:80vh;overflow:auto;background:#101a27;color:#effaff;border:1px solid #69d6e65c;border-radius:18px;padding:24px;box-shadow:0 25px 80px #0009}
+.studio-brand-dialog::backdrop{background:#030914bb}.studio-brand-dialog header{display:flex;justify-content:space-between;align-items:center}.studio-brand-dialog button{cursor:pointer;color:inherit}.studio-brand-dialog header button{background:none;border:0;font-size:25px}.studio-brand-options{display:grid;gap:8px;margin-top:20px}.studio-brand-option{display:flex;align-items:center;gap:12px;text-align:left;background:#1c2a3d;border:1px solid #ffffff20;border-radius:12px;padding:12px}.studio-brand-option img{width:44px;height:44px;object-fit:contain}.studio-brand-option small{display:block;color:#a9bdcc}.studio-brand-option:focus-visible{outline:2px solid #64d7ed}
+body.universe-home .brand-universe{grid-column:1/-1;justify-self:center;width:min(690px,100%);min-height:180px!important;margin-top:10px;border:1px solid #8f9af670;background:linear-gradient(115deg,#29203e,#123b48);text-decoration:none;display:flex;align-items:center;gap:24px;padding:26px;border-radius:24px;color:#fff;position:relative;overflow:hidden}
+.brand-universe .brand-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.28;pointer-events:none}.brand-universe>*:not(.brand-cover){position:relative;z-index:1}.brand-universe .brand-card-logo{width:74px;height:74px;object-fit:contain;flex:none}.brand-card-copy{flex:1;min-width:0}.brand-card-copy h2{margin:0 0 8px;font-size:22px}.brand-card-copy p{margin:0;color:#e1e8f3;line-height:1.5}.brand-card-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.brand-card-actions a,.brand-card-actions button{font:inherit;font-size:12px;background:#0d152bbd;color:#f4faff;border:1px solid #b7dafc60;border-radius:9px;padding:9px 12px;text-decoration:none;cursor:pointer}.brand-entry{display:grid;gap:8px}.brand-select-active{padding:10px;border-radius:9px;border:1px solid #9c86dc;background:#282339;color:#fff;cursor:pointer}
+.law-generation-surface{display:grid;justify-items:center;gap:20px;padding:25px;position:absolute;inset:0;place-content:center;background:#111827eb;z-index:5;text-align:center}.law-generation-surface[hidden]{display:none}.law-generation-surface .studio-progress{--progress-color:#bf9bfa;width:145px;height:145px}.law-generation-surface button{background:#291e44;color:#f3e9ff;border:1px solid #c49af6;padding:10px 14px;border-radius:10px;cursor:pointer}.law-generation-orbit{position:absolute;inset:-22px;animation:studioProgressSpin 20s linear infinite;pointer-events:none}.law-generation-orbit svg{position:absolute;width:24px;height:24px;fill:none;stroke:#bcb5fb;stroke-width:1.4}.law-generation-orbit svg:nth-child(1){top:0;left:45%}.law-generation-orbit svg:nth-child(2){right:0;top:60%}.law-generation-orbit svg:nth-child(3){bottom:0;left:10%}
+@keyframes studioProgressSpin{to{transform:rotate(360deg)}}
+@keyframes studioMeterSpin{from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
+@media(max-width:700px){body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{padding:4px 10px!important;min-height:80px;height:80px}body[data-studio-page="vision"]:not(.nsfw-active) #homeBtn{font-size:12px!important}body[data-studio-page="vision"]:not(.nsfw-active) #studioActivity .studio-activity-copy,body[data-studio-page="vision"]:not(.nsfw-active) .studio-universe-link,body[data-studio-page="vision"]:not(.nsfw-active) #updateBtn{display:none!important}body[data-studio-page="vision"]:not(.nsfw-active) #studioActivity{max-width:68px}.brand-universe{flex-wrap:wrap}.brand-card-copy h2{font-size:19px}.studio-brand-button{font-size:11px;max-width:180px}.composer-bottom{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.vision-chat-intro>svg,.studio-progress-meter,.law-generation-orbit{animation:none!important}.studio-progress-arc{transition:none!important}}
+body[data-gpu-busy="true"] .law-generation-orbit,body[data-motion-paused="true"] .law-generation-orbit{animation-play-state:paused}
+
+.law-edit-overlay .law-generation-ring{--progress-color:#bc93ff;width:135px;height:135px;margin:12px auto 22px}
+.law-edit-overlay #lawKeepPreview{background:#291e44;color:#f3e9ff;border:1px solid #b18ae0;padding:10px 14px;border-radius:10px;cursor:pointer}
+.studio-activity-spinner.studio-progress{animation:none;border:0;background:none;border-radius:0}
+.vision-progress-circle.studio-progress,.project-generation-ring.studio-progress{background:transparent;border:0;box-shadow:none}
+.vision-progress-circle.studio-progress::before,.vision-progress-circle.studio-progress::after,.project-generation-ring.studio-progress::before,.project-generation-ring.studio-progress::after{display:none}
+body[data-studio-page="vision"]:not(.nsfw-active){--vision-header-height:86px}
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar{position:fixed!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .topbar-actions{position:static!important;transform:none!important;margin:0!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open{inset:var(--vision-header-height) auto 0 0!important;height:calc(100dvh - var(--vision-header-height))!important;max-height:calc(100dvh - var(--vision-header-height))!important}
+@media(max-width:700px){body[data-studio-page="vision"]:not(.nsfw-active){--vision-header-height:80px}}
+
+body[data-studio-page="vision"]:not(.nsfw-active) #homeBtn>span{display:block!important}
+
+.brand-card-copy h2{overflow-wrap:anywhere}
+/* Keep generation text legible above the previous preview, and give status its own line. */
+body[data-studio-page="editor"] #lawEditOverlay{background:#10131b!important;backdrop-filter:none!important}
+body[data-studio-page="editor"] #lawComposer .composer-bottom{flex-wrap:wrap}
+body[data-studio-page="editor"] #lawChatStatus{order:3;flex:1 1 100%;min-width:0}
+body[data-studio-page="editor"] #lawGenerate{margin-left:auto}
+body[data-studio-page="vision"]:not(.nsfw-active) .output-verification-retry{display:block;margin:10px 0;padding:10px 14px;border:1px solid #64d6e780;border-radius:10px;color:#dffaff;background:#123849;cursor:pointer;font:inherit;font-size:13px}
+body[data-studio-page="vision"]:not(.nsfw-active) .output-verification-retry:disabled{opacity:.6;cursor:wait}
+
+/* Audit 2: new photographic brand-card composition with visible cyan-violet overlay. */
+body.universe-home .brand-universe .brand-cover{opacity:.51;object-fit:cover;object-position:center 47%;filter:saturate(.88)}
+body.universe-home .brand-universe::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(100deg,#2b17698c,#032f4a51 55%,#187c8a7c);mix-blend-mode:normal}
+
+/* Third card: actual dual-colour computer imagery must dominate, not a dim stationery graphic. */
+body.universe-home .brand-universe .brand-cover{
+ opacity:.83!important;object-fit:cover!important;object-position:center 50%!important;
+ filter:saturate(1.16) contrast(1.08)!important;
+}
+body.universe-home .brand-universe::after{
+ background:linear-gradient(102deg,#4220b65e 0%,#1b0d5260 34%,#035f7299 73%,#16a5b66a 100%)!important;
+}

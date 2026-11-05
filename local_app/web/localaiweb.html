@@ -6,42 +6,49 @@
   <meta name="theme-color" content="#0c0b11">
   <meta name="description" content="LocalAiWeb : décrivez votre site dans le chat, visualisez sa création en temps réel.">
   <title>LocalAiWeb — Créez votre site avec l’IA</title>
-  <meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/assets/localaiweb.webmanifest"><meta name="apple-mobile-web-app-title" content="LocalAiWeb"><link rel="icon" href="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png" type="image/png">
+  <meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/assets/localaiweb.webmanifest"><meta name="apple-mobile-web-app-title" content="LocalAiWeb"><link rel="icon" href="/assets/assets/custom-brand/web-animated.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/localaiweb.css">
 
 <link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-qcm-v1.css">
 <link rel="stylesheet" href="/assets/studio-system.css">
+<link rel="stylesheet" href="/assets/studio-custom-brand.css">
+<link rel="stylesheet" href="/assets/studio-web-sidebar-menu.css">
+<link rel="stylesheet" href="/assets/studio-web-menu-interactions.css">
+<link rel="stylesheet" href="/assets/studio-audit-1.css">
+<link rel="stylesheet" href="/assets/studio-web-header.css">
 </head>
 <body data-studio-page="editor">
   <main class="studio" aria-label="Studio LocalAiWeb">
-    <section class="chat-pane" aria-label="Conversation avec LocalAiWeb">
-      <header class="chat-header">
-        <a href="/localaiweb" class="brand-symbol" title="Retour à mes projets" aria-label="Retour à mes projets">←</a>
-        <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
-        <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Ouvrir les paramètres techniques"><span>Paramètres</span></button>
+      <header class="chat-header law-global-header">
+        <a id="lawEditorReturn" href="/localaiweb" class="law-editor-return" title="Retour aux projets" aria-label="Retour à mes projets LocalAiWeb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5 6.5 12l7 7M7 12h11"/></svg></a>
+        <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle studio-web-hamburger" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Ouvrir le menu LocalAiWeb" title="Menu LocalAiWeb"><span></span><span></span><span></span></button>
+
+        <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/assets/custom-brand/web-animated.svg" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
+
         <div class="law-brand-workspace" role="group" aria-label="Identité de marque du projet">
           <label class="sr-only" for="lawBrandPicker">Marque cliente associée au site</label>
           <select id="lawBrandPicker" aria-label="Identité de marque pour le site"><option value="">Sans marque associée</option></select>
-          <a href="/studio/brands" title="Créer et modifier les identités de marque">Marques</a>
+
         </div>
         <div class="agent-workspace" role="group" aria-label="Agent de création de sites">
           <label class="sr-only" for="lawAgentSelect">Agent de création</label>
           <select id="lawAgentSelect" class="agent-select" aria-label="Choisir l'agent de création"><option value="codex">Codex · ChatGPT Plus</option><option value="claude">Claude Code · option</option></select>
           <button id="connectAgent" class="agent-control" type="button" title="Vérifier et connecter l'agent sélectionné" aria-live="polite">◌ Connexion…</button>
         </div>
-        <a href="/studio" class="update-action studio-universe-link" title="Choisir un univers">LocalAiStudio</a>
+        <a href="/studio" id="webStudioReturn" class="update-action studio-universe-link" title="Revenir à LocalAiStudio">LocalAiStudio</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
       <nav id="lawMobileTools" class="law-mobile-tools" aria-label="Outils du studio mobile" hidden>
         <div class="law-mobile-tools-title">Connexion et identité de marque</div>
         <div id="lawMobileAgentSlot"></div><div id="lawMobileBrandSlot"></div>
         <div class="law-mobile-tools-links">
-          <a href="/studio">LocalAiStudio</a><a href="/localaiweb">Tous mes projets</a>
-          <a href="/studio/brands">Identités de marque</a>
+          <a href="/studio">LocalAiStudio</a><a href="/localaiweb">Tous mes projets</a><a id="lawDeliveryShortcut" href="/localaiweb/livraisons">Livraison client</a>
+
         </div>
         <div id="lawMobileVersionSlot"></div>
       </nav>
+    <section class="chat-pane" aria-label="Conversation avec LocalAiWeb">
       <div id="lawChat" class="chat-history" role="log" aria-live="polite" aria-relevant="additions text"></div>
       <form id="lawComposer" class="chat-composer">
         <label class="sr-only" for="lawPrompt">Décrivez votre site ou la modification souhaitée</label>
@@ -51,6 +58,7 @@
             <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-4 5-4 13 0 18M12 3c4 5 4 13 0 18"/></svg>
           </a>
 
+           <button id="lawBrandButton" type="button" class="studio-brand-button">Renseigner ma marque</button>
            <span id="lawChatStatus" role="status" aria-live="polite">Prêt à créer ton site</span>
           <button id="lawGenerate" type="submit" aria-label="Envoyer mon message">Envoyer <span aria-hidden="true">↑</span></button>
         </div>
@@ -82,11 +90,11 @@
       </header>
       <div id="lawPreviewStage" class="preview-stage desktop">
         <div id="lawEditOverlay" class="law-edit-overlay" hidden role="status" aria-live="polite">
-           <span class="law-edit-orb" aria-hidden="true"></span><strong>Modification du site</strong>
+           <div class="law-generation-ring"></div><strong>Création du site</strong>
            <span id="lawEditPhase">Codex travaille sur les fichiers du site…</span>
-           <div class="law-stage-track"><div id="lawEditTrack"></div></div>
-           <small id="lawEditPercent">Étapes vérifiées : 0 %</small>
-           <small>La prévisualisation sera rétablie après vérification des modifications.</small>
+           <div class="law-stage-track" hidden><div id="lawEditTrack"></div></div>
+           <small id="lawEditPercent">Étape en cours : préparation</small>
+           <small><button type="button" id="lawKeepPreview">Consulter l’aperçu disponible</button></small>
         </div>
         <aside id="lawInspectorPopover" class="inspector-popover" hidden aria-label="Modifier la sélection">
           <label for="lawInspectorPrompt">Modifier les éléments sélectionnés</label>
@@ -102,7 +110,7 @@
       <section id="lawAfterPublish" class="law-post-publish" hidden aria-label="Présentation et commercialisation">
         <small id="lawPublishedAddress" hidden></small>
         <a id="lawCreateCampaign" href="/localaivision">Créer une publicité pour ce site ↗</a>
-        <a id="lawCreateQuote" href="/localaiweb/vente">Créer un devis lié au site ↗</a>
+        <a id="lawCreateQuote" href="/localaiweb/livraisons">Préparer la livraison client ↗</a>
       </section>
     </section>
   </main>
@@ -200,13 +208,15 @@
       </footer>
     </form>
   </dialog>
-  <script src="/assets/localaiweb.js"></script>
+  <script src="/assets/studio-brand-picker.js" defer></script>
+<script src="/assets/localaiweb.js"></script>
 <script src="/assets/localaiweb-brand.js" defer></script>
   <script src="/assets/localaiweb-inspector.js"></script>
   <script src="/assets/localaiweb-update.js"></script>
 <script src="/assets/localaiweb-agent.js"></script>
   <script src="/assets/pwa-install.js" defer></script>
 <script src="/assets/localaiweb-mobile.js"></script>
+<script src="/assets/studio-progress.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 <script src="/assets/studio-qcm-shell.js" defer></script><script src="/assets/studio-qcm-editor.js" defer></script>
 <script src="/assets/studio-qcm-editor-rail.js" defer></script>

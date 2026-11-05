@@ -11,8 +11,8 @@
   "theme_color": "#171126",
   "icons": [
     {
-      "src": "/assets/assets/brand-reference/LocalAIVision_Official_Original.png",
-      "sizes": "724x724",
+      "src": "/assets/assets/custom-brand/vision-pwa.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }

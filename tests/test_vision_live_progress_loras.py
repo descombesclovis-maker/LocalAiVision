@@ -22,6 +22,18 @@ class VisionMediaProgressTests(unittest.TestCase):
         comfy_progress.mark(pid,"done")
         self.assertEqual(comfy_progress.status(pid)["percent"],100)
 
+    def test_late_progress_and_duplicate_registration_cannot_revive_finished_task(self):
+        for terminal in ('done','cancelled','error'):
+            pid='terminal-no-revival-'+terminal
+            with patch.object(comfy_progress,'_jobs',{}),patch.object(comfy_progress,'_preview',{}):
+                comfy_progress.register(pid)
+                comfy_progress.mark(pid,terminal)
+                before=comfy_progress.status(pid)
+                comfy_progress.register(pid,started_at=0)
+                comfy_progress.update(pid,state='running',value=1,maximum=10)
+                comfy_progress.mark(pid,'done' if terminal!='done' else 'error')
+                self.assertEqual(comfy_progress.status(pid),before)
+
     def test_real_first_preview_decoded_from_websocket_binary(self):
         pid="test-real-preview-01"
         comfy_progress.register(pid,"image")

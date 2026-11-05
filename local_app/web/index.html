@@ -3,6 +3,14 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/vision-generation.css"><link rel="stylesheet" href="/assets/studio-natural-vision.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
 <link rel="stylesheet" href="/assets/studio-ui-polish.css"><link rel="stylesheet" href="/assets/studio-adult-workspace.css"><link rel="stylesheet" href="/assets/studio-qcm-v1.css"><link rel="stylesheet" href="/assets/studio-qcm-vision.css"><link rel="stylesheet" href="/assets/studio-qcm-library.css">
 <link rel="stylesheet" href="/assets/studio-system.css">
+<link rel="stylesheet" href="/assets/studio-custom-brand.css">
+<link rel="stylesheet" href="/assets/studio-vision-composer-polish.css">
+<link rel="stylesheet" href="/assets/studio-vision-final-polish.css">
+<link rel="stylesheet" href="/assets/studio-vision-315-3.css">
+<link rel="stylesheet" href="/assets/studio-vision-315-4.css">
+<link rel="stylesheet" href="/assets/studio-vision-315-5.css">
+<link rel="stylesheet" href="/assets/studio-audit-1.css">
+<link rel="stylesheet" href="/assets/studio-vision-user-polish.css">
 </head>
 <body class="is-landing" data-studio-page="vision">
 <div class="app">
@@ -12,6 +20,7 @@
       <button class="close-sidebar" id="closeSidebar" type="button" aria-label="Fermer le menu">×</button>
     </div>
     <nav class="studio-navigation" aria-label="Espaces">
+      <button type="button" id="navChat" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5Z"/><path d="M8 10h8M8 14h5"/></svg></span><span>Chat</span></button>
       <button type="button" id="navCreations" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span><span>Mes créations</span></button>
       <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Photo</span></button>
       <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="14" height="16" rx="3"/><path d="m17 9 4-3v12l-4-3"/><path d="m9 9 5 3-5 3z"/></svg></span><span>Vidéo</span></button>
@@ -70,7 +79,8 @@
       <button class="open-sidebar" id="openSidebar" aria-controls="sidebar" aria-expanded="false" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
       <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
       <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
-      <div class="topbar-actions"><button type="button" id="nsfwGalleryToggle" class="topbar-action" hidden aria-label="Afficher les créations de l’espace adulte">Créations</button><a href="/studio" class="topbar-action studio-universe-link" title="Changer d’univers">◈ <span>Univers</span></a>
+      <a href="/studio" id="visionStudioReturn" class="vision-studio-return" title="Revenir à l’accueil de LocalAiStudio" aria-label="Retour à LocalAiStudio"><span>LocalAiStudio</span></a>
+      <div class="topbar-actions"><button type="button" id="nsfwGalleryToggle" class="topbar-action" hidden aria-label="Afficher les créations de l’espace adulte">Créations</button>
 
         <button class="topbar-action" id="historyBtn" type="button" title="Reprendre une conversation enregistrée" aria-label="Historique des conversations">◷ <span>Historique</span></button>
         <button class="topbar-action" id="newConversation" type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation">＋ <span>Nouvelle discussion</span></button>
@@ -80,7 +90,7 @@
     <section class="content">
       <div id="chat" class="chat">
         <div id="welcome" class="welcome" aria-label="Accueil LocalAiVision">
-          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-vision.svg" alt="" width="66" height="66"><h1>LocalAiVision</h1><p>Décris ton image, ta vidéo ou ta publicité. Je choisis le moteur et les paramètres adaptés.</p></div>
+          <div class="vision-mode-intro vision-chat-intro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5Z"/><path d="M8 10h8M8 14h5"/></svg><h2>Chat</h2><p>Vous êtes dans le chat. Posez-moi n'importe quelle question : je vous répondrai aussi précisément que possible.</p><p>Pour créer une photographie, une vidéo ou une publicité, ouvrez le menu <svg class="inline-menu" viewBox="0 0 24 24" role="img" aria-label="trois traits"><path d="M4 6h16M4 12h16M4 18h16"/></svg> en haut à gauche.</p></div>
 
         </div>
         <div id="messages" class="messages"></div>
@@ -176,7 +186,7 @@
                 <div class="settings-accordion-body">
                   <div id="standardModeControls" class="mode-control-panel">
                     <label>Mode de la prochaine demande
-                      <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat">Discussion</option><option value="image">Image</option><option value="video">Texte → Vidéo</option><option value="i2v">Image → Vidéo (I2V)</option></select>
+                      <select id="taskMode" aria-label="Type de demande"><option value="auto">Automatique</option><option value="chat" selected>Discussion</option><option value="image">Image</option><option value="video">Texte → Vidéo</option><option value="i2v">Image → Vidéo (I2V)</option></select>
                     </label>
                   </div>
 
@@ -214,22 +224,23 @@
  <header><div><b>Créations</b><small>Images et vidéos de cet espace uniquement</small></div><button type="button" id="nsfwGalleryClose" aria-label="Fermer la colonne des créations">×</button></header>
  <div id="nsfwGalleryList" class="nsfw-gallery-list"></div>
 </aside>
-<dialog id="studioAdDialog" class="studio-ad-dialog" aria-labelledby="studioAdTitle">
- <form id="studioAdForm">
- <header class="studio-ad-header"><div><span>LOCALAI STUDIO · PUBLICITÉ</span><h2 id="studioAdTitle">Créer une publicité</h2></div><button id="studioAdClose" type="button" aria-label="Fermer">×</button></header>
- <p class="studio-ad-intro">Utilise la véritable identité de ton client pour générer une photo ou une vidéo publicitaire. Son logo sera ajouté précisément après la génération.</p>
- <div class="studio-ad-fields">
- <label class="studio-ad-wide">Identité de l’entreprise <select id="studioAdBrand" required><option value="">Choisir une marque enregistrée…</option></select></label>
- <a class="studio-ad-manage" href="/studio/brands">Gérer les marques et importer un logo ↗</a>
- <label>Type de création<select id="studioAdType"><option value="image">Image publicitaire</option><option value="video">Vidéo publicitaire</option></select></label>
- <label>Format<select id="studioAdFormat"><option value="portrait">9:16 · Reels / Stories</option><option value="square">1:1 · Publication</option><option value="landscape">16:9 · Site / YouTube</option></select></label>
- <label>Objectif<select id="studioAdGoal"><option value="presentation">Présenter l’entreprise</option><option value="product">Mettre en valeur un produit</option><option value="booking">Obtenir des réservations</option><option value="offer">Présenter une offre</option></select></label>
- <label class="studio-ad-wide">Idée de publicité<textarea id="studioAdIdea" rows="3" required placeholder="Ex. : un salon de coiffure élégant, plans cinématographiques, clients souriants…"></textarea></label>
- </div>
- <div class="studio-ad-foot"><p id="studioAdError" role="status"></p><button type="button" id="studioAdCancel">Annuler</button><button type="submit" id="studioAdCreate">Créer la publicité ↗</button></div>
- </form>
+<!-- Brand advertisements are now briefed in the main conversation, not a popup. -->
+<dialog id="nsfwUnlockDialog" class="nsfw-unlock-dialog" aria-labelledby="nsfwUnlockTitle" aria-describedby="nsfwUnlockHelp">
+  <form method="dialog" class="nsfw-unlock-panel" autocomplete="off">
+    <button type="button" class="nsfw-pin-close" aria-label="Fermer la fenêtre de déverrouillage" onclick="this.closest('dialog').close()">×</button>
+    <div class="nsfw-unlock-lock" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="14" y="28" width="36" height="29" rx="8" stroke="currentColor" stroke-width="3"/><path d="M22 28v-9a10 10 0 0 1 20 0v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="42" r="3" fill="currentColor"/><path d="M32 45v5" stroke="currentColor" stroke-width="3"/></svg></div>
+    <h2 id="nsfwUnlockTitle">Espace NSFW verrouillé</h2>
+    <p id="nsfwUnlockHelp">Entrez le code à 4 chiffres pour y accéder.</p>
+    <div class="nsfw-pin-digits" role="group" aria-label="Code d’accès à quatre chiffres">
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Premier chiffre" autocomplete="off" required>
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Deuxième chiffre" autocomplete="off" required>
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Troisième chiffre" autocomplete="off" required>
+      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Quatrième chiffre" autocomplete="off" required>
+    </div>
+    <p id="nsfwPinError" role="alert" aria-live="assertive"></p>
+    <button type="submit" class="nsfw-pin-submit">Déverrouiller <span aria-hidden="true">→</span></button>
+  </form>
 </dialog>
-
 <div class="modal-backdrop hidden" id="modelModal">
   <div class="model-modal step-modal" role="dialog" aria-modal="true">
     <div class="modal-head">
@@ -266,14 +277,19 @@
   <div id="historyList" class="history-list"></div>
 </dialog>
 <div id="toast" role="status"></div>
+<script src="/assets/studio-brand-picker.js" defer></script>
 <script src="/assets/intent.js"></script>
 <script src="/assets/mask.js"></script>
 <script src="/assets/styles.js"></script>
+<script src="/assets/studio-media-validation.js"></script>
 <script src="/assets/app.js"></script>
 <script src="/assets/studio-ads.js" defer></script>
 <script src="/assets/studio-redesign.js" defer></script>
 <script src="/assets/pwa-install.js" defer></script>
+<script src="/assets/studio-progress.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 <script src="/assets/studio-qcm-shell.js" defer></script>
 <script src="/assets/studio-qcm-vision.js" defer></script><script src="/assets/studio-qcm-library.js" defer></script>
+<script src="/assets/studio-vision-user-polish.js" defer></script>
+<script src="/assets/studio-vision-chat-archive.js" defer></script>
 </body></html>

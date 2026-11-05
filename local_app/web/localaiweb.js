@@ -24,9 +24,10 @@ const editOverlay=$('#lawEditOverlay');
 function publishedUrl(){return project?.project?.deployment?.production_url||project?.project?.production_url||''}
 function refreshPublishing(){
  const url=publishedUrl();
+ const delivery=document.getElementById('lawDeliveryShortcut');if(delivery&&project?.project?.id)delivery.href='/localaiweb/livraisons?id='+encodeURIComponent(project.project.id);
  if(publishButton){
   publishButton.disabled=busy||stage!=='ready';
-  publishButton.textContent=project?.project?.project_kind==='pro'?'Vendre & livrer ↗':url?'Republier ↗':'Publier ↗';
+  publishButton.textContent=project?.project?.project_kind==='pro'?'Publier / livrer ↗':url?'Republier ↗':'Publier ↗';
  }
  if(afterPublish){
   afterPublish.hidden=!url;
@@ -35,7 +36,7 @@ function refreshPublishing(){
   $('#lawPublishedAddress').hidden=!url;
   if(url){
    $('#lawPublishedAddress').textContent='En ligne : '+url;
-   $('#lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+   $('#lawCreateQuote').href='/localaiweb/livraisons?id='+encodeURIComponent(project.project.id);
    $('#lawCreateCampaign').href='/localaivision?campaign_project='+encodeURIComponent(project.project.id);
   }
  }
@@ -44,27 +45,41 @@ function showSiteEditing(on){
  if(!editOverlay)return;
  editOverlay.hidden=!on;
  if(on){
+  const ring=editOverlay.querySelector('.law-generation-ring');
+  window.StudioProgress?.render(ring,{phase:'planning'},{web:true});
+  if(ring&&!ring.querySelector('.law-generation-orbit')){
+   const orbit=document.createElement('span');orbit.className='law-generation-orbit';orbit.setAttribute('aria-hidden','true');
+   orbit.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-6 6-6 12 0 18M12 3c6 6 6 12 0 18"/></svg><svg viewBox="0 0 24 24"><path d="m8 5-6 7 6 7M16 5l6 7-6 7M14 3l-4 18"/></svg><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6h1M10 6h1"/></svg>';
+   ring.append(orbit);
+  }
+ }
+ if(on){
   $('#lawEditPhase').textContent='Codex prépare les modifications…';
-  $('#lawEditPercent').textContent='Étapes vérifiées : 0 %';
-  $('#lawEditTrack').style.width='0%';
+  $('#lawEditPercent').textContent='Étape en cours : préparation';
+  // The agent reports phases, not a measurable overall completion fraction.
+  $('#lawEditTrack').parentElement.hidden=true;
  }
 }
 function updateEditMilestones(status){
  if(!editOverlay||editOverlay.hidden)return;
- const milestones={planning:0,images:0,building:0,verification:25,repair:25,
-                   localization:40,preview:55,visual:65,design:75,done:100};
- const complete=milestones[String(status.phase||'').toLowerCase()];
+ const phases={planning:'préparation',images:'préparation des visuels',building:'écriture du site',
+  verification:'vérification technique',repair:'correction',localization:'vérification du français',
+  preview:'construction de l’aperçu',visual:'contrôle navigateur',design:'finitions visuelles',done:'terminée'};
+ const phase=String(status.phase||'').toLowerCase();
+ window.StudioProgress?.render(editOverlay.querySelector('.law-generation-ring'),status,{web:true});
  $('#lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
- if(Number.isFinite(complete)){
-  $('#lawEditTrack').style.width=complete+'%';
-  $('#lawEditPercent').textContent='Jalons validés : '+complete+' % (pas une estimation du temps restant)';
- }
+ $('#lawEditPercent').textContent='Étape en cours : '+(phases[phase]||'traitement');
+ $('#lawEditTrack').parentElement.hidden=true;
 }
 function codexRecovery(error){
  const raw=String(error?.message||error||'');
  if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
  const node=$('#lawChatStatus');
- if(node)node.textContent=/authentif|login|401|token/i.test(raw)
+ if(node)node.textContent=/quota|limite d.utilisation|429/i.test(raw)
+  ?'Quota Codex atteint. Attends sa disponibilité puis reprends ce projet ; les fichiers sont conservés.'
+  :/r[ée]seau|connexion.*interrompue|d[ée]lai d[ée]pass[ée]/i.test(raw)
+  ?'Connexion réseau Codex interrompue. Vérifie le réseau puis reprends le projet ; les fichiers sont conservés.'
+  :/authentif|login|401|token/i.test(raw)
   ?'Codex demande une reconnexion. Ouvre « Paramètres » pour te reconnecter.'
   :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Paramètres ».';
  $('#lawMobileMenuToggle')?.classList.add('needs-attention');
@@ -221,6 +236,7 @@ let activeGeneration=null;
 let lastLivePreviewVersion='';
 function updateLivePreview(status,id){
  if(!status.preview_ready || !status.preview_version)return;
+ showSiteEditing(false);
  if(status.preview_version!==lastLivePreviewVersion){
    lastLivePreviewVersion=status.preview_version;
    ++previewCheck;
@@ -235,26 +251,27 @@ function generationFeedback(result){
  const report=result.quality;
  const visuals=result.visuals||{};
  const mediaNote=visuals.generated?.length
-  ?'\\nVisuels créés : '+visuals.generated.length+' photo(s).'
-  :visuals.notes?.length?'\\nVisuels : '+visuals.notes[0]:'';
+  ?'\nVisuels créés : '+visuals.generated.length+' photo(s).'
+  :visuals.notes?.length?'\nVisuels : '+visuals.notes[0]:'';
  const checked=report && report.ok;
  const metrics=result.generation_metrics||{};
  const duration=Number(metrics.total_seconds);
  const durationNote=Number.isFinite(duration)&&duration>=0
-  ?'\\nGénération : '+(duration<60?duration.toFixed(1)+' s':
+  ?'\nGénération : '+(duration<60?duration.toFixed(1)+' s':
        Math.floor(duration/60)+' min '+Math.round(duration%60)+' s')+
     ' · contrôle : '+Number(metrics.quality_seconds||0).toFixed(1)+' s'+
     ' · corrections : '+Number(metrics.repairs||0)
   :'';
  message((result.summary||'Le site a été enregistré.')+mediaNote+durationNote+
-  '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
-  (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
-  '\\nAprès validation, clique sur « Publier » pour accéder aux publicités et devis.',
+  '\n\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
+  (report&&!checked?'\nDes points de qualité restent à corriger.':'')+
+  '\nAprès validation, clique sur « Publier » pour accéder aux publicités et devis.',
   'assistant');
 }
 async function watchGeneration(id){
  if(activeGeneration===id)return;
  activeGeneration=id;presentable=false;
+ showSiteEditing(true);
  setBusy(true,'Génération en cours : le site apparaîtra dès sa première compilation…');
  let reading=false;
  const started=Date.now();
@@ -276,13 +293,13 @@ async function watchGeneration(id){
          $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
          stage='ready';
          const salesLink=document.getElementById('lawSalesBtn');
-         if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
+         if(salesLink)salesLink.href='/localaiweb/livraisons?id='+encodeURIComponent(id);
          generationFeedback(status);
          showSiteEditing(false);refreshPublishing();void refreshSales();
          stop();
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
-          '\\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
+          '\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
           'assistant');
          showSiteEditing(false);codexRecovery(status.error||status.detail);stage='ready';refreshPublishing();stop();
        }else{
@@ -310,7 +327,7 @@ async function generate(text,originalPrompt=text){
  try{const current=await api('/api/web/preview/status?id='+encodeURIComponent(id));if(current.ready)showSiteEditing(true)}catch{}
  const existingBrief=projectBrief();
  const instructions=existingBrief
-  ?'BRIEF UTILISATEUR :\\n'+existingBrief+'\\n\\nDERNIÈRE DEMANDE :\\n'+text
+  ?'BRIEF UTILISATEUR :\n'+existingBrief+'\n\nDERNIÈRE DEMANDE :\n'+text
   :text;
  try{
   const result=await api('/api/web/generate/start',{id,prompt:instructions,original_prompt:originalPrompt});
@@ -323,13 +340,13 @@ async function generate(text,originalPrompt=text){
   await watchGeneration(id);
  }catch(error){
   message('Impossible de démarrer la génération : '+error.message+
-   '\\nVérifie « Codex connecté » dans l’en-tête. Les fichiers déjà créés sont conservés.');
+   '\nVérifie « Codex connecté » dans l’en-tête. Les fichiers déjà créés sont conservés.');
  }finally{setBusy(false)}
 }
 async function publish(){
  await ensureProject();
  if(project.project?.project_kind==='pro'){
-   location.assign('/localaiweb/vente?id='+encodeURIComponent(project.project.id));return;
+   location.assign('/localaiweb/livraisons?id='+encodeURIComponent(project.project.id));return;
  }
  message('Je vérifie le site avant publication. La publication nécessite que Vercel soit installé et connecté sur cet ordinateur.');
  setBusy(true,'Vérification et mise en ligne…');
@@ -471,5 +488,6 @@ designForm?.addEventListener('submit',async event=>{
   $('#lawChatStatus').textContent=e.message;
  }finally{submit.disabled=false}
 });
+document.getElementById('lawKeepPreview')?.addEventListener('click',()=>{showSiteEditing(false)});
 initialize();
 

@@ -1,0 +1,7 @@
+Build 315.1 — Finitions demandées.
+
+Vision public : compositeur à bordure discrète restauré, fond chat et sidebar assorti, header plus sombre, effets lumineux pleine fenêtre fluides, contrôle menu en haut du rail. Zone réservée NSFW non modifiée.
+Web : menu 3 traits en haut à gauche (projets + éditeur ; même contrôleur existant).
+Projets : ellipsis petit, centré, sombre et translucide. Cartes en cours : aperçu et carte floutés, cercle de progression avec remplissage selon les PHASES réelles (planning, images, building, QA...). Pourcentage explicitement estimatif, pas une mesure temporelle ni un avancement exact.
+
+Les logos, icône native ICO et les choix d’émojis déjà présents dans les sources personnalisées ont été conservés.

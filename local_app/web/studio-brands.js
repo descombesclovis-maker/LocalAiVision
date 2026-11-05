@@ -57,7 +57,14 @@
      const desc=document.createElement('span');desc.textContent='Enregistrez l’identité d’un client pour créer des publicités et sites cohérents.';
      box.append(title,desc);list.append(box);return;
    }
-   brands.forEach(item=>list.append(card(item)));
+   brands.forEach(item=>{
+     const entry=document.createElement('div');entry.className='brand-entry';
+     const select=document.createElement('button');select.type='button';select.className='brand-select-active';
+     const active=window.StudioBrandPicker?.selected()===item.id;
+     select.textContent=active?'✓ Marque active':'Utiliser cette marque';select.setAttribute('aria-pressed',String(active));
+     select.onclick=()=>{window.StudioBrandPicker.activate(item);render()};
+     entry.append(card(item),select);list.append(entry);
+   });
  }
  async function reload(){
    setError('');
@@ -103,7 +110,7 @@
    try{
      const saved=await api('/api/studio/brand/save',body);
      if(!saved.brand?.id)throw Error('Marque non enregistrée.');
-     localStorage.setItem('localai_studio_brand_id',saved.brand.id);
+     // Saving an identity does not silently change the globally active brand.
      dialog.close();await reload();
      $('brandsCount').textContent=brands.length+' marque'+(brands.length===1?'':'s')+' · identité enregistrée';
    }catch(error){$('brandSaveStatus').textContent=error.message}

@@ -13,6 +13,8 @@ from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from local_app.business_time import business_date, timezone_name
+
 from local_app import web_crm as crm
 
 
@@ -114,7 +116,7 @@ def signature_request(root, project, number):
     q = _quote(root,project,number)
     email = q["customer"].get("email","")
     key = setting("DROPBOX_SIGN_API_KEY")
-    if not key or not email or q["valid_until"] < date.today().isoformat():
+    if not key or not email or q["valid_until"] < business_date(zone=q.get("business_timezone")).isoformat():
         raise ValueError("Clé Dropbox Sign, courriel client et devis valide requis.")
     pdf = crm.quote_file(root,number).read_bytes()
     mode = _mode()
@@ -171,7 +173,7 @@ def verify_acceptance(root, project, number, recovery=None):
     def client_signed(s):
         if s.get("status_code") != "signed" or not email or str(s.get("signer_email_address")).casefold()!=email:
             return False
-        stamp = datetime.fromtimestamp(int(s.get("signed_at") or 0),timezone.utc).date().isoformat()
+        stamp = business_date(int(s.get("signed_at") or 0), quote.get("business_timezone")).isoformat()
         return quote["issued_at"] <= stamp <= until
     if (data.get("signature_request_id") != reference
         or meta.get("sales_mode") != _mode() or meta.get("quote_number") != number or meta.get("quote_sha256") != digest
@@ -190,7 +192,7 @@ def verify_acceptance(root, project, number, recovery=None):
         if not any(client_signed(s) for s in signers):
             raise ValueError("Signature hors validité ou signataire non confirmé.")
         state = "accepted"
-    elif date.today().isoformat() > until:
+    elif business_date(zone=quote.get("business_timezone")).isoformat() > until:
         state = "quote_expired"
     with closing(_db(root)) as db, db:
         db.execute("UPDATE requests SET reference=? WHERE quote=? AND reference IS NULL",(reference,number))

@@ -38,12 +38,13 @@ class BrandTests(unittest.TestCase):
         manifest=(WEB/"manifest.webmanifest").read_text(encoding="utf-8")
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('src="/assets/brand-vision.svg"',vision)
-        self.assertIn('Décris ton image, ta vidéo ou ta publicité.',vision)
-        self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',projects)
+        self.assertIn('Vous êtes dans le chat.',vision)
+        self.assertNotIn('Décris ton image, ta vidéo ou ta publicité.',vision)
+        self.assertIn('src="/assets/assets/custom-brand/web-animated.svg"',projects)
         self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):
-            self.assertIn('src="/assets/assets/brand-reference/LocalAIWeb_Official_Original.png"',web_ui)
-        self.assertIn("/assets/assets/brand-reference/LocalAIVision_Official_Original.png",manifest)
+            self.assertIn('src="/assets/assets/custom-brand/web-animated.svg"',web_ui)
+        self.assertIn("/assets/assets/custom-brand/vision-pwa.png",manifest)
         self.assertIn("LocalAIStudio_Official_Original.png",
                       (BASE/"scripts/prepare_windows_brand.py").read_text(encoding="utf-8"))
 

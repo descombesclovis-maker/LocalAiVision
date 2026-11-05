@@ -1,5 +1,21 @@
 import base64, io, json, re, shutil, time, uuid, zipfile
 from pathlib import Path
+import hashlib
+import threading
+import tempfile
+from functools import wraps
+from local_app.atomic_storage import atomic_write, project_lock, atomic_copy, install_file, file_sha256
+
+_STORAGE_LOCK = threading.RLock()
+
+
+def _locked(method):
+    @wraps(method)
+    def call(*args, **kwargs):
+        with _STORAGE_LOCK:
+            return method(*args, **kwargs)
+    return call
+
 from local_app import web_briefing
 
 ALLOWED_TEXT_EXTENSIONS = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.env','.example'}
@@ -76,21 +92,32 @@ class LocalAiWebStore:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.llm_generate = llm_generate
+        # Recover before exposing any projects after an interrupted process.
+        with _STORAGE_LOCK:
+            for project in self.root.iterdir():
+                if project.is_dir() and not project.is_symlink() and (project / '.site-transaction').is_dir():
+                    self._recover_transaction(project)
 
     def project_dir(self, project_id):
-        return self.root / safe_id(project_id)
+        path = self.root / safe_id(project_id)
+        if path.is_symlink() or not path.resolve().is_relative_to(self.root.resolve()):
+            raise ValueError('Répertoire de projet invalide.')
+        return path
 
+    @_locked
     def meta(self, project_id):
         path = self.project_dir(project_id) / 'project.json'
         if not path.is_file():
             raise FileNotFoundError('Projet LocalAiWeb introuvable.')
         return json.loads(path.read_text(encoding='utf-8'))
 
+    @_locked
     def write_meta(self, project_id, meta):
         root = self.project_dir(project_id)
         root.mkdir(parents=True, exist_ok=True)
-        (root / 'project.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')
+        atomic_write(root / 'project.json', json.dumps(meta, ensure_ascii=False, indent=2).encode('utf-8'))
 
+    @_locked
     def text_files(self, project_id):
         site = self.project_dir(project_id) / 'site'
         out = {}
@@ -113,51 +140,152 @@ class LocalAiWebStore:
                 pass
         return out
 
+    @staticmethod
+    def _recover_transaction(project):
+        with project_lock(project):
+            return LocalAiWebStore._recover_transaction_unlocked(project)
+
+    @staticmethod
+    def _recover_transaction_unlocked(project):
+        journal = project / '.site-transaction'
+        manifest = journal / 'manifest.json'
+        if not manifest.exists():
+            # Incomplete journal preparation cannot have changed live files.
+            if journal.exists():
+                shutil.rmtree(journal)
+            return
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+        site = project / 'site'
+        if not data.get('committed'):
+            originals = []
+            for row in data['files']:
+                rel = safe_rel(row['path'])
+                target = site / rel
+                if target.is_symlink() or not target.resolve().is_relative_to(site.resolve()):
+                    raise ValueError('Récupération refusée : chemin de projet invalide.')
+                raw = None
+                if row['existed']:
+                    source = journal / 'originals' / rel
+                    if source.is_symlink() or not source.resolve().is_relative_to(journal.resolve()):
+                        raise ValueError('Sauvegarde transactionnelle invalide.')
+                    raw = source
+                    if file_sha256(source) != row['sha256']:
+                        raise ValueError('Sauvegarde transactionnelle endommagée ; fichiers conservés.')
+                originals.append((target, raw))
+            # Validate all backups first; corruption must not cause half a rollback.
+            for target, raw in originals:
+                if raw is not None:
+                    atomic_copy(raw, target)
+                elif target.exists():
+                    target.unlink()
+        shutil.rmtree(journal)
+
+    def _write_binary_files(self, project_id, files, replace=False, all_assets=False):
+        site = self.project_dir(project_id) / 'site'
+        site.mkdir(parents=True, exist_ok=True)
+        # Validate the entire request before changing any live file.
+        changes = {}
+        for rel, body in files.items():
+            p = safe_rel(rel)
+            target = site / p
+            if (p.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in p.parts)
+                    or target.is_symlink() or (target.exists() and not target.is_file())
+                    or not target.resolve().is_relative_to(site.resolve())):
+                raise ValueError('Chemin protégé ou invalide : ' + str(rel))
+            changes[p.as_posix()] = body
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
+            project = self.project_dir(project_id)
+            self._recover_transaction(project)
+            if replace:
+                for old in site.rglob('*'):
+                    rel = old.relative_to(site)
+                    if any(part in IGNORED_DIRS for part in rel.parts) or old.name in PRIVATE_NAMES:
+                        continue
+                    if old.is_file() and (all_assets or old.suffix.lower() in ALLOWED_TEXT_EXTENSIONS):
+                        changes.setdefault(rel.as_posix(), None)
+            journal = project / '.site-transaction'
+            journal.mkdir()
+            rows = []
+            try:
+                for rel in changes:
+                    old = site / rel
+                    row = {'path': rel, 'existed': old.is_file()}
+                    if old.is_symlink() or (old.exists() and not old.is_file()) or not old.resolve().is_relative_to(site.resolve()):
+                        raise ValueError('Lien symbolique interdit dans une transaction.')
+                    if row['existed']:
+                        atomic_copy(old, journal / 'originals' / rel)
+                        row['sha256'] = file_sha256(journal / 'originals' / rel)
+                    rows.append(row)
+                manifest = {'committed': False, 'files': rows}
+                atomic_write(journal / 'manifest.json', json.dumps(manifest).encode())
+                for rel, raw in changes.items():
+                    target = site / rel
+                    if raw is None:
+                        target.unlink(missing_ok=True)
+                    elif isinstance(raw, Path):
+                        atomic_copy(raw, target)
+                    else:
+                        atomic_write(target, raw)
+                manifest['committed'] = True
+                atomic_write(journal / 'manifest.json', json.dumps(manifest).encode())
+            except BaseException:
+                self._recover_transaction(project)
+                raise
+            shutil.rmtree(journal)
+        return self.text_files(project_id)
+
     def write_files(self, project_id, files, replace=False):
         if not isinstance(files, dict) or not files:
             raise ValueError('Aucun fichier à enregistrer.')
         if len(files) > MAX_PROJECT_FILES:
             raise ValueError('Trop de fichiers dans ce projet.')
-        site = self.project_dir(project_id) / 'site'
-        site.mkdir(parents=True, exist_ok=True)
-        if replace:
-            for old in list(site.rglob('*')):
-                try:
-                    rel_parts = old.relative_to(site).parts
-                except Exception:
-                    rel_parts = ()
-                if any(part in IGNORED_DIRS for part in rel_parts) or old.name in PRIVATE_NAMES:
-                    continue
-                if old.is_file() and old.suffix.lower() in ALLOWED_TEXT_EXTENSIONS:
-                    try:
-                        old.unlink()
-                    except OSError:
-                        pass
+        prepared = {}
         for rel, body in files.items():
             p = safe_rel(rel)
             if p.suffix.lower() not in ALLOWED_TEXT_EXTENSIONS:
                 continue
-            text = str(body or '')
-            if len(text.encode('utf-8')) > MAX_FILE_BYTES:
+            raw = str(body or '').encode('utf-8')
+            if len(raw) > MAX_FILE_BYTES:
                 raise ValueError('Fichier trop volumineux : ' + str(rel))
-            target = (site / p).resolve()
-            if not target.is_relative_to(site.resolve()):
-                raise ValueError('Chemin invalide.')
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(text, encoding='utf-8')
-        return self.text_files(project_id)
+            prepared[p.as_posix()] = raw
+        if not prepared:
+            raise ValueError('Aucun fichier de texte modifiable dans cette requête.')
+        return self._write_binary_files(project_id, prepared, replace=replace)
 
     def snapshot(self, project_id, label='Version automatique'):
-        files = self.text_files(project_id)
-        if not files:
-            return None
-        versions = self.project_dir(project_id) / 'versions'
-        versions.mkdir(parents=True, exist_ok=True)
-        vid = time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6]
-        payload = {'id': vid, 'created_at': time.time(), 'label': str(label or 'Version automatique')[:120], 'files': files}
-        (versions / (vid + '.json')).write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
-        return {k:v for k,v in payload.items() if k != 'files'}
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
+            files = self.text_files(project_id)
+            site = self.project_dir(project_id) / 'site'
+            paths = [p for p in site.rglob('*') if p.is_file() and not p.is_symlink()
+                     and not any(part in IGNORED_DIRS for part in p.relative_to(site).parts)
+                     and p.name not in PRIVATE_NAMES]
+            if not paths:
+                return None
+            versions = self.project_dir(project_id) / 'versions'
+            versions.mkdir(parents=True, exist_ok=True)
+            vid = time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6]
+            pending = versions / (vid + '.zip.pending')
+            hashes = {}
+            try:
+                with zipfile.ZipFile(pending, 'w', zipfile.ZIP_DEFLATED) as archive:
+                    for path in sorted(paths):
+                        rel = path.relative_to(site).as_posix()
+                        digest = hashlib.sha256()
+                        with path.open('rb') as stream, archive.open(rel, 'w', force_zip64=True) as output:
+                            for chunk in iter(lambda:stream.read(1024*1024),b''):
+                                digest.update(chunk);output.write(chunk)
+                        hashes[rel] = digest.hexdigest()
+                archive_hash = file_sha256(pending)
+                install_file(pending, versions / (vid + '.zip'))
+                payload = {'id': vid, 'created_at': time.time(), 'label': str(label or 'Version automatique')[:120],
+                           'files': files, 'archive': vid + '.zip', 'archive_sha256': archive_hash,
+                           'checksums': hashes, 'schema': 2}
+                atomic_write(versions / (vid + '.json'), json.dumps(payload, ensure_ascii=False).encode('utf-8'))
+            finally:
+                pending.unlink(missing_ok=True)
+            return {k:v for k,v in payload.items() if k not in ('files', 'checksums')}
 
+    @_locked
     def versions(self, project_id):
         root = self.project_dir(project_id) / 'versions'
         out = []
@@ -165,11 +293,12 @@ class LocalAiWebStore:
             for path in root.glob('*.json'):
                 try:
                     data = json.loads(path.read_text(encoding='utf-8'))
-                    out.append({k:v for k,v in data.items() if k != 'files'})
+                    out.append({k:v for k,v in data.items() if k not in ('files', 'checksums')})
                 except Exception:
                     pass
         return sorted(out, key=lambda x:x.get('created_at',0), reverse=True)
 
+    @_locked
     def assets(self, project_id):
         site = self.project_dir(project_id) / 'site'
         root = site / 'assets'
@@ -180,6 +309,7 @@ class LocalAiWebStore:
                     out.append({'path': path.relative_to(site).as_posix(), 'size': path.stat().st_size})
         return out
 
+    @_locked
     def chat_history(self, project_id):
         path = self.project_dir(project_id) / 'chat.json'
         if not path.is_file():
@@ -202,12 +332,13 @@ class LocalAiWebStore:
         meta['original_prompt'] = text
         self.write_meta(project_id, meta)
 
+    @_locked
     def append_chat(self, project_id, role, text):
         rows = self.chat_history(project_id)
         rows.append({'role': str(role or 'assistant'), 'text': str(text or '')[:12000], 'time': time.time()})
         rows = rows[-200:]
         path = self.project_dir(project_id) / 'chat.json'
-        path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+        atomic_write(path, json.dumps(rows, ensure_ascii=False, indent=2).encode('utf-8'))
         return rows
 
     def payload(self, project_id):
@@ -244,36 +375,39 @@ class LocalAiWebStore:
         return self.payload(pid)
 
     def delete_file(self, project_id, rel):
-        p = safe_rel(rel)
-        site = (self.project_dir(project_id) / 'site').resolve()
-        target = (site / p).resolve()
-        if not target.is_relative_to(site):
-            raise ValueError('Chemin invalide.')
-        if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
-            raise ValueError('Ce fichier système ne peut pas être supprimé depuis l’éditeur.')
-        self.snapshot(project_id, 'Avant suppression de ' + p.as_posix())
-        if target.is_file():
-            target.unlink()
-        meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
-        return self.payload(project_id)
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
+            self._recover_transaction(self.project_dir(project_id))
+            p = safe_rel(rel)
+            site = (self.project_dir(project_id) / 'site').resolve()
+            target = site / p
+            if (target.is_symlink() or not target.resolve().is_relative_to(site)
+                    or p.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in p.parts)):
+                raise ValueError('Ce fichier système ne peut pas être supprimé depuis l’éditeur.')
+            self.snapshot(project_id, 'Avant suppression de ' + p.as_posix())
+            self._write_binary_files(project_id, {p.as_posix(): None})
+            meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
+            return self.payload(project_id)
 
     def rename_file(self, project_id, old_rel, new_rel):
-        old = safe_rel(old_rel); new = safe_rel(new_rel)
-        site = (self.project_dir(project_id) / 'site').resolve()
-        source = (site / old).resolve(); target = (site / new).resolve()
-        if not source.is_relative_to(site) or not target.is_relative_to(site):
-            raise ValueError('Chemin invalide.')
-        if not source.is_file():
-            raise FileNotFoundError('Fichier introuvable.')
-        if target.exists():
-            raise ValueError('Un fichier existe déjà avec ce nom.')
-        if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
-            raise ValueError('Nom réservé.')
-        self.snapshot(project_id, 'Avant renommage de ' + old.as_posix())
-        target.parent.mkdir(parents=True, exist_ok=True)
-        source.replace(target)
-        meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
-        return self.payload(project_id)
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
+            self._recover_transaction(self.project_dir(project_id))
+            old = safe_rel(old_rel); new = safe_rel(new_rel)
+            site = (self.project_dir(project_id) / 'site').resolve()
+            source = site / old; target = site / new
+            for rel, path in ((old, source), (new, target)):
+                if (path.is_symlink() or not path.resolve().is_relative_to(site)
+                        or rel.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in rel.parts)):
+                    raise ValueError('Nom réservé ou chemin invalide.')
+            if not source.is_file():
+                raise FileNotFoundError('Fichier introuvable.')
+            if target.exists():
+                raise ValueError('Un fichier existe déjà avec ce nom.')
+            self.snapshot(project_id, 'Avant renommage de ' + old.as_posix())
+            # Copy first, then remove the source in the same recoverable journal.
+            # Retain streaming for large imported media rather than buffering it.
+            self._write_binary_files(project_id, {new.as_posix(): source, old.as_posix(): None})
+            meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
+            return self.payload(project_id)
 
     def rename_project(self, project_id, name):
         meta = self.meta(project_id)
@@ -670,15 +804,46 @@ class LocalAiWebStore:
                 'file_count': len(files), 'asset_count': len(self.assets(project_id))}
 
 
+    @_locked
     def restore(self, project_id, version_id):
         path = self.project_dir(project_id) / 'versions' / (safe_id(version_id)+'.json')
         if not path.is_file(): raise FileNotFoundError('Version introuvable.')
         self.snapshot(project_id, 'Avant restauration')
         data = json.loads(path.read_text(encoding='utf-8'))
-        self.write_files(project_id, data.get('files') or {}, replace=True)
+        if data.get('schema') == 2:
+            archive_name = data.get('archive')
+            if archive_name != version_id + '.zip':
+                raise ValueError('Archive de version invalide.')
+            source = path.parent / archive_name
+            if file_sha256(source) != data.get('archive_sha256'):
+                raise ValueError('Archive endommagée ; restauration annulée.')
+            with tempfile.TemporaryDirectory(prefix='.restore-', dir=path.parent) as temporary:
+                staged = Path(temporary)
+                files = {}
+                hashes = {}
+                with zipfile.ZipFile(source) as archive:
+                    for item in archive.infolist():
+                        if item.is_dir():
+                            continue
+                        name = safe_rel(item.filename).as_posix()
+                        target = staged / name
+                        if name in files or not target.resolve().is_relative_to(staged.resolve()):
+                            raise ValueError('Chemin de ressource invalide dans la version.')
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with archive.open(item) as stream, target.open('wb') as output:
+                            shutil.copyfileobj(stream, output, length=1024*1024)
+                        files[name] = target
+                        hashes[name] = file_sha256(target)
+                if hashes != data.get('checksums'):
+                    raise ValueError('Intégrité des ressources invalide ; restauration annulée.')
+                self._write_binary_files(project_id, files, replace=True, all_assets=True)
+        else:
+            # Keep existing text-only versions readable without migration.
+            self.write_files(project_id, data.get('files') or {}, replace=True)
         meta=self.meta(project_id);meta['updated_at']=time.time();meta['last_summary']='Version restaurée';self.write_meta(project_id,meta)
         return self.payload(project_id)
 
+    @_locked
     def export_zip(self, project_id):
         root = self.project_dir(project_id) / 'site'
         memory = io.BytesIO()

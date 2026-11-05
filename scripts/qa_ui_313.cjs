@@ -100,7 +100,13 @@ function fixture(project){
     await page.screenshot({path:path.join(output,'editor-buttons-detail.png')});
    });
    await check('Actual static preview, source files, versions and ZIP export using labelled test site',async()=>{
-    const pid=new URL(page.url()).searchParams.get('id');fixture(pid);await page.reload();await wait(500);
+    const pid=new URL(page.url()).searchParams.get('id');fixture(pid);
+    results.fixturePreviewStatus=await api('/api/web/preview/status?id='+pid);
+    results.fixtureFiles=Object.keys((await api('/api/web/project?id='+pid)).files||{});
+    assert.equal(results.fixturePreviewStatus.ready,true,'Fixture sources must exist before reloading the editor');
+    await page.reload();await wait(500);
+    results.fixtureDom=await page.evaluate(()=>({status:document.getElementById('lawChatStatus')?.textContent,
+     empty:document.getElementById('lawPreviewEmpty')?.textContent,iframe:document.getElementById('lawPreview')?.outerHTML}));
     await page.locator('#lawPreview').waitFor({state:'visible'});
     await page.frameLocator('#lawPreview').locator('h1').waitFor();
     assert.match(await page.frameLocator('#lawPreview').locator('main').innerText(),/ne provient pas d’une génération IA/);
@@ -109,20 +115,40 @@ function fixture(project){
     await page.locator('.qcm-editor-more summary').click();const download=page.waitForEvent('download');await page.locator('#lawZipBtn').click();await (await download).saveAs(path.join(output,'fixture-export.zip'));
     await page.screenshot({path:path.join(output,'editor-real-preview-fixture.png')});
    });
-   await check('Pro reference opens its own sales dossier without a forced questionnaire',async()=>{
+   await check('Delivery drawer records a labelled fixture acceptance without declaring unreviewed delivery ready',async()=>{
+    await page.locator('.qcm-editor-more summary').click();
+    await page.locator('[data-qcm-panel="delivery"]').click();
+    await page.getByText('Navigation de recette — données de test',{exact:true}).waitFor();
+    await page.locator('#qcm-acceptance-navigation').fill('Recette simulée dans le test d’interface ; ce constat ne certifie aucun site client ni une génération IA.');
+    await page.getByRole('button',{name:'J’ai testé : réussi',exact:true}).click();
+    await page.getByText('Dernière validation manuelle',{exact:true}).waitFor();
+    const pid=new URL(page.url()).searchParams.get('id');
+    const result=await api('/api/web/project/acceptance?id='+pid);
+    assert.equal(result.contract.features[0].status,'functional');
+    assert.equal(result.delivery.ready_to_deliver,false,'An absent browser review must still block delivery');
+    await page.screenshot({path:path.join(output,'delivery-fixture-acceptance.png')});
+    await page.locator('#qcmDrawerClose').click();
+   });
+   await check('Pro reference opens its delivery dossier without a forced questionnaire',async()=>{
     const {id:pid}=fixture('pro');await page.goto(base+'/localaiweb/editor?id='+pid);await wait(500);
     assert.equal(await page.locator('#lawDesignDialog').evaluate(x=>x.open),false);
     await page.waitForFunction(()=>document.getElementById('lawChatStatus')?.textContent.includes('informations confirmées'));
     assert.match(await page.locator('#lawChatStatus').innerText(),/informations confirmées/);
     // The reference project is valid and saved, but still asks the user to confirm the brief.
-    assert.match(await page.locator('#lawPublishBtn').innerText(),/Vendre & livrer/);
-    await page.locator('#lawPublishBtn').click();await page.waitForURL(/ventes\.localhost.*\/localaiweb\/vente/);
+    assert.match(await page.locator('#lawPublishBtn').innerText(),/Publier \/ livrer/);
+    await page.locator('#lawPublishBtn').click();await page.waitForURL(/ventes\.localhost.*\/localaiweb\/livraisons/);
     assert.equal(new URL(page.url()).searchParams.get('id'),pid);
-    assert.equal(await page.locator('#qcmDock').count(),1);
-    assert.match(await page.locator('[data-qcm-link="clients"]').getAttribute('href'),/127\.0\.0\.1/);
+    await page.locator('#dossier').waitFor();
+    assert.equal(await page.locator('#newClient,#clientDialog').count(),0);
+    assert.match(await page.locator('.back-link').getAttribute('href'),/127\.0\.0\.1/);
    });
-   await check('Commercial navigation points to the actual existing CRM',async()=>{
-    await page.locator('#qcmDock a[data-qcm-link="clients"]').click();await page.waitForURL(/\/localaiweb\/clients/);await page.locator('#newClient').click();assert.equal(await page.locator('#clientDialog').evaluate(x=>x.open),true);await page.keyboard.press('Escape');
+   await check('Delivery workspace preserves project navigation without a CRM',async()=>{
+    assert.equal(await page.locator('#projectSelect').isVisible(),true);
+    assert.equal(await page.locator('#deliveryLibrary').count(),1);
+    assert.equal(await page.locator('#newClient,#clientDialog,.kanban-board').count(),0);
+    await page.locator('.back-link').click();await page.waitForURL(base+'/localaiweb');
+    await page.locator('#qcmDock a[data-qcm-link="clients"]').click();await page.waitForURL(/ventes\.localhost.*\/localaiweb\/livraisons/);
+    assert.equal(await page.locator('#projectSelect').isVisible(),true);
    });
    await check('Actual image import switches to I2V; plus geometry centered',async()=>{
     await page.goto(base+'/localaivision');await wait(600);

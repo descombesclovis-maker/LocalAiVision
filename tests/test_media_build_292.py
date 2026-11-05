@@ -86,7 +86,7 @@ class MediaBuild292Tests(unittest.TestCase):
         html = (WEB / "index.html").read_text(encoding="utf-8")
         css = (WEB / "studio-adult-workspace.css").read_text(encoding="utf-8")
         self.assertIn("sessionStorage.getItem('lva_nsfw_gate')", js)
-        self.assertIn("String(code).trim()!=='2905'", js)
+        self.assertIn("requestNsfwPin().then(valid=>", js)
         self.assertIn("profile==='nsfw'", js)
         self.assertIn("renderNsfwGallery()", js)
         self.assertIn('id="nsfwGallery"', html)
