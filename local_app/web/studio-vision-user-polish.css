@@ -235,3 +235,7 @@ body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-empty{
  body[data-studio-page="vision"]:not(.nsfw-active) #visionChatArchive{margin:7px 9px 0}
  body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-panel{max-height:35dvh}
 }
+
+/* Preserve historical button label while enforcing the clock pictogram's cyan geometry. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #historyBtn>.nav-glyph{display:grid!important;place-items:center!important;width:34px;min-width:34px;height:34px}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #historyBtn>.nav-glyph svg{width:23px;height:23px;stroke:#92f4ff!important;filter:drop-shadow(0 0 5px #38dcef9c)}
