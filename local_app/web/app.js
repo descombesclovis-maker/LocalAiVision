@@ -385,7 +385,25 @@ function renderConversationList(filter=''){
  for(const c of rows){const row=document.createElement('div');row.className='conversation-row';const b=document.createElement('button');b.className='conversation-item'+(activeConversationId===c.id?' active':'');const n=['image','video'].filter(k=>c.settings?.[k]).length;b.innerHTML='<span class="conversation-icon">◌</span><span class="conversation-main"><span class="conversation-title">'+esc(titleForConversation(c))+'</span><span class="conversation-meta">'+(c.profile&&c.profile!=='auto'?esc(profileLabel(c.profile)):n?`${n} modèle${n>1?'s':''} imposé${n>1?'s':''}`:'Sélection automatique')+'</span></span><i class="conversation-dot '+(n?'ready':'')+'"></i>';b.onclick=()=>openConversation(c.id);const controls=document.createElement('span');controls.className='conversation-controls';const rename=document.createElement('button');rename.className='tiny-action';rename.title='Renommer';rename.textContent='✎';rename.onclick=e=>{e.stopPropagation();renameConversation(c.id)};const del=document.createElement('button');del.className='tiny-action';del.title='Supprimer';del.textContent='×';del.onclick=e=>{e.stopPropagation();deleteConversation(c.id)};controls.append(rename,del);row.append(b,controls);box.appendChild(row)}
 }
 function renameConversation(id){const c=conversationFor(id),next=prompt('Renommer la conversation',titleForConversation(c));if(next===null)return;const clean=next.trim();if(!clean)return;c.title=clean;c.updatedAt=new Date().toISOString();save();renderConversationList($('#conversationSearch').value)}
-function deleteConversation(id){const c=conversationFor(id);if(!confirm('Supprimer « '+titleForConversation(c)+' » ?'))return;delete conversations[id];if(activeConversationId===id){activeConversationId=null;const next=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(next)openConversation(next.id);else createBlankConversation()}save();renderConversationList($('#conversationSearch').value)}
+function deleteConversation(id){
+ const c=conversationFor(id);
+ if(!confirm('Supprimer « '+titleForConversation(c)+' » ? Les créations existantes resteront dans Mes créations.'))return;
+ // Avoid orphaning media that users have hidden from the gallery but kept in this chat.
+ if(c.profile!=='nsfw'){
+  let lastPrompt='';
+  for(const m of c.messages||[]){
+   if(m.role==='user'&&m.text)lastPrompt=m.text;
+   if(!m.result)continue;
+   const existing=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(m.result));
+   if(existing)existing.galleryHidden=false;
+   else library.unshift({...m.result,_id:crypto.randomUUID(),profile:'auto',kind:/\\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'')?'video':'image',prompt:lastPrompt,createdAt:new Date().toISOString()});
+  }
+  renderLibraryCounts();notifyPublicLibraryChanged();
+ }
+ delete conversations[id];
+ if(activeConversationId===id){activeConversationId=null;const next=Object.values(conversations).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))[0];if(next)openConversation(next.id);else createBlankConversation()}
+ save();renderConversationList($('#conversationSearch').value);
+}
 function openConversation(id){const c=conversationFor(id);if(c.profile==='nsfw'&&!nsfwUnlocked()){enterNsfwWorkspace();return}activeConversationId=id;renderConversationList($('#conversationSearch').value);$('#welcome').classList.toggle('hidden',c.messages.length>0);const box=$('#messages');box.innerHTML='';c.messages.forEach(renderMessage);syncModelSelectors();renderProfileLabels();scrollBottom();hideSidebar()}
 
 function resultUrl(x){return x.ad_url||'/api/view?filename='+encodeURIComponent(x.filename||'')+'&subfolder='+encodeURIComponent(x.subfolder||'')+'&type='+encodeURIComponent(x.type||'output')+(x.provenance_id?'&provenance_id='+encodeURIComponent(x.provenance_id):'')}
