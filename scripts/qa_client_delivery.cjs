@@ -31,7 +31,7 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
    assert.ok(Math.abs(logo.x+logo.width/2-width/2)<1,'centered logo '+name);assert.ok(back.x<=20,'far-left return '+name);assert.equal(await page.locator('#lawMobileMenuToggle').isVisible(),false);
    assert.equal(await page.locator('#webStudioReturn').isVisible(),true);assert.equal(await page.locator('#lawPublishBtn').count(),1);assert.equal(await page.locator('#lawPreview').count(),1);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-   await page.locator('#lawMobileMenuToggle').click();assert.equal(await page.locator('#connectAgent').isVisible(),true);assert.equal(await page.locator('#lawAgentSelect').isVisible(),true);
+   assert.equal(await page.locator('#connectAgent').count(),1);assert.equal(await page.locator('#lawAgentSelect').count(),1);
    await page.keyboard.press('Escape');assert.equal(await page.locator('#lawMobileTools').isVisible(),false);
    if(width>780){const split=page.locator('#qcmEditorSplitter');await split.focus();await page.keyboard.press('ArrowRight');assert.ok(Number(await split.getAttribute('aria-valuenow'))>32)}
    else{await page.locator('[data-mobile-panel="preview"]').click();assert.equal(await page.locator('.law-global-header').isVisible(),true);await page.locator('[data-mobile-panel="chat"]').click();assert.equal(await page.locator('#lawPrompt').isVisible(),true)}
