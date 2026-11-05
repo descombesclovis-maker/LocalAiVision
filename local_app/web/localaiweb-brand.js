@@ -5,7 +5,10 @@
  if(!select)return;
  const projectId=new URLSearchParams(location.search).get('id');
  if(!/^web-[a-f0-9]{12}$/.test(projectId||''))return;
- let writing=false;
+ let writing=false,brands=[];
+ const brandButton=document.getElementById('lawBrandButton');
+ const refreshLabel=()=>window.StudioBrandPicker?.label(brandButton,brands.find(b=>b.id===select.value));
+ brandButton?.addEventListener('click',async()=>{if(writing||busy)return;const brand=await window.StudioBrandPicker.choose(select.value);if(brand){select.value=brand.id;select.dispatchEvent(new Event('change'))}});
  async function request(url,body){
    const response=await fetch(url,body===undefined?{cache:'no-store'}:{
      method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},
@@ -23,9 +26,11 @@
      select.replaceChildren();
      const none=new Option('Aucune marque associée','');
      select.append(none);
-     for(const brand of all.brands||[])select.append(new Option(brand.name,brand.id));
+     brands=all.brands||[];
+     for(const brand of brands)select.append(new Option(brand.name,brand.id));
      select.value=projectResult.project?.brand_id||'';
      if(select.selectedIndex===-1)select.value='';
+     refreshLabel();
    }catch(error){
      select.replaceChildren(new Option('Marques indisponibles',''));
      select.disabled=true;
@@ -54,7 +59,7 @@
      select.value=previous;
      document.getElementById('lawChatStatus').textContent=
        'Impossible de lier cette marque : '+error.message;
-   }finally{writing=false;select.disabled=false}
+   }finally{writing=false;select.disabled=false;refreshLabel()}
  });
  void load();
 })();

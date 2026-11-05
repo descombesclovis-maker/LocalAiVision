@@ -62,7 +62,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/test_public_photo_faithfulness.cjs tests/test_web_generation_feedback.cjs
+          node --test tests/test_public_photo_faithfulness.cjs tests/test_web_generation_feedback.cjs tests/test_studio_progress.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare branded Windows icon and PE metadata
@@ -234,6 +234,17 @@ jobs:
           $hash=(Get-FileHash -Algorithm SHA256 LocalVisionAI-Windows.zip).Hash.ToLowerInvariant()
           "$hash  LocalVisionAI-Windows.zip" | Set-Content -Encoding ascii LocalVisionAI-Windows.sha256
 
+      - name: Package desktop-only executable
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path desktop-only | Out-Null
+          Copy-Item dist\LocalVisionAI.exe desktop-only\LocalVisionAI.exe
+          Copy-Item local_app\data\build_info.json desktop-only\build_info.json
+          Copy-Item local_app\data\source_manifest.json desktop-only\source_manifest.json
+          Compress-Archive -Path desktop-only\* -DestinationPath LocalVisionAI-Desktop-Windows.zip -Force
+          $hash=(Get-FileHash -Algorithm SHA256 LocalVisionAI-Desktop-Windows.zip).Hash.ToLowerInvariant()
+          "$hash  LocalVisionAI-Desktop-Windows.zip" | Set-Content -Encoding ascii LocalVisionAI-Desktop-Windows.sha256
+
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
@@ -241,6 +252,8 @@ jobs:
           path: |
             LocalVisionAI-Windows.zip
             LocalVisionAI-Windows.sha256
+            LocalVisionAI-Desktop-Windows.zip
+            LocalVisionAI-Desktop-Windows.sha256
           if-no-files-found: error
 
       - name: Publish latest updater release
@@ -312,6 +325,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:UI_OUTPUT='build/qa315/edge/interactions'
           node scripts/qa_ui_314.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/checkout@v4
+        with:
+          ref: 8a3ea1704e571779a313fc88cc9b96505e28df61
+          path: audit1-baseline
+      - name: Build 316 human audit baseline and functional review
+        shell: powershell
+        run: |
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
+          $env:UI_SOURCE="$env:GITHUB_WORKSPACE/audit1-baseline"
+          $env:UI_BASELINE='1'
+          $env:UI_OUTPUT='build/qa315/human-audit-1/before'
+          node scripts/qa_human_audit_1.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item Env:UI_SOURCE
+          Remove-Item Env:UI_BASELINE
+          $env:UI_OUTPUT='build/qa315/human-audit-1/after'
+          node scripts/qa_human_audit_1.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain actual screenshots, videos and results
         if: always()

@@ -1071,16 +1071,16 @@ def prepare_visual_request(prompt, selected_style='none', negative=None, reserve
 
     if technical_quality:
         if effective_style == 'photo':
-            quality = 'high detail, coherent anatomy, accurate hands, realistic texture, natural lighting, sharp focus, clean edges, low artifacts'
+            quality = 'natural photographic detail, realistic material texture, physically plausible lighting, natural sharpness, clean edges, low artifacts'
         elif effective_style in ('illustration', 'comic', 'watercolor'):
-            quality = 'high detail, coherent anatomy, accurate hands, clean linework, consistent shapes, sharp focus, low artifacts'
+            quality = 'high detail, clean linework, consistent shapes, sharp focus, low artifacts'
         else:
-            quality = 'high detail, coherent anatomy, accurate hands, clean edges, sharp focus, consistent shapes, low artifacts'
+            quality = 'high detail, clean edges, natural sharpness, consistent shapes, low artifacts'
         prepared += '\n\nTechnical quality only: ' + quality + '.'
 
     neg = negative
     if technical_quality and not (negative or '').strip():
-        neg = 'lowres, blurry, compression artifacts, watermark, unwanted text, malformed hands, fused fingers, extra fingers, missing fingers, extra limbs, duplicate limbs, broken anatomy, rendering artifacts'
+        neg = 'lowres, blurry, compression artifacts, watermark, unwanted text, rendering artifacts'
     return prepared, neg, effective_style
 
 def http_json(url, method="GET", payload=None, timeout=20, headers=None):
@@ -1894,7 +1894,8 @@ def run_generation(body):
         # workflow; never silently generate a 3-second low-res draft from a
         # 10-second request. User-specified values take priority over defaults.
         from local_app import media_director
-        settings = media_director.plan(source_prompt, workflows.profile(api), settings)
+        planner = media_director.plan if settings.get("reserved_profile") == "nsfw" else media_director.public_plan
+        settings = planner(source_prompt, workflows.profile(api), settings)
         source_negative = body.get('negative')
         if settings.get('prompt_translation'):
             _ensure_chat_components()
@@ -2444,6 +2445,10 @@ class Handler(BaseHTTPRequestHandler):
                             pass
                     self.send_bytes(raw,r.headers.get_content_type())
             except Exception as e: self.send_json({"error":str(e)},502)
+            return
+        if u.path == "/api/web/agent/status":
+            provider = parse_qs(u.query).get("provider", ["codex"])[0]
+            self.send_json({"integrations": integrations_cli.coding_agent_status(provider)})
             return
         if u.path == "/api/web/capabilities":
             online, _detail = comfy_online()

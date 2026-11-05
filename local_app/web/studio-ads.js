@@ -6,6 +6,17 @@
  const $=id=>document.getElementById(id);
  const headers={'Content-Type':'application/json','X-LocalAI-Brand':'1'};
  let brands=[],draft=null,campaign=null,exportQueue=Promise.resolve();
+ const brandButton=document.createElement('button');brandButton.id='visionBrandButton';brandButton.type='button';brandButton.className='studio-brand-button';brandButton.textContent='Renseigner ma marque';
+ $('composerImageBtn')?.after(brandButton);
+ brandButton.addEventListener('click',async()=>{
+   const brand=await window.StudioBrandPicker.choose(draft?.brand?.id||'');
+   if(!brand)return;
+   if(!draft)startChat({brand,reuseConversation:true});
+   else{draft.brand=brand;draft.brandName=brand.name;if(draft.step==='brand')draft.step='type'}
+   if(activeConversationId){const c=conversationFor(activeConversationId);c.brand_id=brand.id;c.brand_snapshot={...brand};save()}
+   window.StudioBrandPicker.label(brandButton,brand);
+   reply('Marque **'+brand.name+'** associée à cette publicité. '+(draft.step==='type'?'Souhaites-tu une photo ou une vidéo ?':'Le brief en cours est conservé.'));
+ });
  const reply=text=>{
    if(!activeConversationId)createBlankConversation('auto');
    addMessage(activeConversationId,{role:'assistant',text});
@@ -34,6 +45,11 @@
    $('prompt').value='';
    draft={step:'brand',brand:null,brandName:'',type:'image',format:'portrait',goal:'presentation',idea:'',projectContext:prefill.projectContext||''};
    if(prefill.brand){draft.brand=prefill.brand;draft.brandName=prefill.brand.name;draft.step='type'}
+   const conv=activeConversationId?conversationFor(activeConversationId):null;
+   const saved=conv?.brand_snapshot;
+   if(!prefill.brand&&saved?.id){draft.brand=saved;draft.brandName=saved.name;draft.step='type'}
+   if(prefill.brand&&conv){conv.brand_id=prefill.brand.id;conv.brand_snapshot={...prefill.brand};save()}
+   window.StudioBrandPicker?.label(brandButton,draft.brand);
    // Stored brands will be available for name/number matching once loaded.
    // Failure does not block a free-form advertisement brief.
    void getBrands().catch(()=>{brands=[]});
@@ -102,7 +118,7 @@
        }
        const ready=draft;draft=null;document.body.classList.remove('vision-ad-guided');
        campaign={brand:ready.brand,brand_id:ready.brand?.id||null,type:ready.type,format:ready.format,goal:ready.goal,idea:ready.idea};
-       if(ready.brand)localStorage.setItem('localai_studio_brand_id',ready.brand.id);
+       if(ready.brand){const c=conversationFor(activeConversationId);c.brand_id=ready.brand.id;c.brand_snapshot={...ready.brand};save()}
        const mode=$('taskMode');if(mode){mode.value=ready.type;mode.dispatchEvent(new Event('change',{bubbles:true}))}
        const aspect=$('settingAspect');if(aspect)aspect.value={portrait:'9:16',landscape:'16:9',square:'1:1'}[ready.format];
        const goal={product:'présenter un produit/service',booking:'encourager les réservations',offer:'présenter une offre sans inventer de prix',presentation:'présenter l’entreprise'}[ready.goal];

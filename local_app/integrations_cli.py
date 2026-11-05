@@ -48,7 +48,8 @@ def _subprocess_environment():
 
 def _run(args, cwd=None, timeout=120, input_text=None):
     kwargs = {"cwd": str(cwd) if cwd else None, "text": True, "capture_output": True,
-              "timeout": timeout, "check": False, "env": _subprocess_environment()}
+              "timeout": timeout, "check": False, "env": _subprocess_environment(),
+              "encoding": "utf-8", "errors": "replace"}
     if input_text is not None:
         # Keep long Codex prompts out of the Windows command line (CreateProcess
         # has a ~32K-character limit). A stdin pipe also preserves Unicode.
@@ -79,7 +80,7 @@ def _codex_cmd():
     Windows desktop apps may inherit an old PATH from Explorer. Resolve
     the normal user-scoped npm binary and native installer locations too.
     """
-    direct = _which("codex", "codex.cmd", "codex.exe")
+    direct = _which("codex.exe", "codex", "codex.cmd")
     if direct:
         return [direct]
     roots = (
@@ -119,15 +120,28 @@ def coding_agent_status(provider):
     if selected not in ("codex","claude"):
         return {}
     cmd=_codex_cmd() if selected=="codex" else _claude_cmd()
-    found=bool(cmd)
-    ready=False
+    entry={"installed":bool(cmd),"ready":False,"state":"missing",
+           "detail":"Outil non installé sur ce PC."}
     if cmd:
         try:
             args=(["login","status"] if selected=="codex" else ["auth","status"])
-            ready=_run(cmd+args,timeout=12).returncode==0
-        except (OSError, subprocess.TimeoutExpired):
-            ready=False
-    return {selected:{"installed":found,"ready":ready}}
+            result=_run(cmd+args,timeout=12)
+            if result.returncode==0:
+                entry.update(ready=True,state="authenticated",detail="Session reconnue par l’outil local.")
+            else:
+                # Do not forward CLI output: it can contain credentials or account data.
+                output=((result.stderr or "")+" "+(result.stdout or "")).lower()
+                required=any(term in output for term in ("not logged", "not authenticated",
+                    "login required", "authentication required", "unauthorized", "401", "expired",
+                    "please log in", "please login", "no credentials"))
+                entry.update(state="authentication_required" if required else "check_failed",
+                    detail="Authentifie-toi avec l’outil local, puis revérifie." if required else
+                    "Vérification impossible. Consulte le diagnostic local avant de te reconnecter.")
+        except subprocess.TimeoutExpired:
+            entry.update(state="timeout",detail="Vérification trop longue. Réessaie ; la session n’a pas été effacée.")
+        except OSError:
+            entry.update(state="launch_failed",detail="Outil détecté mais impossible à lancer. Vérifie Node.js et le chemin Windows.")
+    return {selected:entry}
 
 
 def status(deep=False):

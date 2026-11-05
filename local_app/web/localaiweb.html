@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/assets/studio-custom-brand.css">
 <link rel="stylesheet" href="/assets/studio-web-sidebar-menu.css">
 <link rel="stylesheet" href="/assets/studio-web-menu-interactions.css">
+<link rel="stylesheet" href="/assets/studio-audit-1.css">
 </head>
 <body data-studio-page="editor">
   <main class="studio" aria-label="Studio LocalAiWeb">
@@ -23,11 +24,11 @@
         <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle studio-web-hamburger" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Ouvrir le menu LocalAiWeb" title="Menu LocalAiWeb"><span></span><span></span><span></span></button>
         <a href="/localaiweb" class="brand-symbol" title="Retour à mes projets" aria-label="Retour à mes projets">←</a>
         <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/assets/custom-brand/web-animated.svg" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
-        
+
         <div class="law-brand-workspace" role="group" aria-label="Identité de marque du projet">
           <label class="sr-only" for="lawBrandPicker">Marque cliente associée au site</label>
           <select id="lawBrandPicker" aria-label="Identité de marque pour le site"><option value="">Sans marque associée</option></select>
-          <a href="/studio/brands" title="Créer et modifier les identités de marque">Marques</a>
+
         </div>
         <div class="agent-workspace" role="group" aria-label="Agent de création de sites">
           <label class="sr-only" for="lawAgentSelect">Agent de création</label>
@@ -42,7 +43,7 @@
         <div id="lawMobileAgentSlot"></div><div id="lawMobileBrandSlot"></div>
         <div class="law-mobile-tools-links">
           <a href="/studio">LocalAiStudio</a><a href="/localaiweb">Tous mes projets</a>
-          <a href="/studio/brands">Identités de marque</a>
+
         </div>
         <div id="lawMobileVersionSlot"></div>
       </nav>
@@ -55,6 +56,7 @@
             <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-4 5-4 13 0 18M12 3c4 5 4 13 0 18"/></svg>
           </a>
 
+           <button id="lawBrandButton" type="button" class="studio-brand-button">Renseigner ma marque</button>
            <span id="lawChatStatus" role="status" aria-live="polite">Prêt à créer ton site</span>
           <button id="lawGenerate" type="submit" aria-label="Envoyer mon message">Envoyer <span aria-hidden="true">↑</span></button>
         </div>
@@ -86,11 +88,11 @@
       </header>
       <div id="lawPreviewStage" class="preview-stage desktop">
         <div id="lawEditOverlay" class="law-edit-overlay" hidden role="status" aria-live="polite">
-           <span class="law-edit-orb" aria-hidden="true"></span><strong>Modification du site</strong>
+           <div class="law-generation-ring"></div><strong>Création du site</strong>
            <span id="lawEditPhase">Codex travaille sur les fichiers du site…</span>
            <div class="law-stage-track" hidden><div id="lawEditTrack"></div></div>
            <small id="lawEditPercent">Étape en cours : préparation</small>
-           <small>La prévisualisation sera rétablie après vérification des modifications.</small>
+           <small><button type="button" id="lawKeepPreview">Consulter l’aperçu disponible</button></small>
         </div>
         <aside id="lawInspectorPopover" class="inspector-popover" hidden aria-label="Modifier la sélection">
           <label for="lawInspectorPrompt">Modifier les éléments sélectionnés</label>
@@ -204,13 +206,15 @@
       </footer>
     </form>
   </dialog>
-  <script src="/assets/localaiweb.js"></script>
+  <script src="/assets/studio-brand-picker.js" defer></script>
+<script src="/assets/localaiweb.js"></script>
 <script src="/assets/localaiweb-brand.js" defer></script>
   <script src="/assets/localaiweb-inspector.js"></script>
   <script src="/assets/localaiweb-update.js"></script>
 <script src="/assets/localaiweb-agent.js"></script>
   <script src="/assets/pwa-install.js" defer></script>
 <script src="/assets/localaiweb-mobile.js"></script>
+<script src="/assets/studio-progress.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 <script src="/assets/studio-qcm-shell.js" defer></script><script src="/assets/studio-qcm-editor.js" defer></script>
 <script src="/assets/studio-qcm-editor-rail.js" defer></script>

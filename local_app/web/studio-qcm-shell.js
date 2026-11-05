@@ -46,7 +46,6 @@ const links=[
  {id:'map',text:'Carte',symbol:'🗺️',path:'/localaiweb/map',keys:['commerces','carte','maps','prospection']},
  {id:'vision',text:'Vision',symbol:'👁️',path:'/localaivision',keys:['image','photo','video','vision']},
  {id:'clients',text:'Devis',symbol:'🗒️',path:'/localaiweb/clients',keys:['clients','devis','factures','commercial']},
- {id:'brands',text:'Marques',symbol:'®️',path:'/studio/brands',keys:['identite','marque','branding']},
 ];
 // Commercial actions use an isolated origin. Navigation returns to the Studio
 // origin without widening its API or generated-preview allowlist.

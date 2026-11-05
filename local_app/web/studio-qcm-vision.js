@@ -50,7 +50,7 @@ function arrangeMenu(){
   if(type&&favicon.getAttribute('type')!==type)favicon.setAttribute('type',type);
  }
  for(const node of secondary){
-  const excluded=node.id==='updateBtn'||node.classList.contains('studio-universe-link');
+  const excluded=node.id==='studioActivity'||node.id==='updateBtn'||node.classList.contains('studio-universe-link');
   const parent=adult||excluded?header:menu;
   if(node.parentElement!==parent)parent.append(node);
  }
@@ -72,8 +72,9 @@ function update(){
   if(!stage.querySelector('.vision-preview-loading')){
    const spinner=document.createElement('div');spinner.className='vision-preview-loading';
    spinner.setAttribute('role','status');spinner.setAttribute('aria-live','polite');
-   spinner.innerHTML='<span class="vision-preview-spinner" aria-hidden="true"></span><strong>Création en cours…</strong><small>Le résultat apparaîtra ici.</small>';
+   spinner.innerHTML='<span class="vision-preview-progress"></span><strong>Création en cours…</strong><small>Le résultat apparaîtra ici.</small>';
    stage.replaceChildren(spinner);
+   window.StudioProgress?.render(spinner.querySelector('.vision-preview-progress'),{});
   }
   return;
  }
@@ -96,6 +97,7 @@ function update(){
  }else{provenance.remove();provenance.removeAttribute('href')}
  download.download=(resolved.searchParams.get('filename')||'creation-localaivision').replace(/[\/\\]/g,'_');
 }
+document.addEventListener('studio:media-progress',e=>{const host=stage.querySelector('.vision-preview-progress');if(host)window.StudioProgress?.render(host,e.detail||{})});
 new MutationObserver(update).observe(messages,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
 new MutationObserver(update).observe(document.body,{attributes:true,attributeFilter:['class']});
 update();

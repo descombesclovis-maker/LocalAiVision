@@ -6,7 +6,7 @@ const source=fs.readFileSync('local_app/web/localaiweb.js','utf8');
 function context(){
  const elements={};
  for(const name of ['lawEditPhase','lawEditPercent','lawEditTrack'])elements['#'+name]={textContent:'',parentElement:{hidden:false},style:{}};
- const ctx=vm.createContext({editOverlay:{hidden:true},$:name=>elements[name]});
+ const ctx=vm.createContext({window:{StudioProgress:{render:()=>{}}},editOverlay:{hidden:true,querySelector:()=>null},$:name=>elements[name]});
  vm.runInContext(source.slice(source.indexOf('function showSiteEditing('),source.indexOf('function codexRecovery(')),ctx);
  return {ctx,elements};
 }

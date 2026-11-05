@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/assets/studio-vision-315-3.css">
 <link rel="stylesheet" href="/assets/studio-vision-315-4.css">
 <link rel="stylesheet" href="/assets/studio-vision-315-5.css">
+<link rel="stylesheet" href="/assets/studio-audit-1.css">
 </head>
 <body class="is-landing" data-studio-page="vision">
 <div class="app">
@@ -18,6 +19,7 @@
       <button class="close-sidebar" id="closeSidebar" type="button" aria-label="Fermer le menu">×</button>
     </div>
     <nav class="studio-navigation" aria-label="Espaces">
+      <button type="button" id="navChat" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5Z"/><path d="M8 10h8M8 14h5"/></svg></span><span>Chat</span></button>
       <button type="button" id="navCreations" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span><span>Mes créations</span></button>
       <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Photo</span></button>
       <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="14" height="16" rx="3"/><path d="m17 9 4-3v12l-4-3"/><path d="m9 9 5 3-5 3z"/></svg></span><span>Vidéo</span></button>
@@ -86,7 +88,7 @@
     <section class="content">
       <div id="chat" class="chat">
         <div id="welcome" class="welcome" aria-label="Accueil LocalAiVision">
-          <div class="welcome-visual"><img class="vision-identity" src="/assets/brand-vision.svg" alt="" width="66" height="66"><h1>LocalAiVision</h1><p>Décris ton image, ta vidéo ou ta publicité. Je choisis le moteur et les paramètres adaptés.</p></div>
+          <div class="vision-mode-intro vision-chat-intro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5Z"/><path d="M8 10h8M8 14h5"/></svg><h2>Chat</h2><p>Vous êtes dans le chat. Posez-moi n'importe quelle question : je vous répondrai aussi précisément que possible.</p><p>Pour créer une photographie, une vidéo ou une publicité, ouvrez le menu <svg class="inline-menu" viewBox="0 0 24 24" role="img" aria-label="trois traits"><path d="M4 6h16M4 12h16M4 18h16"/></svg> en haut à gauche.</p></div>
 
         </div>
         <div id="messages" class="messages"></div>
@@ -273,6 +275,7 @@
   <div id="historyList" class="history-list"></div>
 </dialog>
 <div id="toast" role="status"></div>
+<script src="/assets/studio-brand-picker.js" defer></script>
 <script src="/assets/intent.js"></script>
 <script src="/assets/mask.js"></script>
 <script src="/assets/styles.js"></script>
@@ -280,6 +283,7 @@
 <script src="/assets/studio-ads.js" defer></script>
 <script src="/assets/studio-redesign.js" defer></script>
 <script src="/assets/pwa-install.js" defer></script>
+<script src="/assets/studio-progress.js" defer></script>
 <script src="/assets/studio-activity.js" defer></script>
 <script src="/assets/studio-qcm-shell.js" defer></script>
 <script src="/assets/studio-qcm-vision.js" defer></script><script src="/assets/studio-qcm-library.js" defer></script>

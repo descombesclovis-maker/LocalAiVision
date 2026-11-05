@@ -458,12 +458,12 @@ async function sendMessage(){
  addMessage(activeConversationId,{role:'user',text});
  $('#prompt').value='';$('#prompt').style.height='';dismissKeyboard();
  const mode=$('#taskMode').value;
- let task=mode==='i2v'?'video':intent.task||(mode==='auto'?explicitGenerationRequest(text):mode==='chat'?null:mode);
+ let task=mode==='chat'?null:mode==='i2v'?'video':mode==='auto'?explicitGenerationRequest(text):mode;
  if(mode==='i2v'&&!imageData){addMessage(activeConversationId,{role:'assistant',text:'Ajoute une image avec le bouton + Image avant de lancer une animation I2V.'});return}
  let model=null;
  // Adult briefs should use the appropriate existing isolated workflows, not
  // the weak regular Wan preset or an unrelated stale Photo tab.
- if(intent.adult&&conv.profile!=='nsfw'){
+ if(mode!=='chat'&&intent.adult&&conv.profile!=='nsfw'){
    if(!nsfwUnlocked()){
      addMessage(activeConversationId,{role:'assistant',text:'Pour créer dans l’espace adulte, ouvre NSFW dans le menu latéral et active-le une fois sur cet appareil. Ta demande reste enregistrée ; tu peux la renvoyer après activation.'});
      return;
@@ -488,7 +488,8 @@ async function sendMessage(){
    if(task==='video'){
      const wantsI2V=mode==='i2v'&&!!imageData;
      const premium=workflowById(bestWorkflowId(wantsI2V?ISOLATED_I2V_WORKFLOW:ISOLATED_VIDEO_WORKFLOW));
-     model=wantsI2V?premium:(premium?.ready===true?premium:workflowById(bestWorkflowId(STANDARD_VIDEO_WORKFLOW)));
+     const selected=conv.settings?.video?workflowById(conv.settings.video):null;
+     model=wantsI2V?premium:(selected||premium); // Public video never silently falls back to Wan.
    }
  }
  if(task){conv.messages[conv.messages.length-1].mediaRequest=true;save()}

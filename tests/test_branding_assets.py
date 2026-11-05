@@ -38,7 +38,8 @@ class BrandTests(unittest.TestCase):
         manifest=(WEB/"manifest.webmanifest").read_text(encoding="utf-8")
         self.assertIn('src="/assets/brand-vision.svg"',vision)
         self.assertIn('src="/assets/brand-vision.svg"',vision)
-        self.assertIn('Décris ton image, ta vidéo ou ta publicité.',vision)
+        self.assertIn('Vous êtes dans le chat.',vision)
+        self.assertNotIn('Décris ton image, ta vidéo ou ta publicité.',vision)
         self.assertIn('src="/assets/assets/custom-brand/web-animated.svg"',projects)
         self.assertNotIn('src="/assets/brand-identity.svg"',projects)
         for web_ui in (projects,editor,map_html):

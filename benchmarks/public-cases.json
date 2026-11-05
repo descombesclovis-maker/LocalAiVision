@@ -2,20 +2,98 @@
   "schema": 1,
   "status": "prepared_not_executed",
   "photo": [
-    {"id":"portrait","prompt":"Portrait photographique naturel d'une personne adulte, lumière douce latérale, pores et texture de peau naturels, cadrage épaules."},
-    {"id":"face","prompt":"Gros plan photographique du visage d'une personne adulte, éclairage diffus, texture de peau naturelle, regard net."},
-    {"id":"hands","prompt":"Photographie des deux mains d'une personne adulte posées sur une table, doigts détendus, lumière naturelle."},
-    {"id":"dog-grass","prompt":"Un chien seul dans l'herbe, sans personne ni mains humaines, plan large, lumière du matin, pelage naturel."},
-    {"id":"animal-motion","prompt":"Un chien court dans un jardin, photographie sportive, anatomie cohérente, pelage détaillé."},
-    {"id":"product","prompt":"Photographie commerciale d'une tasse en céramique blanche sur un fond neutre, ombre douce, matière naturelle, sans texte."},
-    {"id":"interior","prompt":"Photographie d'un salon lumineux avec canapé en tissu et table en bois, lignes droites, lumière naturelle."},
-    {"id":"low-light","prompt":"Photographie nocturne d'une rue calme après la pluie, éclairage urbain réaliste, textures et détails naturels."}
+    {
+      "id": "portrait",
+      "prompt": "Portrait photographique naturel d'une personne adulte, lumière douce latérale, pores et texture de peau naturels, cadrage épaules."
+    },
+    {
+      "id": "face",
+      "prompt": "Gros plan photographique du visage d'une personne adulte, éclairage diffus, texture de peau naturelle, regard net."
+    },
+    {
+      "id": "hands",
+      "prompt": "Photographie des deux mains d'une personne adulte posées sur une table, doigts détendus, lumière naturelle."
+    },
+    {
+      "id": "dog-grass",
+      "prompt": "Un chien seul dans l'herbe, sans personne ni mains humaines, plan large, lumière du matin, pelage naturel."
+    },
+    {
+      "id": "animal-motion",
+      "prompt": "Un chien court dans un jardin, photographie sportive, anatomie cohérente, pelage détaillé."
+    },
+    {
+      "id": "product",
+      "prompt": "Photographie commerciale d'une tasse en céramique blanche sur un fond neutre, ombre douce, matière naturelle, sans texte."
+    },
+    {
+      "id": "interior",
+      "prompt": "Photographie d'un salon lumineux avec canapé en tissu et table en bois, lignes droites, lumière naturelle."
+    },
+    {
+      "id": "low-light",
+      "prompt": "Photographie nocturne d'une rue calme après la pluie, éclairage urbain réaliste, textures et détails naturels."
+    },
+    {
+      "id": "audit-seated",
+      "prompt": "Génère une photo d'une personne assise."
+    },
+    {
+      "id": "audit-dog",
+      "prompt": "Génère-moi une photo d'un chien allongé dans l'herbe."
+    },
+    {
+      "id": "audit-products",
+      "prompt": "Génère-moi une photo de produits ménagers comme si c'était une pub."
+    }
   ],
   "video": [
-    {"id":"walk-3","seconds":3,"prompt":"Une personne adulte marche lentement dans un parc, plan entier, caméra fixe, lumière naturelle, mouvements réalistes."},
-    {"id":"walk-5","seconds":5,"prompt":"Une personne adulte marche lentement dans un parc, plan entier, caméra fixe, lumière naturelle, mouvements réalistes."},
-    {"id":"walk-10","seconds":10,"prompt":"Une personne adulte marche lentement dans un parc, plan entier, caméra fixe, lumière naturelle, mouvements réalistes."}
+    {
+      "id": "walk-3",
+      "seconds": 3,
+      "prompt": "Une personne adulte marche lentement dans un parc, plan entier, caméra fixe, lumière naturelle, mouvements réalistes."
+    },
+    {
+      "id": "walk-5",
+      "seconds": 5,
+      "prompt": "Une personne adulte marche lentement dans un parc, plan entier, caméra fixe, lumière naturelle, mouvements réalistes."
+    },
+    {
+      "id": "walk-10",
+      "seconds": 10,
+      "prompt": "Une personne adulte marche lentement dans un parc, plan entier, caméra fixe, lumière naturelle, mouvements réalistes."
+    },
+    {
+      "id": "audit-turn-3",
+      "seconds": 3,
+      "prompt": "Génère un homme qui marche de dos, se retourne et sourit."
+    },
+    {
+      "id": "audit-turn-5",
+      "seconds": 5,
+      "prompt": "Génère un homme qui marche de dos, se retourne et sourit."
+    },
+    {
+      "id": "audit-turn-10",
+      "seconds": 10,
+      "prompt": "Génère un homme qui marche de dos, se retourne et sourit."
+    }
   ],
-  "review_axes": ["anatomie","textures","éclairage","netteté","composition","cadrage","fidélité","artefacts","éléments indésirables","cohérence temporelle"],
-  "seeds": [314159,271828,161803]
+  "review_axes": [
+    "anatomie",
+    "textures",
+    "éclairage",
+    "netteté",
+    "composition",
+    "cadrage",
+    "fidélité",
+    "artefacts",
+    "éléments indésirables",
+    "cohérence temporelle"
+  ],
+  "seeds": [
+    314159,
+    271828,
+    161803
+  ]
 }

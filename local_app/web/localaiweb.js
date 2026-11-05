@@ -44,6 +44,15 @@ function showSiteEditing(on){
  if(!editOverlay)return;
  editOverlay.hidden=!on;
  if(on){
+  const ring=editOverlay.querySelector('.law-generation-ring');
+  window.StudioProgress?.render(ring,{phase:'planning'},{web:true});
+  if(ring&&!ring.querySelector('.law-generation-orbit')){
+   const orbit=document.createElement('span');orbit.className='law-generation-orbit';orbit.setAttribute('aria-hidden','true');
+   orbit.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-6 6-6 12 0 18M12 3c6 6 6 12 0 18"/></svg><svg viewBox="0 0 24 24"><path d="m8 5-6 7 6 7M16 5l6 7-6 7M14 3l-4 18"/></svg><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6h1M10 6h1"/></svg>';
+   ring.append(orbit);
+  }
+ }
+ if(on){
   $('#lawEditPhase').textContent='Codex prépare les modifications…';
   $('#lawEditPercent').textContent='Étape en cours : préparation';
   // The agent reports phases, not a measurable overall completion fraction.
@@ -56,6 +65,7 @@ function updateEditMilestones(status){
   verification:'vérification technique',repair:'correction',localization:'vérification du français',
   preview:'construction de l’aperçu',visual:'contrôle navigateur',design:'finitions visuelles',done:'terminée'};
  const phase=String(status.phase||'').toLowerCase();
+ window.StudioProgress?.render(editOverlay.querySelector('.law-generation-ring'),status,{web:true});
  $('#lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
  $('#lawEditPercent').textContent='Étape en cours : '+(phases[phase]||'traitement');
  $('#lawEditTrack').parentElement.hidden=true;
@@ -221,6 +231,7 @@ let activeGeneration=null;
 let lastLivePreviewVersion='';
 function updateLivePreview(status,id){
  if(!status.preview_ready || !status.preview_version)return;
+ showSiteEditing(false);
  if(status.preview_version!==lastLivePreviewVersion){
    lastLivePreviewVersion=status.preview_version;
    ++previewCheck;
@@ -255,6 +266,7 @@ function generationFeedback(result){
 async function watchGeneration(id){
  if(activeGeneration===id)return;
  activeGeneration=id;presentable=false;
+ showSiteEditing(true);
  setBusy(true,'Génération en cours : le site apparaîtra dès sa première compilation…');
  let reading=false;
  const started=Date.now();
@@ -471,5 +483,6 @@ designForm?.addEventListener('submit',async event=>{
   $('#lawChatStatus').textContent=e.message;
  }finally{submit.disabled=false}
 });
+document.getElementById('lawKeepPreview')?.addEventListener('click',()=>{showSiteEditing(false)});
 initialize();
 

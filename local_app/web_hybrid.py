@@ -31,7 +31,11 @@ def select_coding_agent(provider, status, *, allow_local_fallback=False):
     for candidate in agents:
         if bool((status.get(candidate) or {}).get('ready')):
             return candidate
-    target = 'Codex (ChatGPT Plus)' if requested in ('auto','codex') else 'Claude Code'
+    entry=status.get('codex' if requested=='auto' else requested) or {}
+    if entry.get('state') in ('timeout','check_failed','launch_failed'):
+        raise RuntimeError('État de l’agent impossible à vérifier : '+str(entry.get('detail') or '')+
+                           ' Réessaie la vérification. Les projets et la session restent conservés.')
+    target = 'Codex (ChatGPT Plus)'  if requested in ('auto','codex') else 'Claude Code'
     raise RuntimeError(
         'Agent de création non connecté : ' + target +
         '. Ouvre la connexion dans LocalAiWeb puis authentifie-toi : '

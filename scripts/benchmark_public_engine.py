@@ -15,13 +15,14 @@ from urllib.request import Request, urlopen
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from local_app import workflows, engine_qualification, media_validation
+from local_app import workflows, engine_qualification, media_validation, media_director
 from local_app.atomic_storage import atomic_write
 
 PUBLIC={
     'sdxl':'text to image sdxl.json',
     'hunyuan-image':'Isolated HunyuanImage 2.1.json',
     'hunyuan-t2v':'HunyuanVideo 1.5 T2V.json',
+    'hunyuan-i2v':'HunyuanVideo 1.5 I2V.json',
     'wan-t2v':'Video Wan texte.json',
 }
 
@@ -38,10 +39,13 @@ def main():
     parser.add_argument('--engine',choices=PUBLIC,default='sdxl')
     parser.add_argument('--url',default='http://127.0.0.1:8188')
     parser.add_argument('--run',action='store_true')
+    parser.add_argument('--image',type=Path,help='Existing reference image required for an I2V run; original is never modified.')
     parser.add_argument('--case',default='dog-grass')
     parser.add_argument('--seed',type=int,default=314159)
     parser.add_argument('--quality',choices=['draft','balanced','quality','workflow'],default='workflow')
-    parser.add_argument('--model-root',type=Path,help='Optional existing ComfyUI models directory: full SHA-256 hashing, no modification.')
+    parser.add_argument('--conditioning', choices=['original','public'], default='original',
+                        help='original: raw prompt; public: current public server enrichment and time-base planning. Same seed permits a controlled comparison.')
+    parser.add_argument('--model-root' ,type=Path,help='Optional existing ComfyUI models directory: full SHA-256 hashing, no modification.')
     parser.add_argument('--output',type=Path,default=ROOT/'benchmark-results')
     parser.add_argument('--timeout',type=int,default=3600)
     args=parser.parse_args()
@@ -66,11 +70,38 @@ def main():
         cases=json.loads((ROOT/'benchmarks/public-cases.json').read_text())
         case=next((row for row in cases['photo']+cases['video'] if row['id']==args.case),None)
         if case is None:raise ValueError('Cas de référence inconnu.')
-        is_video=args.engine.endswith('t2v')
+        is_video=args.engine.endswith(('t2v','i2v'))
         if bool(case.get('seconds'))!=is_video:raise ValueError('Le scénario doit correspondre au type photo/vidéo du moteur.')
         settings={'seed':args.seed,'quality':args.quality}
         if is_video:settings.update(duration=case['seconds'],fps=16)
-        graph=workflows.apply_inputs(graph,case['prompt'],None,None,settings)
+        prompt=case['prompt'];negative=None
+        if args.conditioning=='public':
+            from local_app.server import prepare_visual_request
+            settings=media_director.public_plan(prompt,workflows.profile(graph),settings)
+            prompt,negative,_=prepare_visual_request(prompt,'none',technical_quality=True)
+            prompt,negative=media_director.enhance_video_continuity(prompt,negative,workflows.profile(graph))
+        receipt.update(conditioning=args.conditioning,original_prompt=case['prompt'],effective_prompt=prompt,
+                       effective_negative=negative,comparison_scope='Raw conditioning versus public server conditioning. Animal-specific browser enrichment is excluded; not a complete GUI comparison.')
+        image_ref=None
+        if args.engine.endswith('i2v'):
+            if args.run and not args.image:raise ValueError('--image est nécessaire pour exécuter I2V.')
+            if args.image:
+                raw=args.image.read_bytes()
+                if len(raw)>20_000_000:raise ValueError('Référence limitée à 20 Mo pour ce benchmark.')
+                from PIL import Image
+                with Image.open(args.image) as image:image.verify()
+                receipt['reference_image_sha256']=hashlib.sha256(raw).hexdigest()
+                image_ref={'name':args.image.name}
+                if args.run:
+                    boundary='localai-benchmark-'+str(time.time_ns())
+                    suffix=args.image.suffix.lower()
+                    if suffix not in ('.png','.jpg','.jpeg','.webp'):raise ValueError('Référence PNG, JPEG ou WebP requise.')
+                    filename='benchmark-reference-'+hashlib.sha256(raw).hexdigest()[:16]+suffix
+                    payload=('--'+boundary+'\r\nContent-Disposition: form-data; name="image"; filename="'+filename+'"\r\nContent-Type: application/octet-stream\r\n\r\n').encode()+raw+('\r\n--'+boundary+'--\r\n').encode()
+                    req=Request(base+'/upload/image',data=payload,headers={'Content-Type':'multipart/form-data; boundary='+boundary})
+                    with urlopen(req,timeout=60) as response:image_ref=json.load(response)
+                    if not image_ref.get('name'):raise RuntimeError('Référence I2V non acceptée.')
+        graph=workflows.apply_inputs(graph,prompt,negative,image_ref,settings)
         workflows.preflight(graph,info)
         graph_hash=hashlib.sha256(json.dumps(graph,sort_keys=True).encode()).hexdigest()
         model_names=sorted({str(value) for node in graph.values() for key,value in node.get('inputs',{}).items()

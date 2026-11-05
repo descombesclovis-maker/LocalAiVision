@@ -6,6 +6,7 @@ Original ComfyUI outputs remain unchanged; exports are derivative files.
 from __future__ import annotations
 
 import base64
+import hashlib
 from io import BytesIO
 import json
 import os
@@ -97,6 +98,9 @@ def save_brand(base,values):
         result[key]=color
     logo=values.get("logo_data")
     decoded=None
+    raw=None
+    if existing.get("logo_original_file"):
+        result["logo_original_file"]=existing["logo_original_file"]
     if logo:
         if not isinstance(logo,str) or len(logo)>4_200_000:
             raise ValueError("Le logo doit être un PNG, JPEG ou WebP de moins de 3 Mo.")
@@ -119,6 +123,12 @@ def save_brand(base,values):
             raise ValueError("Impossible de lire le logo : "+str(exc)[:120]) from exc
     folder.mkdir(parents=True,exist_ok=True)
     if decoded is not None:
+        # Keep source bytes independently of the normalized preview/compositor PNG.
+        suffix={"image/png":".png","image/jpeg":".jpg","image/webp":".webp"}[header[5:-7]]
+        source_name="logo-original-"+hashlib.sha256(raw).hexdigest()+suffix
+        original=folder/source_name
+        if not original.exists():original.write_bytes(raw)
+        result["logo_original_file"]=source_name
         tmp=folder/"logo.pending"
         tmp.write_bytes(decoded)
         os.replace(tmp,folder/"logo.png")

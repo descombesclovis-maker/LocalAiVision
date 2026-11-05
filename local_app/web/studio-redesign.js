@@ -3,7 +3,7 @@
  'use strict';
  const byId=id=>document.getElementById(id);
  const prompt=byId('prompt'),welcome=byId('welcome'),messages=byId('messages');
- const navEntries=['navCreations','navPhoto','navVideo','navNsfw','studioAdOpen'];
+ const navEntries=['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen'];
  // Keep the original Studio landing intact: dedicated modes only replace its
  // *presentation*, never the saved conversation or media library.
  const originalWelcome=[...welcome.childNodes].map(node=>node.cloneNode(true));
@@ -73,7 +73,7 @@
    }
    // The landing is always a neutral chat. Never inherit NSFW mode or a
    // forced video workflow from a prior dedicated creation session.
-   byId('taskMode').value='auto';
+   byId('taskMode').value='chat';
    updateCreationModeGuide();
    welcome.classList.remove('hidden');
    messages.replaceChildren();
@@ -82,7 +82,7 @@
    prompt.value='';prompt.placeholder='Écris ton message…';prompt.blur();
    byId('generationSettings')?.classList.add('hidden');
    byId('settingsBtn')?.classList.remove('active');
-   activeNav('');
+   activeNav('navChat');
    hideSidebar();
  }
  function startMode(mode){
@@ -159,18 +159,7 @@
            preview.append(image);
          }
          const ring=document.createElement('div');ring.className='vision-progress-circle';
-         const known=Number.isInteger(job.percent)&&job.max_steps>0;
-         if(known){
-           const percent=Math.max(0,Math.min(100,job.percent));
-           ring.style.setProperty('--vision-progress-angle',(percent*3.6)+'deg');
-           ring.setAttribute('aria-label','Progression ComfyUI : '+percent+' %');
-         }else{
-           ring.dataset.unknown='true';
-           ring.setAttribute('aria-label','Préparation en cours, progression non disponible');
-         }
-         const display=document.createElement('strong');
-         display.textContent=known?Math.max(0,Math.min(100,job.percent))+' %':'…';
-         ring.append(display);preview.append(ring);
+         window.StudioProgress?.render(ring,job);preview.append(ring);
          const details=document.createElement('div');details.className='vision-active-info';
          const name=document.createElement('strong');
          name.textContent=job.state==='preparing'?'Préparation '+(job.kind==='video'?'de la vidéo':'de l’image'):job.kind==='video'?'Vidéo en cours':'Image en cours';
@@ -302,6 +291,7 @@
    // or touch the NSFW generation pipelines while locked.
    clearModeCanvas('nsfw',{preserveConversation:true});
  });
+ byId('navChat')?.addEventListener('click',home);
  byId('navCreations')?.addEventListener('click',gallery);
  byId('navPhoto')?.addEventListener('click',()=>startMode('image'));
  byId('navVideo')?.addEventListener('click',()=>startMode('video'));
@@ -331,8 +321,7 @@
      }else if(mode==='nsfw'){
        clearModeCanvas('nsfw',{preserveConversation:true});
      }else{
-       document.body.dataset.visionMode='chat';
-       darkMode();welcome.classList.add('hidden');activeNav('');
+       home();
      }
      prompt.focus();
    },0);

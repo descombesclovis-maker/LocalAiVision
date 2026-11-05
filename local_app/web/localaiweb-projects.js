@@ -105,6 +105,7 @@ function card(p,index){
   const value=document.createElement('span');value.className='project-generation-value';value.textContent=pct+' %';
   const hint=document.createElement('small');hint.className='project-generation-hint';hint.textContent='estimé';
   inner.append(value,hint);ring.append(inner);
+  window.StudioProgress?.render(ring,live,{web:true});
   const title=document.createElement('strong');title.className='project-generation-title';
   title.textContent='Maquette en création';
   const info=document.createElement('span');info.className='project-generation-phase';

@@ -61,7 +61,7 @@ class BrandMapAgentTests(unittest.TestCase):
         editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")
         hub=(WEB/"localaiweb-projects.html").read_text(encoding="utf-8")
         self.assertIn("selectedProvider()",source)
-        self.assertIn("/api/web/capabilities",source)
+        self.assertIn("/api/web/agent/status?provider=",source)
         self.assertIn("/api/web/integrations/connect",source)
         self.assertIn('id="connectAgent"',editor)
         self.assertIn('id="connectAgent"',hub)
