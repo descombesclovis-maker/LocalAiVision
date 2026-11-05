@@ -51,12 +51,14 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
  const brand=(await api('/api/studio/brand/save',{name:'MARQUE DE RECETTE',sector:'Données fictives pour test',primary_color:'#8B5CF6',secondary_color:'#22D3EE',description:'Services de démonstration, sans offre commerciale réelle.'})).brand;
  await check('Global brand selection persists on Studio home',async()=>{
   await page.goto(base+'/studio');await page.locator('#homeBrandChoose').click();await page.getByRole('button',{name:'Choisir MARQUE DE RECETTE',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('homeBrandName').textContent==='MARQUE DE RECETTE');
   await page.reload();await page.waitForFunction(()=>document.getElementById('homeBrandName').textContent==='MARQUE DE RECETTE');
   await page.screenshot({path:path.join(output,'studio-brand-desktop.png'),fullPage:true});
  });
  await check('Advertisement brand association is saved without resetting the draft',async()=>{
   await page.goto(base+'/localaivision');await wait(600);await page.locator('#openSidebar').click();await page.locator('#studioAdOpen').click();
   await page.locator('#visionBrandButton').click();await page.getByRole('button',{name:'Choisir MARQUE DE RECETTE',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('visionBrandButton').textContent.includes('MARQUE DE RECETTE'));
   assert.match(await page.locator('#visionBrandButton').innerText(),/MARQUE DE RECETTE/);
   assert.equal(await page.evaluate(()=>conversationFor(activeConversationId).brand_id),brand.id);
   await page.screenshot({path:path.join(output,'advert-brand-desktop.png')});
