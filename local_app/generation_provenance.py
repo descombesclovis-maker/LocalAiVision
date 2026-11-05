@@ -69,12 +69,12 @@ def complete(root, prompt_id, info):
         return record
 
 
-def record_output_bytes(root, prompt_id, filename, subfolder, raw):
+def record_output_bytes(root, prompt_id, filename, subfolder, raw, kind='output'):
     with _LOCK:
         record=read(root,prompt_id)
         matched=False
         for output in record['outputs']:
-            if output['filename']==filename and output.get('subfolder','')==subfolder:
+            if output['filename']==filename and output.get('subfolder','')==subfolder and output.get('type','output')==kind:
                 output.update(sha256=hashlib.sha256(raw).hexdigest(),hash_status='measured_on_download',size_bytes=len(raw))
                 matched=True
         if matched:

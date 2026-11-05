@@ -37,6 +37,12 @@ for(const [key,label] of tabs){
 const topbar=root.querySelector('.preview-header');
 controls.insertBefore(nav,document.getElementById('lawPublishBtn'));
 const content=drawer.querySelector('#qcmDrawerContent'),status=drawer.querySelector('#qcmDrawerStatus');
+const extra=tools?.querySelector('.qcm-editor-more-menu');
+if(extra){
+ const delivery=document.createElement('button');delivery.type='button';delivery.textContent='✓ Vérifications de livraison';
+ delivery.dataset.qcmPanel='delivery';delivery.addEventListener('click',()=>{extra.parentElement.open=false;open('delivery')});
+ extra.append(delivery);buttons.set('delivery',delivery);
+}
 let active='pages',seq=0;
 function close(){
  drawer.hidden=true;
@@ -60,6 +66,7 @@ async function render(){
    if(current!==seq||drawer.hidden)return;
    if(!r.ok||data.error)throw Error(data.error||'Projet introuvable');
    status.textContent='';
+   if(active==='delivery'){await renderDelivery(current);return}
    if(active==='pages'){
      const html=Object.keys(data.files||{}).filter(name=>validateSource(name)&&/\.html?$/i.test(name));
      if(!html.length){content.append(row('Aucune page HTML','Les pages apparaîtront ici dès leur création.'));return}
@@ -98,6 +105,58 @@ async function render(){
      }
    }
  }catch(error){if(current===seq)status.textContent='Chargement impossible : '+error.message}
+}
+async function renderDelivery(current){
+ const response=await fetch('/api/web/project/acceptance?id='+encodeURIComponent(id),{cache:'no-store'});
+ const data=await response.json();
+ if(current!==seq||drawer.hidden)return;
+ if(!response.ok||data.error)throw Error(data.error||'Recette indisponible.');
+ const report=data.delivery||{},plan=data.contract||{};
+ content.append(row(report.ready_to_deliver?'Livraison validée techniquement':'Livraison non validée',
+  'Aperçu et livraison sont distincts. Les validations ci-dessous sont manuelles ; elles ne remplacent pas les tests navigateur ni la revue artistique.'));
+ const reasons=report.blocking_reasons||[];
+ for(const reason of reasons){
+  const text=reason==='project_changed_since_review'?'Le projet a changé depuis ses vérifications.':
+   reason==='technical_checks_failed'?'Les contrôles techniques signalent une erreur.':
+   reason==='business_acceptance_not_verified'?'La recette des fonctionnalités reste à valider.':
+   reason==='missing_viewports'?'Des captures ordinateur, tablette ou téléphone manquent.':
+   reason==='missing_screenshot'?'Une capture de contrôle est introuvable.':
+   'La revue de livraison doit être exécutée ou complétée.';
+  content.append(row('À vérifier',text));
+ }
+ if(!plan.features?.length){
+  content.append(row('Contrat de recette absent',plan.error||'Aucune fonctionnalité déclarée.'));
+  const prepare=document.createElement('button');prepare.type='button';prepare.textContent='Préparer le contrat dans la discussion';
+  prepare.addEventListener('click',()=>{
+   const prompt=document.getElementById('lawPrompt');
+   prompt.value='Prépare localai-functional.json pour ce projet : liste toutes les fonctionnalités demandées, leur état réel et un test de recette précis par fonctionnalité. Ne change pas le rendu du site et ne prétends pas que des tests non exécutés ont réussi.';
+   close();prompt.focus();
+  });content.append(prepare);return;
+ }
+ for(const feature of plan.features){
+  const card=row(feature.label,feature.status_label+' · '+feature.acceptance);
+  if(feature.configuration)card.append(row('Configuration',feature.configuration));
+  if(feature.evidence)card.append(row('Dernière validation manuelle',feature.evidence.evidence));
+  const label=document.createElement('label');label.textContent='Test exécuté, résultat observé et preuve';
+  const evidence=document.createElement('textarea');evidence.id='qcm-acceptance-'+feature.id;evidence.rows=3;evidence.maxLength=2500;
+  label.htmlFor=evidence.id;evidence.placeholder='Exemple : demande test envoyée, reçue dans le stockage de test sous la référence…';
+  card.append(label,evidence);
+  for(const [outcome,text] of [['passed','J’ai testé : réussi'],['failed','J’ai testé : échec']]){
+   const action=document.createElement('button');action.type='button';action.textContent=text;action.dataset.acceptanceAction=outcome;
+   action.addEventListener('click',async()=>{
+    if(evidence.value.trim().length<20){status.textContent='Décris le test et sa preuve en au moins 20 caractères.';evidence.focus();return}
+    const actions=[...content.querySelectorAll('[data-acceptance-action]')];actions.forEach(b=>b.disabled=true);
+    status.textContent='Enregistrement de votre constat manuel…';
+    try{
+     const result=await fetch('/api/web/project/acceptance',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},
+      body:JSON.stringify({id,revision:plan.revision,feature_id:feature.id,outcome,evidence:evidence.value,confirmed:true})});
+     const saved=await result.json();if(!result.ok||saved.error)throw Error(saved.error||'Constat non enregistré.');
+     await render();
+    }catch(error){status.textContent=error.message;actions.forEach(b=>b.disabled=false)}
+   });card.append(action);
+  }
+  content.append(card);
+ }
 }
 function open(key){
  active=key;drawer.hidden=false;

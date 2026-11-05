@@ -21,6 +21,7 @@ class ProvenanceTests(unittest.TestCase):
         info={'status':{'completed':True,'status_str':'success'},'outputs':{'3':{'images':[{'filename':'x.png','subfolder':''}]}}}
         done=provenance.complete(self.root,'job-1',info)
         self.assertEqual(done['state'],'done');self.assertIsNone(done['outputs'][0]['sha256'])
+        self.assertFalse(provenance.record_output_bytes(self.root,'job-1','x.png','',b'wrong input bytes','input'))
         self.assertTrue(provenance.record_output_bytes(self.root,'job-1','x.png','',b'actual image bytes'))
         self.assertEqual(provenance.read(self.root,'job-1')['outputs'][0]['hash_status'],'measured_on_download')
         self.assertEqual(provenance.complete(self.root,'job-1',info)['observed_finished_at_utc_epoch'],done['observed_finished_at_utc_epoch'])

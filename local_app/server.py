@@ -119,6 +119,11 @@ def _web_generation_status(project_id):
         result["preview_ready"] = False
     return result
 
+def web_delivery_report(store,pid):
+    from local_app import web_delivery
+    return web_delivery.current(store,pid)
+
+
 def _sales_ready(meta, generation):
     quality=meta.get("last_agent_quality") or {}
     finished=(generation["state"]=="done" or
@@ -2414,7 +2419,7 @@ class Handler(BaseHTTPRequestHandler):
                     if pid:
                         try:
                             from local_app import generation_provenance
-                            generation_provenance.record_output_bytes(DATA,pid,filename,sub,raw)
+                            generation_provenance.record_output_bytes(DATA,pid,filename,sub,raw,typ)
                         except (OSError,ValueError):
                             # The media stays available; its trace keeps an explicit
                             # not_measured hash instead of claiming a checksum.
@@ -2697,6 +2702,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_bytes(image.read_bytes(), "image/png")
             except Exception as e:
                 self.send_json({"error": str(e)}, 404)
+            return
+        if u.path == "/api/web/project/acceptance":
+            try:
+                from local_app import web_acceptance
+                pid=parse_qs(u.query).get('id',[''])[0]
+                store=_web_store();store.meta(pid)
+                self.send_json({'contract':web_acceptance.describe(store,pid),'delivery':web_delivery_report(store,pid)})
+            except (OSError,ValueError) as exc:self.send_json({'error':str(exc)},400)
             return
         if u.path == "/api/web/project/delivery":
             try:
@@ -2993,6 +3006,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
         if u.path.startswith('/api/private/') and not self._authorized_media_request():return
+        if u.path=='/api/web/project/acceptance' and not self._authorized_media_request():return
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/loras/upload":
             self._upload_existing_lora()
@@ -3043,17 +3057,29 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 16000:
                 self.send_json({"error":"Taille de requête incorrecte."}, 400)
                 return
+        if u.path=='/api/web/project/acceptance' and not 0 < length <= 12000:
+            self.send_json({'error':'Taille incorrecte.'},413);return
         if u.path.startswith('/api/private/') and not 0 < length <= 2_000_000:
             self.send_json({'error':'Taille incorrecte.'},413);return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == '/api/web/project/acceptance':
+            if not 0 < length <= 12000:
+                self.send_json({'error':'Taille incorrecte.'},413);return
+            try:
+                from local_app import web_acceptance
+                pid=body.get('id');store=_web_store();store.meta(pid)
+                result=web_acceptance.record(store,pid,body)
+                self.send_json({'contract':result,'delivery':web_delivery_report(store,pid)})
+            except (OSError,ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
+            return
         if u.path == '/api/private/unlock':
             try:
                 token,expires=private_access.unlock(body.get('code',''))
                 self.send_json({'authenticated':True,'expires_at':expires},headers={
-                    'Set-Cookie':private_access.COOKIE+'='+token+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
+                    'Set-Cookie':private_access.COOKIE+'='+token+'; HttpOnly; SameSite=Strict; Path=/'})
             except (ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},403)
             return
         if u.path == '/api/private/lock':

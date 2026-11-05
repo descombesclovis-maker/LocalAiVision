@@ -261,6 +261,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 016962a194859320356b8c943ba41fca69b2cd38
+          path: ui3155-baseline
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -274,6 +278,16 @@ jobs:
           npm install --prefix "$env:RUNNER_TEMP/studio315-qa" playwright@1.62.1
           $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
           node "$env:RUNNER_TEMP/studio315-qa/node_modules/playwright/cli.js" install chromium ffmpeg
+      - name: Capture preserved customized 315.5 baseline
+        shell: powershell
+        env:
+          UI_BASELINE: '1'
+          UI_SOURCE: ${{ github.workspace }}/ui3155-baseline
+        run: |
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
+          $env:UI_OUTPUT='build/qa315/before3155'
+          node scripts/qa_ui_313.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Chromium six-resolution and focused functional review
         shell: powershell
         run: |

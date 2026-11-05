@@ -40,9 +40,9 @@ Un scénario mocké dans les tests Python ne compte pas comme une génération.
 
 `/api/web/project/delivery?id=...` expose l'état courant. Compilation réussie,
 contrôles navigateur exécutés et recette métier liée à l'empreinte des fichiers
-sont distincts de la prévisualisation. Le parcours de saisie/exécution des preuves
-métier reste à terminer : il ne faut pas remplir `functional_checks.json` avec une
-validation inventée pour faire passer la livraison. Les captures de secours
+sont distincts de la prévisualisation. Le menu supplémentaire de l'éditeur permet de lire le contrat et d'enregistrer
+un constat manuel explicite avec sa preuve. Ne pas y déclarer un test réussi
+sans l'avoir exécuté. Ces constats ne sont pas des tests métier automatiques. Les captures de secours
 `captured` ne valent pas un contrôle Playwright réussi. L'art reste à revoir.
 
 ## Dates

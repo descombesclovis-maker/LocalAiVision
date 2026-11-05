@@ -346,6 +346,8 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
     # Avoid several redundant prompts and spend the budget writing code.
     instruction = developer_brief(full_brief, visuals, project_name=spec_name)
     instruction += '\n' + asset_manifest(visuals)
+    from local_app import web_acceptance
+    instruction += '\n' + web_acceptance.instructions()
     # Studio quality is project-specific and persisted, not a cosmetic button.
     # This is fed to BOTH Codex and Claude so a selected cinematic/3D art
     # direction actually influences the site's real source files.

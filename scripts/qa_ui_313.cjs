@@ -115,6 +115,20 @@ function fixture(project){
     await page.locator('.qcm-editor-more summary').click();const download=page.waitForEvent('download');await page.locator('#lawZipBtn').click();await (await download).saveAs(path.join(output,'fixture-export.zip'));
     await page.screenshot({path:path.join(output,'editor-real-preview-fixture.png')});
    });
+   await check('Delivery drawer records a labelled fixture acceptance without declaring unreviewed delivery ready',async()=>{
+    await page.locator('.qcm-editor-more summary').click();
+    await page.locator('[data-qcm-panel="delivery"]').click();
+    await page.getByText('Navigation de recette — données de test',{exact:true}).waitFor();
+    await page.locator('#qcm-acceptance-navigation').fill('Recette simulée dans le test d’interface ; ce constat ne certifie aucun site client ni une génération IA.');
+    await page.getByRole('button',{name:'J’ai testé : réussi',exact:true}).click();
+    await page.getByText('Dernière validation manuelle',{exact:true}).waitFor();
+    const pid=new URL(page.url()).searchParams.get('id');
+    const result=await api('/api/web/project/acceptance?id='+pid);
+    assert.equal(result.contract.features[0].status,'functional');
+    assert.equal(result.delivery.ready_to_deliver,false,'An absent browser review must still block delivery');
+    await page.screenshot({path:path.join(output,'delivery-fixture-acceptance.png')});
+    await page.locator('#qcmDrawerClose').click();
+   });
    await check('Pro reference opens its own sales dossier without a forced questionnaire',async()=>{
     const {id:pid}=fixture('pro');await page.goto(base+'/localaiweb/editor?id='+pid);await wait(500);
     assert.equal(await page.locator('#lawDesignDialog').evaluate(x=>x.open),false);

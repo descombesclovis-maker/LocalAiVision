@@ -125,3 +125,26 @@ provenance détaillée, tâches durables et campagnes ; ne pas annoncer 100 %.
   l'iframe d'aperçu masquée après injection du site de recette. Diagnostics API et
   DOM ajoutés pour distinguer source absente et défaut frontend. La revue reste
   ouverte, pas de certification visuelle globale.
+
+## Lot mémoire et recette explicite
+
+- Snapshot/restauration/journal binaire traités par blocs. Mesure synthétique Linux
+  sur 32 Mio : pic d'allocations Python 114 942 291 → 3 800 400 octets ; durée
+  observée 1,5827 → 1,0913 s (un essai par variante, pas une garantie de vitesse).
+  Reçu et hashes dans `storage-memory-benchmark.json`. Aucun gain GPU revendiqué.
+- Contrat fonctionnel demandé à l'agent ; une déclaration « functional » de sa
+  part ne vaut pas preuve. Cinq statuts réels et constat manuel de l'opérateur
+  accessibles depuis le menu supplémentaire de l'éditeur, sans nouvelle fenêtre
+  de configuration. Chaque constat est lié aux sources et médias de la version.
+- 4 tests de recette passent ; un constat métier manuel ne peut pas valider des
+  captures d'une ancienne version. Les tests métier automatiques sectoriels et
+  les six générations réelles restent ouverts.
+- CI 41939271699 (a9547e3) : tous jobs réussis, Chromium et Edge compris. Les lots
+  suivants nécessitent leur propre exécution CI. Captures 315.5 personnalisées
+  ajoutées à la prochaine CI pour une vraie comparaison de référence.
+
+Suite locale après recette : **344 tests Python réussis, 1 ignoré sur Linux** ;
+13 tests Node du parseur réussis, syntaxe des scripts touchés vérifiée.
+La provenance publique est accessible depuis « Paramètres réels » sur les résultats
+nouvellement tracés. Les mesures non disponibles restent nulles. La cookie privée
+est une cookie de session de navigateur ; le serveur limite sa validité à 8 h.

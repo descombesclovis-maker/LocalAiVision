@@ -19,10 +19,12 @@ viewer.innerHTML='<header><span><i aria-hidden="true"></i> APERÇU LIVE</span><s
 area.append(viewer);
 const stage=viewer.querySelector('#qcmVisionStage'),actions=viewer.querySelector('#qcmVisionActions');
 const heading=viewer.querySelector('#qcmVisionKind'),open=viewer.querySelector('#qcmVisionOpen'),download=viewer.querySelector('#qcmVisionDownload');
+const provenance=document.createElement('a');provenance.id='qcmVisionProvenance';provenance.textContent='ⓘ Paramètres réels';
+provenance.download='LocalAiStudio-provenance.json';
 const empty=stage.firstElementChild;
 let lastSrc='',lastType='';
 const isAdult=()=>document.body.classList.contains('nsfw-active');
-function clear(){lastSrc='';lastType='';stage.replaceChildren(empty);actions.hidden=true;heading.textContent='Prêt à créer';open.removeAttribute('href');download.removeAttribute('href')}
+function clear(){provenance.remove();provenance.removeAttribute('href');lastSrc='';lastType='';stage.replaceChildren(empty);actions.hidden=true;heading.textContent='Prêt à créer';open.removeAttribute('href');download.removeAttribute('href')}
 const header=document.querySelector('.topbar-actions');
 const menu=document.querySelector('.studio-navigation');
 const secondary=[...header.children].filter(node=>node.id!=='nsfwGalleryToggle');
@@ -88,6 +90,10 @@ function update(){
  stage.replaceChildren(node);
  heading.textContent=mediaType==='video'?'Vidéo générée':'Image générée';
  actions.hidden=false;open.href=resolved.href;download.href=resolved.href;
+ const provenanceId=resolved.searchParams.get('provenance_id')||'';
+ if(/^[A-Za-z0-9_-]{1,128}$/.test(provenanceId)){
+  provenance.href='/api/studio/media/provenance?id='+encodeURIComponent(provenanceId);actions.append(provenance);
+ }else{provenance.remove();provenance.removeAttribute('href')}
  download.download=(resolved.searchParams.get('filename')||'creation-localaivision').replace(/[\/\\]/g,'_');
 }
 new MutationObserver(update).observe(messages,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
