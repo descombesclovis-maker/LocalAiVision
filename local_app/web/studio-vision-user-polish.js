@@ -163,12 +163,11 @@
   if(!safeUrl(raw))return;
   card.dataset.visionCardEnhanced='1';
   const kind=media.tagName==='VIDEO'?'video':'image';
-  const entry=typeof library!=='undefined'?library.find(x=>!x.profile||x.profile!=='nsfw'&&x._id===card.dataset.entryId):null;
   const resolved=typeof library!=='undefined'
    ?library.find(x=>x.profile!=='nsfw'&&x._id===card.dataset.entryId)
      ||library.find(x=>x.profile!=='nsfw'&&resultUrl(x)===raw)
    :null;
-  const item=resolved||entry||{filename:'creation.png',prompt:''};
+  const item=resolved||{filename:'creation.png',prompt:''};
   // The gallery thumbnail always opens an enlarged media viewer.
   if(media.tagName==='VIDEO')media.controls=false;
   media.tabIndex=0;media.setAttribute('role','button');
