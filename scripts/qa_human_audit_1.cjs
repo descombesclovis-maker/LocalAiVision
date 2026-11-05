@@ -16,7 +16,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
 (async()=>{try{
  for(let i=0;i<100;i++){try{await api('/api/web/projects');break}catch(e){if(i===99)throw e;await wait(150)}}
  browser=await chromium.launch({headless:true,...(process.env.UI_BROWSER_CHANNEL?{channel:process.env.UI_BROWSER_CHANNEL}:{}),args:['--no-sandbox']});
- const page=await browser.newPage({reducedMotion:'reduce'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const page=await browser.newPage({reducedMotion:'reduce',serviceWorkers:'block'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  for(const [name,width,height] of [['desktop',1440,1000],['tablet',820,1180],['mobile',390,844]]){
   await page.setViewportSize({width,height});await page.goto(base+'/localaivision');await wait(1200);
   await page.screenshot({path:path.join(output,'vision-'+name+'.png')});
@@ -77,11 +77,11 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   await page.locator('#lawKeepPreview').click();assert.equal(await page.locator('#lawEditOverlay').isVisible(),false);
  });
  await check('Real browser decoder refuses corrupt files and recovers after reload without submitting a render',async()=>{
-  let readable=false,renderSubmissions=0;
+  let readable=false,renderSubmissions=0,historyIntercepts=0;
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAICAIAAAB/FOjAAAAAFklEQVR4nGNk2HKJgRTARJLqUQ1EAgBfOAGWhX/nswAAAABJRU5ErkJggg==','base64');
   const video=fs.readFileSync(path.join(__dirname,'../tests/fixtures/public-decoder-check.webm'));
   await page.route('**/api/studio/media/start',async route=>{renderSubmissions++;await route.fulfill({status:503,json:{error:'Fixture only; GPU render forbidden in this check.'}})});
-  await page.route('**/api/history/qa-decoder',async route=>route.fulfill({json:{'qa-decoder':{status:{completed:true,status_str:'success'},outputs:{one:{images:[{filename:'qa-decoder.png',type:'output'}]}}}}}));
+  await page.route('**/api/history/qa-decoder',async route=>{historyIntercepts++;await route.fulfill({json:{'qa-decoder':{status:{completed:true,status_str:'success'},outputs:{one:{images:[{filename:'qa-decoder.png',type:'output'}]}}}}})});
   await page.route('**/api/view?**',async route=>{
    const name=new URL(route.request().url()).searchParams.get('filename');
    if(name==='qa-decoder.png')return route.fulfill({contentType:'image/png',headers:{'Cache-Control':'no-store'},body:readable?png:Buffer.from('Unreadable fixture, not an AI render.')});
@@ -91,6 +91,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   await page.goto(base+'/localaivision');
   await page.waitForFunction(()=>Boolean(window.StudioMediaValidation));
   const id=await page.evaluate(async()=>{const c=createBlankConversation('auto');await waitResults(['qa-decoder'],c.id,{id:'qa-decoder',kind:'image'},'RECETTE TECHNIQUE — pixels de test, aucune génération IA','image');return c.id});
+  assert.ok(historyIntercepts>0,'The history fixture must be intercepted, never sent to live ComfyUI.');
   assert.equal(await page.evaluate(()=>library.filter(x=>x.filename==='qa-decoder.png').length),0);
   await page.locator('.output-verification-retry').waitFor();
   await page.screenshot({path:path.join(output,'public-output-unreadable-fixture.png')});
