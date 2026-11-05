@@ -135,6 +135,45 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   assert.ok(await page.locator('#qcmDock .qcm-emoji-vision').count()>0);
   await page.keyboard.press('Escape');
  });
+ await check('Vision mode menu alignment, six cyan arrows, keyboard and reduced motion on desktop and mobile',async()=>{
+  const ids=['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen'];
+  for(const [name,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
+   await page.setViewportSize({width,height});await page.goto(base+'/localaivision');
+   const link=page.locator('#visionStudioReturn');
+   assert.equal((await link.innerText()).trim(),'LocalAiStudio');
+   assert.equal(await link.locator('svg,.studio-return-arrow').count(),0);
+   const box=await link.boundingBox();assert.ok(box.x+box.width<=width && box.x>width/2);
+   await page.locator('#openSidebar').click();
+   const rows=await page.evaluate(ids=>ids.map(id=>{
+    const el=document.getElementById(id),arrow=el.querySelector('.vision-menu-chevron'),svg=arrow?.querySelector('svg');
+    const rect=el.getBoundingClientRect(),a=arrow?.getBoundingClientRect();
+    return {id,width:rect.width,height:rect.height,align:getComputedStyle(el).textAlign,
+     arrows:el.querySelectorAll('.vision-menu-chevron').length,stroke:svg&&getComputedStyle(svg).stroke,
+     right:a?.right,cy:a&&a.y+a.height/2,rowCy:rect.y+rect.height/2};
+   }),ids);
+   for(const row of rows){
+    assert.equal(row.arrows,1,row.id);assert.equal(row.align,'right',row.id);
+    assert.equal(row.stroke,'rgb(147, 243, 255)',row.id);
+    assert.ok(Math.abs(row.width-rows[0].width)<1 && Math.abs(row.height-rows[0].height)<1,row.id+' dimensions');
+    assert.ok(Math.abs(row.right-rows[0].right)<1 && Math.abs(row.cy-row.rowCy)<1,row.id+' arrow alignment');
+   }
+   assert.equal(await page.locator('#visionAdvancedToggle .vision-menu-chevron').count(),0);
+   await page.screenshot({path:path.join(output,'vision-mode-menu-'+name+'.png')});
+  }
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  const arrow=page.locator('#navPhoto .vision-menu-chevron');
+  const transform=()=>arrow.evaluate(el=>getComputedStyle(el).transform);
+  await page.locator('#navPhoto').hover();await wait(300);
+  assert.equal(await transform(),'matrix(1, 0, 0, 1, 4, 0)');
+  await page.mouse.move(380,800);await page.locator('#navChat').focus();await page.keyboard.press('Tab');
+  assert.equal(await page.locator('#navCreations').evaluate(el=>el.matches(':focus-visible')),true);
+  await wait(300);
+  assert.equal(await page.locator('#navCreations .vision-menu-chevron').evaluate(el=>getComputedStyle(el).transform),'matrix(1, 0, 0, 1, 4, 0)');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await page.locator('#navCreations .vision-menu-chevron').evaluate(el=>getComputedStyle(el).transform),'none');
+  await page.keyboard.press('Escape');await page.locator('#visionStudioReturn').click();
+  await page.waitForURL(base+'/studio');
+ });
  await check('Photo chat retains media when removed from gallery and restores through pull drawer',async()=>{
   await page.locator('#openSidebar').click();
   await page.locator('#navPhoto').click();
