@@ -57,3 +57,12 @@ body[data-studio-page="vision"]:not(.nsfw-active) .output-verification-retry:dis
 /* Audit 2: new photographic brand-card composition with visible cyan-violet overlay. */
 body.universe-home .brand-universe .brand-cover{opacity:.51;object-fit:cover;object-position:center 47%;filter:saturate(.88)}
 body.universe-home .brand-universe::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(100deg,#2b17698c,#032f4a51 55%,#187c8a7c);mix-blend-mode:normal}
+
+/* Third card: actual dual-colour computer imagery must dominate, not a dim stationery graphic. */
+body.universe-home .brand-universe .brand-cover{
+ opacity:.83!important;object-fit:cover!important;object-position:center 50%!important;
+ filter:saturate(1.16) contrast(1.08)!important;
+}
+body.universe-home .brand-universe::after{
+ background:linear-gradient(102deg,#4220b65e 0%,#1b0d5260 34%,#035f7299 73%,#16a5b66a 100%)!important;
+}
