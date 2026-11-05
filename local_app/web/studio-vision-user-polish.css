@@ -140,3 +140,47 @@ body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation> :is(button
 
 /* The always-visible Vision rail uses colourful native emoji; hamburger items remain premium vectors. */
 body[data-studio-page="vision"]:not(.nsfw-active) .qcm-dock-link .qcm-emoji-vision{font:25px/1 "Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji",sans-serif;font-variant-emoji:emoji;filter:drop-shadow(0 1px 3px #06182480)}
+
+/* Audit humain 2 — le menu ☰ n'affiche JAMAIS d'emoji : seulement des vecteurs cyan. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .vision-nav-emoji,
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .public-mode-icon {
+ display:none!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .nav-glyph svg {
+ width:23px;height:23px;stroke-width:1.7;filter:drop-shadow(0 0 5px #5cefff7e);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .nav-glyph{
+ border-color:#80edff8e;background:linear-gradient(145deg,#133b4f,#092331);
+ box-shadow:0 2px 12px #1ecfe33d,inset 0 1px 1px #b4f7ff2f;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .studio-nav-entry:is(:hover,.active) .nav-glyph{
+ box-shadow:0 0 22px #28d6ef6d,inset 0 1px 2px #ddfeff40;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #newConversation {display:none!important}
+
+/* Accès explicite à l'accueil : en-tête en haut à droite, jamais dans ☰. */
+body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn{
+ display:inline-flex!important;position:absolute!important;top:17px;right:13px;z-index:20;
+ align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+ min-height:40px;min-width:135px;box-sizing:border-box;
+ border-radius:11px;border:1px solid #66def1bf;
+ background:linear-gradient(122deg,#102d40,#16506a);color:#ebfcff!important;
+ font:600 12px/1.2 system-ui;text-decoration:none;
+ padding:8px 12px;box-shadow:inset 0 1px #cbfaff24,0 2px 16px #21bddd37;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn:hover{
+ background:linear-gradient(120deg,#18516b,#16617b);border-color:#b8faff;
+ box-shadow:0 0 22px #29daf05d;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn .studio-return-mark{font-size:20px;color:#78eeff}
+body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar .topbar-actions{
+ padding-right:145px!important;
+}
+@media(max-width:700px){
+ body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn{
+  right:7px;top:15px;min-width:99px;gap:4px;padding:7px 8px;font-size:10px;
+ }
+ body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn .studio-return-mark{font-size:16px}
+ body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar .topbar-actions{padding-right:104px!important}
+}
+body.nsfw-active #visionStudioReturn{display:none!important}
