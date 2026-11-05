@@ -462,16 +462,76 @@ function createConversation(){const c=createBlankConversation();c.settings.image
 function advanceModelStep(){if(modalStep===1){if(!modalSelection.image){$('#modalError').textContent='Sélectionne un modèle photo avant de continuer.';return}setModalStep(2);return}if(!modalSelection.video){$('#modalError').textContent='Sélectionne un modèle vidéo avant de créer la conversation.';return}createConversation()}
 
 function renderLibraryCounts(){
- const standard=library.filter(x=>x.profile!=='nsfw'),isolated=library.filter(x=>x.profile==='nsfw');
+ const standard=library.filter(x=>x.profile!=='nsfw'&&!x.galleryHidden),isolated=library.filter(x=>x.profile==='nsfw');
  const p=standard.filter(x=>x.kind==='image').length,v=standard.filter(x=>x.kind==='video').length;
  if($('#photoCount'))$('#photoCount').textContent=p||'';
  if($('#videoCount'))$('#videoCount').textContent=v||'';
  if($('#nsfwPhotoCount'))$('#nsfwPhotoCount').textContent=isolated.filter(x=>x.kind==='image').length||'';
  if($('#nsfwVideoCount'))$('#nsfwVideoCount').textContent=isolated.filter(x=>x.kind==='video').length||'';
 }
-function addLibrary(result,kind,promptText,profile='auto'){library.unshift({...result,_id:crypto.randomUUID(),kind,prompt:promptText,profile,createdAt:new Date().toISOString()});save();renderLibraryCounts();renderNsfwGallery()}
-async function deleteLibraryItem(id){const item=library.find(x=>x._id===id);if(!item)return;if(!confirm('Supprimer ce fichier généré ?'))return;try{if(item.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:item.filename})});else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:item.filename,subfolder:item.subfolder||'',type:item.type||'output'})})}catch(e){toast('Entrée retirée, fichier non supprimé : '+e.message)}library=library.filter(x=>x._id!==id);save();renderLibraryCounts();renderLibrary(item.kind,item.profile==='nsfw'?(item.kind==='image'?'Photos espace isolé':'Vidéos espace isolé'):(item.kind==='image'?'Mes photos générées':item.kind==='video'?'Mes vidéos générées':'Mes retouches générées'),item.profile==='nsfw'?'nsfw':'standard')}
-function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
+function mediaIdentity(entry){
+ return JSON.stringify([entry?.ad_url||'',entry?.filename||'',entry?.subfolder||'',entry?.type||'output']);
+}
+function notifyPublicLibraryChanged(){
+ document.dispatchEvent(new Event('studio:library-changed'));
+}
+function addLibrary(result,kind,promptText,profile='auto'){
+ const existing=profile!=='nsfw'?library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(result)):null;
+ if(existing){existing.galleryHidden=false;existing.prompt=existing.prompt||promptText;existing.kind=kind}
+ else library.unshift({...result,_id:crypto.randomUUID(),kind,prompt:promptText,profile,createdAt:new Date().toISOString()});
+ save();renderLibraryCounts();renderNsfwGallery();
+ if(profile!=='nsfw')notifyPublicLibraryChanged();
+}
+// Regular gallery removal is reversible. It never deletes the underlying file or chat result.
+async function deleteLibraryItem(id){
+ const item=library.find(x=>x._id===id);if(!item)return false;
+ if(item.profile==='nsfw'){
+  if(!confirm('Supprimer ce fichier généré ?'))return false;
+  try{
+   if(item.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:item.filename})});
+   else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:item.filename,subfolder:item.subfolder||'',type:item.type||'output'})});
+  }catch(e){toast('Entrée retirée, fichier non supprimé : '+e.message)}
+  library=library.filter(x=>x._id!==id);save();renderLibraryCounts();
+  renderLibrary(item.kind,item.kind==='image'?'Photos espace isolé':'Vidéos espace isolé','nsfw');
+  return true;
+ }
+ if(!confirm('Retirer cette création de « Mes créations » ? Elle restera récupérable depuis sa conversation.'))return false;
+ item.galleryHidden=true;save();renderLibraryCounts();notifyPublicLibraryChanged();
+ toast('Création retirée de la galerie, toujours disponible dans le chat.');
+ if(document.body.dataset.visionMode!=='creations')renderLibrary(item.kind,item.kind==='image'?'Mes photos générées':'Mes vidéos générées','standard');
+ return true;
+}
+function restorePublicLibraryItem(result,kind,promptText=''){
+ if(!result||!result.filename&&!result.ad_url||document.body.classList.contains('nsfw-active'))return false;
+ let entry=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(result));
+ if(entry){entry.galleryHidden=false}
+ else{entry={...result,_id:crypto.randomUUID(),profile:'auto',kind,prompt:promptText,createdAt:new Date().toISOString(),galleryHidden:false};library.unshift(entry)}
+ save();renderLibraryCounts();notifyPublicLibraryChanged();toast('Création restaurée dans Mes créations.');return true;
+}
+async function deletePublicOutputPermanently(result){
+ if(!result||document.body.classList.contains('nsfw-active'))return false;
+ const key=mediaIdentity(result);
+ const owned=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===key)||result;
+ if(!confirm('SUPPRESSION DÉFINITIVE : supprimer le fichier et ses références dans toutes les conversations ? Cette action est irréversible.'))return false;
+ try{
+  if(owned.ad_url)await api('/api/studio/advert/delete',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Brand':'1'},body:JSON.stringify({filename:owned.filename})});
+  else await api('/api/delete-output',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:owned.filename,subfolder:owned.subfolder||'',type:owned.type||'output'})});
+ }catch(e){toast('Fichier non supprimé : '+e.message);return false}
+ library=library.filter(x=>x.profile==='nsfw'||mediaIdentity(x)!==key);
+ for(const conv of Object.values(conversations)){
+  if(conv.profile==='nsfw')continue;
+  let changed=false;
+  for(const m of conv.messages||[]){
+   if(m.result&&mediaIdentity(m.result)===key){delete m.result;m.permanentlyDeleted=true;if(!m.text)m.text='Création définitivement supprimée.';changed=true}
+  }
+  if(changed)conv.updatedAt=new Date().toISOString();
+ }
+ save();renderLibraryCounts();notifyPublicLibraryChanged();
+ if(activeConversationId&&conversations[activeConversationId]?.profile!=='nsfw')openConversation(activeConversationId);
+ toast('Fichier et références supprimés définitivement.');return true;
+}
+window.VisionPublicArchive={restore:restorePublicLibraryItem,permanentDelete:deletePublicOutputPermanently,identity:mediaIdentity};
+function renderLibrary(kind,title,scope='standard'){$('#welcome').classList.add('hidden');$('#messages').innerHTML='';const box=document.createElement('div');box.className='library-view';box.innerHTML='<button class="library-back" id="libraryBack">← Retour à la conversation</button><h2>'+esc(title)+'</h2><div class="library-grid"></div>';$('#messages').appendChild(box);const grid=box.querySelector('.library-grid'),rows=library.filter(x=>x.kind===kind&&(scope==='nsfw'?x.profile==='nsfw':x.profile!=='nsfw'&&!x.galleryHidden));$('#libraryBack').onclick=()=>activeConversationId?openConversation(activeConversationId):createBlankConversation();if(!rows.length){grid.innerHTML='<div class="empty-library">Aucune création enregistrée ici.</div>';return}for(const x of rows){if(!x._id)x._id=crypto.randomUUID();const c=document.createElement('div');c.className='library-card';const src=resultUrl(x),video=/\.(mp4|webm|mov|mkv)$/i.test(x.filename||'');c.innerHTML=(video?'<video controls src="'+src+'"></video>':'<img src="'+src+'">')+'<div class="meta">'+esc(x.prompt||'Création')+'</div>';const del=document.createElement('button');del.className='library-delete';del.title='Supprimer';del.textContent='×';del.onclick=()=>deleteLibraryItem(x._id);c.appendChild(del);grid.appendChild(c)}save()}
 
 function studioMediaIntent(text){
  const plain=String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
