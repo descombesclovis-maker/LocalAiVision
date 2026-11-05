@@ -7,7 +7,14 @@ const server=spawn(process.env.PYTHON||'python',['-m','local_app.server'],{cwd:r
 const log=fs.createWriteStream(path.join(output,'server.log'));server.stdout.pipe(log);server.stderr.pipe(log);
 const base='http://127.0.0.1:3000',deliveryBase='http://ventes.localhost:3000',wait=ms=>new Promise(r=>setTimeout(r,ms));
 const result={checks:[],limitations:['Fictional local identities and manually declared test receipts. No actual bank, Stripe, hosting or database account operation.']};let browser;
-async function api(route,body,delivery=false){const r=await fetch(base+route,{...(body?{method:'POST',body:JSON.stringify(body)}:{}),headers:{'Content-Type':'application/json',...(delivery?{'Host':'ventes.localhost:3000','Origin':deliveryBase,'X-LocalAI-Delivery':'1'}:{})}});const d=await r.json();if(!r.ok)throw Error(d.error||r.status);return d}
+async function api(route,body,delivery=false){
+ const headers={'Content-Type':'application/json',...(delivery?{'Host':'ventes.localhost:3000','Origin':deliveryBase,'X-LocalAI-Delivery':'1'}:{})};
+ // node:http preserves the explicit virtual Host; Node's fetch ignores it.
+ return new Promise((resolve,reject)=>{
+  const request=require('node:http').request(base+route,{method:body?'POST':'GET',headers},response=>{const chunks=[];response.on('data',x=>chunks.push(x));response.on('end',()=>{try{const d=JSON.parse(Buffer.concat(chunks).toString());if(response.statusCode>=400)reject(Error(d.error||response.statusCode));else resolve(d)}catch(e){reject(e)}})});
+  request.on('error',reject);if(body)request.write(JSON.stringify(body));request.end();
+ });
+}
 async function check(name,fn){await fn();result.checks.push({name,passed:true})}
 (async()=>{try{
  for(let n=0;n<100;n++){try{await api('/api/web/projects');break}catch(e){if(n===99)throw e;await wait(150)}}
@@ -37,13 +44,13 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
   await page.locator('[name="seller.legal_form"]').selectOption('EI');await page.locator('[name="seller.vat_mode"]').selectOption('franchise');await page.locator('[data-field="unit_eur"]').fill('100');
   page.once('dialog',d=>d.accept());await page.locator('#createQuote').click();await page.locator('#documentList a').first().waitFor();
   let d=await api('/api/web/delivery/dossier?id='+id,null,true);assert.ok(d.quote);assert.equal(d.invoice,null);
-  const quoteResponse=await page.request.get(deliveryBase+'/api/web/delivery/document?id='+id+'&number='+d.quote);assert.equal(quoteResponse.status(),200);const quote=await quoteResponse.body();assert.ok(quote.subarray(0,5).equals(Buffer.from('%PDF-')));fs.writeFileSync(path.join(output,'Devis-fictif.pdf'),quote);
+  const quoteResponse=await page.evaluate(async url=>{const r=await fetch(url);return {status:r.status,data:Array.from(new Uint8Array(await r.arrayBuffer()))}},'/api/web/delivery/document?id='+id+'&number='+d.quote);assert.equal(quoteResponse.status,200);const quote=Buffer.from(quoteResponse.data);assert.ok(quote.subarray(0,5).equals(Buffer.from('%PDF-')));fs.writeFileSync(path.join(output,'Devis-fictif.pdf'),quote);
   await page.locator('[data-tab="payment"]').click();page.once('dialog',x=>x.accept());await page.locator('#acceptQuote').click();await page.waitForFunction(()=>document.querySelector('#acceptQuote').disabled);
   for(const [amount,reference] of [['40','fixture-receipt-1'],['60','fixture-receipt-2']]){
    await page.locator('#paymentAmount').fill(amount);await page.locator('#paymentReference').fill(reference);page.once('dialog',x=>x.accept());await page.locator('#recordPayment').click();await page.waitForFunction(ref=>document.querySelector('#paymentHistory').textContent.includes(ref),reference);
    d=await api('/api/web/delivery/dossier?id='+id,null,true);assert.ok(d.invoice);assert.equal(d.assessment.payment.status,amount==='40'?'partial':'received');
   }
-  const invoice=await page.request.get(deliveryBase+'/api/web/delivery/document?id='+id+'&number='+d.invoice);assert.equal(invoice.status(),200);fs.writeFileSync(path.join(output,'Facture-fictive.pdf'),await invoice.body());
+  const invoice=await page.evaluate(async url=>{const r=await fetch(url);return {status:r.status,data:Array.from(new Uint8Array(await r.arrayBuffer()))}},'/api/web/delivery/document?id='+id+'&number='+d.invoice);assert.equal(invoice.status,200);fs.writeFileSync(path.join(output,'Facture-fictive.pdf'),Buffer.from(invoice.data));
  });
  await check('Checklist, package preview, actual ZIP download and persisted dossier',async()=>{
   await page.locator('[data-tab="technical"]').click();for(const name of ['design','pages','functions','rights'])await page.locator('[name="check.'+name+'"]').check();await page.locator('#technicalForm button[type="submit"]').click();await page.waitForFunction(()=>!document.querySelector('#preparePackage').disabled);
