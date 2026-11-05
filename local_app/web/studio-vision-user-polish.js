@@ -28,6 +28,15 @@
    const glyph=node.querySelector('.nav-glyph');
    if(glyph&&!glyph.dataset.vectorPolished){glyph.replaceChildren(makeIcon(d));glyph.dataset.vectorPolished='true'}
   }
+  // All creation destinations receive a motion chevron. LoRA is a settings action, never a mode.
+  for(const id of ['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen']){
+   const node=document.getElementById(id);
+   if(!node||node.querySelector('.vision-menu-chevron'))continue;
+   const arrow=document.createElement('span');arrow.className='vision-menu-chevron';
+   arrow.setAttribute('aria-hidden','true');
+   arrow.append(makeIcon('M8.5 5.5 15 12l-6.5 6.5'));
+   node.append(arrow);
+  }
   const history=$('#historyBtn');
   if(history){
    history.querySelectorAll('.vision-nav-emoji').forEach(icon=>icon.remove());
