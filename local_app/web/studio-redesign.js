@@ -397,6 +397,8 @@
  document.addEventListener('pointerdown',()=>{userInteracted=true},{once:true});
  document.addEventListener('keydown',()=>{userInteracted=true},{once:true});
  const requestedCreations=new URLSearchParams(window.location.search).get('view')==='creations';
+ // Set a safe conversation mode immediately, before any engine/network probe settles.
+ if(!requestedCreations)home();
  window.LocalAiVisionOpenCreations=gallery;
  window.localAiVisionInitialRefresh?.then(()=>{
    if(!userInteracted){if(requestedCreations)gallery();else home()}

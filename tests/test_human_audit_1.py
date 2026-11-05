@@ -1,5 +1,6 @@
 """Behavioral regressions from the first Build 316 human audit."""
 import base64
+import os
 from io import BytesIO
 import subprocess
 import tempfile
@@ -72,3 +73,15 @@ class HumanAuditTests(unittest.TestCase):
             edited=brand_catalog.save_brand(folder,{'id':brand['id'],'name':'Test modifié'})
             self.assertEqual(edited['logo_original_file'],brand['logo_original_file'])
             self.assertEqual(original.read_bytes(),source)
+
+
+@unittest.skipUnless(os.name=='nt','Native .cmd launch requires Windows')
+class NativeWindowsCliTests(unittest.TestCase):
+    def test_real_windows_batch_login_probe_and_expiry(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cli=Path(folder)/'codex.cmd'
+            for text,code,expected in [('Logged in using ChatGPT',0,'authenticated'),('Not logged in',1,'authentication_required')]:
+                cli.write_text('@echo off\n@echo '+text+' 1>&2\n@exit /b '+str(code)+'\n',encoding='ascii')
+                with patch.object(integrations_cli,'_codex_cmd',return_value=[str(cli)]):
+                    state=integrations_cli.coding_agent_status('codex')['codex']
+                self.assertEqual(state['state'],expected)

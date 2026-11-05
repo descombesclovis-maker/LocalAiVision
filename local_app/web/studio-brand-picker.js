@@ -6,7 +6,7 @@ async function all(){const r=await fetch('/api/studio/brands',{cache:'no-store'}
 function activate(brand){try{localStorage.setItem(key,brand.id)}catch{}document.dispatchEvent(new CustomEvent('studio:brand-active',{detail:brand}))}
 async function choose(current=''){
  const dialog=document.createElement('dialog');dialog.className='studio-brand-dialog';dialog.setAttribute('aria-label','Choisir une identité de marque');
- dialog.innerHTML='<header><h2>Renseigner ma marque</h2><button type="button" aria-label="Fermer">×</button></header><p>Cette sélection s’applique à ce projet. Vos autres projets conservent leur marque.</p><div class="studio-brand-options" role="list"></div><p class="studio-brand-status" role="status">Chargement des marques…</p>';
+ dialog.innerHTML='<header><h2>Renseigner ma marque</h2><button type="button" aria-label="Fermer">×</button></header><p>Cette sélection s’applique à ce projet. Vos autres projets conservent leur marque.</p><div class="studio-brand-options" aria-label="Marques enregistrées"></div><p class="studio-brand-status" role="status">Chargement des marques…</p>';
  document.body.append(dialog);dialog.showModal();
  return new Promise(resolve=>{
   let value=null;
@@ -16,7 +16,7 @@ async function choose(current=''){
    if(!dialog.open)return;
    dialog.querySelector('.studio-brand-status').textContent=brands.length?'':'Aucune marque enregistrée. Créez votre marque depuis la carte Identités de marque de l’accueil Studio.';
    for(const brand of brands){
-    const button=document.createElement('button');button.type='button';button.className='studio-brand-option';button.setAttribute('role','listitem');
+    const button=document.createElement('button');button.type='button';button.className='studio-brand-option';
     button.setAttribute('aria-label','Choisir '+brand.name+(brand.id===current?' · marque actuelle':''));
     if(brand.logo_url){const img=document.createElement('img');img.src=brand.logo_url;img.alt='';button.append(img)}
     const text=document.createElement('span');text.textContent=brand.name;

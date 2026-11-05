@@ -9,6 +9,7 @@
  const brandButton=document.createElement('button');brandButton.id='visionBrandButton';brandButton.type='button';brandButton.className='studio-brand-button';brandButton.textContent='Renseigner ma marque';
  $('composerImageBtn')?.after(brandButton);
  brandButton.addEventListener('click',async()=>{
+   if($('send')?.disabled){reply('La création est en cours. Tu pourras changer de marque après le rendu.');return}
    const brand=await window.StudioBrandPicker.choose(draft?.brand?.id||'');
    if(!brand)return;
    if(!draft)startChat({brand,reuseConversation:true});

@@ -5,3 +5,5 @@ test('sampler 100 is never a completed output',()=>{assert.equal(state({percent:
 test('null progress stays unknown',()=>{assert.equal(state({percent:null}).percent,null);assert.equal(state({}).estimated,false)});
 test('web phases are estimates',()=>{const s=state({phase:'building'},true);assert.equal(s.estimated,true);assert.ok(s.percent>0&&s.percent<100)});
 test('only an explicitly verified output reaches 100',()=>{assert.equal(state({state:'done',percent:100}).percent,99);assert.equal(state({state:'done',output_verified:true}).percent,100)});
+
+test('a preview never displays another conversation’s progress',()=>{const select=ctx.window.StudioProgress.selectJob;assert.equal(select([{prompt_id:'other',percent:90}],['current']),null);assert.equal(select([{prompt_id:'current',percent:12}],['current']).percent,12);assert.equal(select([{prompt_id:'other',percent:90}],[]),null)});

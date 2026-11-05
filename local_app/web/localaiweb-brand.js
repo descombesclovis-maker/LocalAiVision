@@ -7,6 +7,7 @@
  if(!/^web-[a-f0-9]{12}$/.test(projectId||''))return;
  let writing=false,brands=[];
  const brandButton=document.getElementById('lawBrandButton');
+ if(brandButton)brandButton.disabled=true;
  const refreshLabel=()=>window.StudioBrandPicker?.label(brandButton,brands.find(b=>b.id===select.value));
  brandButton?.addEventListener('click',async()=>{if(writing||busy)return;const brand=await window.StudioBrandPicker.choose(select.value);if(brand){select.value=brand.id;select.dispatchEvent(new Event('change'))}});
  async function request(url,body){
@@ -30,7 +31,7 @@
      for(const brand of brands)select.append(new Option(brand.name,brand.id));
      select.value=projectResult.project?.brand_id||'';
      if(select.selectedIndex===-1)select.value='';
-     refreshLabel();
+     refreshLabel();if(brandButton)brandButton.disabled=false;
    }catch(error){
      select.replaceChildren(new Option('Marques indisponibles',''));
      select.disabled=true;
@@ -46,7 +47,7 @@
      return;
    }
    const chosen=select.value;
-   writing=true;select.disabled=true;
+   writing=true;select.disabled=true;if(brandButton)brandButton.disabled=true;
    try{
      const updated=await request('/api/web/project/brand',{id:projectId,brand_id:chosen});
      if(updated.project){
@@ -59,7 +60,7 @@
      select.value=previous;
      document.getElementById('lawChatStatus').textContent=
        'Impossible de lier cette marque : '+error.message;
-   }finally{writing=false;select.disabled=false;refreshLabel()}
+   }finally{writing=false;select.disabled=false;if(brandButton)brandButton.disabled=false;refreshLabel()}
  });
  void load();
 })();

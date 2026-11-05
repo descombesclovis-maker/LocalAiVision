@@ -218,6 +218,10 @@ jobs:
           Copy-Item local_app\data\build_info.json release\build_info.json
           Copy-Item local_app\data\source_manifest.json release\source_manifest.json
           Copy-Item build-dependencies.txt release\build-dependencies.txt
+          git archive --format=zip --output=release/Sources-versionnees.zip HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item docs\build316\HUMAN_AUDIT_1_REPORT.md release\Bilan-audit-humain-1.md
+          Copy-Item docs\build316\HUMAN_AUDIT_1_VALIDATION.md release\Recette-PC.md
           Compress-Archive -Path release\* -DestinationPath LocalVisionAI-Windows.zip -Force
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path LocalVisionAI-Windows.zip))
@@ -295,6 +299,24 @@ jobs:
           npm install --prefix "$env:RUNNER_TEMP/studio315-qa" playwright@1.62.1
           $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
           node "$env:RUNNER_TEMP/studio315-qa/node_modules/playwright/cli.js" install chromium ffmpeg
+      - uses: actions/checkout@v4
+        with:
+          ref: 8a3ea1704e571779a313fc88cc9b96505e28df61
+          path: audit1-baseline
+      - name: Build 316 human audit baseline and functional review
+        shell: powershell
+        run: |
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
+          $env:UI_SOURCE="$env:GITHUB_WORKSPACE/audit1-baseline"
+          $env:UI_BASELINE='1'
+          $env:UI_OUTPUT='build/qa315/human-audit-1/before'
+          node scripts/qa_human_audit_1.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item Env:UI_SOURCE
+          Remove-Item Env:UI_BASELINE
+          $env:UI_OUTPUT='build/qa315/human-audit-1/after'
+          node scripts/qa_human_audit_1.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Capture preserved customized 315.5 baseline
         shell: powershell
         env:
@@ -325,24 +347,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:UI_OUTPUT='build/qa315/edge/interactions'
           node scripts/qa_ui_314.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/checkout@v4
-        with:
-          ref: 8a3ea1704e571779a313fc88cc9b96505e28df61
-          path: audit1-baseline
-      - name: Build 316 human audit baseline and functional review
-        shell: powershell
-        run: |
-          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
-          $env:UI_SOURCE="$env:GITHUB_WORKSPACE/audit1-baseline"
-          $env:UI_BASELINE='1'
-          $env:UI_OUTPUT='build/qa315/human-audit-1/before'
-          node scripts/qa_human_audit_1.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Remove-Item Env:UI_SOURCE
-          Remove-Item Env:UI_BASELINE
-          $env:UI_OUTPUT='build/qa315/human-audit-1/after'
-          node scripts/qa_human_audit_1.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain actual screenshots, videos and results
         if: always()

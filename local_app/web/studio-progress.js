@@ -25,5 +25,6 @@ function render(host,job={},options={}){
  host.querySelector('.studio-progress-hint').textContent=value.estimated?'estimé':value.percent===null?'en cours':value.complete?'terminé':'étape moteur';
  return value;
 }
-window.StudioProgress={state,render};
+const selectJob=(jobs,ids)=>jobs.find(job=>ids.includes(job.prompt_id))||null;
+window.StudioProgress={state,render,selectJob};
 })();

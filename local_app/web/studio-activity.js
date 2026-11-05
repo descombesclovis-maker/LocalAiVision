@@ -108,7 +108,7 @@
           const response=await fetch('/api/studio/media/jobs',{cache:'no-store',signal:controller.signal});
           if(response.ok){const result=await response.json();const job=result.jobs?.[0]||{};
             window.StudioProgress?.render(chip.querySelector('.studio-activity-spinner'),job);
-            document.dispatchEvent(new CustomEvent('studio:media-progress',{detail:job}));
+            document.dispatchEvent(new CustomEvent('studio:media-progress',{detail:{jobs:result.jobs||[]}}));
           }
         }
        }

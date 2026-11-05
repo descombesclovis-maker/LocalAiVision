@@ -97,8 +97,14 @@ function update(){
  }else{provenance.remove();provenance.removeAttribute('href')}
  download.download=(resolved.searchParams.get('filename')||'creation-localaivision').replace(/[\/\\]/g,'_');
 }
-document.addEventListener('studio:media-progress',e=>{const host=stage.querySelector('.vision-preview-progress');if(host)window.StudioProgress?.render(host,e.detail||{})});
-new MutationObserver(update).observe(messages,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
+document.addEventListener('studio:media-progress',e=>{
+ const host=stage.querySelector('.vision-preview-progress');if(!host)return;
+ const pending=messages.querySelector('.vision-output-pending');
+ let ids=[];try{ids=JSON.parse(pending?.dataset.promptIds||'[]')}catch{}
+ const job=window.StudioProgress?.selectJob(e.detail?.jobs||[],ids);
+ window.StudioProgress?.render(host,job||{});
+});
+new MutationObserver(update).observe(messages,{subtree:true,childList:true,attributes:true,attributeFilter:['src','data-prompt-ids']});
 new MutationObserver(update).observe(document.body,{attributes:true,attributeFilter:['class']});
 update();
 // Public mode shortcuts point to existing application controls.

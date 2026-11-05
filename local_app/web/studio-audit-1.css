@@ -44,3 +44,5 @@ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open
 @media(max-width:700px){body[data-studio-page="vision"]:not(.nsfw-active){--vision-header-height:80px}}
 
 body[data-studio-page="vision"]:not(.nsfw-active) #homeBtn>span{display:block!important}
+
+.brand-card-copy h2{overflow-wrap:anywhere}
