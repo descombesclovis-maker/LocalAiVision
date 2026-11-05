@@ -22,7 +22,7 @@ const iconPaths={
 const nativeEmoji=new Map();
 function iconMarkup(glyph){
  if(!iconPaths[glyph])return glyph;
- if(page==='vision'&&!isAdult())return '<svg class="studio-icon vision-professional-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="'+iconPaths[glyph]+'"/></svg>';
+  if(page==='vision'&&!isAdult())return '<span class="qcm-emoji-vision" aria-hidden="true">'+glyph+'</span>';
  if(!nativeEmoji.has(glyph)){
    const canvas=document.createElement('canvas');canvas.width=canvas.height=40;
    const ctx=canvas.getContext('2d',{willReadFrequently:true});
