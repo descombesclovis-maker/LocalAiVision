@@ -65,6 +65,39 @@
 
  enhanceNavigation();
 
+ // LoRA quick access is a true cyan desktop settings panel, without altering model state.
+ const loraButton=document.getElementById('visionAdvancedToggle');
+ const loraDialog=document.getElementById('generationSettings');
+ function updateLoraDialogState(){
+  const active=!isPrivate()&&document.body.classList.contains('vision-lora-dialog')&&loraDialog&&!loraDialog.classList.contains('hidden');
+  if(!active)document.body.classList.remove('vision-lora-dialog');
+ }
+ loraButton?.addEventListener('click',()=>{
+  if(isPrivate())return;
+  requestAnimationFrame(()=>{
+   if(!loraDialog?.classList.contains('hidden')){
+    document.body.classList.add('vision-lora-dialog');
+    loraDialog.setAttribute('aria-modal','true');
+    loraDialog.setAttribute('aria-label','LoRA et modèles · LocalAiVision');
+    loraDialog.querySelector('#loraSearch')?.focus({preventScroll:true});
+   }else{
+    document.body.classList.remove('vision-lora-dialog');
+    loraDialog?.removeAttribute('aria-modal');
+   }
+  });
+ });
+ if(loraDialog)new MutationObserver(updateLoraDialogState).observe(loraDialog,{attributes:true,attributeFilter:['class']});
+ document.getElementById('closeSettings')?.addEventListener('click',()=>document.body.classList.remove('vision-lora-dialog'));
+ document.getElementById('settingsBtn')?.addEventListener('click',()=>document.body.classList.remove('vision-lora-dialog'));
+ document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.body.classList.contains('vision-lora-dialog')){
+   document.body.classList.remove('vision-lora-dialog');
+   loraDialog?.classList.add('hidden');loraDialog?.removeAttribute('aria-modal');
+   loraButton?.focus({preventScroll:true});
+  }
+ });
+
+
  const viewer=document.createElement('dialog');
  viewer.className='vision-gallery-modal';viewer.setAttribute('aria-label','Création en grand');
  viewer.innerHTML='<header><strong>Ma création</strong><button type="button" class="vision-dialog-close" aria-label="Fermer">×</button></header><div class="vision-gallery-stage"></div><footer><a class="vision-gallery-download" download>Télécharger</a><button type="button" class="vision-dialog-close">Fermer</button></footer>';
