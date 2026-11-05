@@ -41,7 +41,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.ok(surface.image.includes('linear-gradient')||surface.color==='rgb(9, 44, 56)',JSON.stringify(surface));
    // Pictograms must now be visible on ordinary menu actions, unlike the two special controls.
    assert.equal(await sidebar.locator('#navPhoto .nav-glyph').evaluate(e=>getComputedStyle(e).display!=='none'),true);
-   const geometry=await sidebar.locator('.studio-navigation>button').evaluateAll(xs=>xs.map(x=>{let r=x.getBoundingClientRect();return {x:r.x,w:r.width,h:r.height}}));
+   const geometry=await sidebar.locator('.studio-navigation>button:visible').evaluateAll(xs=>xs.map(x=>{let r=x.getBoundingClientRect();return {x:r.x,w:r.width,h:r.height}}));
    assert.ok(geometry.every(r=>Math.abs(r.x-geometry[0].x)<1&&Math.abs(r.w-geometry[0].w)<1&&Math.abs(r.h-geometry[0].h)<1));
    assert.equal(await page.evaluate(()=>document.querySelector('#sidebar').contains(document.elementFromPoint(35,300))),true);
    await check('Navigation icons restored except for distinct LoRA and New discussion actions',async()=>{
@@ -201,13 +201,14 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.goto(base+'/localaivision');await page.locator('#openSidebar').click();
    await page.waitForFunction(()=>document.getElementById('sidebar').getBoundingClientRect().left>=-1);
    // Mobile topbar CSS must not hide labels after those controls move to the menu.
-   for(const [id,label] of [['historyBtn','Historique'],['newConversation','Nouvelle discussion']]){
+   for(const [id,label] of [['historyBtn','Historique']]){
     const name=page.locator('#sidebar #'+id+' > span:last-child');
     assert.equal(await name.isVisible(),true,id+' label hidden on mobile');
     assert.equal((await name.innerText()).trim(),label);
     const box=await name.boundingBox();assert.ok(box&&box.width>60,id+' label is too narrow');
    }
-   assert.equal(await page.locator('#sidebar #newConversation svg,#sidebar #newConversation img,#sidebar #newConversation .nav-glyph').count(),0);
+   assert.equal(await page.locator('#sidebar #newConversation').isVisible(),false,'New discussion must be hidden: selecting a mode creates its own chat');
+    assert.equal(await page.locator('#sidebar #newConversation svg,#sidebar #newConversation img,#sidebar #newConversation .nav-glyph').count(),0);
    await page.screenshot({path:path.join(output,'vision-menu-mobile.png')});await page.keyboard.press('Escape');
   });
   assert.deepEqual(errors,[]);
