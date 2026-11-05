@@ -25,6 +25,10 @@
    }
    if(activeGalleryPoll){clearInterval(activeGalleryPoll);activeGalleryPoll=null}
    const copy=modeCopy[mode];if(!copy)return;
+   if(mode!=='nsfw'&&activeConversationId){
+     const conversation=conversationFor(activeConversationId);
+     if(conversation.profile!=='nsfw'){conversation.studioMode=mode;save()}
+   }
    document.body.dataset.visionMode=mode;
    const panel=document.createElement('div');panel.className='vision-mode-intro';
    panel.dataset.mode=mode;
@@ -74,6 +78,10 @@
    // The landing is always a neutral chat. Never inherit NSFW mode or a
    // forced video workflow from a prior dedicated creation session.
    byId('taskMode').value='chat';
+   if(activeConversationId&&conversations[activeConversationId]?.profile!=='nsfw'){
+     const conversation=conversationFor(activeConversationId);
+     conversation.studioMode='chat';save();
+   }
    updateCreationModeGuide();
    welcome.classList.remove('hidden');
    messages.replaceChildren();
@@ -221,7 +229,7 @@
    function paint(){
      controls.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.galleryFilter===type));
      grid.replaceChildren();
-     const items=library.filter(x=>(type==='all'||x.kind===type)&&x.profile!=='nsfw');
+     const items=library.filter(x=>(type==='all'||x.kind===type)&&x.profile!=='nsfw'&&!x.galleryHidden);
      if(!items.length){
        const empty=document.createElement('div');empty.className='empty-library';
        empty.textContent='Aucune création pour le moment. Ouvre Photo ou Vidéo pour commencer.';
@@ -372,14 +380,30 @@
    for(const chat of rows.slice(0,250)){
      const row=document.createElement('div');row.className='history-item';
      const open=document.createElement('button');open.type='button';
-     open.textContent=chat.title||'Nouvelle conversation';
+     const label={chat:'Chat',image:'Photo',video:'Vidéo',advert:'Publicité'}[chat.studioMode]||'Conversation';
+     open.textContent=label+' · '+(chat.title||'Nouvelle conversation');
      open.title='Reprendre cette conversation';
      open.addEventListener('click',()=>{
-       document.body.dataset.visionMode='history';
+       const mode=chat.studioMode||'chat';
+       document.body.dataset.visionMode=mode;
        welcome.replaceChildren(...originalWelcome.map(node=>node.cloneNode(true)));
        welcome.classList.remove('vision-onboarding');
-       openConversation(chat.id);darkMode();welcome.classList.add('hidden');
-       historyDialog.close();activeNav('');prompt.focus();
+       openConversation(chat.id);
+       if(mode==='advert'){
+         window.StudioAds?.startChat?.({reuseConversation:true});
+         openConversation(chat.id); // restore prior messages, with advertising draft active
+         activeNav('studioAdOpen');
+         prompt.placeholder='Décris ta publicité…';
+       }else{
+         const task={image:'image',video:'video',chat:'chat'}[mode]||'chat';
+         byId('taskMode').value=task;
+         updateCreationModeGuide();
+         prompt.placeholder={image:'Décris ta photo…',video:'Décris ta vidéo…',chat:'Écris ton message…'}[task];
+         activeNav({image:'navPhoto',video:'navVideo',chat:'navChat'}[task]);
+       }
+       darkMode();welcome.classList.add('hidden');
+       historyDialog.close();prompt.focus();
+       document.dispatchEvent(new Event('studio:conversation-restored'));
      });
      const rename=document.createElement('button');rename.type='button';rename.textContent='✎';
      rename.title='Renommer la conversation';rename.setAttribute('aria-label','Renommer '+(chat.title||'conversation'));
