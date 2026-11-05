@@ -147,15 +147,15 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    const rows=await page.evaluate(ids=>ids.map(id=>{
     const el=document.getElementById(id),arrow=el.querySelector('.vision-menu-chevron'),svg=arrow?.querySelector('svg');
     const rect=el.getBoundingClientRect(),a=arrow?.getBoundingClientRect();
-    return {id,width:rect.width,height:rect.height,align:getComputedStyle(el).textAlign,
+    return {id,width:rect.width,height:rect.height,align:getComputedStyle(el).textAlign,groupCenter:(()=>{const kids=[...el.children].filter(n=>n.getBoundingClientRect().width>0);const left=Math.min(...kids.map(n=>n.getBoundingClientRect().left)),right=Math.max(...kids.map(n=>n.getBoundingClientRect().right));return (left+right)/2})(),rowCenter:rect.x+rect.width/2,
      arrows:el.querySelectorAll('.vision-menu-chevron').length,stroke:svg&&getComputedStyle(svg).stroke,
      right:a?.right,cy:a&&a.y+a.height/2,rowCy:rect.y+rect.height/2};
    }),ids);
    for(const row of rows){
-    assert.equal(row.arrows,1,row.id);assert.equal(row.align,'right',row.id);
+    assert.equal(row.arrows,1,row.id);assert.equal(row.align,'center',row.id);assert.ok(Math.abs(row.groupCenter-row.rowCenter)<3,row.id+' centered group');
     const rgb=row.stroke.match(/\d+/g).map(Number);assert.ok(rgb[1]>rgb[0]+60&&rgb[2]>rgb[0]+60,row.id+' cyan stroke');
     assert.ok(Math.abs(row.width-rows[0].width)<1 && Math.abs(row.height-rows[0].height)<1,row.id+' dimensions');
-    assert.ok(Math.abs(row.right-rows[0].right)<1 && Math.abs(row.cy-row.rowCy)<1,row.id+' arrow alignment');
+    assert.ok(Math.abs(row.cy-row.rowCy)<1,row.id+' arrow vertical alignment');
    }
    assert.equal(await page.locator('#visionAdvancedToggle .vision-menu-chevron').count(),0);
    await page.screenshot({path:path.join(output,'vision-mode-menu-'+name+'.png')});
