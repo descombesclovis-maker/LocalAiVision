@@ -22,8 +22,8 @@ from local_app import web_builder, web_sales_invoice
 LEGAL_URL = 'https://entreprendre.service-public.gouv.fr/vosdroits/F31808'
 EINVOICE_URL = 'https://www.impots.gouv.fr/facturation-electronique-et-plateformes-agreees'
 LEGAL_NOTICE = "PDF local gratuit. Pour une opération soumise à la facturation électronique, transmettre via une plateforme agréée ; ce PDF seul ne remplace pas ce circuit. Vérifier le régime applicable avec votre comptable. Références vérifiées le 05/11/2026."
-TEXT_EXT = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.example','.lock'}
-MEDIA_EXT = {'.png','.jpg','.jpeg','.webp','.gif','.avif','.ico','.woff','.woff2','.ttf','.otf','.mp4','.webm','.ogg','.mp3'}
+TEXT_EXT = {'.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.md','.txt','.svg','.toml','.sql','.yml','.yaml','.vue','.svelte','.py','.example','.lock','.gltf','.scss','.sass','.less','.graphql','.mdx','.xml'}
+MEDIA_EXT = {'.png','.jpg','.jpeg','.webp','.gif','.avif','.ico','.woff','.woff2','.ttf','.otf','.mp4','.webm','.ogg','.mp3','.glb','.bin','.hdr','.exr','.wasm','.usdz'}
 IGNORED = web_builder.IGNORED_DIRS | {'.ssh','.aws','.supabase','.temp','.cache','coverage','.idea','.vscode'}
 SECRETS = re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:sk_(?:live|test)_[A-Za-z0-9]{8,}|sb_secret_[\w-]{8,}|sbp_[a-f0-9]{20,}|gh[pousr]_[\w]{20,}|eyJ[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}|AKIA[A-Z0-9]{16})|(?:postgres(?:ql)?|mysql)://[^\s]+|https?://[^\s/@]+:[^\s/@]+@', re.I)
 ASSIGNMENT = re.compile(r'''["']?([\w.-]*(?:secret|password|passwd|private_key|api_key|access_token|service_role|authorization)[\w.-]*)["']?\s*[:=]\s*["']([^"'\n]{6,})["']''', re.I)
@@ -80,12 +80,39 @@ def database(root):
 def initial(store,pid):
     meta=store.meta(pid)
     business=meta.get('business') or {}
+    services=public_configuration(store,pid,meta)
     return {'id':pid,'name':meta.get('name','Site'),'created_at':time.time(),'version':0,
         'seller':{},'customer':{'name':business.get('name',''),'address':business.get('address',''),'type':'business'},
         'items':[{'label':'Création du site '+meta.get('name',''),'quantity':'1','unit_eur':'0.00','vat_rate':'20'}],
         'scope':'Création et livraison du site. Prestations à préciser.','maintenance':'',
         'service_date':'','due_days':30,'valid_days':30,'require_payment':True,
-        'services':{},'checks':{},'quote':None,'accepted_quote':None,'invoice':None,'credit':None,'delivered':None}
+        'services':services,'checks':{},'quote':None,'accepted_quote':None,'invoice':None,'credit':None,'delivered':None}
+
+
+def public_configuration(store,pid,meta):
+    """Prefill only public identifiers. Credentials and remote data are never read."""
+    site=store.project_dir(pid)/'site';deploy=meta.get('deployment') or {};result={}
+    config=site/'.vercel'/'project.json';linked={}
+    if config.is_file() and config.resolve().is_relative_to(site.resolve()) and config.stat().st_size<100000:
+        try:linked=json.loads(config.read_text(encoding='utf-8'))
+        except (OSError,ValueError):pass
+    project=str(linked.get('projectId') or '')
+    if re.fullmatch(r'prj_[A-Za-z0-9_-]+',project):
+        team=str(linked.get('orgId') or '')
+        result['vercel']={'enabled':True,'reviewed':False,'project_id':project,
+            'team_id':team if re.fullmatch(r'(?:team_|user_)[A-Za-z0-9_-]+',team) else '',
+            'instructions':'Vérifier les commandes dans package.json et vercel.json. Reconfigurer les variables dans le compte client. Préparer un transfert officiel soumis à validation.'}
+    url=str(deploy.get('production_url') or '')
+    parsed=urlsplit(url)
+    if parsed.scheme=='https' and parsed.hostname and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment:
+        result['hosting']={'enabled':True,'reviewed':False,'provider':'Vercel' if project else '',
+            'url':url,'domain':text(deploy.get('custom_domain') or parsed.hostname),'project':project,
+            'instructions':'Vérifier le domaine, les coûts, le responsable du renouvellement et la propriété du compte client.'}
+    reference=str(deploy.get('supabase_ref') or '')
+    if re.fullmatch(r'[a-z0-9]{20}',reference):
+        result['supabase']={'enabled':True,'reviewed':False,'project_ref':reference,
+            'instructions':'Examiner les migrations et fonctions du dossier supabase. Reconfigurer Auth, Storage et les politiques RLS dans le projet client. Aucun export de données réelles.'}
+    return result
 
 
 def read(db,store,pid):
@@ -124,7 +151,7 @@ def payment_state(db,d):
     test=sum((Decimal(r['amount']) for r in rows if r['mode']=='test'),Decimal(0))
     q=get_doc(db,d.get('quote'))
     total=Decimal(q['total_eur']) if q else Decimal(0)
-    status='received' if total>0 and paid>=total else 'partial' if paid>0 else 'refunded' if rows and any(Decimal(r['amount'])<0 for r in rows) else 'pending'
+    status='cancelled' if d.get('cancelled') else 'received' if total>0 and paid>=total else 'partial' if paid>0 else 'refunded' if rows and any(Decimal(r['amount'])<0 for r in rows) else 'pending'
     return {'status':status,'paid_eur':str(paid),'test_eur':str(test),'remaining_eur':str(max(Decimal(0),total-paid)),'receipts':rows,'manual_notice':'Les paiements manuels sont des déclarations de l’utilisateur, sans vérification bancaire.'}
 
 
@@ -178,6 +205,7 @@ def inventory(store,pid):
         rel=path.relative_to(site);name=rel.as_posix();lower=path.name.lower()
         if any(p.lower() in IGNORED for p in rel.parts):continue
         if path.is_symlink():blocked.append(name+' : lien symbolique');continue
+        if not path.resolve().is_relative_to(site.resolve()):blocked.append(name+' : chemin extérieur');continue
         if not path.is_file():continue
         if (lower.startswith('.env') or lower in {'seed.sql','data.sql','dump.sql','backup.sql','.npmrc','.pypirc','credentials.json','auth.json'}
             or path.suffix.lower() in {'.pem','.key','.p12','.pfx','.sqlite','.db','.csv','.log','.zip','.gz'}):
@@ -188,9 +216,11 @@ def inventory(store,pid):
         size=path.stat().st_size
         if size>30_000_000 or total+size>200_000_000:blocked.append(name+' : taille limite dépassée');continue
         blob=path.read_bytes();total+=size
+        if SECRETS.search(blob.decode('latin-1')):blocked.append(name+' : secret potentiel à retirer');continue
         if ext in TEXT_EXT or lower in {'dockerfile','license','licence'}:
             try:content=blob.decode('utf-8')
             except UnicodeDecodeError:blocked.append(name+' : texte non UTF-8');continue
+            if name=='index.html' and 'La prévisualisation devrait apparaitre ici.' in content:blocked.append('Le site contient encore la page de démarrage.')
             if secret_in(content):blocked.append(name+' : secret potentiel à retirer');continue
             if ext=='.sql' and re.search(r'\b(?:INSERT\s+INTO|COPY\s+.+\s+FROM|lo_import)\b',content,re.I):
                 blocked.append(name+' : export de données exclu');continue
@@ -212,6 +242,7 @@ def revision(files):
 def assess(db,store,d,files,excluded,blocked,detected):
     missing=list(blocked);payment=payment_state(db,d)
     if not files:missing.append('Sources du site manquantes.')
+    if d.get('cancelled'):missing.append('Règlement annulé : dossier à rouvrir avant livraison.')
     if not d.get('quote'):missing.append('Devis à préparer.')
     if d.get('accepted_quote')!=d.get('quote') or not d.get('quote'):missing.append('Acceptation du devis à enregistrer.')
     if not d.get('invoice'):missing.append('Facture définitive à générer après règlement.')
@@ -253,7 +284,12 @@ def listing(root,store):
             d=json.loads(row[0])
             try:store.meta(d['id'])
             except (ValueError,OSError):continue
-            result.append({k:d.get(k) for k in ('id','name','created_at','quote','accepted_quote','invoice','delivered') }|{'customer_name':d['customer'].get('name',''),'payment':payment_state(db,d)['status']})
+            files,excluded,blocked,detected=inventory(store,d['id'])
+            report=assess(db,store,d,files,excluded,blocked,detected)
+            result.append({k:d.get(k) for k in ('id','name','created_at','quote','accepted_quote','invoice') }|{
+                'delivered':d.get('delivered') if (d.get('delivered') or {}).get('revision')==report['revision'] else None,
+                'preparation': 'ready' if report['ready'] else 'incomplete','missing_count':len(report['missing']),
+                'customer_name':d['customer'].get('name',''),'payment':report['payment']['status']})
         return result
 
 
@@ -291,7 +327,9 @@ def action(root,store,pid,body):
             for key in ('seller','customer'):
                 value=body.get(key,d[key]);d[key]={k:text(v) for k,v in value.items() if k in PARTY_FIELDS}
             d['items']=lines(body.get('items',d['items']),d['seller'].get('vat_mode'))
-            for key in ('scope','maintenance','service_date'):d[key]=text(body.get(key,d[key]))
+            for key in ('scope','maintenance','service_date'):
+                d[key]=text(body.get(key,d[key]))
+                if secret_in(d[key]):raise ValueError('Retirer les secrets du document commercial.')
             for key in ('due_days','valid_days'):
                 value=int(body.get(key,d[key]));
                 if not 0<=value<=120:raise ValueError('Durée hors limites (0 à 120 jours).')
@@ -316,7 +354,12 @@ def action(root,store,pid,body):
         elif kind=='accept':
             if not d.get('quote') or body.get('confirmed') is not True:raise ValueError('Confirmer l’acceptation du devis par le client.')
             d['accepted_quote']=d['quote']
+        elif kind=='cancel':
+            if body.get('confirmed') is not True or Decimal(payment_state(db,d)['paid_eur'])>0:raise ValueError('Annulation réservée aux dossiers sans règlement reçu ; déclarer un remboursement si nécessaire.')
+            d['cancelled']=not d.get('cancelled',False)
+            d['delivered']=None
         elif kind in ('payment','stripe'):
+            if d.get('cancelled'):raise ValueError('Rouvrir le dossier avant d’enregistrer un règlement.')
             if d.get('accepted_quote')!=d.get('quote') or not d.get('quote'):raise ValueError('Acceptation du devis requise.')
             if d.get('credit'):raise ValueError('Facture annulée par avoir.')
             if body.get('confirmed') is not True:raise ValueError('Confirmer le règlement déclaré et la préparation automatique de la facture.')
@@ -424,6 +467,22 @@ def package(root,store,pid,expected_revision=None,download=False,expected_versio
              'sections':[('Site',d['scope']),('Validation','Design, pages, fonctions, mobile et droits des ressources déclarés vérifiés pour la révision '+report['revision']),('Règlement',json.dumps(report['payment'],ensure_ascii=False)),('Livraison','Sources et documents préparés localement. Aucun transfert de compte ni envoi client automatique.')]}
         payload['02_Documents/Recapitulatif_Livraison.pdf']=render_pdf({**doc,'title':'RÉCAPITULATIF DE LIVRAISON'})
         guide='Installer les dépendances à partir du manifeste et du lockfile fournis. Examiner les scripts avant exécution. Configurer les variables nécessaires dans le compte du client, par un canal sécurisé distinct. Lancer les commandes prévues par le projet puis vérifier les pages, formulaires et la version mobile. Ne jamais réutiliser les clés personnelles du prestataire.'
+        manifest_source={}
+        if 'package.json' in files:
+            try:manifest_source=json.loads(files['package.json'].decode())
+            except (ValueError,UnicodeDecodeError):pass
+        scripts=manifest_source.get('scripts') or {}
+        if scripts:
+            manager='pnpm' if 'pnpm-lock.yaml' in files else 'yarn' if 'yarn.lock' in files else 'npm'
+            guide+='\nGestionnaire détecté : '+manager+'. Scripts disponibles : '+', '.join(scripts)+'. Examiner les commandes dans package.json avant exécution. Un script build permet la reconstruction s’il est présent.'
+        else:guide+='\nAucun script de compilation détecté : servir les fichiers statiques avec un serveur HTTP et ouvrir index.html. Vérifier les routes et dépendances distantes du site.'
+        variables=set()
+        for name,blob in files.items():
+            if Path(name).suffix.lower() in TEXT_EXT:
+                content=blob.decode('utf-8')
+                variables.update(re.findall(r'(?:process\.env|import\.meta\.env)\.([A-Z][A-Z0-9_]{1,100})',content))
+        if variables:
+            payload['01_Site_Web/Instructions/Variables.example.txt']=('Noms détectés dans les sources ; valeurs à renseigner dans le compte du client, par canal sécurisé.\n'+'\n'.join(v+'=<A_CONFIGURER>' for v in sorted(variables))).encode()
         payload['01_Site_Web/Instructions/Installation.txt']=guide.encode()
         for key in report['services']:
             value=d['services'].get(key,{})

@@ -123,6 +123,40 @@ class DeliveryTests(unittest.TestCase):
   with delivery.database(self.db) as db:
    self.assertEqual(db.execute("SELECT count(*) FROM documents WHERE kind='invoice'").fetchone()[0],1)
   self.assertEqual(self.snap()['version'],4)
+ def test_cancel_and_reopen_without_deleting_documents(self):
+  self.commercial();number=self.snap()['quote'];self.act('cancel',confirmed=True)
+  self.assertEqual(self.snap()['assessment']['payment']['status'],'cancelled')
+  with self.assertRaises(ValueError):self.pay()
+  self.act('cancel',confirmed=True);self.pay();self.assertEqual(self.snap()['quote'],number)
+  with self.assertRaises(ValueError):self.act('cancel',confirmed=True)
+ def test_prefills_public_identifiers_without_reading_or_exporting_tokens(self):
+  site=self.store.project_dir(self.pid)/'site';(site/'.vercel').mkdir()
+  (site/'.vercel'/'project.json').write_text(json.dumps({'projectId':'prj_demo','orgId':'team_demo','token':'do-not-read'}))
+  self.store.update_deployment(self.pid,{'production_url':'https://demo.example','supabase_ref':'abcdefghijklmnopqrst'})
+  d=self.snap();self.assertEqual(d['services']['vercel']['project_id'],'prj_demo');self.assertNotIn('do-not-read',json.dumps(d))
+  self.assertEqual(d['services']['supabase']['project_ref'],'abcdefghijklmnopqrst')
+ def test_http_roundtrip_and_isolated_origin(self):
+  import threading
+  from http.client import HTTPConnection
+  from local_app import server
+  http=server.StudioHTTPServer(('127.0.0.1',0),server.Handler)
+  self.addCleanup(http.server_close)
+  task=threading.Thread(target=http.serve_forever,daemon=True);task.start();self.addCleanup(http.shutdown)
+  port=http.server_port
+  def request(method,route,body=None,host='ventes.localhost',extra=None):
+   conn=HTTPConnection('127.0.0.1',port,timeout=10)
+   headers={'Host':host+':'+str(port),'Content-Type':'application/json','X-LocalAI-Delivery':'1'}
+   if extra:headers.update(extra)
+   conn.request(method,route,body=json.dumps(body) if body is not None else None,headers=headers)
+   r=conn.getresponse();content=r.read();status=r.status;conn.close();return status,content
+  with patch.object(server,'_web_store',return_value=self.store),patch.object(server,'LOCALAIWEB_DATA',self.root):
+   status,body=request('GET','/api/web/delivery/dossier?id='+self.pid);self.assertEqual(status,200);d=json.loads(body)
+   status,body=request('POST','/api/web/delivery/action',{'id':self.pid,'action':'save','version':d['version'],'seller':SELLER,'customer':CUSTOMER,'items':[{'label':'Création','quantity':'1','unit_eur':'100'}],'service_date':business_date().isoformat()});self.assertEqual(status,200,body)
+   status,_=request('GET','/api/web/delivery/list',host='127.0.0.1');self.assertEqual(status,403)
+   status,_=request('POST','/api/web/delivery/action',{'id':self.pid,'action':'payment'},extra={'Origin':'http://preview-'+self.pid+'.localhost:'+str(port)});self.assertEqual(status,403)
+   status,body=request('GET','/localaiweb/livraisons');self.assertEqual(status,200);self.assertIn(b'client-delivery.js',body)
+   status,_=request('GET','/assets/client-delivery.js');self.assertEqual(status,200)
+   status,_=request('GET','/web-preview/'+self.pid+'/index.html');self.assertEqual(status,403)
  def test_large_multiline_documents_are_valid_pdf(self):
   self.act('save',seller={**SELLER,'address':'Adresse fictive très longue et détaillée, bâtiment test, étage 8\n'+('France '*40)},customer=CUSTOMER,service_date=business_date().isoformat(),items=[{'label':('Prestation détaillée avec un libellé long '*5)+str(i),'quantity':'1','unit_eur':'10','vat_rate':'20'} for i in range(25)])
   self.act('quote',confirmed=True);pdf=delivery.document(self.db,self.store,self.pid,self.snap()['quote'])

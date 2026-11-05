@@ -27,3 +27,6 @@ body[data-studio-page="editor"] .law-global-header .studio-activity-panel{positi
 @media(prefers-reduced-motion:reduce){body[data-studio-page="editor"] #webStudioReturn{transition:none;translate:none}}
 
 @media(min-width:781px){body[data-studio-page="editor"] .qcm-dock{top:76px!important;height:calc(100dvh - 76px)!important}}
+
+body[data-studio-page="editor"] #lawMobileTools:not([hidden]){top:84px!important}
+@media(max-width:780px){body[data-studio-page="editor"] #lawMobileTools:not([hidden]){top:72px!important}}

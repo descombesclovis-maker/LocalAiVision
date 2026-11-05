@@ -173,6 +173,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   assert.equal(await page.locator('#navCreations .vision-menu-chevron').evaluate(el=>getComputedStyle(el).transform),'none');
   await page.keyboard.press('Escape');await page.locator('#visionStudioReturn').click();
   await page.waitForURL(base+'/studio');
+  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/localaivision');
  });
  await check('Photo chat retains media when removed from gallery and restores through pull drawer',async()=>{
   await page.locator('#openSidebar').click();
