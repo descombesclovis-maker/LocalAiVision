@@ -201,6 +201,57 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   assert.equal(await page.evaluate(()=>conversationFor(activeConversationId).messages.some(m=>m.result?.filename==='qa-conversation-archive.png')),true);
   await page.screenshot({path:path.join(output,'conversation-archive-recovery.png')});
  });
+ await check('Studio settings gear encrypts Google keys on Windows without calling Google',async()=>{
+  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/studio');
+  const gear=page.locator('#studioConnectionsButton');
+  assert.equal(await gear.isVisible(),true);
+  await gear.click();
+  assert.equal(await page.locator('#studioConnectionsDialog').evaluate(el=>el.open),true);
+  assert.equal(await page.locator('#studioConnectionsDialog [data-connect="codex"]').isVisible(),true);
+  assert.equal(await page.locator('#studioConnectionsDialog [data-connect="claude"]').isVisible(),true);
+  const value='AIzaDummyTestKeyNeverSendToGoogleCloud';
+  await page.locator('#studioMapsBrowserKey').fill(value);
+  await page.locator('[data-save="maps_browser"]').click();
+  let config;
+  for(let i=0;i<40;i++){
+   config=await page.request.get(base+'/api/web/map/config').then(r=>r.json());
+   if(config.browser_key===value)break;
+   await wait(100);
+  }
+  assert.equal(config.browser_key,value);
+  const settingsResponse=await page.request.get(base+'/api/studio/settings/status');
+  assert.equal(settingsResponse.ok(),true);
+  const settingsData=await settingsResponse.json();
+  assert.equal(settingsData.maps.maps_browser.configured,true);
+  assert.equal(JSON.stringify(settingsData).includes(value),false,'Never expose saved keys in status');
+  page.once('dialog',d=>d.accept());
+  await page.locator('[data-clear="maps_browser"]').click();
+  for(let i=0;i<40;i++){
+   config=await page.request.get(base+'/api/web/map/config').then(r=>r.json());
+   if(!config.browser_key)break;
+   await wait(100);
+  }
+  assert.equal(config.browser_key,'');
+  await page.screenshot({path:path.join(output,'studio-connections-desktop.png')});
+  await page.locator('#studioConnectionsClose').click();
+ });
+ await check('Web project library and builder share a full-width violet header',async()=>{
+  for(const [width,height] of [[1440,1000],[390,844]]){
+   await page.setViewportSize({width,height});await page.goto(base+'/localaiweb');
+   const projectHeader=page.locator('.law-projects-global-header'),logo=page.locator('.law-projects-global-header .law-projects-brand');
+   assert.equal(await projectHeader.isVisible(),true);
+   const box=await logo.boundingBox();
+   assert.ok(Math.abs(box.x+box.width/2-width/2)<2,'Project heading must be centered in viewport');
+   assert.equal(await page.locator('#webProjectMenu').isVisible(),true);
+   await page.screenshot({path:path.join(output,'web-project-header-'+width+'.png')});
+   await page.goto(base+'/localaiweb/editor');
+   const editorReturn=page.locator('#lawEditorReturn');
+   assert.equal(await editorReturn.isVisible(),true);
+   assert.equal(await editorReturn.getAttribute('href'),'/localaiweb');
+   assert.equal(await page.locator('#lawMobileMenuToggle').isVisible(),false);
+   await page.screenshot({path:path.join(output,'web-editor-header-'+width+'.png')});
+  }
+ });
  assert.deepEqual(errors,[]);
  }catch(e){results.error=e.stack;process.exitCode=1}
  finally{if(browser)await browser.close();server.kill();log.end();fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2))}
