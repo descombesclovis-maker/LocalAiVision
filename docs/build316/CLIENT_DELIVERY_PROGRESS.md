@@ -35,7 +35,9 @@ Génération des PDF gratuite en local avec ReportLab. Le prestataire d'encaisse
 
 ## Validation et reprise
 
-Tests Python existants + `tests/test_client_delivery.py` ; recette navigateur dédiée `scripts/qa_client_delivery.cjs` : en-tête sur trois tailles, devis PDF, réception partielle puis complète, facture, téléchargement du ZIP, persistance et isolation d'origine. Fixtures locales uniquement ; aucun paiement réel.
+392 tests Python réussis (2 ignorés selon plateforme), dont 16 scénarios dédiés dans `tests/test_client_delivery.py` ; 33 tests Node ciblés réussis. Test natif `scripts/smoke_delivery_native.py` : HTTP de l’EXE, SQLite, devis et facture PDF, paiement fictif déclaré et ZIP. Aucune transaction réelle. Recette navigateur : recette navigateur dédiée `scripts/qa_client_delivery.cjs` : en-tête sur trois tailles, devis PDF, réception partielle puis complète, facture, téléchargement du ZIP, persistance et isolation d'origine. Fixtures locales uniquement ; aucun paiement réel.
+
+Recette Vision validée dans Windows : six chevrons cyan, clavier, alignement et réduction des animations. Les recettes navigateur Web/Livraison et la compilation de la dernière révision restent à examiner.
 
 Chromium indisponible dans le conteneur : téléchargement renvoyant un contenu non ZIP. Les recettes réelles sont donc exécutées par GitHub Actions Windows. Attendre et examiner leurs résultats et captures avant validation visuelle finale. Compilation Windows native et EXE de cette révision : à récupérer après réussite de CI ; ne pas confondre avec les compilations précédentes.
 

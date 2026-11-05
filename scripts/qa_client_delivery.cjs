@@ -17,7 +17,7 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
  const page=await browser.newPage({reducedMotion:'reduce',serviceWorkers:'block'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await check('Web viewport-wide header, preserved editor and menu on desktop, tablet and mobile',async()=>{
   for(const [name,width,height] of [['desktop',1440,1000],['tablet',820,1180],['mobile',390,844]]){
-   await page.setViewportSize({width,height});await page.goto(base+'/localaiweb/editor?id='+id);await page.locator('#qcmEditorSplitter').waitFor();await wait(500);
+   await page.setViewportSize({width,height});await page.goto(base+'/localaiweb/editor?id='+id);await page.locator('#qcmEditorSplitter').waitFor({state:'attached'});await wait(500);
    const header=await page.locator('.law-global-header').boundingBox(),logo=await page.locator('.law-global-header .chat-brand').boundingBox(),menu=await page.locator('#lawMobileMenuToggle').boundingBox();
    assert.ok(Math.abs(header.x)<1&&Math.abs(header.width-width)<1,'full width '+name);
    assert.ok(Math.abs(logo.x+logo.width/2-width/2)<1,'centered logo '+name);assert.ok(menu.x<=20,'far-left menu '+name);

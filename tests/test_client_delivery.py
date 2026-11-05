@@ -157,6 +157,21 @@ class DeliveryTests(unittest.TestCase):
    status,body=request('GET','/localaiweb/livraisons');self.assertEqual(status,200);self.assertIn(b'client-delivery.js',body)
    status,_=request('GET','/assets/client-delivery.js');self.assertEqual(status,200)
    status,_=request('GET','/web-preview/'+self.pid+'/index.html');self.assertEqual(status,403)
+ def test_pdf_failure_rolls_back_document_and_sequence_together(self):
+  self.act('save',seller=SELLER,customer=CUSTOMER,service_date=business_date().isoformat(),items=[{'label':'Site','quantity':'1','unit_eur':'100'}])
+  with patch.object(delivery,'render_pdf',side_effect=RuntimeError('fixture PDF failure')):
+   with self.assertRaises(RuntimeError):self.act('quote',confirmed=True)
+  self.assertIsNone(self.snap()['quote'])
+  self.act('quote',confirmed=True);self.assertTrue(self.snap()['quote'].endswith('-00001'))
+ def test_parallel_project_quotes_have_unique_persistent_numbers(self):
+  ids=[self.pid,self.store.create('Deuxième site')['project']['id']]
+  def create(pid):
+   d=delivery.snapshot(self.db,self.store,pid)
+   d=delivery.action(self.db,self.store,pid,{'action':'save','version':d['version'],'seller':SELLER,'customer':CUSTOMER,'service_date':business_date().isoformat(),'items':[{'label':'Site','quantity':'1','unit_eur':'100'}]})
+   return delivery.action(self.db,self.store,pid,{'action':'quote','version':d['version'],'confirmed':True})['quote']
+  with ThreadPoolExecutor(max_workers=2) as pool:numbers=list(pool.map(create,ids))
+  self.assertEqual(len(set(numbers)),2)
+  self.assertEqual({n[-5:] for n in numbers},{'00001','00002'})
  def test_large_multiline_documents_are_valid_pdf(self):
   self.act('save',seller={**SELLER,'address':'Adresse fictive très longue et détaillée, bâtiment test, étage 8\n'+('France '*40)},customer=CUSTOMER,service_date=business_date().isoformat(),items=[{'label':('Prestation détaillée avec un libellé long '*5)+str(i),'quantity':'1','unit_eur':'10','vat_rate':'20'} for i in range(25)])
   self.act('quote',confirmed=True);pdf=delivery.document(self.db,self.store,self.pid,self.snap()['quote'])
