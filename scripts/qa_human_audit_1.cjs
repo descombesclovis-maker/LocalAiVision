@@ -236,6 +236,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   await page.locator('#studioConnectionsClose').click();
  });
  await check('Web project library and builder share a full-width violet header',async()=>{
+  const project=await api('/api/web/project/create',{name:'Header QA project'});
+  const pid=project.project.id;
   for(const [width,height] of [[1440,1000],[390,844]]){
    await page.setViewportSize({width,height});await page.goto(base+'/localaiweb');
    const projectHeader=page.locator('.law-projects-global-header'),logo=page.locator('.law-projects-global-header .law-projects-brand');
@@ -244,7 +246,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.ok(Math.abs(box.x+box.width/2-width/2)<2,'Project heading must be centered in viewport');
    assert.equal(await page.locator('#webProjectMenu').isVisible(),true);
    await page.screenshot({path:path.join(output,'web-project-header-'+width+'.png')});
-   await page.goto(base+'/localaiweb/editor');
+   await page.goto(base+'/localaiweb/editor?id='+encodeURIComponent(pid));
    const editorReturn=page.locator('#lawEditorReturn');
    assert.equal(await editorReturn.isVisible(),true);
    assert.equal(await editorReturn.getAttribute('href'),'/localaiweb');
