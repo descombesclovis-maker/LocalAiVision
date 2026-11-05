@@ -2521,6 +2521,14 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)},503)
             return
+        if u.path == "/api/studio/settings/status":
+            try:
+                from local_app import studio_credentials
+                self.send_json({"ok":True,"maps":studio_credentials.status(),
+                    "agents":integrations_cli.status(False)})
+            except (OSError,ValueError,RuntimeError) as exc:
+                self.send_json({"error":"État des connexions indisponible : "+str(exc)},503)
+            return
         if u.path == "/api/web/map/config":
             from local_app import web_google_maps
             self.send_json(web_google_maps.configuration())
@@ -3142,10 +3150,24 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'error':'Taille incorrecte.'},413);return
         if u.path.startswith('/api/private/') and not 0 < length <= 2_000_000:
             self.send_json({'error':'Taille incorrecte.'},413);return
+        if u.path=="/api/studio/settings/google":
+            if self.headers.get("X-LocalAI-Settings")!="1" or not 0<length<=4096:
+                self.send_json({"error":"Action de configuration locale refusée."},403)
+                return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path=="/api/studio/settings/google":
+            try:
+                if not isinstance(body,dict):raise ValueError("Paramètres invalides.")
+                from local_app import studio_credentials
+                result=studio_credentials.modify(
+                    str(body.get("kind") or ""),str(body.get("action") or ""),str(body.get("value") or ""))
+                self.send_json({"ok":True,"maps":result})
+            except (OSError,ValueError,RuntimeError) as exc:
+                self.send_json({"error":str(exc)},400)
+            return
         if u.path == '/api/web/project/acceptance':
             if not 0 < length <= 12000:
                 self.send_json({'error':'Taille incorrecte.'},413);return
