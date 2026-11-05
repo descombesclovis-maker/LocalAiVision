@@ -72,6 +72,8 @@
   if(!viewer.open)viewer.showModal();
  }
 
+ window.LocalAiVisionPreviewMedia=showPreview;
+
  const editor=document.createElement('dialog');editor.className='vision-image-editor';
  editor.setAttribute('aria-label',"Modifier l'image sans toucher à l'original");
  editor.innerHTML='<header><strong>Modifier la photo</strong><button type="button" class="vision-editor-close" aria-label="Fermer">×</button></header><div class="vision-editor-stage"><canvas aria-label="Aperçu de la photo modifiée"></canvas></div><div class="vision-editor-controls"><label>Luminosité <input id="visionEditBrightness" type="range" min="50" max="150" value="100"><output>100 %</output></label><label>Contraste <input id="visionEditContrast" type="range" min="50" max="150" value="100"><output>100 %</output></label><label>Saturation <input id="visionEditSaturation" type="range" min="0" max="200" value="100"><output>100 %</output></label></div><footer><button type="button" id="visionEditorRotate">↻ Pivoter</button><button type="button" id="visionEditorReset">Réinitialiser</button><button type="button" id="visionEditorSave">Enregistrer une copie PNG</button></footer><p class="vision-editor-status" role="status" aria-live="polite">La photo d’origine reste intacte.</p>';
