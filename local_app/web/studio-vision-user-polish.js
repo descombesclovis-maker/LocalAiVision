@@ -4,7 +4,7 @@
  if(document.body.dataset.studioPage!=='vision')return;
  const isPrivate=()=>document.body.classList.contains('nsfw-active');
  const $=s=>document.querySelector(s);
- const emoji={navChat:'💬',navCreations:'🖼️',navPhoto:'📸',navVideo:'🎬',navNsfw:'🔐',studioAdOpen:'📣',visionAdvancedToggle:'⚙️'};
+ const emoji={navChat:'💬',navCreations:'🖼️',navPhoto:'📸',navVideo:'🎬',navNsfw:'🔐',studioAdOpen:'📣'};
  function makeIcon(d){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
