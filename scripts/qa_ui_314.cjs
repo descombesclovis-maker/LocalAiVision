@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),asse
 const root=path.resolve(__dirname,'..'),output=path.resolve(process.env.UI_OUTPUT||'build/qa314');
 fs.mkdirSync(output,{recursive:true});
 const data=fs.mkdtempSync(path.join(os.tmpdir(),'studio-ui-314-'));
-const env={...process.env,LOCALVISIONAI_DATA:data,LOCALVISIONAI_SKIP_SETUP:'1',LOCALVISIONAI_DISABLE_AUTO_UPDATE:'1'};
+const env={...process.env,LOCALVISIONAI_DATA:data,LOCALVISIONAI_SKIP_SETUP:'1',LOCALVISIONAI_DISABLE_AUTO_UPDATE:'1',LOCALAI_PRIVATE_PIN:'1234'};
 const fixture=spawnSync(process.env.PYTHON||'python',['-m','scripts.qa_ui_fixture_314',data],{cwd:root,env,encoding:'utf8'});
 if(fixture.status!==0)throw Error(fixture.stderr);
 const ids=JSON.parse(fixture.stdout),base='http://127.0.0.1:3000';
@@ -36,7 +36,9 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.equal(await page.locator('.main').evaluate(x=>x.inert),true);
    assert.equal(await page.locator('#qcmDock').evaluate(x=>x.inert),true);
    assert.equal(await sidebar.locator('#updateBtn,.studio-universe-link').count(),0);
-   assert.equal(await sidebar.evaluate(x=>getComputedStyle(x).backgroundColor),'rgb(9, 44, 56)');
+   const surface=await sidebar.evaluate(x=>({color:getComputedStyle(x).backgroundColor,image:getComputedStyle(x).backgroundImage}));
+   // Customized 315.5 intentionally uses a translucent gradient. Preserve it.
+   assert.ok(surface.image.includes('linear-gradient')||surface.color==='rgb(9, 44, 56)',JSON.stringify(surface));
    // Pictograms must now be visible on ordinary menu actions, unlike the two special controls.
    assert.equal(await sidebar.locator('#navPhoto .nav-glyph').evaluate(e=>getComputedStyle(e).display!=='none'),true);
    const geometry=await sidebar.locator('.studio-navigation>button').evaluateAll(xs=>xs.map(x=>{let r=x.getBoundingClientRect();return {x:r.x,w:r.width,h:r.height}}));
@@ -61,6 +63,25 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.equal(await page.locator('#openSidebar').evaluate(x=>x===document.activeElement),true);
    await page.locator('#openSidebar').click();await page.mouse.click(700,400);
    assert.equal(await sidebar.evaluate(x=>x.matches(':popover-open')),false);
+  });
+  await check('Private PIN is verified by the server and creates an HttpOnly session',async()=>{
+   await page.locator('#openSidebar').click();await page.locator('#navNsfw').click();
+   const dialog=page.locator('#nsfwUnlockDialog');await dialog.waitFor({state:'visible'});
+   const digits=dialog.locator('.nsfw-pin-digit');
+   for(let i=0;i<4;i++)await digits.nth(i).fill('0');
+   await dialog.locator('[type="submit"]').click();
+   await page.waitForFunction(()=>document.getElementById('nsfwPinError').textContent.length>0);
+   assert.equal(await dialog.evaluate(x=>x.open),true);
+   for(let i=0;i<4;i++)await digits.nth(i).fill(String(i+1));
+   await dialog.locator('[type="submit"]').click();
+   await page.waitForFunction(()=>document.body.classList.contains('nsfw-active'));
+   const session=await page.evaluate(()=>fetch('/api/private/session').then(r=>r.json()));
+   assert.equal(session.authenticated,true);
+   const cookie=(await context.cookies()).find(x=>x.name==='localai_private_session');
+   assert.ok(cookie?.httpOnly);assert.equal(cookie.sameSite,'Strict');
+   await page.screenshot({path:path.join(output,'private-session-empty-workspace.png')});
+   await page.evaluate(()=>fetch('/api/private/lock',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:'{}'}));
+   assert.equal((await page.evaluate(()=>fetch('/api/private/session').then(r=>r.json()))).authenticated,false);
   });
   await page.goto(base+'/localaiweb');await page.locator('[data-qcm-filter="free"]').click();
   const card=name=>page.locator('article.card').filter({has:page.getByRole('button',{name:'Ouvrir le projet '+name,exact:true})});

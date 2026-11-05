@@ -9,6 +9,7 @@ try:
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
+from local_app import private_access
 from local_app import web_sales_orders
 web_sales_orders.isolate_config()
 _sales_attempts = []
@@ -162,6 +163,10 @@ def _sales_dossier(pid, change=None):
             raise ValueError("Le site a changé depuis la publication. Refaire la recette.")
         if meta.get("project_kind")=="pro" and not current["release"]:
             raise ValueError("Publication de cette version à vérifier dans le dossier.")
+        from local_app import web_delivery
+        delivery_report = web_delivery.current(store,pid)
+        if not delivery_report.get('ready_to_deliver'):
+            raise ValueError('Livraison non validée : ' + ', '.join(delivery_report.get('blocking_reasons',[])))
         change={"action":"verified_handover","evidence":web_sales_delivery.verify(store,pid)}
     elif change and change.get("action")=="verified_handover":
         raise ValueError("Action interne.")
@@ -299,7 +304,8 @@ def _media_request_start(body):
     with _media_request_lock:
         _media_requests[ticket]={"ticket":ticket,"state":"preparing",
                                  "kind":kind,"phase":"Préparation du moteur et du modèle…",
-                                 "started_at":time.time(),"cancel_requested":False}
+                                 "started_at":time.time(),"cancel_requested":False,
+                                 "private":(body.get("settings") or {}).get("reserved_profile")=="nsfw"}
     threading.Thread(target=_media_request_worker,args=(ticket,body),
                      name="LocalAiVisionPrepare-"+ticket[-8:],daemon=True).start()
     return {"ok":True,"ticket":ticket,"state":"preparing"}
@@ -1920,10 +1926,15 @@ def run_generation(body):
                     record=_media_request_get(ticket)
                     if not record or record.get("cancel_requested"):
                         raise RuntimeError("Génération annulée avant son lancement.")
+                if settings.get('reserved_profile') == 'nsfw':
+                    private_access.begin_submission(DATA)
                 result = queue_prompt(current)
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
                 results.append(result)
+                if settings.get('reserved_profile') == 'nsfw':
+                    private_access.register_job(DATA,result['prompt_id'])
+                    private_access.finish_submission(DATA)
                 if 'original_prompt' in body and settings.get('reserved_profile') != 'nsfw':
                     try:
                         from local_app import generation_provenance
@@ -2120,6 +2131,8 @@ def history(prompt_id):
     if prompt_id in result:
         from local_app import comfy_progress
         info=result[prompt_id]
+        if private_access.private_job(DATA,prompt_id):
+            private_access.register_outputs(DATA,prompt_id,info)
         from local_app import generation_provenance
         try:
             if generation_provenance.complete(DATA, prompt_id, info):
@@ -2148,7 +2161,7 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def send_json(self, data, status=200):
+    def send_json(self, data, status=200, headers=None):
         raw = json.dumps(data, ensure_ascii=False).encode()
         try:
             self.send_response(status)
@@ -2157,6 +2170,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("X-Content-Type-Options","nosniff")
             self.send_header("Content-Length",str(len(raw)))
             self.send_header("Cache-Control","no-store")
+            for key,value in (headers or {}).items():self.send_header(key,value)
             self.end_headers()
             self._write_response(raw)
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
@@ -2243,6 +2257,36 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error":"API interdite depuis une maquette."},403)
             return False
         return True
+
+    def _private_authorized(self):
+        return private_access.session(self.headers.get('Cookie','')) is not None
+
+    def _require_private(self):
+        if self._private_authorized():return True
+        self.send_json({'error':'Session privée requise ou expirée.'},403)
+        return False
+
+    def _private_job_allowed(self,pid):
+        try:
+            if private_access.uncertain_submission(DATA) or private_access.private_job(DATA,pid):return self._require_private()
+            return True
+        except (OSError,ValueError):
+            self.send_json({'error':'Index privé indisponible ; accès refusé.'},503)
+            return False
+
+    def _private_file_allowed(self,filename,subfolder='',kind='output'):
+        try:
+            if private_access.uncertain_submission(DATA):return self._require_private()
+            # Resolve outputs before serving them, even if the private tab has
+            # not polled its completion yet. Do not expose private history.
+            for pid in private_access.pending_jobs(DATA):
+                data=comfy_get('/history/'+quote(pid))
+                if pid in data:private_access.register_outputs(DATA,pid,data[pid])
+            if private_access.private_file(DATA,filename,subfolder,kind):return self._require_private()
+            return True
+        except (OSError,ValueError):
+            self.send_json({'error':'Confidentialité du média non vérifiable ; accès refusé.'},503)
+            return False
 
     def do_GET(self):
         u = urlparse(self.path)
@@ -2336,6 +2380,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path.startswith("/api/history/"):
             pid = u.path.split("/",3)[3]
+            if not self._private_job_allowed(pid):return
             try: self.send_json(history(pid))
             except Exception as e: self.send_json({"error":str(e)},502)
             return
@@ -2343,6 +2388,7 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(u.query)
             try:
                 filename=q.get("filename",[""])[0]; sub=q.get("subfolder",[""])[0]; typ=q.get("type",["output"])[0]
+                if not self._private_file_allowed(filename,sub,typ):return
                 params=f"?filename={quote(filename)}&subfolder={quote(sub)}&type={quote(typ)}"
                 with urlopen(COMFY+"/view"+params,timeout=60) as r:
                     raw = r.read()
@@ -2528,6 +2574,9 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
+        if u.path == "/api/private/session":
+            self.send_json(private_access.session(self.headers.get('Cookie','')) or {'authenticated':False})
+            return
         if u.path == "/api/studio/activity":
             self.send_json(_studio_activity_status())
             return
@@ -2540,24 +2589,33 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'error':'Provenance publique introuvable.'},404)
             return
         if u.path == "/api/studio/media/jobs":
-            try: self.send_json(studio_media_jobs())
+            try:
+                result=studio_media_jobs()
+                if not self._private_authorized():
+                    result['jobs']=[row for row in result['jobs'] if not private_access.private_job(DATA,row.get('prompt_id'))
+                                    and not (_media_request_get(row.get('request_ticket')) or {}).get('private')]
+                    result['count']=len(result['jobs'])
+                self.send_json(result)
             except Exception as exc: self.send_json({"error":str(exc)},503)
             return
         if u.path == "/api/studio/media/request/status":
             ticket=parse_qs(u.query).get("ticket",[""])[0]
             record=_media_request_get(ticket)
-            if record: self.send_json({"request":record})
+            if record and record.get('private') and not self._require_private():return
+            if record: self.send_json({'request':record})
             else: self.send_json({"error":"Préparation inconnue ou expirée."},404)
             return
         if u.path == "/api/studio/media/job":
             from local_app import comfy_progress
             pid=parse_qs(u.query).get("id",[""])[0]
+            if not self._private_job_allowed(pid):return
             job=comfy_progress.status(pid)
             self.send_json({"job":job} if job else {"error":"Tâche inconnue."},200 if job else 404)
             return
         if u.path == "/api/studio/media/preview":
             from local_app import comfy_progress
             pid=parse_qs(u.query).get("id",[""])[0]
+            if not self._private_job_allowed(pid):return
             output=comfy_progress.get_preview(pid)
             if output is None:
                 self.send_response(404);self.end_headers()
@@ -2621,6 +2679,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_bytes(image.read_bytes(), "image/png")
             except Exception as e:
                 self.send_json({"error": str(e)}, 404)
+            return
+        if u.path == "/api/web/project/delivery":
+            try:
+                from local_app import web_delivery
+                self.send_json(web_delivery.current(_web_store(), parse_qs(u.query).get('id',[''])[0]))
+            except (OSError,ValueError):
+                self.send_json({'error':'Rapport de livraison indisponible.'},400)
             return
         if u.path == "/api/web/preview/status":
             try:
@@ -2909,6 +2974,7 @@ class Handler(BaseHTTPRequestHandler):
         u=urlparse(self.path)
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
+        if u.path.startswith('/api/private/') and not self._authorized_media_request():return
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/loras/upload":
             self._upload_existing_lora()
@@ -2959,10 +3025,36 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 16000:
                 self.send_json({"error":"Taille de requête incorrecte."}, 400)
                 return
+        if u.path.startswith('/api/private/') and not 0 < length <= 2_000_000:
+            self.send_json({'error':'Taille incorrecte.'},413);return
         raw=self.rfile.read(length)
         try: body=json.loads(raw.decode())
         except Exception:
             self.send_json({"error":"JSON invalide"},400); return
+        if u.path == '/api/private/unlock':
+            try:
+                token,expires=private_access.unlock(body.get('code',''))
+                self.send_json({'authenticated':True,'expires_at':expires},headers={
+                    'Set-Cookie':private_access.COOKIE+'='+token+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
+            except (ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},403)
+            return
+        if u.path == '/api/private/lock':
+            private_access.revoke(self.headers.get('Cookie',''))
+            self.send_json({'authenticated':False},headers={'Set-Cookie':private_access.COOKIE+'=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'})
+            return
+        if u.path == '/api/private/index':
+            if not self._require_private():return
+            try:self.send_json({'indexed':private_access.index_legacy(DATA,body.get('files'))})
+            except (ValueError,OSError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
+            return
+        if isinstance(body,dict):
+            if u.path in ('/api/studio/media/start','/api/generate') and (body.get('settings') or {}).get('reserved_profile')=='nsfw':
+                if not self._require_private():return
+            if body.get('filename') and not self._private_file_allowed(body['filename'],body.get('subfolder',''),body.get('type','output')):return
+            if u.path=='/api/studio/media/cancel':
+                record=_media_request_get(body.get('ticket')) or {}
+                if record.get('private') and not self._require_private():return
+                if not self._private_job_allowed(body.get('prompt_id')):return
         if sales_action:
             try:
                 if not isinstance(body, dict):

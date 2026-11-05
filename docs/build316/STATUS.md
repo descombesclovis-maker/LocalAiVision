@@ -29,16 +29,16 @@ n'est certifié sans son exécution réelle. Base : b2666902b008a82fc91c98839467
 
 | ID | Priorité | Défaillance / cause | Fichiers | Correction / test / résultat | Impact et reste à faire |
 |---|---|---|---|---|---|
-| D1 | P0 | Installation confondue avec qualification | setup, workflows | À faire | État vérifiable, benchmark RTX 3060 réel ouvert |
-| D2 | P0 | 315.5 sans recompilation native, métadonnées anciennes | web, workflow Windows | 47 fichiers intégrés ; manifeste SHA-256 | Compilation native et retour arrière à vérifier |
+| D1 | P0 | Installation confondue avec qualification | engine_qualification, benchmark_public_engine | États et reçus implémentés ; 2 tests passent ; inspection locale : indisponible | Intégration UI et benchmark RTX 3060 réel ouverts |
+| D2 | P0 | 315.5 sans recompilation native, métadonnées anciennes | web, workflow Windows | 47 fichiers intégrés ; manifeste SHA-256 ; CI 41937343935 : build natif, icône, DLL, démarrage et mise à jour réussis | Nouveau build après les corrections suivantes requis ; QA visuelle initiale échoue sur attente de fond ancien |
 | D3 | P1 | Fonctionnalités Web sans preuve métier | web_hybrid, browser_qa | À faire | Contrats, statuts et six briefs à tester réellement |
-| D4 | P0 | Dates locales comparées à UTC | web_crm, web_sales_orders | À faire | Minuit, échéances et DST |
+| D4 | P0 | Dates locales comparées à UTC | business_time, CRM, factures, pipeline, signatures | Corrigé ; 21 tests ciblés passent, dont minuit et DST | Zone IANA explicite ou fuseau OS ; anciens devis non réécrits |
 | D5 | P1 | Profils HunyuanImage non qualifiés | workflows | Non testé matériel | Ne pas appliquer un profil prétendument qualifié |
-| D6 | P0 | Écritures et snapshots incomplets | web_builder | À faire | Atomicité, médias et récupération |
-| D7 | P1 | Revue visuelle non bloquante | web_hybrid | À faire | Gate de livraison, preuves navigateur |
+| D6 | P0 | Écritures et snapshots incomplets | atomic_storage, web_builder | 7 tests passent : mort du processus, disque plein, médias, corruption, anciennes versions | Journal et récupération ; lecteurs externes hors verrou non transactionnels |
+| D7 | P1 | Revue visuelle non bloquante | web_delivery, web_hybrid, server | Gate et empreinte des sources/médias ; 4 tests passent | Recette métier et revue artistique réelle encore nécessaires |
 | D8 | P1 | CSS/DOM fragiles | web/*.css, *.js | À faire | Refactor seulement après captures comparables |
-| D9 | P0 | Négation humaine interprétée comme sujet | app.js | À faire | Régression parser et images réelles ouvertes |
-| D10 | P0 | PIN client insuffisant | server, private routes | À faire | Sessions/API/médias, génération privée inchangée |
+| D9 | P0 | Négation humaine interprétée comme sujet | app.js | 13 tests Node passent ; original/effectif distincts | Parseur ciblé FR/EN ; validation sur images encore ouverte |
+| D10 | P0 | PIN client insuffisant | private_access, server, app.js | Session serveur HttpOnly, index privé durable, garde API/médias ; 3 tests passent | Ancien inventaire du navigateur à indexer au premier déverrouillage ; pas de chiffrement ; test PC ouvert |
 
 ## Dix opportunités suivies
 
@@ -49,7 +49,7 @@ n'est certifié sans son exécution réelle. Base : b2666902b008a82fc91c98839467
 | O3 | P0/P1 | Journal durable et reprise | À faire ; reprise d'inférence non garantie |
 | O4 | P2 | Identité de marque commune | À faire ; conserver catalogue actuel |
 | O5 | P1 | Édition Web transactionnelle | À faire |
-| O6 | P1 | Banc permanent de six briefs | À préparer ; Codex authentifié nécessaire pour générations |
+| O6 | P1 | Banc permanent de six briefs | Corpus préparé ; aucune génération réelle exécutée ; Codex authentifié requis |
 | O7 | P1 | Critique visuelle et réparation | Navigateur et captures nécessaires |
 | O8 | P1 | Campagnes éditables | À faire ; médias originaux à préserver |
 | O9 | P1 | Orchestration ressources | À faire ; gains matériels à mesurer |
@@ -72,3 +72,42 @@ sur les sauvegardes personnelles. Une branche courte par modification manuelle,
 commit et PR vers cette branche de travail ; mise à jour par merge/rebase local
 après sauvegarde, jamais de force-push silencieux ni de travail concurrent sur
 le même fichier. La PR reste en brouillon, sans fusion/release/déploiement.
+
+## Résultats intermédiaires — 5 novembre 2026 UTC
+
+- Référence 315.5 importée : 313 tests, 10 échecs DOM/identité obsolètes, 1 erreur
+  de date, 1 ignoré. Les assertions obsolètes ont été adaptées aux personnalisations
+  acceptées ; aucun bouton/fenêtre retiré n'a été réintroduit.
+- Suite locale après lots : 335 tests Python, 1 ignoré Linux ; résultat final à
+  reconfirmer après les dernières modifications. 13 tests Node des prompts passent.
+- Provenance publique enregistrée : graph exact soumis (seeds compris), empreinte
+  workflow/graph, original/effectif, modèles nommés, sorties et checksum à la
+  récupération du média. Hashes modèles et mesures RAM/VRAM/inférence restent
+  explicitement absents tant qu'ils ne sont pas mesurés. Détails UI à terminer.
+- CI Windows 41937343935 : EXE natif produit, icône vérifiée, démarrage/DLL/mise à
+  jour testés, ZIP/SHA produits, release ignorée. Ce run précède la gate et les
+  sessions privées : son EXE n'est pas un livrable final de la mission.
+- QA Chromium initiale : échec avant la capture menu car l'ancien test attend un
+  fond uni alors que le 315.5 utilise un dégradé translucide. Le test est adapté au
+  rendu personnalisé ; les autres contrôles restent requis.
+
+## Confidentialité — portée et travail restant
+
+Le PIN configuré est conservé, désormais vérifié côté serveur ; le navigateur
+ne conserve pas le code. Les sessions sont HttpOnly/SameSite Strict, expirent et
+peuvent être révoquées. Les nouvelles tâches privées, leur historique, previews
+et fichiers connus sont contrôlés. Un journal écrit avant soumission ferme les
+accès anonymes si le serveur s'arrête entre acceptation et indexation.
+
+Les créations anciennes qui n'existent que dans localStorage ne peuvent pas être
+classées depuis cet environnement : leur indexation se fait après déverrouillage
+du navigateur contenant les sauvegardes d'origine. Avant cette indexation, ne pas
+considérer les anciens chemins inconnus comme protégés. Les conversations restent
+dans leur stockage d'origine ; pas de chiffrement ajouté, pas de protection contre
+un autre processus du même compte Windows ni contre l'accès direct au ComfyUI.
+Le PIN à quatre chiffres reste une protection locale limitée. La génération,
+les modèles, LoRAs et workflows privés n'ont pas été modifiés.
+
+Prochaine validation : CI Windows/Chromium/Edge après publication du lot, puis
+captures du 315.5 personnalisé et comparaison. Poursuivre statuts métier/édition,
+provenance détaillée, tâches durables et campagnes ; ne pas annoncer 100 %.

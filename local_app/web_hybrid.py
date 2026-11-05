@@ -519,6 +519,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         'issues': [f['id'] for f in report['findings']],
         'repairs': repair_count,
     }
+    from local_app import web_delivery
+    delivery = web_delivery.save(store, project_id, report, visual)
+    meta['delivery_status'] = {'ready_to_deliver':delivery['ready_to_deliver'],
+                               'blocking_reasons':delivery['blocking_reasons'],
+                               'revision':delivery['revision']}
     store.write_meta(project_id, meta)
     feedback = meta['last_summary']
     if not report['ok']:
@@ -532,8 +537,11 @@ def build_with_agent(store, project_id, user_prompt, agent, integrations, visual
         feedback += '\nVérification navigateur : ordinateur, tablette et téléphone contrôlés.'
     elif visual['status'] == 'deferred_first_preview':
         feedback += '\nSite compilé et contrôlé. La revue visuelle navigateur sera effectuée lors des améliorations.'
+    if not delivery['ready_to_deliver']:
+        feedback += '\nAperçu disponible ; livraison non validée : ' + ', '.join(delivery['blocking_reasons'])
     store.append_chat(project_id, 'assistant', feedback)
     payload = store.payload(project_id)
+    payload['delivery'] = delivery
     payload['summary'] = feedback
     payload['quality'] = report['preflight']
     payload['hybrid_validation'] = {**report, 'visual': visual,

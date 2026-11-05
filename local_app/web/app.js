@@ -16,7 +16,22 @@ const LEGACY_OMNI_I2V_WORKFLOW='Isolated HY-OmniWeaving I2V.json';
 let isolatedTaskMode=loadJSON('lva_isolated_task_mode','image');
 let isolatedVideoMode=loadJSON('lva_isolated_video_mode','t2v');
 let nsfwGalleryVisible=true;
-function nsfwUnlocked(){try{return sessionStorage.getItem('lva_nsfw_gate')==='true'}catch{return false}}
+let privateSessionExpiresAt=0;
+function nsfwUnlocked(){try{return Date.now()<privateSessionExpiresAt&&sessionStorage.getItem('lva_nsfw_gate')==='true'}catch{return false}}
+async function indexPrivateHistory(){
+ const files=[...library.filter(item=>item.profile==='nsfw'),...Object.values(conversations).filter(c=>c.profile==='nsfw').flatMap(c=>(c.messages||[]).filter(m=>m.result).map(m=>m.result))]
+   .filter(item=>item.filename&&!item.ad_url).map(({filename,subfolder,type})=>({filename,subfolder:subfolder||'',type:type||'output'}));
+ const unique=[...new Map(files.map(file=>[JSON.stringify(file),file])).values()];
+ if(unique.length)await api('/api/private/index',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({files:unique})});
+}
+async function restorePrivateSession(){
+ try{
+  const state=await api('/api/private/session');
+  privateSessionExpiresAt=state.authenticated?state.expires_at*1000:0;
+  if(privateSessionExpiresAt){sessionStorage.setItem('lva_nsfw_gate','true');await indexPrivateHistory()}
+  else sessionStorage.removeItem('lva_nsfw_gate');
+ }catch{privateSessionExpiresAt=0}
+}
 
 const LEGACY_CHAT_SYSTEM="Réponds directement en français, de façon utile et précise. Pour les questions générales, utilise tes connaissances internes sans simuler de recherche Internet. Signale seulement les incertitudes réellement importantes. Tu n’as pas d’accès direct à Internet ni aux fichiers de l’utilisateur.";
 const DEFAULT_CHAT_SYSTEM=`Tu es LocalAiVision, un assistant local généraliste, créatif et conversationnel. Tu es pensé comme le petit frère de ChatGPT : naturel, vif, chaleureux et utile, sans ton robotique.
@@ -188,15 +203,21 @@ function requestNsfwPin(){
    resolve(ok);
   }
   function cancel(){finish(false)}
-  function submit(event){
+  async function submit(event){
    event.preventDefault();
    const entered=fields.map(x=>x.value).join('');
    if(!/^\d{4}$/.test(entered)){warning.textContent='Saisis les quatre chiffres du code.';return}
-   if(entered!=='2905'){
-    // Retain the existing PIN contract; changing the dialog must never unlock
-    // a session on an invalid code or store the PIN in browser storage.
-    fields.forEach(f=>f.value='');warning.textContent='Code d’accès incorrect.';fields[0].focus();return;
-   }
+   const button=form.querySelector('[type="submit"]');if(button?.disabled)return;
+   if(button)button.disabled=true;
+   try{
+    const state=await api('/api/private/unlock',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:JSON.stringify({code:entered})});
+    if(settled)return;
+    privateSessionExpiresAt=state.expires_at*1000;
+    await indexPrivateHistory();
+   }catch(error){
+    privateSessionExpiresAt=0;
+    fields.forEach(f=>f.value='');warning.textContent=error.message;fields[0].focus();return;
+   }finally{if(button)button.disabled=false}
    finish(true);
   }
   fields.forEach((field,index)=>{
@@ -711,6 +732,6 @@ function setup(){
  // v2.1: remove the old reserved red theme and clear a stale style once so a
  // previous watercolor preset cannot silently alter a new prompt.
  document.body.classList.remove('reserved-theme');localStorage.removeItem('lva_reserved_profile');if(!localStorage.getItem('lva_v21_prompt_fidelity')){graphicStyle='none';localStorage.setItem('lva_graphic_style',JSON.stringify(graphicStyle));localStorage.setItem('lva_v21_prompt_fidelity','1')}
- for(const c of Object.values(conversations)){normalizeConversation(c);c.messages=c.messages.filter(m=>!m.loading)}save();window.localAiVisionInitialRefresh=refresh();setInterval(pollHealth,6000);
+ for(const c of Object.values(conversations)){normalizeConversation(c);c.messages=c.messages.filter(m=>!m.loading)}save();window.localAiVisionInitialRefresh=restorePrivateSession().then(refresh);setInterval(pollHealth,6000);
 }
 setup();
