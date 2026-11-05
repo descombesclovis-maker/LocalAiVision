@@ -298,3 +298,90 @@ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .v
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry:is(:hover,:focus-visible,.active) .vision-premium-icon{
  stroke:#dbfcff!important;filter:drop-shadow(0 0 6px #67ebffcc);
 }
+
+/* LoRA / modèles : fenêtre experte cyan cohérente avec la gamme Vision. */
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog::before{
+ content:"";position:fixed;inset:0;z-index:6100;background:#010912e0;
+ backdrop-filter:blur(9px);pointer-events:auto;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings:not(.hidden){
+ position:fixed!important;z-index:6110!important;left:50%!important;top:50%!important;
+ transform:translate(-50%,-50%)!important;
+ width:min(910px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
+ height:auto!important;max-height:min(85dvh,900px)!important;
+ box-sizing:border-box;overflow-y:auto!important;overscroll-behavior:contain;
+ border:1px solid #5bd9eca6!important;border-radius:20px!important;padding:19px!important;
+ background:linear-gradient(140deg,#071926,#0d2637 53%,#091827)!important;
+ color:#e6fcff!important;box-shadow:0 26px 105px #000c,0 0 47px #24d9ed27!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings .settings-head{
+ display:flex;justify-content:space-between;align-items:center;gap:12px;
+ background:linear-gradient(105deg,#0d3b4a,#122d43);
+ padding:14px 16px;border:1px solid #5ad2e26c;border-radius:13px;margin-bottom:15px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings .settings-head b{
+ color:#edfcff;font-size:18px;letter-spacing:-.02em;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings .settings-head span{
+ color:#a6d9e5;line-height:1.5;font-size:11px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings .settings-head button{
+ display:grid;place-items:center;min-width:39px;min-height:39px;padding:0;border-radius:10px;
+ border:1px solid #76dcf28f;background:#1b4a5e;color:#eaffff;font-size:25px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #accordionLoras{
+ display:block!important;overflow:visible;background:#0719259c;
+ border:1px solid #55cfdf5c;border-radius:14px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #accordionLoras>summary{
+ color:#b9f6ff!important;font-weight:750;padding:13px 14px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #accordionLoras>.settings-accordion-body{
+ padding:12px 14px!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #loraPanel{
+ border:0!important;border-radius:13px;background:transparent!important;margin:0!important;padding:0!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #loraSearch{
+ height:45px!important;background:#071523!important;color:#e3fdff!important;
+ border:1px solid #72d4e189!important;border-radius:11px;margin:12px 0!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #loraSearch:focus-visible{
+ outline:2px solid #5fe8f6;outline-offset:2px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-head{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+ padding:8px 0;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-head b{color:#ebfcff;font-size:15px}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-head span{color:#add3df;font-size:11px;line-height:1.5}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog :is(.lora-head button,.lora-card button,.lora-upload){
+ border:1px solid #6fd7e97d!important;background:#164257!important;color:#e4fcff!important;
+ border-radius:10px!important;min-height:37px!important;cursor:pointer;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-catalog{
+ max-height:210px!important;overflow:auto;overscroll-behavior:contain;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-card{
+ border:1px solid #4ab6cc50!important;border-radius:10px!important;
+ background:#122b39ba!important;padding:9px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-card:hover{
+ border-color:#79e2f2a6!important;background:#163947!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-section-title{
+ color:#9ce9fa!important;font-size:10px;font-weight:800;letter-spacing:.12em;margin:14px 0 8px!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-note{
+ line-height:1.65;color:#b8d2db!important;font-size:11px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings :is(.settings-accordion,#loraPanel){--accent:#65e6f5}
+@media(max-width:700px){
+ body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #generationSettings:not(.hidden){
+  max-height:90dvh!important;padding:9px!important;
+ }
+ body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog #accordionLoras>.settings-accordion-body{
+  padding:8px!important;
+ }
+ body[data-studio-page="vision"]:not(.nsfw-active).vision-lora-dialog .lora-catalog{max-height:180px!important}
+}
