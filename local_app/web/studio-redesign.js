@@ -365,6 +365,14 @@
  // A fresh launch always opens the brand-led welcome, while retaining
  // previously saved chats in the visible History dialog.
  const historyDialog=byId('historyDialog'),historySearch=byId('historySearch'),historyList=byId('historyList');
+ function inferredConversationMode(c){
+   if(['chat','image','video','advert'].includes(c?.studioMode))return c.studioMode;
+   if(c?.brand_id||c?.brand_snapshot)return 'advert';
+   const results=(c?.messages||[]).filter(m=>m.result).map(m=>m.result);
+   if(results.some(r=>/\\.(mp4|webm|mov|mkv)$/i.test(r.filename||'')))return 'video';
+   if(results.length)return 'image';
+   return 'chat';
+ }
  function historyPaint(){
    historyList.replaceChildren();
    const query=historySearch.value.toLocaleLowerCase('fr');
@@ -380,11 +388,11 @@
    for(const chat of rows.slice(0,250)){
      const row=document.createElement('div');row.className='history-item';
      const open=document.createElement('button');open.type='button';
-     const label={chat:'Chat',image:'Photo',video:'Vidéo',advert:'Publicité'}[chat.studioMode]||'Conversation';
+     const label={chat:'Chat',image:'Photo',video:'Vidéo',advert:'Publicité'}[inferredConversationMode(chat)]||'Conversation';
      open.textContent=label+' · '+(chat.title||'Nouvelle conversation');
      open.title='Reprendre cette conversation';
      open.addEventListener('click',()=>{
-       const mode=chat.studioMode||'chat';
+       const mode=inferredConversationMode(chat);
        document.body.dataset.visionMode=mode;
        welcome.replaceChildren(...originalWelcome.map(node=>node.cloneNode(true)));
        welcome.classList.remove('vision-onboarding');
