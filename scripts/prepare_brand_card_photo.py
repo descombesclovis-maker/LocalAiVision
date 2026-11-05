@@ -13,8 +13,8 @@ from PIL import Image, ImageOps
 
 DEST = Path(__file__).resolve().parents[1] / "local_app" / "web" / "presentation" / "brand-identity-1600.webp"
 PHOTOS = (
-    "https://unsplash.com/photos/7gMZ6lHDN_0/download?force=true&w=1800",
-    "https://unsplash.com/photos/l1kqM4qZt2E/download?force=true&w=1800",
+    "https://images.unsplash.com/photo-1618352926724-69e5e4215eef?auto=format&fit=crop&w=1800&h=950&q=85",
+    "https://images.unsplash.com/photo-1631406373844-fcd9a1f5c0c0?auto=format&fit=crop&w=1800&h=950&q=85",
 )
 
 
