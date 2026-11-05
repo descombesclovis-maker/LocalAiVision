@@ -369,7 +369,7 @@
    if(['chat','image','video','advert'].includes(c?.studioMode))return c.studioMode;
    if(c?.brand_id||c?.brand_snapshot)return 'advert';
    const results=(c?.messages||[]).filter(m=>m.result).map(m=>m.result);
-   if(results.some(r=>/\\.(mp4|webm|mov|mkv)$/i.test(r.filename||'')))return 'video';
+   if(results.some(r=>/\.(mp4|webm|mov|mkv)$/i.test(r.filename||'')))return 'video';
    if(results.length)return 'image';
    return 'chat';
  }
