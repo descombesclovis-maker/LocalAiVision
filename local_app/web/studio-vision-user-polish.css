@@ -184,3 +184,54 @@ body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar .topbar-actions{
  body[data-studio-page="vision"]:not(.nsfw-active) .main-topbar .topbar-actions{padding-right:104px!important}
 }
 body.nsfw-active #visionStudioReturn{display:none!important}
+
+/* Tirette des créations antérieures : liée à la conversation, indépendante de Mes créations. */
+body[data-studio-page="vision"]:not(.nsfw-active) #visionChatArchive{
+ position:relative;z-index:4;margin:10px 18px 0;padding:0;border-radius:14px;
+ border:1px solid #4dbcd547;background:linear-gradient(125deg,#0b2638ed,#10283bda);
+ color:#e9fbff;box-shadow:0 6px 20px #0003;flex:none;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionChatArchive[hidden]{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-pull{
+ display:flex;align-items:center;justify-content:center;width:100%;min-height:39px;
+ background:transparent;border:0;color:#b3efff;font:600 12px/1.4 system-ui;
+ text-align:center;cursor:pointer;padding:8px 12px;border-radius:12px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-pull:hover{background:#174357b0;color:#ecfdff}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-panel{max-height:43dvh;overflow:auto;padding:8px 11px 12px}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-panel[hidden]{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-grid{
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:10px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-item{
+ display:grid;gap:6px;padding:9px;background:#091c2c;border:1px solid #5395ae65;border-radius:11px;
+ min-width:0;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-view{
+ display:block;width:100%;padding:0;overflow:hidden;border-radius:8px;border:1px solid #70d1e151;
+ background:#020811;cursor:zoom-in;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-view :is(img,video){
+ display:block;width:100%;height:95px;object-fit:contain;background:#020811;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-item p{
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;
+ font-size:11px;color:#c6e5f1;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-actions{display:flex;flex-wrap:wrap;gap:6px}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-actions button{
+ flex:1 1 100px;border-radius:7px;border:1px solid #53c5d65b;background:#19465a;
+ color:#e4faff;font:500 10px/1.4 system-ui;padding:7px;cursor:pointer;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-actions button:hover{background:#245e74}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-actions .vision-archive-danger{
+ background:#42202b;border-color:#d78b94;color:#ffd5db;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-actions .vision-archive-danger:hover{background:#63313c}
+body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-empty{
+ grid-column:1/-1;text-align:center;margin:10px;color:#bcd5dd;font-size:12px
+}
+@media(max-width:700px){
+ body[data-studio-page="vision"]:not(.nsfw-active) #visionChatArchive{margin:7px 9px 0}
+ body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-panel{max-height:35dvh}
+}
