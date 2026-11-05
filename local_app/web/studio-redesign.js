@@ -228,7 +228,7 @@
        grid.append(empty);return;
      }
      for(const entry of items){
-       const card=document.createElement('article');card.className='gallery-card';
+       const card=document.createElement('article');card.className='gallery-card';card.dataset.entryId=entry._id||'';
        const url=resultUrl(entry),video=entry.kind==='video'||/\.(mp4|webm|mov|mkv)$/i.test(entry.filename||'');
        const media=document.createElement(video?'video':'img');media.src=url;
        if(video)media.controls=true;else media.alt=entry.prompt||'Création locale';
