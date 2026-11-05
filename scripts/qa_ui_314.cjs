@@ -202,7 +202,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.waitForFunction(()=>document.getElementById('sidebar').getBoundingClientRect().left>=-1);
    // Mobile topbar CSS must not hide labels after those controls move to the menu.
    for(const [id,label] of [['historyBtn','Historique'],['newConversation','Nouvelle discussion']]){
-    const name=page.locator('#sidebar #'+id+' > span');
+    const name=page.locator('#sidebar #'+id+' > span:last-child');
     assert.equal(await name.isVisible(),true,id+' label hidden on mobile');
     assert.equal((await name.innerText()).trim(),label);
     const box=await name.boundingBox();assert.ok(box&&box.width>60,id+' label is too narrow');
