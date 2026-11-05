@@ -199,7 +199,7 @@
   option('Réutiliser dans un prompt',()=>reuseInPrompt(item,raw,kind));
   if(kind==='image')option('Modifier la photo',()=>editImage(raw,item.filename));
   else option('Modifier la vidéo',()=>alert('La retouche vidéo directe n’est pas encore disponible. La vidéo originale est conservée.'));
-  option('Supprimer',()=>{if(existingRemove)existingRemove.click();else if(item._id)deleteLibraryItem(item._id)},'danger');
+  option('Supprimer de la galerie',()=>{if(existingRemove)existingRemove.click();else if(item._id)deleteLibraryItem(item._id)},'danger');
   more.addEventListener('click',e=>{
    e.stopPropagation();if(activeMenu===options){closeMenu();return}
    closeMenu();options.hidden=false;more.setAttribute('aria-expanded','true');activeMenu=options;
