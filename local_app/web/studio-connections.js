@@ -28,10 +28,10 @@
    </section>
    <section class="studio-connect-category">
     <h3>Google Maps et Places</h3>
-    <p>Créez un projet Google Cloud avec facturation activée et activez <strong>Maps JavaScript API</strong> et <strong>Places API (New)</strong>. Utilisez deux clés distinctes, des restrictions adaptées et des quotas.</p>
+    <p>Créez un projet Google Cloud avec facturation activée et activez <strong>Maps JavaScript API</strong>, <strong>Places UI Kit</strong> et <strong>Places API (New)</strong>. Utilisez deux clés distinctes, des restrictions adaptées et des quotas.</p>
     <div class="studio-google-key">
      <label for="studioMapsBrowserKey">Clé navigateur Google Maps <span id="scMaps" class="studio-connection-status"></span></label>
-     <small>Restreindre à Maps JavaScript API, aux référents 127.0.0.1/localhost avec le port utilisé et aux origines autorisées. Cette clé est visible par le navigateur.</small>
+     <small>Restreindre à Maps JavaScript API et Places UI Kit, aux référents http://127.0.0.1:3000/* et http://localhost:3000/* (adapter le port si nécessaire). Cette clé est visible par le navigateur.</small>
      <div class="studio-key-input"><input id="studioMapsBrowserKey" type="password" autocomplete="off" spellcheck="false" placeholder="Saisir une clé navigateur"><button type="button" data-save="maps_browser">Enregistrer</button><button type="button" data-clear="maps_browser" class="studio-connect-danger">Effacer</button></div>
     </div>
     <div class="studio-google-key">
