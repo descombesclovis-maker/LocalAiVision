@@ -148,3 +148,48 @@ Suite locale après recette : **344 tests Python réussis, 1 ignoré sur Linux**
 La provenance publique est accessible depuis « Paramètres réels » sur les résultats
 nouvellement tracés. Les mesures non disponibles restent nulles. La cookie privée
 est une cookie de session de navigateur ; le serveur limite sa validité à 8 h.
+
+## Reprise du 5 novembre 2026 — fiabilité, édition et validation technique
+
+Point de départ vérifié : HEAD `9a2bbee9f9fcf667b8c5a158ef0ceb7321bda6a2`,
+PR #65 toujours en brouillon, aucun changement local initial. CI 41942019758
+réussie sur ce HEAD ; elle ne valide pas les corrections de ce nouveau lot.
+
+Critères de ce lot : aucune tâche active oubliée après 1 000 demandes ; aucune
+perte de reçus par écritures concurrentes ; un historique partiel ne vaut pas
+succès ; les renommages/suppressions sont récupérables ; les fichiers privés
+restent privés lors des soumissions concurrentes ; un média non vide n'est pas
+certifié sans décodage. Aucun réglage de génération privé ou modèle modifié.
+
+- **TERMINÉ ET TESTÉ localement — journal** : index SQLite des rendus, migration
+  non destructive des anciens reçus, recherche des tâches actives sans limite
+  des 1 000 dernières demandes, fusion sous transaction d'écriture, états finaux
+  et dates de fin conservés. Tests de concurrence (20 rendus), anciennes données,
+  requête obsolète et interruption WebSocket. Historique partiel non déclaré fini.
+- **TERMINÉ ET TESTÉ localement — édition** : renommage et suppression dans le
+  journal transactionnel existant ; arrêt réel d'un processus pendant renommage
+  puis récupération ; suppression annulée si le commit disque échoue ; refus du
+  renommage d'un secret en fichier public. Un remplacement sans fichier texte
+  admissible ne peut plus effacer le site. Copies de médias toujours par blocs.
+- **TERMINÉ ET TESTÉ localement — confidentialité** : marqueur durable distinct
+  par soumission privée. La fin d'un worker ne supprime pas l'incertitude d'un
+  autre ; anciens marqueurs interrompus conservés ; tiroir anonyme fermé pendant
+  cette incertitude. PIN, modèles, workflows et politiques inchangés.
+- **IMPLÉMENTÉ, VALIDATION MATÉRIELLE RESTANTE — médias publics** : le benchmark
+  décode réellement images (Pillow) et vidéos (FFprobe + FFmpeg existants) ; outils
+  absents, format inconnu, fichier vide/corrompu : validation non accordée. Reçus
+  techniques détaillés, qualité artistique toujours `not_reviewed`. Tests exécutés
+  sur des fichiers synthétiques, pas sur des sorties IA. Pas de téléchargement.
+- Validation locale : **362 tests Python exécutés : 361 réussis, 1 ignoré Linux** ;
+  **13 tests Node réussis** ; `git diff --check` réussi. Aucun JS navigateur modifié.
+- Inspection Hunyuan T2V sans rendu : **indisponible**, connexion ComfyUI locale
+  absente. Aucune génération ni mesure de vitesse GPU exécutée. NVIDIA et Codex
+  CLI absents. Pas de navigateur local installé ; captures et QA Windows à vérifier
+  sur la nouvelle CI. Aucun score artistique ou « 10/10 » attribué sans observation.
+
+Prochaine action exacte : examiner la nouvelle CI de cette PR (EXE natif,
+Chromium/Edge, preuves bureau/mobile), corriger ses échecs éventuels, puis poursuivre
+D1/D3/O1/O5/O8 : qualification visible, contrats métier, édition et campagnes.
+Les générations réelles des six briefs et la qualification RTX 3060 restent
+bloquées par les moteurs/accès absents, et ne sont pas remplacées par des fixtures.
+Voir `FINAL_REPORT.md` pour la portée et les validations restantes.

@@ -67,3 +67,25 @@ class PrivateAccessTests(unittest.TestCase):
             self.assertEqual(request('/api/view?filename=old.png')[0],403)
             request('/api/private/lock',{},cookie)
             self.assertEqual(request('/api/history/private-job',cookie=cookie)[0],403)
+
+    def test_parallel_submission_markers_preserve_each_workers_uncertainty(self):
+        first=private_access.begin_submission(self.root)
+        second=private_access.begin_submission(self.root)
+        self.assertNotEqual(first,second)
+        private_access.finish_submission(self.root,first)
+        self.assertTrue(private_access.uncertain_submission(self.root))
+        private_access.finish_submission(self.root,first)
+        self.assertTrue(private_access.uncertain_submission(self.root))
+        private_access.finish_submission(self.root,second)
+        self.assertFalse(private_access.uncertain_submission(self.root))
+
+    def test_old_interrupted_marker_is_retained_on_upgrade(self):
+        folder=self.root/'private-access'
+        folder.mkdir()
+        legacy=folder/'pending-submission.json'
+        legacy.write_text('{"at":1}')
+        token=private_access.begin_submission(self.root)
+        private_access.finish_submission(self.root,token)
+        self.assertTrue(private_access.uncertain_submission(self.root))
+        self.assertTrue(legacy.exists())
+        with self.assertRaises(ValueError):private_access.finish_submission(self.root,'../ownership')

@@ -13,6 +13,7 @@ from contextlib import closing
 from pathlib import Path
 
 BOOT=uuid.uuid4().hex
+TERMINAL_STATES = ('done', 'error', 'cancelled')
 
 
 def _db(root):
@@ -24,8 +25,29 @@ def _db(root):
         ticket TEXT PRIMARY KEY, request_key TEXT UNIQUE NOT NULL, digest TEXT NOT NULL,
         owner TEXT NOT NULL, record TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS events(
-        id INTEGER PRIMARY KEY, ticket TEXT NOT NULL, at REAL NOT NULL, state TEXT NOT NULL);''')
+        id INTEGER PRIMARY KEY, ticket TEXT NOT NULL, at REAL NOT NULL, state TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS renders(
+        prompt_id TEXT PRIMARY KEY, ticket TEXT NOT NULL, state TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS renders_state ON renders(state);
+        CREATE TABLE IF NOT EXISTS journal_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);''')
+    # Backfill the existing JSON journal once, atomically. Old requests remain
+    # intact; the index avoids a last-N cutoff and repeated full-history scans.
+    if not db.execute("SELECT 1 FROM journal_meta WHERE key='renders_v1'").fetchone():
+        with db:
+            db.execute('BEGIN IMMEDIATE')
+            if not db.execute("SELECT 1 FROM journal_meta WHERE key='renders_v1'").fetchone():
+                for (raw,) in db.execute('SELECT record FROM requests'):
+                    _index_renders(db, json.loads(raw))
+                db.execute("INSERT INTO journal_meta VALUES('renders_v1','1')")
     return db
+
+
+def _index_renders(db, record):
+    for pid in record.get('prompt_ids') or []:
+        state = (record.get('render_states') or {}).get(pid, 'queued')
+        db.execute('INSERT INTO renders(prompt_id,ticket,state) VALUES(?,?,?) '
+                   'ON CONFLICT(prompt_id) DO UPDATE SET state=excluded.state',
+                   (pid, record['ticket'], state))
 
 
 def reserve(root,body,record):
@@ -45,13 +67,23 @@ def reserve(root,body,record):
 
 def save(root,record):
     with closing(_db(root)) as db,db:
+        db.execute('BEGIN IMMEDIATE')
         old=db.execute('SELECT record FROM requests WHERE ticket=?',(record['ticket'],)).fetchone()
         if not old:return False
         previous=json.loads(old[0])
-        record={**previous,**record}
-        ids=list(dict.fromkeys((previous.get('prompt_ids') or [])+(record.get('prompt_ids') or [])))
+        incoming = record
+        record={**previous,**incoming}
+        states = {**previous.get('render_states', {}), **incoming.get('render_states', {})}
+        # Worker snapshots may predate completion/cancellation; terminal receipts
+        # cannot be erased or changed by a stale preparation status write.
+        states.update({pid:state for pid,state in previous.get('render_states', {}).items()
+                       if state in TERMINAL_STATES})
+        if states:
+            record['render_states'] = states
+        ids=list(dict.fromkeys((previous.get('prompt_ids') or [])+(incoming.get('prompt_ids') or [])))
         if ids:record['prompt_ids']=ids
         db.execute('UPDATE requests SET record=? WHERE ticket=?',(json.dumps(record),record['ticket']))
+        _index_renders(db, record)
         if json.loads(old[0]).get('state')!=record.get('state'):
             db.execute('INSERT INTO events(ticket,at,state) VALUES(?,?,?)',(record['ticket'],time.time(),record['state']))
     return True
@@ -73,35 +105,41 @@ def load(root,ticket):
 
 
 def accepted(root,ticket,prompt_id):
-    record=load(root,ticket)
-    if not record:return
-    record.setdefault('prompt_ids',[])
-    if prompt_id not in record['prompt_ids']:record['prompt_ids'].append(prompt_id)
-    save(root,record)
+    # Merge just the new ID inside save's write transaction. Loading a snapshot
+    # here could lose an ID accepted concurrently by another worker/process.
+    save(root, {'ticket': ticket, 'prompt_ids': [prompt_id]})
 
 
 def monitorable(root):
     if not (Path(root)/'media-journal.sqlite').is_file():return []
     with closing(_db(root)) as db:
-        rows=db.execute('SELECT record FROM requests ORDER BY rowid DESC LIMIT 1000').fetchall()
+        rows=db.execute("SELECT renders.prompt_id, requests.record FROM renders "
+                        "JOIN requests ON requests.ticket=renders.ticket "
+                        "WHERE renders.state NOT IN ('done','error','cancelled')").fetchall()
     pending=[]
-    for row in rows:
-        record=json.loads(row[0])
-        for pid in record.get('prompt_ids') or []:
-            if (record.get('render_states') or {}).get(pid) not in ('done','error','cancelled'):
-                pending.append({'prompt_id':pid,'kind':record.get('kind','image'),
-                                'started_at':record.get('started_at'), 'private':record.get('private',False)})
+    for pid,raw in rows:
+        record=json.loads(raw)
+        pending.append({'prompt_id':pid,'kind':record.get('kind','image'),
+                        'started_at':record.get('started_at'), 'private':record.get('private',False)})
     return pending
 
 
 def render_finished(root,prompt_id,state):
+    if state not in TERMINAL_STATES:
+        raise ValueError('État final de génération invalide.')
     if not (Path(root)/'media-journal.sqlite').is_file():return
-    with closing(_db(root)) as db:
-        rows=db.execute('SELECT record FROM requests ORDER BY rowid DESC LIMIT 1000').fetchall()
-    for row in rows:
+    with closing(_db(root)) as db,db:
+        db.execute('BEGIN IMMEDIATE')
+        row=db.execute('SELECT requests.record FROM renders JOIN requests '
+                       'ON requests.ticket=renders.ticket WHERE renders.prompt_id=?',
+                       (prompt_id,)).fetchone()
+        if not row:return
         record=json.loads(row[0])
-        if prompt_id in (record.get('prompt_ids') or []):
-            states=record.setdefault('render_states',{})
-            if states.get(prompt_id)!=state:
-                states[prompt_id]=state;save(root,record)
-            return
+        states=record.setdefault('render_states',{})
+        if states.get(prompt_id) in TERMINAL_STATES:return
+        states[prompt_id]=state
+        record.setdefault('render_finished_at',{})[prompt_id]=time.time()
+        db.execute('UPDATE requests SET record=? WHERE ticket=?', (json.dumps(record),record['ticket']))
+        db.execute('UPDATE renders SET state=? WHERE prompt_id=?',(state,prompt_id))
+        db.execute('INSERT INTO events(ticket,at,state) VALUES(?,?,?)',
+                   (record['ticket'],time.time(),state))

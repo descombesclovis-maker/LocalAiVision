@@ -129,15 +129,27 @@ def pending_jobs(root):
 
 
 def begin_submission(root):
-    # Persist uncertainty BEFORE contacting ComfyUI. If the process dies between
-    # queue acceptance and ownership registration, unauthenticated media access
-    # stays closed after restart instead of exposing an unindexed private output.
-    atomic_write(Path(root)/'private-access'/'pending-submission.json',json.dumps({'at':time.time()}).encode())
+    # Each submission owns its marker. Finishing one worker must never clear
+    # another worker's uncertain queue acceptance window.
+    token=secrets.token_hex(16)
+    atomic_write(Path(root)/'private-access'/'pending-submissions'/(token+'.json'),
+                 json.dumps({'at':time.time()}).encode())
+    return token
 
 
 def uncertain_submission(root):
-    return (Path(root)/'private-access'/'pending-submission.json').exists()
+    folder=Path(root)/'private-access'
+    # Retain old interrupted markers; a version upgrade cannot prove that the
+    # previous submission was indexed, and must not silently open its media.
+    return (folder/'pending-submission.json').exists() or any((folder/'pending-submissions').glob('*.json'))
 
 
-def finish_submission(root):
-    (Path(root)/'private-access'/'pending-submission.json').unlink(missing_ok=True)
+def finish_submission(root,token=None):
+    folder=Path(root)/'private-access'
+    if token is None:
+        # Compatibility for an explicitly resolved pre-upgrade submission only.
+        (folder/'pending-submission.json').unlink(missing_ok=True)
+        return
+    if len(token)!=32 or any(char not in '0123456789abcdef' for char in token):
+        raise ValueError('Identifiant de soumission privée invalide.')
+    (folder/'pending-submissions'/(token+'.json')).unlink(missing_ok=True)

@@ -49,9 +49,9 @@ sans l'avoir exécuté. Ces constats ne sont pas des tests métier automatiques.
 
 `LOCALAI_BUSINESS_TIMEZONE=Europe/Paris` choisit une zone IANA disponible. Sans
 configuration, le fuseau et les règles DST du système sont employés. Les nouveaux
-devis mémorisent la politique utilisée. Sous Windows, si la base IANA n'est pas
-présente dans Python, une zone explicite indisponible échoue clairement ; utiliser
-le fuseau local du PC en attendant l'ajout autorisé de cette dépendance. Les anciens
+devis mémorisent la politique utilisée. Sous Windows, les zones Europe/Paris, America/Los_Angeles et UTC disposent
+d'une base IANA embarquée vérifiée ; les autres zones exigent une base système
+ou un package déjà présent. Une zone indisponible échoue explicitement. Les anciens
 devis sans zone ne sont pas réécrits et suivent la politique configurée courante.
 
 ## Windows et rendu

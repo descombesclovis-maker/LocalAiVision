@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from local_app import workflows, engine_qualification
+from local_app import workflows, engine_qualification, media_validation
 from local_app.atomic_storage import atomic_write
 
 PUBLIC={
@@ -125,7 +125,12 @@ def main():
                         with urlopen(base+'/view?'+params,timeout=120) as stream,destination.open('wb') as target:
                             shutil.copyfileobj(stream,target)
                         if not destination.stat().st_size:raise RuntimeError('Sortie vide.')
-                        outputs.append({'file':destination.name,'sha256':sha(destination),'engine_output':output})
+                        validation=media_validation.inspect_output(destination)
+                        outputs.append({'file':destination.name,'sha256':sha(destination),'engine_output':output,
+                                        'technical_validation':validation})
+                        receipt['outputs']=outputs
+                        if not validation['verified']:
+                            raise RuntimeError('Sortie non validée techniquement : '+validation.get('error','décodage absent'))
             if not outputs:raise RuntimeError('Aucun fichier de sortie vérifiable.')
             receipt.update(outputs=outputs,outputs_verified=True,success=True,status='tested')
             receipt['qualification']=engine_qualification.assess(installed=True,available=True,reports=[receipt],identity=identity)

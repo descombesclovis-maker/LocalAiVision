@@ -1942,14 +1942,14 @@ def run_generation(body):
                     if not record or record.get("cancel_requested"):
                         raise RuntimeError("Génération annulée avant son lancement.")
                 if settings.get('reserved_profile') == 'nsfw':
-                    private_access.begin_submission(DATA)
+                    submission_token=private_access.begin_submission(DATA)
                 result = queue_prompt(current)
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
                 results.append(result)
                 if settings.get('reserved_profile') == 'nsfw':
                     private_access.register_job(DATA,result['prompt_id'])
-                    private_access.finish_submission(DATA)
+                    private_access.finish_submission(DATA,submission_token)
                 if ticket:
                     media_journal.accepted(DATA,ticket,result['prompt_id'])
                 if 'original_prompt' in body and settings.get('reserved_profile') != 'nsfw':
@@ -2077,6 +2077,20 @@ def queue_prompt(api):
         comfy_progress.register(result["prompt_id"],"video" if video else "image")
     return result
 
+def _confirmed_render_state(info):
+    """An existing history row may still be partial; require engine evidence."""
+    status = info.get('status') or {}
+    messages = status.get('messages') or []
+    if any(isinstance(message, (list, tuple)) and message and
+           message[0] == 'execution_interrupted' for message in messages):
+        return 'cancelled'
+    if status.get('status_str') in ('error', 'failed'):
+        return 'error'
+    if status.get('completed'):
+        return 'done'
+    return None
+
+
 def studio_media_jobs():
     from local_app import comfy_progress
     for recovered in media_journal.monitorable(DATA):
@@ -2101,6 +2115,9 @@ def studio_media_jobs():
     for item in records:
         pid=item["prompt_id"]
         if item["state"] in ("done","cancelled","error"):
+            # WebSocket failures/interruption can precede an HTTP history poll.
+            # Persist them before dropping the in-memory task from the drawer.
+            media_journal.render_finished(DATA,pid,item["state"])
             continue
         if running is None:
             item["phase"]="Connexion ComfyUI indisponible"
@@ -2114,10 +2131,10 @@ def studio_media_jobs():
         else:
             try:
                 result=comfy_get("/history/"+quote(pid))
-                if pid in result:
-                    is_error=result[pid].get("status",{}).get("status_str") in ("error","failed")
-                    comfy_progress.mark(pid,"error" if is_error else "done")
-                    media_journal.render_finished(DATA,pid,"error" if is_error else "done")
+                state = _confirmed_render_state(result[pid]) if pid in result else None
+                if state:
+                    comfy_progress.mark(pid,state)
+                    media_journal.render_finished(DATA,pid,state)
                     continue
             except (OSError,ValueError,TypeError):
                 pass
@@ -2161,9 +2178,10 @@ def history(prompt_id):
                 info['provenance_url'] = '/api/studio/media/provenance?id=' + quote(prompt_id)
         except (OSError, ValueError, TypeError) as exc:
             info['provenance_error'] = str(exc)
-        failed=info.get("status",{}).get("status_str") in ("error","failed")
-        comfy_progress.mark(prompt_id,"error" if failed else "done")
-        media_journal.render_finished(DATA,prompt_id,"error" if failed else "done")
+        state = _confirmed_render_state(info)
+        if state:
+            comfy_progress.mark(prompt_id,state)
+            media_journal.render_finished(DATA,prompt_id,state)
     if prompt_id not in result:
         queue = comfy_get('/queue')
         active = queue.get('queue_running', []) + queue.get('queue_pending', [])
@@ -2615,7 +2633,8 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 result=studio_media_jobs()
                 if not self._private_authorized():
-                    result['jobs']=[row for row in result['jobs'] if not private_access.private_job(DATA,row.get('prompt_id'))
+                    result['jobs']=[row for row in result['jobs'] if not private_access.uncertain_submission(DATA)
+                                    and not private_access.private_job(DATA,row.get('prompt_id'))
                                     and not (_media_request_get(row.get('request_ticket')) or {}).get('private')]
                     result['count']=len(result['jobs'])
                 self.send_json(result)

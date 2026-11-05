@@ -247,6 +247,8 @@ class LocalAiWebStore:
             if len(raw) > MAX_FILE_BYTES:
                 raise ValueError('Fichier trop volumineux : ' + str(rel))
             prepared[p.as_posix()] = raw
+        if not prepared:
+            raise ValueError('Aucun fichier de texte modifiable dans cette requête.')
         return self._write_binary_files(project_id, prepared, replace=replace)
 
     def snapshot(self, project_id, label='Version automatique'):
@@ -372,36 +374,39 @@ class LocalAiWebStore:
         return self.payload(pid)
 
     def delete_file(self, project_id, rel):
-        p = safe_rel(rel)
-        site = (self.project_dir(project_id) / 'site').resolve()
-        target = (site / p).resolve()
-        if not target.is_relative_to(site):
-            raise ValueError('Chemin invalide.')
-        if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
-            raise ValueError('Ce fichier système ne peut pas être supprimé depuis l’éditeur.')
-        self.snapshot(project_id, 'Avant suppression de ' + p.as_posix())
-        if target.is_file():
-            target.unlink()
-        meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
-        return self.payload(project_id)
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
+            self._recover_transaction(self.project_dir(project_id))
+            p = safe_rel(rel)
+            site = (self.project_dir(project_id) / 'site').resolve()
+            target = site / p
+            if (target.is_symlink() or not target.resolve().is_relative_to(site)
+                    or p.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in p.parts)):
+                raise ValueError('Ce fichier système ne peut pas être supprimé depuis l’éditeur.')
+            self.snapshot(project_id, 'Avant suppression de ' + p.as_posix())
+            self._write_binary_files(project_id, {p.as_posix(): None})
+            meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
+            return self.payload(project_id)
 
     def rename_file(self, project_id, old_rel, new_rel):
-        old = safe_rel(old_rel); new = safe_rel(new_rel)
-        site = (self.project_dir(project_id) / 'site').resolve()
-        source = (site / old).resolve(); target = (site / new).resolve()
-        if not source.is_relative_to(site) or not target.is_relative_to(site):
-            raise ValueError('Chemin invalide.')
-        if not source.is_file():
-            raise FileNotFoundError('Fichier introuvable.')
-        if target.exists():
-            raise ValueError('Un fichier existe déjà avec ce nom.')
-        if target.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in target.relative_to(site).parts):
-            raise ValueError('Nom réservé.')
-        self.snapshot(project_id, 'Avant renommage de ' + old.as_posix())
-        target.parent.mkdir(parents=True, exist_ok=True)
-        source.replace(target)
-        meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
-        return self.payload(project_id)
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
+            self._recover_transaction(self.project_dir(project_id))
+            old = safe_rel(old_rel); new = safe_rel(new_rel)
+            site = (self.project_dir(project_id) / 'site').resolve()
+            source = site / old; target = site / new
+            for rel, path in ((old, source), (new, target)):
+                if (path.is_symlink() or not path.resolve().is_relative_to(site)
+                        or rel.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in rel.parts)):
+                    raise ValueError('Nom réservé ou chemin invalide.')
+            if not source.is_file():
+                raise FileNotFoundError('Fichier introuvable.')
+            if target.exists():
+                raise ValueError('Un fichier existe déjà avec ce nom.')
+            self.snapshot(project_id, 'Avant renommage de ' + old.as_posix())
+            # Copy first, then remove the source in the same recoverable journal.
+            # Retain streaming for large imported media rather than buffering it.
+            self._write_binary_files(project_id, {new.as_posix(): source, old.as_posix(): None})
+            meta = self.meta(project_id); meta['updated_at'] = time.time(); self.write_meta(project_id, meta)
+            return self.payload(project_id)
 
     def rename_project(self, project_id, name):
         meta = self.meta(project_id)

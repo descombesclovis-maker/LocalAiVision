@@ -129,3 +129,49 @@ store.write_files(sys.argv[2],{'index.html':'new','style.css':'new'})
         self.assertEqual((self.site/'index.html').read_text(),'new')
         self.assertEqual((self.site/'style.css').read_text(),'new')
         proc.stdin.close();proc.stdout.close()
+
+    def test_unsupported_replacement_cannot_erase_existing_site(self):
+        with self.assertRaises(ValueError):
+            self.store.write_files(self.pid, {'image.png':'invalid text image'}, replace=True)
+        self.assertEqual((self.site/'index.html').read_text(),'old index')
+        self.assertEqual((self.site/'style.css').read_text(),'old style')
+
+    def test_editor_cannot_rename_a_secret_into_a_public_file(self):
+        secret=self.site/'.env'
+        secret.write_text('PRIVATE TOKEN')
+        with self.assertRaises(ValueError):
+            self.store.rename_file(self.pid,'.env','public.txt')
+        self.assertEqual(secret.read_text(),'PRIVATE TOKEN')
+        self.assertFalse((self.site/'public.txt').exists())
+
+    def test_real_process_death_recovers_rename_without_duplicate_or_loss(self):
+        code = """
+import os,sys
+from pathlib import Path
+from local_app import web_builder
+from local_app.atomic_storage import atomic_copy
+store=web_builder.LocalAiWebStore(sys.argv[1],None)
+site=store.project_dir(sys.argv[2])/'site'
+def crash(source,destination):
+    atomic_copy(source,destination)
+    if Path(destination)==site/'renamed.html':os._exit(74)
+web_builder.atomic_copy=crash
+store.rename_file(sys.argv[2],'index.html','renamed.html')
+"""
+        result=subprocess.run([sys.executable,'-c',code,str(self.root),self.pid],check=False)
+        self.assertEqual(result.returncode,74)
+        self.assertTrue((self.site/'renamed.html').exists())
+        web_builder.LocalAiWebStore(self.root,None)
+        self.assertEqual((self.site/'index.html').read_text(),'old index')
+        self.assertFalse((self.site/'renamed.html').exists())
+        self.assertFalse((self.site.parent/'.site-transaction').exists())
+
+    def test_deletion_recovers_if_transaction_commit_cannot_be_written(self):
+        def fail_commit(path,raw):
+            if Path(path).name=='manifest.json' and json.loads(raw).get('committed'):
+                raise OSError('Commit interrupted')
+            return atomic_write(path,raw)
+        with patch.object(web_builder,'atomic_write',side_effect=fail_commit):
+            with self.assertRaises(OSError):self.store.delete_file(self.pid,'index.html')
+        self.assertEqual((self.site/'index.html').read_text(),'old index')
+        self.assertFalse((self.site.parent/'.site-transaction').exists())
