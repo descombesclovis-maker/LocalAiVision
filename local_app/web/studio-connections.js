@@ -114,4 +114,8 @@
  root.addEventListener('click',event=>{if(event.target===root)root.close()});
  root.addEventListener('close',()=>{for(const input of Object.values(inputs))input.value=''});
  trigger.addEventListener('click',()=>{if(!root.open){root.showModal();void status()}});
+ if(['maps','codex','claude'].includes(new URLSearchParams(location.search).get('connections'))){
+  trigger.click();
+  if(new URLSearchParams(location.search).get('connections')==='maps')root.querySelector('#studioMapsBrowserKey')?.focus({preventScroll:true});
+ }
 })();
