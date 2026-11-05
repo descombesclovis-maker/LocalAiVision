@@ -498,7 +498,7 @@ async function deleteLibraryItem(id){
  if(!confirm('Retirer cette création de « Mes créations » ? Elle restera récupérable depuis sa conversation.'))return false;
  item.galleryHidden=true;save();renderLibraryCounts();notifyPublicLibraryChanged();
  toast('Création retirée de la galerie, toujours disponible dans le chat.');
- if(document.body.dataset.visionMode!=='creations')renderLibrary(item.kind,item.kind==='image'?'Mes photos générées':'Mes vidéos générées','standard');
+ if(document.querySelector('#messages > .library-view:not(.studio-gallery)'))renderLibrary(item.kind,item.kind==='image'?'Mes photos générées':'Mes vidéos générées','standard');
  return true;
 }
 function restorePublicLibraryItem(result,kind,promptText=''){
