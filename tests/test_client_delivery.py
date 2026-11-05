@@ -91,7 +91,8 @@ class DeliveryTests(unittest.TestCase):
   name,blob=self.packet(True)
   with zipfile.ZipFile(io.BytesIO(blob)) as z:
    self.assertTrue(any('/03_Hebergement/Vercel/' in n for n in z.namelist()))
-   self.assertTrue(any(n.endswith('schema.sql') for n in z.namelist()))
+   self.assertTrue(any('/01_Site_Web/Sources/supabase/migrations/' in n for n in z.namelist()))
+   self.assertTrue(any('/04_Base_de_Donnees/Supabase/migrations/' in n for n in z.namelist()))
    self.assertTrue(any('/05_Paiements/' in n for n in z.namelist()))
  def test_provider_metadata_and_test_mode_never_unlock_live_delivery(self):
   self.commercial()
@@ -112,6 +113,8 @@ class DeliveryTests(unittest.TestCase):
   self.assertEqual(delivery.document(self.db,self.store,self.pid,invoice),pdf)
   self.assertTrue(self.snap()['credit'].startswith('AV-LIV-'))
   with self.assertRaises(ValueError):self.packet()
+  self.act('revise',confirmed=True);self.assertIsNone(self.snap()['quote'])
+  self.assertEqual(delivery.document(self.db,self.store,self.pid,invoice),pdf)
  def test_dossier_lease_and_document_project_ownership(self):
   self.commercial();self.pay();self.technical();old=self.snap();self.technical()
   with self.assertRaisesRegex(ValueError,'dossier a changé'):delivery.package(self.db,self.store,self.pid,old['assessment']['revision'],expected_version=old['version'])

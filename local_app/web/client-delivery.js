@@ -51,6 +51,7 @@
   for(const key of ['service_date','valid_days','due_days','scope','maintenance','require_payment'])valueField(form,key,dossier[key]);
   for(const control of form.elements)control.disabled=Boolean(dossier.quote);$('#createQuote').disabled=Boolean(dossier.quote);
   $('#quoteLines').replaceChildren();dossier.items.forEach(renderLine);draftTotal();
+  $('#reviseQuote').hidden=!dossier.quote;
   $('#documentList').replaceChildren();for(const doc of dossier.documents)$('#documentList').append(docLink(doc.number,{quote:'Devis PDF',invoice:'Facture PDF',credit:'Avoir PDF'}[doc.kind]));
   $('#legalNotice').textContent=dossier.legal_notice;$('#acceptQuote').disabled=!dossier.quote||Boolean(dossier.accepted_quote);
   $('#cancelPayment').textContent=dossier.cancelled?'Rouvrir le dossier':'Annuler le règlement en attente';$('#cancelPayment').disabled=Number(dossier.assessment.payment.paid_eur)>0;
@@ -87,6 +88,7 @@
  $('#projectSelect').addEventListener('change',event=>{if(event.target.value)run(()=>open(event.target.value))});
  $('#commercialForm').addEventListener('submit',event=>{event.preventDefault();run(()=>mutate('save',commercialData()))});
  $('#createQuote').addEventListener('click',()=>run(async()=>{if(!$('#commercialForm').reportValidity())return;const data=commercialData();if(!confirm('Valider vos coordonnées et ces prestations pour créer un devis figé ? Aucun document ne sera envoyé.'))return;await mutate('save',data);await mutate('quote',{confirmed:true});status('Devis PDF créé et archivé. Vous pouvez le télécharger.')}));
+ $('#reviseQuote').addEventListener('click',()=>run(async()=>{if(confirm('Préparer un nouveau devis modifiable ? Les documents précédents restent archivés. Aucun document ne sera envoyé.'))await mutate('revise',{confirmed:true})}));
  $('#acceptQuote').addEventListener('click',()=>run(async()=>{if(confirm('Le client a-t-il accepté ce devis ? Cette acceptation sera enregistrée comme votre déclaration.'))await mutate('accept',{confirmed:true})}));
  $('#cancelPayment').addEventListener('click',()=>run(async()=>{if(confirm(dossier.cancelled?'Rouvrir ce dossier ?':'Annuler le règlement en attente ? Aucun document ne sera supprimé.'))await mutate('cancel',{confirmed:true})}));
  $('#recordPayment').addEventListener('click',()=>run(async()=>{const amount=$('#paymentAmount').value,reference=$('#paymentReference').value;if(!confirm('Confirmer la réception déclarée de '+amount+' € et la génération automatique de la facture ? Aucun paiement ne sera exécuté.'))return;await mutate('payment',{amount,reference,confirmed:true});$('#paymentAmount').value='';$('#paymentReference').value=''}));

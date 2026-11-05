@@ -92,6 +92,7 @@ def initial(store,pid):
 def public_configuration(store,pid,meta):
     """Prefill only public identifiers. Credentials and remote data are never read."""
     site=store.project_dir(pid)/'site';deploy=meta.get('deployment') or {};result={}
+    if site.is_symlink():return result
     config=site/'.vercel'/'project.json';linked={}
     if config.is_file() and config.resolve().is_relative_to(site.resolve()) and config.stat().st_size<100000:
         try:linked=json.loads(config.read_text(encoding='utf-8'))
@@ -201,9 +202,12 @@ def document(root,store,pid,number):
 
 def inventory(store,pid):
     site=store.project_dir(pid)/'site';files={};excluded=[];blocked=[];services=set();total=0
+    if site.is_symlink() or not site.resolve().is_relative_to(store.project_dir(pid).resolve()):
+        return {},[],['Répertoire de sources symbolique ou extérieur interdit.'],set()
     for path in sorted(site.rglob('*')):
         rel=path.relative_to(site);name=rel.as_posix();lower=path.name.lower()
         if any(p.lower() in IGNORED for p in rel.parts):continue
+        if secret_in(name):blocked.append('Nom de fichier contenant un secret potentiel');continue
         if path.is_symlink():blocked.append(name+' : lien symbolique');continue
         if not path.resolve().is_relative_to(site.resolve()):blocked.append(name+' : chemin extérieur');continue
         if not path.is_file():continue
@@ -351,6 +355,12 @@ def action(root,store,pid,body):
         elif kind=='quote':
             if body.get('confirmed') is not True:raise ValueError('Valider les identités et les montants du devis.')
             if not d.get('quote'):d['quote']=issue_doc(db,d,'quote',validate_commercial(d))
+        elif kind=='revise':
+            if body.get('confirmed') is not True:raise ValueError('Confirmer la préparation d’un nouveau devis, sans effacer les documents existants.')
+            if Decimal(payment_state(db,d)['paid_eur'])>0 or (d.get('invoice') and not d.get('credit')):
+                raise ValueError('Rembourser les montants déclarés et annuler la facture par avoir avant un nouveau devis.')
+            for key in ('quote','accepted_quote','invoice','credit','delivered'):d[key]=None
+            d['cancelled']=False
         elif kind=='accept':
             if not d.get('quote') or body.get('confirmed') is not True:raise ValueError('Confirmer l’acceptation du devis par le client.')
             d['accepted_quote']=d['quote']
@@ -364,7 +374,7 @@ def action(root,store,pid,body):
             if d.get('credit'):raise ValueError('Facture annulée par avoir.')
             if body.get('confirmed') is not True:raise ValueError('Confirmer le règlement déclaré et la préparation automatique de la facture.')
             ref=text(body.get('reference'),220)
-            if not ref:raise ValueError('Référence du règlement obligatoire.')
+            if not ref or secret_in(ref):raise ValueError('Référence du règlement obligatoire, sans secret.')
             source='stripe' if kind=='stripe' else 'manual'
             amount,mode=stripe_receipt(store,d,ref) if kind=='stripe' else (money(body.get('amount')),'live')
             if amount<=0:raise ValueError('Montant reçu attendu.')
@@ -374,7 +384,7 @@ def action(root,store,pid,body):
             if not old and amount+Decimal(state['paid_eur'])>Decimal(q['total_eur']) and mode=='live':raise ValueError('Le règlement dépasse le solde du devis.')
             if not old:db.execute('INSERT INTO payments(pid,quote,amount,source,reference,mode,at) VALUES(?,?,?,?,?,?,?)',(pid,d['quote'],str(amount),source,ref,mode,business_date().isoformat()))
             if mode=='live' and not d.get('invoice'):
-                d['invoice']=issue_doc(db,d,'invoice',{**q,'quote_number':d['quote'],'payment':payment_state(db,d),'due_date':business_date().isoformat()})
+                d['invoice']=issue_doc(db,d,'invoice',{**q,'quote_number':d['quote'],'payment':payment_state(db,d)})
         elif kind=='refund':
             if body.get('confirmed') is not True:raise ValueError('Confirmation du remboursement déclaré requise.')
             state=payment_state(db,d);amount=money(body.get('amount'));ref=text(body.get('reference'),220)
@@ -385,7 +395,7 @@ def action(root,store,pid,body):
         elif kind=='credit':
             if body.get('confirmed') is not True or not d.get('invoice'):raise ValueError('Facture et validation explicite de l’avoir requises.')
             reason=text(body.get('reason'),600)
-            if not reason:raise ValueError('Motif de l’avoir obligatoire.')
+            if not reason or secret_in(reason):raise ValueError('Motif de l’avoir obligatoire, sans secret.')
             if not d.get('credit'):d['credit']=issue_doc(db,d,'credit',{**get_doc(db,d['invoice']),'invoice_reference':d['invoice'],'reason':reason})
             d['delivered']=None
         elif kind=='delivered':
@@ -434,6 +444,10 @@ def render_pdf(doc):
         story.extend([p('Nature : prestations de services.'),p('Modalités de paiement : '+seller.get('payment_details','')),p('Échéance : '+doc.get('due_date','')),p('Escompte pour paiement anticipé : néant.')])
         if seller.get('vat_on_debits')=='oui':story.append(p('Option pour le paiement de la taxe d’après les débits.'))
         if customer.get('type')=='business':story.extend([p('Pénalités de retard : '+seller.get('late_penalty_rate','')),p('Indemnité forfaitaire de recouvrement : 40 EUR (client professionnel).')])
+    if doc.get('payment') and doc.get('kind')=='invoice':
+        payment=doc['payment']
+        story.extend([p('Situation du règlement à la date d’émission','Heading3'),p('Reçu : '+payment['paid_eur']+' EUR | Solde : '+payment['remaining_eur']+' EUR'),p(payment.get('manual_notice',''))])
+        story.append(p('Les règlements ultérieurs figurent au journal et dans le récapitulatif de livraison, sans réécriture de cette facture.'))
     for heading,value in doc.get('sections',[]):story.extend([p(heading,'Heading3'),p(value)])
     if doc.get('maintenance'):story.extend([p('Maintenance','Heading3'),p(doc['maintenance'])])
     if doc.get('kind')=='quote':story.append(p('Acceptation : date, nom et signature du client. Aucun envoi ni accord enregistré automatiquement.'))
@@ -458,8 +472,9 @@ def package(root,store,pid,expected_revision=None,download=False,expected_versio
         if expected_revision!=report['revision']:raise ValueError('Les sources ont changé : prévisualiser à nouveau le paquet.')
         payload={};prefix='Livraison_'+re.sub(r'[^a-zA-Z0-9_-]+','_',d['name']).strip('_')[:70]
         for name,blob in files.items():
-            base='04_Base_de_Donnees/Supabase/' if name.startswith('supabase/') else '01_Site_Web/Sources/'
-            payload[base+name]=blob
+            payload['01_Site_Web/Sources/'+name]=blob
+            if name.startswith('supabase/'):
+                payload['04_Base_de_Donnees/Supabase/'+name[len('supabase/'):]]=blob
         for key,name in [('quote','Devis'),('invoice','Facture')]:
             row=db.execute('SELECT pdf FROM documents WHERE number=? AND pid=?',(d[key],pid)).fetchone()
             payload['02_Documents/'+name+'.pdf']=bytes(row[0])
