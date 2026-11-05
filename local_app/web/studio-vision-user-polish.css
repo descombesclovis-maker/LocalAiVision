@@ -14,7 +14,7 @@ body[data-studio-page="vision"]:not(.nsfw-active) .studio-return-arrow{color:#66
 
 /* High-quality cyan vector navigation paired with native colour emoji. */
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation :is(.studio-nav-entry,#historyBtn) {
- display:flex;align-items:center;gap:11px;min-height:53px;padding:9px 14px;
+ display:flex;align-items:center;gap:11px;min-height:52px;padding:9px 14px;
  border-radius:13px;border:1px solid #57d7e31d!important;
  color:#e4f8fc;background:linear-gradient(120deg,#09232fce,#142e3a66);
  box-shadow:inset 0 1px #ffffff09;transition:background .2s,border-color .2s,box-shadow .2s;
@@ -135,3 +135,5 @@ body.nsfw-active :is(.vision-gallery-modal,.vision-image-editor){display:none!im
  body[data-studio-page="vision"]:not(.nsfw-active) .studio-universe-link,
  body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation .studio-nav-entry{transition:none!important}
 }
+/* Maintain the original identical 52px row geometry and two icon-free special actions. */
+body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation> :is(button,a){height:52px!important;min-height:52px!important}
