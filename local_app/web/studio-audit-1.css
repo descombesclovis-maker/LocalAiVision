@@ -46,3 +46,8 @@ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar[popover]:popover-open
 body[data-studio-page="vision"]:not(.nsfw-active) #homeBtn>span{display:block!important}
 
 .brand-card-copy h2{overflow-wrap:anywhere}
+/* Keep generation text legible above the previous preview, and give status its own line. */
+body[data-studio-page="editor"] #lawEditOverlay{background:#10131b!important;backdrop-filter:none!important}
+body[data-studio-page="editor"] #lawComposer .composer-bottom{flex-wrap:wrap}
+body[data-studio-page="editor"] #lawChatStatus{order:3;flex:1 1 100%;min-width:0}
+body[data-studio-page="editor"] #lawGenerate{margin-left:auto}
