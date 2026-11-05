@@ -9,7 +9,7 @@ try:
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
-from local_app import private_access
+from local_app import private_access, media_journal
 from local_app import web_sales_orders
 web_sales_orders.isolate_config()
 _sales_attempts = []
@@ -262,6 +262,8 @@ _media_requests={}
 def _media_request_get(ticket):
     with _media_request_lock:
         row=_media_requests.get(str(ticket or ""))
+        if row is None:
+            row=media_journal.load(DATA,str(ticket or ''))
         return dict(row) if row else None
 
 def _media_request_pending():
@@ -284,6 +286,7 @@ def _media_request_worker(ticket,body):
                 record.update(state="cancelled" if cancelled else "queued",
                               prompt_ids=ids,warnings=answer.get("warnings",[]),
                               finished_at=time.time())
+                media_journal.save(DATA,record)
         if cancelled:
             for pid in ids:
                 try: cancel_studio_media(pid)
@@ -294,6 +297,7 @@ def _media_request_worker(ticket,body):
             if record:
                 record.update(state="cancelled" if record.get("cancel_requested") else "error",
                               error=str(exc)[:650],finished_at=time.time())
+                media_journal.save(DATA,record)
 
 def _media_request_start(body):
     if not isinstance(body,dict) or not body.get("workflow") or not str(body.get("prompt") or "").strip():
@@ -302,10 +306,15 @@ def _media_request_start(body):
     profile=str(body.get("workflow") or "").lower()
     kind="video" if any(t in profile for t in ("video","wan","weaving","t2v","i2v")) else "image"
     with _media_request_lock:
-        _media_requests[ticket]={"ticket":ticket,"state":"preparing",
-                                 "kind":kind,"phase":"Préparation du moteur et du modèle…",
-                                 "started_at":time.time(),"cancel_requested":False,
-                                 "private":(body.get("settings") or {}).get("reserved_profile")=="nsfw"}
+        record={"ticket":ticket,"state":"preparing",
+                "kind":kind,"phase":"Préparation du moteur et du modèle…",
+                "started_at":time.time(),"cancel_requested":False,
+                "private":(body.get("settings") or {}).get("reserved_profile")=="nsfw"}
+        saved,created=media_journal.reserve(DATA,body,record)
+        if not created:
+            existing=_media_request_get(saved['ticket']) or saved
+            return {"ok":True,"ticket":saved['ticket'],"state":existing['state'],"already_submitted":True}
+        _media_requests[ticket]=saved
     threading.Thread(target=_media_request_worker,args=(ticket,body),
                      name="LocalAiVisionPrepare-"+ticket[-8:],daemon=True).start()
     return {"ok":True,"ticket":ticket,"state":"preparing"}
@@ -317,6 +326,7 @@ def cancel_media_preparation(ticket):
             raise ValueError("Préparation terminée ou introuvable.")
         record["cancel_requested"]=True
         record.update(state="cancelled",finished_at=time.time())
+        media_journal.save(DATA,record)
     return {"ok":True,"cancelled":str(ticket),"message":"Annulation demandée. La préparation déjà lancée peut se terminer sans créer de vidéo."}
 
 _studio_media_status_cache={"at":0.0,"value":{"count":0,"running":0,"queued":0}}
@@ -1935,6 +1945,8 @@ def run_generation(body):
                 if settings.get('reserved_profile') == 'nsfw':
                     private_access.register_job(DATA,result['prompt_id'])
                     private_access.finish_submission(DATA)
+                if ticket:
+                    media_journal.accepted(DATA,ticket,result['prompt_id'])
                 if 'original_prompt' in body and settings.get('reserved_profile') != 'nsfw':
                     try:
                         from local_app import generation_provenance
@@ -2062,6 +2074,9 @@ def queue_prompt(api):
 
 def studio_media_jobs():
     from local_app import comfy_progress
+    for recovered in media_journal.monitorable(DATA):
+        if comfy_progress.status(recovered['prompt_id']) is None:
+            comfy_progress.register(recovered['prompt_id'],recovered['kind'],started_at=recovered.get('started_at'))
     records=comfy_progress.statuses()
     if not records and not _media_request_pending():
         return {"jobs":[],"count":0}
@@ -2097,6 +2112,7 @@ def studio_media_jobs():
                 if pid in result:
                     is_error=result[pid].get("status",{}).get("status_str") in ("error","failed")
                     comfy_progress.mark(pid,"error" if is_error else "done")
+                    media_journal.render_finished(DATA,pid,"error" if is_error else "done")
                     continue
             except (OSError,ValueError,TypeError):
                 pass
@@ -2122,6 +2138,7 @@ def cancel_studio_media(prompt_id):
     else:
         raise ValueError("Tâche non présente dans la file ComfyUI. Son état a peut-être changé.")
     comfy_progress.mark(pid,"cancelled")
+    media_journal.render_finished(DATA,pid,"cancelled")
     _studio_media_status_cache["at"]=0
     return {"ok":True,"cancelled":pid}
 
@@ -2141,6 +2158,7 @@ def history(prompt_id):
             info['provenance_error'] = str(exc)
         failed=info.get("status",{}).get("status_str") in ("error","failed")
         comfy_progress.mark(prompt_id,"error" if failed else "done")
+        media_journal.render_finished(DATA,prompt_id,"error" if failed else "done")
     if prompt_id not in result:
         queue = comfy_get('/queue')
         active = queue.get('queue_running', []) + queue.get('queue_pending', [])

@@ -23,13 +23,13 @@ _socket_thread = None
 _endpoint = ""
 _preview = {}
 
-def register(prompt_id, kind="video"):
+def register(prompt_id, kind="video", *, started_at=None):
     key = str(prompt_id or "")
     if not key:
         return
     with _lock:
         _jobs[key] = {"prompt_id": key, "kind": kind, "state": "queued",
-                      "started_at": time.time(), "step": 0,
+                      "started_at": started_at if started_at is not None else time.time(), "step": 0,
                       "max_steps": 0, "node": None, "percent": None}
 
 def update(prompt_id, *, value=None, maximum=None, node=None, state=None):

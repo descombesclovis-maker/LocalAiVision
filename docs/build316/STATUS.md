@@ -46,7 +46,7 @@ n'est certifié sans son exécution réelle. Base : b2666902b008a82fc91c98839467
 |---|---|---|---|
 | O1 | P1 | Contrat de projet vérifiable | À faire |
 | O2 | P1 | Profils GPU qualifiés | RTX 3060, modèles et ComfyUI nécessaires |
-| O3 | P0/P1 | Journal durable et reprise | À faire ; reprise d'inférence non garantie |
+| O3 | P0/P1 | Journal durable et reprise | Réservations SQLite, IDs ComfyUI conservés, réconciliation après redémarrage, 4 tests passent ; aucune reprise d’inférence revendiquée |
 | O4 | P2 | Identité de marque commune | À faire ; conserver catalogue actuel |
 | O5 | P1 | Édition Web transactionnelle | À faire |
 | O6 | P1 | Banc permanent de six briefs | Corpus préparé ; aucune génération réelle exécutée ; Codex authentifié requis |
@@ -111,3 +111,17 @@ les modèles, LoRAs et workflows privés n'ont pas été modifiés.
 Prochaine validation : CI Windows/Chromium/Edge après publication du lot, puis
 captures du 315.5 personnalisé et comparaison. Poursuivre statuts métier/édition,
 provenance détaillée, tâches durables et campagnes ; ne pas annoncer 100 %.
+
+## Lot journal et concurrence
+
+- Journal SQLite de préparation : réservation idempotente avant le worker,
+  empreinte de requête sans prompt/média stocké, IDs ComfyUI persistés à chaque
+  acceptation. Requête interrompue sans ID : état explicite, sans redémarrage
+  automatique. IDs connus : surveillance de la tâche existante après redémarrage.
+- 4 tests journal et 8 tests stockage passent. Une lecture depuis un deuxième
+  processus attend désormais le verrou de l'écriture active avant récupération.
+- CI 41938207085 : build natif, icône, démarrage et mise à jour réussis ; contrôle
+  PIN serveur dans le navigateur réussi. La suite navigateur échoue ensuite sur
+  l'iframe d'aperçu masquée après injection du site de recette. Diagnostics API et
+  DOM ajoutés pour distinguer source absente et défaut frontend. La revue reste
+  ouverte, pas de certification visuelle globale.
