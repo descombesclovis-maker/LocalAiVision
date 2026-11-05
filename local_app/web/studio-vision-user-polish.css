@@ -137,3 +137,6 @@ body.nsfw-active :is(.vision-gallery-modal,.vision-image-editor){display:none!im
 }
 /* Maintain the original identical 52px row geometry and two icon-free special actions. */
 body[data-studio-page="vision"]:not(.nsfw-active) .studio-navigation> :is(button,a){height:52px!important;min-height:52px!important}
+
+/* The always-visible Vision rail uses colourful native emoji; hamburger items remain premium vectors. */
+body[data-studio-page="vision"]:not(.nsfw-active) .qcm-dock-link .qcm-emoji-vision{font:25px/1 "Segoe UI Emoji","Noto Color Emoji","Apple Color Emoji",sans-serif;font-variant-emoji:emoji;filter:drop-shadow(0 1px 3px #06182480)}
