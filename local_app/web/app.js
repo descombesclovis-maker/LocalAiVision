@@ -80,18 +80,18 @@ function appendInlineMarkup(parent,text){
  let last=0;
  for(const match of String(text||'').matchAll(re)){
   if(match.index>last)appendEmojiAwareText(parent,text.slice(last,match.index));
-  const token=match[0];let node;
+  const token=match[0];let node,suffix='';
   if(token.startsWith('**')){node=document.createElement('strong');appendEmojiAwareText(node,token.slice(2,-2))}
   else if(token.startsWith('`')){node=document.createElement('code');node.textContent=token.slice(1,-1)}
   else{
    const md=token.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
-   let url=md?md[2]:token,label=md?md[1]:token,suffix='';
+   let url=md?md[2]:token,label=md?md[1]:token;
    if(!md){const m=url.match(/[.,;:!?]+$/);if(m){suffix=m[0];url=url.slice(0,-suffix.length);label=url}}
    node=document.createElement('a');
    try{const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error('Unsafe URL');node.href=parsed.href;node.target='_blank';node.rel='noopener noreferrer';appendEmojiAwareText(node,label)}
    catch{node=document.createElement('span');appendEmojiAwareText(node,label)}
   }
-  parent.appendChild(node);if(typeof suffix!=='undefined'&&suffix)appendEmojiAwareText(parent,suffix);
+  parent.appendChild(node);if(suffix)appendEmojiAwareText(parent,suffix);
   last=match.index+token.length;
  }
  if(last<text.length)appendEmojiAwareText(parent,text.slice(last));
