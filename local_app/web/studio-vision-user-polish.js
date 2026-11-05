@@ -11,22 +11,34 @@
   const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',d);
   svg.append(path);return svg;
  }
+ // Premium dual-stroke drawings replace coarse single-line SVG pictograms.
  const navPaths={
-  navChat:'M20.5 11.4a8.2 8.2 0 0 1-8.4 8.2H7l-3.5 2 .8-5A8.3 8.3 0 1 1 20.5 11.4z M7.5 10h9 M7.5 13.5h6.2',
-  navCreations:'M4 3.5h6.7v6.7H4z M13.3 3.5H20v6.7h-6.7z M4 13.3h6.7V20H4z M13.3 13.3H20V20h-6.7z',
-  navPhoto:'M4.2 7h4l1.8-2.5h4.5L16.3 7h3.5a1.5 1.5 0 0 1 1.5 1.5V19H2.7V8.5A1.5 1.5 0 0 1 4.2 7z M15.7 13a3.7 3.7 0 1 1-7.4 0 3.7 3.7 0 1 1 7.4 0z',
-  navVideo:'M4.5 4.2h12A2 2 0 0 1 18.5 6v3l3-2v10l-3-2v3a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-1.8z M8.5 8.8l5.5 3.2-5.5 3.2z',
-  navNsfw:'M12 2.5 4 6.4v5.1c0 5 3.2 8.4 8 10 4.8-1.6 8-5 8-10V6.4z M9.5 11h5v5h-5z M10.4 11V9.4a1.6 1.6 0 0 1 3.2 0V11',
-  studioAdOpen:'M3 9.4 14.6 5v14L3 14.6z M14.6 8.2h3.1a2.5 2.5 0 0 1 0 5h-3.1 M6.5 16l2 4h3L9.9 15'
+  navChat:['M5.1 6.3a8.7 8.7 0 0 1 13.8 10.4A8.6 8.6 0 0 1 9.9 19l-5.8 2 1.3-5A8.7 8.7 0 0 1 5.1 6.3z','M8 10.2h8M8 13.8h5.7'],
+  navCreations:['M4 4.2h6.4v6.4H4zM13.6 4.2H20v6.4h-6.4zM4 13.6h6.4V20H4zM13.6 13.6H20V20h-6.4z','M15.4 16.7l1.35-1.5 1.1 1.05'],
+  navPhoto:['M3.7 7.3h4.4l1.5-2.6h4.8l1.5 2.6h4.4c.6 0 1 .5 1 1.1v10.2c0 .7-.5 1.2-1.1 1.2H3.8c-.7 0-1.1-.5-1.1-1.2V8.5c0-.7.4-1.2 1-1.2zM16.2 13.3a4.2 4.2 0 1 1-8.4 0 4.2 4.2 0 1 1 8.4 0z','M17.9 9.9h.2M10.6 13.4h2.8'],
+  navVideo:['M4 5h12.6c.8 0 1.4.6 1.4 1.4v11.3c0 .8-.6 1.3-1.4 1.3H4c-.8 0-1.4-.5-1.4-1.3V6.4C2.6 5.6 3.2 5 4 5zM18 9.1l3.2-2.2v10.3L18 15','M8.4 9.1l5.3 3.2-5.3 3.2zM6 7.2h.2'],
+  navNsfw:['M12 2.4 4.1 6.3v5.6c0 4.8 3 8.1 7.9 9.7 4.9-1.6 7.9-4.9 7.9-9.7V6.3L12 2.4zM9.1 11.3h5.8v5.2H9.1zM10 11.3V9.6a2 2 0 0 1 4 0v1.7','M12 13.5v1.1'],
+  studioAdOpen:['M3.2 9.6 14.7 5v14L3.2 14.4zM14.7 8.6h3.2a2.5 2.5 0 0 1 0 5h-3.2M6.1 15.6l1.6 4h3.6l-1.5-3.6','M19 4l.8-1.5M21 8l1.4-.4']
  };
+ function makePremiumIcon(id){
+  const paths=navPaths[id]||[];
+  const icon=makeIcon(paths[0]||'');
+  icon.classList.add('vision-premium-icon');
+  if(paths[1]){
+   const accent=document.createElementNS(icon.namespaceURI,'path');
+   accent.classList.add('vision-nav-accent');
+   accent.setAttribute('d',paths[1]);icon.append(accent);
+  }
+  return icon;
+ }
  function enhanceNavigation(){
-  for(const [id,d] of Object.entries(navPaths)){
+  for(const id of Object.keys(navPaths)){
    const node=document.getElementById(id);
    if(!node)continue;
    // Remove only emoji accidentally inserted into this hamburger menu.
    node.querySelectorAll('.vision-nav-emoji,.public-mode-icon').forEach(icon=>icon.remove());
    const glyph=node.querySelector('.nav-glyph');
-   if(glyph&&!glyph.dataset.vectorPolished){glyph.replaceChildren(makeIcon(d));glyph.dataset.vectorPolished='true'}
+   if(glyph&&!glyph.dataset.vectorPolished){glyph.replaceChildren(makePremiumIcon(id));glyph.dataset.vectorPolished='true'}
   }
   // All creation destinations receive a motion chevron. LoRA is a settings action, never a mode.
   for(const id of ['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen']){
