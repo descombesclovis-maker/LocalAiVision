@@ -10,7 +10,7 @@ import time
 import threading
 from urllib.request import Request, urlopen
 from urllib.parse import quote
-from local_app import web_business_map
+from local_app import web_business_map, studio_credentials
 
 _LOCK=threading.Lock()
 _LAST=0.0
@@ -18,15 +18,15 @@ _BASE="https://places.googleapis.com/v1/"
 
 def configuration():
     """Expose only the browser key (public by design), never the Places REST secret."""
-    browser=os.environ.get("LOCALAIWEB_GOOGLE_MAPS_BROWSER_KEY","").strip()
-    private=os.environ.get("LOCALAIWEB_GOOGLE_PLACES_API_KEY","").strip()
+    browser=studio_credentials.read_key("maps_browser")
+    private=studio_credentials.read_key("places_server")
     return {"enabled":bool(browser),
             "browser_key":browser,
             "places_enabled":bool(private),
             "requires_billing":True}
 
 def _request(endpoint, *, data=None, field_mask):
-    secret=os.environ.get("LOCALAIWEB_GOOGLE_PLACES_API_KEY","").strip()
+    secret=studio_credentials.read_key("places_server")
     if not secret: raise ValueError("Google Places désactivé : configure une clé officielle de serveur.")
     global _LAST
     with _LOCK:
