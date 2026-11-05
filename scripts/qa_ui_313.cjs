@@ -100,7 +100,13 @@ function fixture(project){
     await page.screenshot({path:path.join(output,'editor-buttons-detail.png')});
    });
    await check('Actual static preview, source files, versions and ZIP export using labelled test site',async()=>{
-    const pid=new URL(page.url()).searchParams.get('id');fixture(pid);await page.reload();await wait(500);
+    const pid=new URL(page.url()).searchParams.get('id');fixture(pid);
+    results.fixturePreviewStatus=await api('/api/web/preview/status?id='+pid);
+    results.fixtureFiles=Object.keys((await api('/api/web/project?id='+pid)).files||{});
+    assert.equal(results.fixturePreviewStatus.ready,true,'Fixture sources must exist before reloading the editor');
+    await page.reload();await wait(500);
+    results.fixtureDom=await page.evaluate(()=>({status:document.getElementById('lawChatStatus')?.textContent,
+     empty:document.getElementById('lawPreviewEmpty')?.textContent,iframe:document.getElementById('lawPreview')?.outerHTML}));
     await page.locator('#lawPreview').waitFor({state:'visible'});
     await page.frameLocator('#lawPreview').locator('h1').waitFor();
     assert.match(await page.frameLocator('#lawPreview').locator('main').innerText(),/ne provient pas d’une génération IA/);

@@ -95,3 +95,37 @@ store.write_files(sys.argv[2],{'index.html':'new','style.css':'new'})
                 self.store.write_meta(self.pid, {'new':'metadata'})
         self.assertEqual((self.site.parent / 'project.json').read_bytes(), before)
         self.assertFalse(list(self.site.parent.glob('*.pending')))
+
+    def test_reader_process_cannot_rollback_a_live_writer_transaction(self):
+        import threading
+        code = """
+import sys
+from pathlib import Path
+from local_app import web_builder
+from local_app.atomic_storage import atomic_write
+store=web_builder.LocalAiWebStore(sys.argv[1],None)
+site=store.project_dir(sys.argv[2])/'site'
+def pause(path,raw):
+    atomic_write(path,raw)
+    if Path(path)==site/'index.html':
+        print('written',flush=True);sys.stdin.readline()
+web_builder.atomic_write=pause
+store.write_files(sys.argv[2],{'index.html':'new','style.css':'new'})
+"""
+        proc=subprocess.Popen([sys.executable,'-c',code,str(self.root),self.pid],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        self.assertEqual(proc.stdout.readline().strip(),'written')
+        done=threading.Event()
+        def reader():
+            web_builder.LocalAiWebStore(self.root,None)
+            done.set()
+        thread=threading.Thread(target=reader);thread.start()
+        try:
+            self.assertFalse(done.wait(.15),'An active writer must retain its journal')
+        finally:
+            proc.stdin.write('continue\n');proc.stdin.flush()
+        self.assertEqual(proc.wait(timeout=10),0)
+        thread.join(timeout=10);self.assertTrue(done.is_set())
+        self.assertEqual((self.site/'index.html').read_text(),'new')
+        self.assertEqual((self.site/'style.css').read_text(),'new')
+        proc.stdin.close();proc.stdout.close()

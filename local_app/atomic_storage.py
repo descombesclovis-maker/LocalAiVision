@@ -24,3 +24,41 @@ def atomic_write(path, data):
     finally:
         if os.path.exists(pending):
             os.unlink(pending)
+
+
+# Synchronize journal recovery with writers in OTHER processes (e.g. a local
+# helper and the HTTP server). A live transaction must never be "recovered".
+import threading
+from contextlib import contextmanager
+
+_held=threading.local()
+
+
+@contextmanager
+def project_lock(project):
+    project=Path(project);project.mkdir(parents=True,exist_ok=True)
+    key=str(project.resolve())
+    held=getattr(_held,'paths',{})
+    if key in held:
+        held[key]+=1
+        try:yield
+        finally:held[key]-=1
+        return
+    stream=(project/'.project-write.lock').open('a+b')
+    try:
+        if os.name=='nt':
+            import msvcrt
+            if stream.seek(0,os.SEEK_END)==0:stream.write(b'0');stream.flush()
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(),msvcrt.LK_LOCK,1)
+        else:
+            import fcntl
+            fcntl.flock(stream.fileno(),fcntl.LOCK_EX)
+        held[key]=1;_held.paths=held
+        try:yield
+        finally:
+            held.pop(key,None)
+            if os.name=='nt':
+                stream.seek(0);msvcrt.locking(stream.fileno(),msvcrt.LK_UNLCK,1)
+            else:fcntl.flock(stream.fileno(),fcntl.LOCK_UN)
+    finally:stream.close()

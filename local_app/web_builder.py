@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 import threading
 from functools import wraps
-from local_app.atomic_storage import atomic_write
+from local_app.atomic_storage import atomic_write, project_lock
 
 _STORAGE_LOCK = threading.RLock()
 
@@ -94,7 +94,7 @@ class LocalAiWebStore:
         # Recover before exposing any projects after an interrupted process.
         with _STORAGE_LOCK:
             for project in self.root.iterdir():
-                if project.is_dir() and not project.is_symlink():
+                if project.is_dir() and not project.is_symlink() and (project / '.site-transaction').is_dir():
                     self._recover_transaction(project)
 
     def project_dir(self, project_id):
@@ -141,6 +141,11 @@ class LocalAiWebStore:
 
     @staticmethod
     def _recover_transaction(project):
+        with project_lock(project):
+            return LocalAiWebStore._recover_transaction_unlocked(project)
+
+    @staticmethod
+    def _recover_transaction_unlocked(project):
         journal = project / '.site-transaction'
         manifest = journal / 'manifest.json'
         if not manifest.exists():
@@ -186,7 +191,7 @@ class LocalAiWebStore:
                     or target.is_symlink() or not target.resolve().is_relative_to(site.resolve())):
                 raise ValueError('Chemin protégé ou invalide : ' + str(rel))
             changes[p.as_posix()] = body
-        with _STORAGE_LOCK:
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
             project = self.project_dir(project_id)
             self._recover_transaction(project)
             if replace:
