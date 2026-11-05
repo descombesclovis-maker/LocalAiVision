@@ -2,8 +2,9 @@ import base64, io, json, re, shutil, time, uuid, zipfile
 from pathlib import Path
 import hashlib
 import threading
+import tempfile
 from functools import wraps
-from local_app.atomic_storage import atomic_write, project_lock
+from local_app.atomic_storage import atomic_write, project_lock, atomic_copy, install_file, file_sha256
 
 _STORAGE_LOCK = threading.RLock()
 
@@ -167,14 +168,14 @@ class LocalAiWebStore:
                     source = journal / 'originals' / rel
                     if source.is_symlink() or not source.resolve().is_relative_to(journal.resolve()):
                         raise ValueError('Sauvegarde transactionnelle invalide.')
-                    raw = source.read_bytes()
-                    if hashlib.sha256(raw).hexdigest() != row['sha256']:
+                    raw = source
+                    if file_sha256(source) != row['sha256']:
                         raise ValueError('Sauvegarde transactionnelle endommagée ; fichiers conservés.')
                 originals.append((target, raw))
             # Validate all backups first; corruption must not cause half a rollback.
             for target, raw in originals:
                 if raw is not None:
-                    atomic_write(target, raw)
+                    atomic_copy(raw, target)
                 elif target.exists():
                     target.unlink()
         shutil.rmtree(journal)
@@ -211,9 +212,8 @@ class LocalAiWebStore:
                     if old.is_symlink() or not old.resolve().is_relative_to(site.resolve()):
                         raise ValueError('Lien symbolique interdit dans une transaction.')
                     if row['existed']:
-                        raw = old.read_bytes()
-                        atomic_write(journal / 'originals' / rel, raw)
-                        row['sha256'] = hashlib.sha256(raw).hexdigest()
+                        atomic_copy(old, journal / 'originals' / rel)
+                        row['sha256'] = file_sha256(journal / 'originals' / rel)
                     rows.append(row)
                 manifest = {'committed': False, 'files': rows}
                 atomic_write(journal / 'manifest.json', json.dumps(manifest).encode())
@@ -221,6 +221,8 @@ class LocalAiWebStore:
                     target = site / rel
                     if raw is None:
                         target.unlink(missing_ok=True)
+                    elif isinstance(raw, Path):
+                        atomic_copy(raw, target)
                     else:
                         atomic_write(target, raw)
                 manifest['committed'] = True
@@ -248,7 +250,7 @@ class LocalAiWebStore:
         return self._write_binary_files(project_id, prepared, replace=replace)
 
     def snapshot(self, project_id, label='Version automatique'):
-        with _STORAGE_LOCK:
+        with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
             files = self.text_files(project_id)
             site = self.project_dir(project_id) / 'site'
             paths = [p for p in site.rglob('*') if p.is_file() and not p.is_symlink()
@@ -265,13 +267,15 @@ class LocalAiWebStore:
                 with zipfile.ZipFile(pending, 'w', zipfile.ZIP_DEFLATED) as archive:
                     for path in sorted(paths):
                         rel = path.relative_to(site).as_posix()
-                        raw = path.read_bytes()
-                        hashes[rel] = hashlib.sha256(raw).hexdigest()
-                        archive.writestr(rel, raw)
-                raw = pending.read_bytes()
-                atomic_write(versions / (vid + '.zip'), raw)
+                        digest = hashlib.sha256()
+                        with path.open('rb') as stream, archive.open(rel, 'w', force_zip64=True) as output:
+                            for chunk in iter(lambda:stream.read(1024*1024),b''):
+                                digest.update(chunk);output.write(chunk)
+                        hashes[rel] = digest.hexdigest()
+                archive_hash = file_sha256(pending)
+                install_file(pending, versions / (vid + '.zip'))
                 payload = {'id': vid, 'created_at': time.time(), 'label': str(label or 'Version automatique')[:120],
-                           'files': files, 'archive': vid + '.zip', 'archive_sha256': hashlib.sha256(raw).hexdigest(),
+                           'files': files, 'archive': vid + '.zip', 'archive_sha256': archive_hash,
                            'checksums': hashes, 'schema': 2}
                 atomic_write(versions / (vid + '.json'), json.dumps(payload, ensure_ascii=False).encode('utf-8'))
             finally:
@@ -804,15 +808,29 @@ class LocalAiWebStore:
             archive_name = data.get('archive')
             if archive_name != version_id + '.zip':
                 raise ValueError('Archive de version invalide.')
-            raw = (path.parent / archive_name).read_bytes()
-            if hashlib.sha256(raw).hexdigest() != data.get('archive_sha256'):
+            source = path.parent / archive_name
+            if file_sha256(source) != data.get('archive_sha256'):
                 raise ValueError('Archive endommagée ; restauration annulée.')
-            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-                files = {str(safe_rel(name)): archive.read(name) for name in archive.namelist()}
-            hashes = {name: hashlib.sha256(body).hexdigest() for name, body in files.items()}
-            if hashes != data.get('checksums'):
-                raise ValueError('Intégrité des ressources invalide ; restauration annulée.')
-            self._write_binary_files(project_id, files, replace=True, all_assets=True)
+            with tempfile.TemporaryDirectory(prefix='.restore-', dir=path.parent) as temporary:
+                staged = Path(temporary)
+                files = {}
+                hashes = {}
+                with zipfile.ZipFile(source) as archive:
+                    for item in archive.infolist():
+                        if item.is_dir():
+                            continue
+                        name = safe_rel(item.filename).as_posix()
+                        target = staged / name
+                        if name in files or not target.resolve().is_relative_to(staged.resolve()):
+                            raise ValueError('Chemin de ressource invalide dans la version.')
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with archive.open(item) as stream, target.open('wb') as output:
+                            shutil.copyfileobj(stream, output, length=1024*1024)
+                        files[name] = target
+                        hashes[name] = file_sha256(target)
+                if hashes != data.get('checksums'):
+                    raise ValueError('Intégrité des ressources invalide ; restauration annulée.')
+                self._write_binary_files(project_id, files, replace=True, all_assets=True)
         else:
             # Keep existing text-only versions readable without migration.
             self.write_files(project_id, data.get('files') or {}, replace=True)

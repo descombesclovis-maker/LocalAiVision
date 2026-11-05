@@ -62,3 +62,37 @@ def project_lock(project):
                 stream.seek(0);msvcrt.locking(stream.fileno(),msvcrt.LK_UNLCK,1)
             else:fcntl.flock(stream.fileno(),fcntl.LOCK_UN)
     finally:stream.close()
+
+
+def install_file(pending, destination):
+    """Install a completed same-directory temporary file without buffering it."""
+    pending, destination=Path(pending),Path(destination)
+    if pending.parent.resolve()!=destination.parent.resolve():
+        raise ValueError('Le fichier temporaire doit être sur le même répertoire.')
+    with pending.open('rb') as stream:os.fsync(stream.fileno())
+    os.replace(pending,destination)
+    if hasattr(os,'O_DIRECTORY'):
+        directory=os.open(destination.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(directory)
+        finally:os.close(directory)
+
+
+def atomic_copy(source, destination):
+    import shutil
+    destination=Path(destination);destination.parent.mkdir(parents=True,exist_ok=True)
+    fd,pending=tempfile.mkstemp(prefix='.'+destination.name+'-',suffix='.pending',dir=destination.parent)
+    try:
+        with os.fdopen(fd,'wb') as target,Path(source).open('rb') as stream:
+            shutil.copyfileobj(stream,target,length=1024*1024)
+            target.flush();os.fsync(target.fileno())
+        install_file(pending,destination)
+    finally:
+        if os.path.exists(pending):os.unlink(pending)
+
+
+def file_sha256(path):
+    import hashlib
+    digest=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for chunk in iter(lambda:stream.read(1024*1024),b''):digest.update(chunk)
+    return digest.hexdigest()
