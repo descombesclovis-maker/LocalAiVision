@@ -40,6 +40,9 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
  });
  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/localaiweb/livraisons?id='+id);await page.waitForURL(deliveryBase+'/localaiweb/livraisons?id='+id);await page.locator('#dossier').waitFor();await page.waitForFunction(()=>!document.body.hasAttribute('aria-busy'));
  await check('Free quote, accepted declaration, partial then full receipt, immutable invoice',async()=>{
+  assert.equal(await page.locator('.delivery-brand img').evaluate(x=>x.complete&&x.naturalWidth>0),true);
+  assert.match(await page.locator('.delivery-brand img').getAttribute('src'),/custom-brand\/web-animated\.svg$/);
+  assert.match((await page.locator('.delivery-library h1').textContent()).replace(/\s+/g,' '),/Livraison client/);
   const values={'seller.name':'Atelier Fictif','seller.siret':'53784237900027','seller.address':'10 rue du Test, Paris','seller.payment_details':'Virement bancaire','seller.late_penalty_rate':'Taux contractuel','customer.name':'Client Démonstration','customer.address':'12 rue des Tests, Lyon','customer.siren':'123456789','service_date':new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Paris'})};
   for(const [name,value] of Object.entries(values))await page.locator('[name="'+name+'"]').fill(value);
   await page.locator('[name="seller.legal_form"]').selectOption('EI');await page.locator('[name="seller.vat_mode"]').selectOption('franchise');await page.locator('[data-field="unit_eur"]').fill('100');

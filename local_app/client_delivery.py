@@ -451,7 +451,9 @@ def render_pdf(doc):
     for heading,value in doc.get('sections',[]):story.extend([p(heading,'Heading3'),p(value)])
     if doc.get('maintenance'):story.extend([p('Maintenance','Heading3'),p(doc['maintenance'])])
     if doc.get('kind')=='quote':story.append(p('Acceptation : date, nom et signature du client. Aucun envoi ni accord enregistré automatiquement.'))
-    story.extend([Spacer(1,12),p(LEGAL_NOTICE),p(LEGAL_URL),p(EINVOICE_URL)])
+    # References remain linked in the workspace and delivery report; avoid a
+    # nearly empty commercial PDF page containing only long reference URLs.
+    story.extend([Spacer(1,12),p(LEGAL_NOTICE)])
     def footer(canvas,document):
         canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#725590'))
         canvas.drawString(42,25,'LocalAiStudio | Document local | Page '+str(document.page))

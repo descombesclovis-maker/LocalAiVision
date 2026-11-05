@@ -2255,6 +2255,7 @@ class Handler(BaseHTTPRequestHandler):
             "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg",
             "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js",
             "client-delivery.js","client-delivery.css")}
+        assets.add("/assets/assets/custom-brand/web-animated.svg")
         routes={"/localaiweb/livraisons","/localaiweb/clients","/api/web/projects","/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
             "/api/web/project/pro/authorize","/api/web/vercel/publish","/api/web/domain/attach",
             "/api/web/invoice/issue","/api/web/invoice/file","/api/web/crm/quote/create",
