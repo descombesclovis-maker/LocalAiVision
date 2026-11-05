@@ -91,7 +91,7 @@
   if(action==='save'&&!value){notice('Saisissez une clé, ou choisissez Effacer.');return}
   if(action==='clear'&&!confirm('Effacer cette clé enregistrée sur cet ordinateur ?'))return;
   busy=true;
-  try{await api('/api/studio/settings/google',{kind,action,value});input.value='';await status();notice(action==='save'?'Clé enregistrée et protégée sur cet ordinateur.':'Clé locale effacée.')}
+  try{await api('/api/studio/settings/google',{kind,action,value});input.value='';dot(kind==='maps_browser'?'scMaps':'scPlaces',action==='save',action==='save'?'Clé enregistrée':'Clé effacée');notice(action==='save'?'Clé enregistrée et protégée sur cet ordinateur.':'Clé locale effacée.')}
   catch(error){notice('Échec de configuration : '+error.message)}
   finally{busy=false}
  }
