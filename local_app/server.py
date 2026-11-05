@@ -2253,12 +2253,13 @@ class Handler(BaseHTTPRequestHandler):
         assets={"/assets/"+name for name in ("localaiweb-sales.js","localaiweb-sales.css",
             "studio-suite.css","localaiweb-mobile.css","studio-ui-polish.css","studio-activity.css",
             "studio-activity.js","pwa-install.js","localaiweb.webmanifest","brand-web.svg",
-            "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js")}
-        routes={"/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
+            "studio-system.css","studio-qcm-v1.css","studio-qcm-shell.js",
+            "client-delivery.js","client-delivery.css")}
+        routes={"/localaiweb/livraisons","/localaiweb/clients","/api/web/projects","/localaiweb/vente","/api/web/project","/api/web/preflight","/api/web/export",
             "/api/web/project/pro/authorize","/api/web/vercel/publish","/api/web/domain/attach",
             "/api/web/invoice/issue","/api/web/invoice/file","/api/web/crm/quote/create",
             "/api/web/crm/quote/file","/api/studio/activity"}
-        if path in routes or path in assets or path.startswith("/api/web/sales/"):
+        if path in routes or path in assets or path.startswith("/api/web/sales/") or path.startswith("/api/web/delivery/"):
             return True
         self.send_json({"error":"Route indisponible sur le dossier commercial."},403)
         return False
@@ -2334,9 +2335,9 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
-        if u.path=="/localaiweb/vente" and self._sales_host() in ("127.0.0.1","localhost"):
+        if u.path in ("/localaiweb/vente","/localaiweb/clients","/localaiweb/livraisons") and self._sales_host() in ("127.0.0.1","localhost"):
             self.send_response(302)
-            self.send_header("Location",f"http://ventes.localhost:{self.server.server_port}/localaiweb/vente?"+u.query)
+            self.send_header("Location",f"http://ventes.localhost:{self.server.server_port}/localaiweb/livraisons?"+u.query)
             self.send_header("Cache-Control","no-store")
             self.end_headers()
             return
@@ -2693,6 +2694,29 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,FileNotFoundError):
                 self.send_json({"error":"Publicité introuvable."},404)
             return
+        if u.path.startswith('/api/web/delivery/'):
+            if not self._delivery_access():return
+            try:
+                from local_app import client_delivery
+                args=parse_qs(u.query);pid=args.get('id',[''])[0]
+                root=LOCALAIWEB_DATA/'deliveries';store=_web_store()
+                if u.path=='/api/web/delivery/list':
+                    self.send_json({'dossiers':client_delivery.listing(root,store)});return
+                if u.path=='/api/web/delivery/archive':
+                    from local_app import web_crm
+                    store.meta(pid)
+                    archive=web_crm.snapshot(LOCALAIWEB_DATA/'crm',store)
+                    docs=[{'number':x['quote_number'],'download':'/api/web/crm/quote/file?number='+x['quote_number']} for x in archive['quotes'] if x.get('project_id')==pid]
+                    docs.extend({'number':x['invoice_number'],'download':'/api/web/invoice/file?number='+x['invoice_number']} for x in archive['invoices'] if x.get('project_id')==pid)
+                    self.send_json({'documents':docs});return
+                if u.path=='/api/web/delivery/dossier':
+                    self.send_json(client_delivery.snapshot(root,store,pid));return
+                if u.path=='/api/web/delivery/document':
+                    number=args.get('number',[''])[0]
+                    self.send_bytes(client_delivery.document(root,store,pid,number),'application/pdf');return
+                self.send_json({'error':'Route de livraison inconnue.'},404)
+            except (OSError,ValueError,RuntimeError) as exc:self.send_json({'error':str(exc)},400)
+            return
         if u.path == "/api/web/generations/active":
             self.send_json(_web_active_generations())
             return
@@ -2878,13 +2902,10 @@ class Handler(BaseHTTPRequestHandler):
             p = WEB / "localaiweb-map.html"
             self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
             return
-        if u.path == "/localaiweb/vente":
-            p = WEB / "localaiweb-sales.html"
-            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
-            return
-        if u.path == "/localaiweb/clients":
-            p = WEB / "localaiweb-clients.html"
-            self.send_bytes(p.read_bytes(), "text/html; charset=utf-8")
+        if u.path in ("/localaiweb/vente","/localaiweb/clients","/localaiweb/livraisons"):
+            if self._sales_host()!='ventes.localhost':
+                self.send_json({'error':'Ouvrir Livraison client sur le poste local.'},403);return
+            self.send_bytes((WEB/'client-delivery.html').read_bytes(),'text/html; charset=utf-8')
             return
         if u.path == "/localaiweb/editor":
             p = WEB / "localaiweb.html"
@@ -2916,6 +2937,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_bytes(data,c)
             return
         self.send_response(404); self.end_headers()
+
+    def _delivery_access(self, mutation=False):
+        # Dedicated origin never serves generated project code. Local declarations
+        # require a same-origin custom header, no financial provider action is sent.
+        if (self._sales_host()!='ventes.localhost' or self.client_address[0] not in ('127.0.0.1','::1')
+            or self.headers.get('Sec-Fetch-Site')=='cross-site'
+            or (mutation and self.headers.get('X-LocalAI-Delivery')!='1')):
+            self.send_json({'error':'Action réservée à Livraison client sur le poste local.'},403)
+            return False
+        return True
 
     def _sales_operator(self, body):
         import hmac
@@ -3041,6 +3072,31 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
                       "/api/studio/advert/delete","/api/web/project/brand") and not self._authorized_brand_request():
+            return
+        if u.path.startswith('/api/web/delivery/'):
+            if not self._delivery_access(mutation=True):return
+            import sqlite3
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 0<length<=100000:raise ValueError('Taille de dossier invalide.')
+                body=json.loads(self.rfile.read(length))
+                if not isinstance(body,dict):raise ValueError('Dossier invalide.')
+                from local_app import client_delivery
+                root=LOCALAIWEB_DATA/'deliveries';store=_web_store();pid=body.get('id')
+                if u.path=='/api/web/delivery/action':
+                    self.send_json(client_delivery.action(root,store,pid,body));return
+                if u.path in ('/api/web/delivery/prepare','/api/web/delivery/download'):
+                    download=u.path.endswith('/download')
+                    result=client_delivery.package(root,store,pid,body.get('revision'),download=download,expected_version=body.get('version'))
+                    if not download:self.send_json(result);return
+                    name,data=result
+                    self.send_response(200);self.send_header('Content-Type','application/zip')
+                    self.send_header('Content-Disposition','attachment; filename="'+name+'"')
+                    self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store')
+                    self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self._write_response(data);return
+                self.send_json({'error':'Action inconnue.'},404)
+            except (OSError,ValueError,RuntimeError,KeyError,TypeError,AttributeError,sqlite3.Error) as exc:
+                self.send_json({'error':str(exc)},400)
             return
         length=int(self.headers.get("Content-Length","0"))
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",

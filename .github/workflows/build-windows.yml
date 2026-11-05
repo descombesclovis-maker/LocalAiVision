@@ -30,7 +30,7 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller pywebview reportlab pillow
+          pip install pyinstaller pywebview reportlab pillow pypdf
 
       - name: Write build metadata
         id: meta
@@ -99,6 +99,7 @@ jobs:
             --hidden-import local_app.web_prospects ^
             --hidden-import local_app.web_prospect_filter ^
             --hidden-import local_app.web_business_photos ^
+            --hidden-import local_app.client_delivery ^
             --hidden-import local_app.web_sales_invoice ^
             --hidden-import local_app.web_sales_pipeline ^
             --hidden-import local_app.web_call_sheet ^
@@ -299,7 +300,7 @@ jobs:
       - name: Install isolated QA dependencies
         shell: powershell
         run: |
-          python -m pip install pillow reportlab
+          python -m pip install pillow reportlab pypdf
           npm install --prefix "$env:RUNNER_TEMP/studio315-qa" playwright@1.62.1
           $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
           node "$env:RUNNER_TEMP/studio315-qa/node_modules/playwright/cli.js" install chromium ffmpeg
@@ -323,6 +324,13 @@ jobs:
           Remove-Item Env:UI_BASELINE
           $env:UI_OUTPUT='build/qa315/human-audit-1/after'
           node scripts/qa_human_audit_1.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build 316 delivery and full-width Web header review
+        shell: powershell
+        run: |
+          $env:NODE_PATH="$env:RUNNER_TEMP/studio315-qa/node_modules"
+          $env:UI_OUTPUT='build/qa315/client-delivery'
+          node scripts/qa_client_delivery.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Capture preserved customized 315.5 baseline
         shell: powershell

@@ -11,7 +11,7 @@
    chip.id='studioActivity';chip.className='studio-activity';
    chip.hidden=true;
    chip.innerHTML='<button id="studioActivityToggle" class="studio-activity-toggle" type="button" aria-expanded="false" aria-controls="studioActivityPanel"><span class="studio-activity-spinner" aria-hidden="true"></span><span class="studio-activity-copy">Création d’un site…</span><span class="studio-activity-count"></span></button><div id="studioActivityPanel" class="studio-activity-panel" hidden></div>';
-   (document.querySelector('body[data-studio-page="vision"] .topbar-actions')||document.body).append(chip);
+   (document.querySelector('body[data-studio-page="vision"] .topbar-actions')||document.querySelector('.law-global-header')||document.body).append(chip);
    panel=chip.querySelector('#studioActivityPanel');
    chip.querySelector('#studioActivityToggle').addEventListener('click',()=>{
      expanded=!expanded;panel.hidden=!expanded;chip.querySelector('#studioActivityToggle').setAttribute('aria-expanded',String(expanded));

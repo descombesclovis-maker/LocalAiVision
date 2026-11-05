@@ -24,9 +24,10 @@ const editOverlay=$('#lawEditOverlay');
 function publishedUrl(){return project?.project?.deployment?.production_url||project?.project?.production_url||''}
 function refreshPublishing(){
  const url=publishedUrl();
+ const delivery=document.getElementById('lawDeliveryShortcut');if(delivery&&project?.project?.id)delivery.href='/localaiweb/livraisons?id='+encodeURIComponent(project.project.id);
  if(publishButton){
   publishButton.disabled=busy||stage!=='ready';
-  publishButton.textContent=project?.project?.project_kind==='pro'?'Vendre & livrer ↗':url?'Republier ↗':'Publier ↗';
+  publishButton.textContent=project?.project?.project_kind==='pro'?'Publier / livrer ↗':url?'Republier ↗':'Publier ↗';
  }
  if(afterPublish){
   afterPublish.hidden=!url;
@@ -35,7 +36,7 @@ function refreshPublishing(){
   $('#lawPublishedAddress').hidden=!url;
   if(url){
    $('#lawPublishedAddress').textContent='En ligne : '+url;
-   $('#lawCreateQuote').href='/localaiweb/vente?id='+encodeURIComponent(project.project.id);
+   $('#lawCreateQuote').href='/localaiweb/livraisons?id='+encodeURIComponent(project.project.id);
    $('#lawCreateCampaign').href='/localaivision?campaign_project='+encodeURIComponent(project.project.id);
   }
  }
@@ -292,7 +293,7 @@ async function watchGeneration(id){
          $('#lawPreviewTitle').textContent=project.project.name||'Ton site';
          stage='ready';
          const salesLink=document.getElementById('lawSalesBtn');
-         if(salesLink)salesLink.href='/localaiweb/vente?id='+encodeURIComponent(id);
+         if(salesLink)salesLink.href='/localaiweb/livraisons?id='+encodeURIComponent(id);
          generationFeedback(status);
          showSiteEditing(false);refreshPublishing();void refreshSales();
          stop();
@@ -345,7 +346,7 @@ async function generate(text,originalPrompt=text){
 async function publish(){
  await ensureProject();
  if(project.project?.project_kind==='pro'){
-   location.assign('/localaiweb/vente?id='+encodeURIComponent(project.project.id));return;
+   location.assign('/localaiweb/livraisons?id='+encodeURIComponent(project.project.id));return;
  }
  message('Je vérifie le site avant publication. La publication nécessite que Vercel soit installé et connecté sur cet ordinateur.');
  setBusy(true,'Vérification et mise en ligne…');

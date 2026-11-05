@@ -16,13 +16,13 @@
 <link rel="stylesheet" href="/assets/studio-web-sidebar-menu.css">
 <link rel="stylesheet" href="/assets/studio-web-menu-interactions.css">
 <link rel="stylesheet" href="/assets/studio-audit-1.css">
+<link rel="stylesheet" href="/assets/studio-web-header.css">
 </head>
 <body data-studio-page="editor">
   <main class="studio" aria-label="Studio LocalAiWeb">
-    <section class="chat-pane" aria-label="Conversation avec LocalAiWeb">
-      <header class="chat-header">
+      <header class="chat-header law-global-header">
         <button id="lawMobileMenuToggle" class="law-mobile-menu-toggle studio-web-hamburger" type="button" aria-controls="lawMobileTools" aria-expanded="false" aria-label="Ouvrir le menu LocalAiWeb" title="Menu LocalAiWeb"><span></span><span></span><span></span></button>
-        <a href="/localaiweb" class="brand-symbol" title="Retour à mes projets" aria-label="Retour à mes projets">←</a>
+
         <div class="chat-brand"><div class="web-logo-heading"><img src="/assets/assets/custom-brand/web-animated.svg" alt="Logo LocalAiWeb"><div><h1>LocalAiWeb</h1><p>CRÉATIONS DE SITES WEBS</p></div></div></div>
 
         <div class="law-brand-workspace" role="group" aria-label="Identité de marque du projet">
@@ -35,18 +35,19 @@
           <select id="lawAgentSelect" class="agent-select" aria-label="Choisir l'agent de création"><option value="codex">Codex · ChatGPT Plus</option><option value="claude">Claude Code · option</option></select>
           <button id="connectAgent" class="agent-control" type="button" title="Vérifier et connecter l'agent sélectionné" aria-live="polite">◌ Connexion…</button>
         </div>
-        <a href="/studio" class="update-action studio-universe-link" title="Choisir un univers">LocalAiStudio</a>
+        <a href="/studio" id="webStudioReturn" class="update-action studio-universe-link" title="Revenir à LocalAiStudio">LocalAiStudio</a>
         <button id="lawUpdateBtn" type="button" class="update-action" title="Vérifier et installer la dernière version de LocalAiVision">↻ Mettre à jour</button>
       </header>
       <nav id="lawMobileTools" class="law-mobile-tools" aria-label="Outils du studio mobile" hidden>
         <div class="law-mobile-tools-title">Connexion et identité de marque</div>
         <div id="lawMobileAgentSlot"></div><div id="lawMobileBrandSlot"></div>
         <div class="law-mobile-tools-links">
-          <a href="/studio">LocalAiStudio</a><a href="/localaiweb">Tous mes projets</a>
+          <a href="/studio">LocalAiStudio</a><a href="/localaiweb">Tous mes projets</a><a id="lawDeliveryShortcut" href="/localaiweb/livraisons">Livraison client</a>
 
         </div>
         <div id="lawMobileVersionSlot"></div>
       </nav>
+    <section class="chat-pane" aria-label="Conversation avec LocalAiWeb">
       <div id="lawChat" class="chat-history" role="log" aria-live="polite" aria-relevant="additions text"></div>
       <form id="lawComposer" class="chat-composer">
         <label class="sr-only" for="lawPrompt">Décrivez votre site ou la modification souhaitée</label>
@@ -108,7 +109,7 @@
       <section id="lawAfterPublish" class="law-post-publish" hidden aria-label="Présentation et commercialisation">
         <small id="lawPublishedAddress" hidden></small>
         <a id="lawCreateCampaign" href="/localaivision">Créer une publicité pour ce site ↗</a>
-        <a id="lawCreateQuote" href="/localaiweb/vente">Créer un devis lié au site ↗</a>
+        <a id="lawCreateQuote" href="/localaiweb/livraisons">Préparer la livraison client ↗</a>
       </section>
     </section>
   </main>

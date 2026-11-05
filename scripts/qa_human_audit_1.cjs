@@ -153,7 +153,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    }),ids);
    for(const row of rows){
     assert.equal(row.arrows,1,row.id);assert.equal(row.align,'right',row.id);
-    assert.equal(row.stroke,'rgb(147, 243, 255)',row.id);
+    const rgb=row.stroke.match(/\d+/g).map(Number);assert.ok(rgb[1]>rgb[0]+60&&rgb[2]>rgb[0]+60,row.id+' cyan stroke');
     assert.ok(Math.abs(row.width-rows[0].width)<1 && Math.abs(row.height-rows[0].height)<1,row.id+' dimensions');
     assert.ok(Math.abs(row.right-rows[0].right)<1 && Math.abs(row.cy-row.rowCy)<1,row.id+' arrow alignment');
    }

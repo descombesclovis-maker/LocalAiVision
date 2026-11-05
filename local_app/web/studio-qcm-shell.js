@@ -45,14 +45,14 @@ const links=[
  {id:'web',text:'Web',symbol:'🌐',path:'/localaiweb',keys:['projets','web','site','creer']},
  {id:'map',text:'Carte',symbol:'🗺️',path:'/localaiweb/map',keys:['commerces','carte','maps','prospection']},
  {id:'vision',text:'Vision',symbol:'👁️',path:'/localaivision',keys:['image','photo','video','vision']},
- {id:'clients',text:'Devis',symbol:'🗒️',path:'/localaiweb/clients',keys:['clients','devis','factures','commercial']},
+ {id:'clients',text:'Livraison client',symbol:'🗒️',path:'/localaiweb/livraisons',keys:['livraison','paquet','devis','factures']},
 ];
 // Commercial actions use an isolated origin. Navigation returns to the Studio
 // origin without widening its API or generated-preview allowlist.
 if(location.hostname==='ventes.localhost')for(const item of links)item.path=location.protocol+'//127.0.0.1:'+location.port+item.path;
 const dock=document.createElement('nav');dock.className='qcm-dock';dock.setAttribute('aria-label','Navigation principale');dock.id='qcmDock';
 dock.innerHTML=links.filter(x=>x.id!=='brands').map(x=>'<a class="qcm-dock-link" href="'+x.path+'" data-qcm-link="'+x.id+'" title="'+x.text+'"><span aria-hidden="true">'+iconMarkup(x.symbol)+'</span><small>'+x.text+'</small></a>').join('');
-dock.querySelector('[data-qcm-link="'+(['editor','sales'].includes(page)?'web':page)+'"]')?.setAttribute('aria-current','page');
+dock.querySelector('[data-qcm-link="'+(page==='delivery'?'clients':['editor','sales'].includes(page)?'web':page)+'"]')?.setAttribute('aria-current','page');
 document.body.append(dock);
 const dialog=document.createElement('dialog');dialog.className='qcm-palette';dialog.setAttribute('aria-label','Palette de commandes');
 dialog.innerHTML='<div class="qcm-command-box"><div class="qcm-command-header"><span aria-hidden="true">⌕</span><input type="search" id="qcmCommandSearch" placeholder="Ouvrir une page ou un outil…" autocomplete="off" aria-label="Rechercher une commande"><button type="button" id="qcmCloseCommands" aria-label="Fermer">×</button></div><div class="qcm-command-list" id="qcmCommandList"></div><p>↑ ↓ pour parcourir · Entrée pour ouvrir · Échap pour fermer</p></div>';
