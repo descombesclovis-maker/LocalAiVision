@@ -559,6 +559,30 @@ def supabase_db_push(site_dir):
         raise RuntimeError((result.stderr or result.stdout or "migration Supabase impossible").strip())
     return {"ok": True, "output": (result.stdout or "")[-2000:]}
 
+def classify_codex_failure(output):
+    """Classify known failures without returning raw CLI output to the frontend."""
+    text=str(output or '').lower()
+    patterns=(
+        ('authentication',('not logged in','not authenticated','sign in to codex','login required','authentication required',
+                           '401 unauthorized','invalid_api_key','invalid api key','token expired')),
+        ('quota',('429','rate limit','rate_limit','usage limit','quota exceeded','insufficient_quota')),
+        ('network',('localai_codex_timeout','connection reset','connection refused','network is unreachable',
+                    'network unreachable','timed out','dns lookup','dns resolution','getaddrinfo','name resolution','failed to connect','error sending request',
+                    'stream disconnected','503 service unavailable','502 bad gateway','status 503','status 502')),
+        ('launch',('localai_codex_launch_failed',)),
+    )
+    return next((kind for kind,terms in patterns if any(term in text for term in terms)),None)
+
+
+def codex_failure_message(kind):
+    return {
+        'authentication':"Codex demande une authentification sur ce PC. Exécute « codex login », puis revérifie la connexion. Les fichiers sont conservés.",
+        'quota':"Codex a atteint une limite d’utilisation. Attends la disponibilité de ton quota, puis reprends le projet. Une reconnexion ou une réinstallation n’est pas nécessaire pour cette erreur.",
+        'network':"La connexion réseau de Codex a été interrompue ou le délai dépassé. Vérifie le réseau puis reprends le projet. La session et les fichiers existants sont conservés.",
+        'launch':"Codex n’a pas pu démarrer. Vérifie son chemin et Node.js dans le diagnostic local ; les fichiers du projet sont conservés.",
+    }.get(kind,'Codex n’a pas produit de nouveaux fichiers utilisables. Consulte le diagnostic local.')
+
+
 def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundle=False):
     """Apply verified Codex edits; recover safely if native Windows sandbox is read-only."""
     import tempfile
@@ -623,10 +647,8 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
                       "--output-last-message",str(final),"-"],
                       cwd=site,timeout=max_seconds,input_text=request)
             if fallback.returncode!=0:
-                raise RuntimeError(
-                    "Codex n'a pas pu produire le code en mode lecture seule. "
-                    "Vérifie 'codex login status' et les permissions Windows : "+
-                    (fallback.stderr or fallback.stdout or "")[-750:])
+                failure=classify_codex_failure((fallback.stderr or '')+' '+(fallback.stdout or ''))
+                raise RuntimeError(codex_failure_message(failure))
             if not final.is_file():
                 raise RuntimeError("Codex n'a pas transmis les fichiers JSON de secours.")
             written=writeback.apply_bundle(site,final.read_text(encoding="utf-8"))
@@ -653,7 +675,7 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
                     "files_written":writeback.changed(before,writeback.snapshot(site)),
                     "method":"workspace-write"}
         result = subprocess.CompletedProcess(
-            cmd, 124, stdout="", stderr=str(exc))
+            cmd, 124, stdout="", stderr="LOCALAI_CODEX_TIMEOUT" if isinstance(exc,subprocess.TimeoutExpired) else "LOCALAI_CODEX_LAUNCH_FAILED")
     after = writeback.snapshot(site)
     if writeback.changed_app(before, after) and not writeback.placeholder(site):
         # The site exists. The app performs build/validation next; avoid
@@ -661,19 +683,16 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
         return {"ok":True,"summary":"Codex a écrit les fichiers du site.",
                 "files_written":writeback.changed(before,after),"method":"workspace-write"}
     error=(result.stderr or "")+" "+(result.stdout or "")
-    auth_failure=any(word in error.lower() for word in (
-        "not logged in","login required","authentication required","unauthorized",
-        "sign in to codex","invalid api key","invalid_api_key","401 unauthorized"))
-    if auth_failure:
-        raise RuntimeError("Codex n'est pas authentifié sur ce PC. "
-                           "Exécute « codex login » puis relance la création. "+
-                           error.strip()[-450:])
+    failure=classify_codex_failure(error) if result.returncode else None
+    if failure:
+        # A second model invocation cannot repair account quotas or transport.
+        # Keep existing files and let the user resume explicitly instead.
+        raise RuntimeError(codex_failure_message(failure))
     blocked=any(word in error.lower() for word in (
         "blocked by policy","permission denied","read-only file system",
         "sandbox","access is denied","rejected:","exec denied"))
     if not allow_retry and not blocked:
-        raise RuntimeError("Codex n'a créé aucun fichier de site. "+
-                           error.strip()[-950:])
+        raise RuntimeError("Codex n'a créé aucun fichier de site. Code de sortie : "+str(result.returncode))
     # Recover a Windows sandbox refusal or a silent no-write response, without
     # running external commands or giving unrestricted filesystem access.
     # This is a SECOND path, never the only path for first generation.
@@ -683,8 +702,8 @@ def codex_apply(site_dir, prompt, *, timeout=900, allow_retry=True, prefer_bundl
         raise RuntimeError(
             "Codex n'a pas produit de site utilisable. "
             "Écriture directe impossible, récupération sécurisée également : "+
-            str(exc)[:550]+
-            ((" · Message Codex : "+error.strip()[-350:]) if error.strip() else "")
+            (str(exc)[:550] if isinstance(exc,(ValueError,RuntimeError)) else
+             "Le processus local n’a pas terminé normalement.")
         ) from exc
 
 def claude_apply(site_dir, prompt):

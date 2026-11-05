@@ -62,7 +62,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/test_public_photo_faithfulness.cjs tests/test_web_generation_feedback.cjs tests/test_studio_progress.cjs
+          node --test tests/test_public_photo_faithfulness.cjs tests/test_web_generation_feedback.cjs tests/test_studio_progress.cjs tests/test_public_output_validation.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare branded Windows icon and PE metadata
@@ -222,6 +222,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item docs\build316\HUMAN_AUDIT_1_REPORT.md release\Bilan-audit-humain-1.md
           Copy-Item docs\build316\HUMAN_AUDIT_1_VALIDATION.md release\Recette-PC.md
+          Copy-Item docs\build316\HUMAN_AUDIT_1_CONTINUATION.md release\Poursuite-audit-humain-1.md
           Compress-Archive -Path release\* -DestinationPath LocalVisionAI-Windows.zip -Force
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path LocalVisionAI-Windows.zip))

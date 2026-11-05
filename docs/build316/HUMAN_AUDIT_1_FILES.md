@@ -3,6 +3,7 @@
 - `.github/workflows/build-windows.yml`
 - `benchmarks/public-cases.json`
 - `docs/build316/HUMAN_AUDIT_1.md`
+- `docs/build316/HUMAN_AUDIT_1_CONTINUATION.md`
 - `docs/build316/HUMAN_AUDIT_1_FILES.md`
 - `docs/build316/HUMAN_AUDIT_1_REPORT.md`
 - `docs/build316/HUMAN_AUDIT_1_VALIDATION.md`
@@ -25,6 +26,7 @@
 - `local_app/web/studio-brand-picker.js`
 - `local_app/web/studio-brands.html`
 - `local_app/web/studio-brands.js`
+- `local_app/web/studio-media-validation.js`
 - `local_app/web/studio-progress.js`
 - `local_app/web/studio-qcm-home.js`
 - `local_app/web/studio-qcm-shell.js`
@@ -34,9 +36,12 @@
 - `scripts/benchmark_public_engine.py`
 - `scripts/diagnose_codex.py`
 - `scripts/qa_human_audit_1.cjs`
+- `tests/fixtures/public-decoder-check.webm`
 - `tests/test_brand_map_agent_connectivity.py`
 - `tests/test_branding_assets.py`
+- `tests/test_codex_failure_recovery.py`
 - `tests/test_human_audit_1.py`
 - `tests/test_institutional_studio_crm.py`
+- `tests/test_public_output_validation.cjs`
 - `tests/test_studio_progress.cjs`
 - `tests/test_web_generation_feedback.cjs`

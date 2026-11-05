@@ -371,6 +371,13 @@ function renderMessage(m){
   const pending=document.createElement('span');pending.className='vision-output-pending';
   pending.dataset.kind=m.mediaType==='video'?'video':'image';pending.dataset.promptIds=JSON.stringify(m.prompt_ids||[]);pending.hidden=true;wrap.appendChild(pending);
  }else if(m.chatLoading){const wait=document.createElement('div');wait.className='chat-waiting';const dots=document.createElement('span');dots.className='chat-dots';dots.innerHTML='<i></i><i></i><i></i>';const stop=document.createElement('button');stop.type='button';stop.className='chat-stop';stop.title='Arrêter la réponse';stop.textContent='×';stop.onclick=stopActiveChat;wait.append(dots,stop);wrap.appendChild(wait)}else{const label=document.createElement('div');label.className='generation-label';label.textContent=m.mediaType==='video'?'Génération de la vidéo…':'Génération de la photo…';label.dataset.defaultText=label.textContent;wrap.appendChild(label);const f=document.createElement('div');f.className='generation-frame loading';f.innerHTML='<div class="loader"></div>';wrap.appendChild(f)}}
+ if(m.unverifiedOutput&&!document.body.classList.contains('nsfw-active')){
+  const retry=document.createElement('button');retry.type='button';retry.className='output-verification-retry';
+  retry.textContent='Vérifier à nouveau le fichier';
+  const owner=activeConversationId;
+  retry.addEventListener('click',async()=>{retry.disabled=true;retry.textContent='Vérification du fichier…';try{await retryPublicOutput(owner,m)}catch(e){toast(e.message)}finally{retry.disabled=false;retry.textContent='Vérifier à nouveau le fichier'}});
+  wrap.append(retry);
+ }
  if(m.result){const src=resultUrl(m.result),video=/\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'');
   if(!document.body.classList.contains('nsfw-active')&&document.body.dataset.studioPage==='vision'){
    const ref=document.createElement('span');ref.className='vision-output-ref';ref.hidden=true;
@@ -582,16 +589,47 @@ async function startGeneration(task,model,promptText,previewStyle=null){
   if(loading){loading.prompt_ids=acceptedIds;save();if(id===activeConversationId){const marker=document.querySelector('#messages .vision-output-pending');if(marker)marker.dataset.promptIds=JSON.stringify(acceptedIds)}}
   await waitResults(acceptedIds,id,model,promptText,task,previewStyle)}catch(e){removeLoading(id);const cancelled=/annul[ée]/i.test(e.message);addMessage(id,{role:'assistant',error:!cancelled,text:cancelled?e.message:'Erreur de génération : '+e.message});toast(e.message)}finally{window.StudioAds?.endGeneration?.(task);$('#send').disabled=false}
 }
+const publicOutputChecks=new WeakSet();
+async function verifyPublicOutput(file,id,model,promptText,task,previewStyle=null){
+ const message={role:'assistant',text:'Vérification du fichier…',
+  unverifiedOutput:{file:{...file},kind:task,model:{id:model.id,kind:model.kind},prompt:promptText,previewStyle,
+   advertContext:file.ad_url?null:window.StudioAds?.captureCampaign?.()||null}};
+ // Save a recoverable receipt before decoding: a reload must not lose the output.
+ addMessage(id,message);
+ if(id===activeConversationId){const marker=document.querySelector('#messages .vision-output-pending');if(marker)marker.dataset.phase='validation'}
+ try{await retryPublicOutput(id,message);return true}catch{return false}
+}
+async function retryPublicOutput(id,message){
+ const pending=message.unverifiedOutput;if(!pending||publicOutputChecks.has(message))return;
+ const conv=conversationFor(id);if(conv.profile==='nsfw')return;
+ publicOutputChecks.add(message);
+ try{
+  const file={...pending.file};
+  if(!window.StudioMediaValidation)throw Error('Le contrôle de lecture est indisponible. Actualise l’application.');
+  file.technical_validation=await window.StudioMediaValidation.verify(resultUrl(file),/\.(mp4|webm|mov|mkv|avi)$/i.test(file.filename||'')?'video':'image');
+  message.result=file;message.error=false;message.text='';delete message.unverifiedOutput;
+  const kind=resultKindForModel(pending.model);
+  if(!library.some(item=>item.filename===file.filename&&(item.subfolder||'')===(file.subfolder||'')&&(item.type||'output')===(file.type||'output')))
+   addLibrary(file,kind,pending.prompt,conv.profile||'auto');
+  if(pending.previewStyle){stylePreviews[pending.previewStyle]={...file,workflow:pending.model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}
+  if(pending.kind==='image')clearIrrelevantChatWarningsAfterMedia(id);
+  if(!file.ad_url)void window.StudioAds?.finishMedia(file,pending.model,pending.kind,id,pending.prompt,pending.advertContext);
+ }catch(error){pending.file.technical_validation={verified:false,scope:'browser_check',error:error.message,checked_at:new Date().toISOString()};message.error=true;message.text='Fichier non validé : '+error.message;throw error}
+ finally{publicOutputChecks.delete(message);save();if(id===activeConversationId)openConversation(id)}
+}
 function outputFiles(h){const files=[];for(const o of Object.values(h.outputs||{}))for(const key of ['videos','gifs','images'])for(const file of o[key]||[]){if(file?.filename&&!files.some(x=>x.filename===file.filename&&x.subfolder===file.subfolder))files.push(file)}return files}
-async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){if(conversationFor(id).profile!=='nsfw'&&h.provenance_url)file.provenance_id=pid;addMessage(id,{role:'assistant',result:file});if(task==='image'&&conversationFor(id).profile!=='nsfw')clearIrrelevantChatWarningsAfterMedia(id);addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
+async function waitResults(pids,id,model,promptText,task,previewStyle=null){const pending=new Set(pids.filter(Boolean)),missing=new Map();let failures=0;if(!pending.size)throw new Error('Le moteur n’a pas accepté la génération.');while(pending.size){await new Promise(r=>setTimeout(r,1000));for(const pid of [...pending]){let d;try{d=await api('/api/history/'+encodeURIComponent(pid));failures=0}catch(e){if(++failures>=5)throw new Error('Connexion au moteur interrompue. La tâche peut continuer dans ComfyUI. '+e.message);continue}const h=d[pid];if(!h){if(d._missing){const cancelled=await api('/api/studio/media/job?id='+encodeURIComponent(pid)).then(x=>x.job?.state==='cancelled').catch(()=>false);if(cancelled){pending.delete(pid);addMessage(id,{role:'assistant',text:'Génération annulée depuis Mes créations.'});continue}missing.set(pid,(missing.get(pid)||0)+1);if(missing.get(pid)>=3){pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'La tâche a disparu de ComfyUI. Vérifie Mes créations ou le journal du moteur avant de relancer.'})}}else missing.delete(pid);continue}if(['error','failed'].includes(h.status?.status_str)){const details=(h.status.messages||[]).find(x=>x[0]==='execution_error')?.[1];pending.delete(pid);addMessage(id,{role:'assistant',error:true,text:'Échec de génération : '+(details?.exception_message||'Consulte le journal ComfyUI.')});continue}const files=outputFiles(h);if(!h.status?.completed)continue;pending.delete(pid);if(!files.length){addMessage(id,{role:'assistant',error:true,text:'La tâche est terminée sans fichier de sortie.'});continue}for(const file of files){if(conversationFor(id).profile!=='nsfw'&&h.provenance_url)file.provenance_id=pid;if(conversationFor(id).profile!=='nsfw'){
+ await verifyPublicOutput(file,id,model,promptText,task,previewStyle);
+ continue;
+ }
+ addMessage(id,{role:'assistant',result:file});if(task==='image'&&conversationFor(id).profile!=='nsfw')clearIrrelevantChatWarningsAfterMedia(id);addLibrary(file,resultKindForModel(model),promptText,conversationFor(id).profile||'auto');if(conversationFor(id).profile!=='nsfw')void window.StudioAds?.finishMedia(file,model,task,id,promptText);if(previewStyle){stylePreviews[previewStyle]={...file,workflow:model.id};localStorage.setItem('lva_style_previews',JSON.stringify(stylePreviews));renderStyles()}}}}removeLoading(id)}
 
-window.onStudioAdvert=(result,id,originalPrompt)=>{
+window.onStudioAdvert=async(result,id,originalPrompt)=>{
  if(!result?.url||!result?.filename)return;
  const file={filename:result.filename,ad_url:result.url,subfolder:'',type:'output'};
+ if(!await verifyPublicOutput(file,id,{id:'advert-export',kind:result.kind},originalPrompt,result.kind))return;
  addMessage(id,{role:'assistant',text:'Publicité avec le logo de '+(result.brand||'la marque')+' prête : version exportable.'});
- addMessage(id,{role:'assistant',result:file});
- addLibrary(file,result.kind==='video'?'video':'image',originalPrompt,
-            conversationFor(id).profile||'auto');
+
 };
 window.onStudioAdvertError=(message,id)=>{
  addMessage(id,{role:'assistant',error:true,text:message});

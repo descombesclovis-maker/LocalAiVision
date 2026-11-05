@@ -145,9 +145,10 @@
    const b=campaign.brand||{};
    return [raw,'DIRECTION ARTISTIQUE PUBLICITAIRE : qualité commerciale élevée, composition précise, lumière étudiée, mouvements crédibles, textures réalistes, image nette, hiérarchie visuelle premium, cohérence entre les plans.','Activité : '+(b.sector||'non renseignée')+'.','Identité colorimétrique : '+(b.primary_color||'')+' et '+(b.secondary_color||'')+'.','Public visé : '+(b.audience||'')+'.','Positionnement : '+(b.description||'')+'.','Respecte les faits fournis ; aucun prix, avis, résultat ou promotion inventé. Ne dessine pas de faux logo ni de texte promotionnel : le vrai logo et les textes seront ajoutés précisément au moment de l’export.'].join(' ');
  }
- function finishMedia(file,model,task,id,originalPrompt){
-   if(!campaign?.brand_id||task!==campaign.type||!file?.filename)return Promise.resolve();
-   const selected={...campaign};
+ function finishMedia(file,model,task,id,originalPrompt,context=null){
+   const current=context||campaign;
+   if(!current?.brand_id||task!==current.type||!file?.filename)return Promise.resolve();
+   const selected={...current};
    exportQueue=exportQueue.catch(()=>{}).then(async()=>{
      try{
        const result=await request('/api/studio/advert/render',{
@@ -164,6 +165,7 @@
  function endGeneration(task){if(campaign?.type===task)campaign=null}
  function cancelChat(){draft=null;document.body.classList.remove('vision-ad-guided')}
  window.StudioAds={enhancePrompt,finishMedia,getBrands,activeAspect,endGeneration,handleDraftMessage,startChat,cancelChat};
+ window.StudioAds.captureCampaign=()=>campaign?JSON.parse(JSON.stringify(campaign)):null;
  $('studioAdOpen')?.addEventListener('click',()=>startChat());
  const related=new URLSearchParams(location.search).get('campaign_project')||'';
  if(/^web-[a-f0-9]{12}$/.test(related)){

@@ -48,7 +48,7 @@ La provenance existante enregistre le graphe soumis, les noms des modèles, les 
 
 ## Validation disponible
 
-- Linux : **372 tests Python exécutés, 2 ignorés** (tests Windows natifs) ; aucune erreur au dernier passage local.
+- Linux : **376 tests Python exécutés, 2 ignorés** (tests Windows natifs) ; aucune erreur au dernier passage local.
 - Node : tests des enrichissements photo, des états de progression et du suivi Web. Les contrôles navigateur sont réalisés séparément sous Windows dans GitHub Actions.
 - Diagnostic de disponibilité ComfyUI exécuté ici : **indisponible, connexion refusée**, `executed=false`, `success=false`. Aucun rendu n'a été réalisé ni remplacé par une image illustrative.
 - Pas de RTX 3060 dans cet environnement. Aucun gain de vitesse, de VRAM ou de qualité n'est revendiqué.
@@ -68,3 +68,14 @@ Le numéro technique et le commit du paquet proviennent de GitHub Actions. Consu
 7. Fluidité avec la RTX 3060 réellement sollicitée ; la CI sans cette carte ne peut pas la certifier.
 
 Voir `HUMAN_AUDIT_1_VALIDATION.md` pour les commandes. P0 Codex durable et qualité vidéo restent ouverts jusqu'à ces vérifications. Pas de fusion, de release ni de déploiement autorisé dans cette mission.
+
+
+## Poursuite après compilation 394
+
+Le résultat public est désormais contrôlé par le navigateur avant son ajout à la galerie : décodage effectif des images ; dimensions, durée et première image décodée pour les vidéos. Ce dernier contrôle n'est pas un décodage intégral de la vidéo ni une certification artistique. Un reçu enregistre les dimensions, la portée du contrôle et l'heure de vérification.
+
+Une sortie en cours de vérification est enregistrée dans sa conversation avant le contrôle. Si le fichier est indisponible, corrompu, lent ou si la page est rechargée, « Vérifier à nouveau le fichier » réessaie sa lecture sans soumettre de nouvelle génération. Le contexte publicitaire est conservé, y compris la marque. Les paramètres privés restent inchangés.
+
+Les erreurs connues de réseau, quota et authentification Codex sont distinguées. Sans nouveaux fichiers utilisables, elles n'entraînent plus un second appel automatique au modèle. Une sortie brute du CLI n'est plus ajoutée aux erreurs de ces chemins ; les projets et les fichiers déjà écrits sont conservés pour les contrôles de compilation existants.
+
+Nouveaux tests : images corrompues, erreurs de décodage, durée vidéo invalide, délai dépassé, origine étrangère, récupération sans doublon ni relance GPU, maintien du parcours privé, et refus d'un second appel Codex sur panne réseau/quota/authentification. Le navigateur Windows vérifie également une image PNG réelle et un petit WebM de recette ; ces fichiers techniques ne proviennent pas d'une génération IA.

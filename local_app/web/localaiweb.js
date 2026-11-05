@@ -74,7 +74,11 @@ function codexRecovery(error){
  const raw=String(error?.message||error||'');
  if(!/codex|authentif|login|sandbox|permission|lecture seule|read.only|11008/i.test(raw))return;
  const node=$('#lawChatStatus');
- if(node)node.textContent=/authentif|login|401|token/i.test(raw)
+ if(node)node.textContent=/quota|limite d.utilisation|429/i.test(raw)
+  ?'Quota Codex atteint. Attends sa disponibilité puis reprends ce projet ; les fichiers sont conservés.'
+  :/r[ée]seau|connexion.*interrompue|d[ée]lai d[ée]pass[ée]/i.test(raw)
+  ?'Connexion réseau Codex interrompue. Vérifie le réseau puis reprends le projet ; les fichiers sont conservés.'
+  :/authentif|login|401|token/i.test(raw)
   ?'Codex demande une reconnexion. Ouvre « Paramètres » pour te reconnecter.'
   :'Codex ne peut pas écrire dans le projet. Vérifie son état et les autorisations du PC via « Paramètres ».';
  $('#lawMobileMenuToggle')?.classList.add('needs-attention');

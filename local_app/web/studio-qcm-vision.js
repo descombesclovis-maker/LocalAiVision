@@ -68,7 +68,7 @@ function update(){
  if(!item){if(lastSrc||stage.querySelector('.vision-preview-loading'))clear();return}
  if(item.classList.contains('vision-output-pending')){
   lastSrc='';lastType='';actions.hidden=true;
-  heading.textContent=item.dataset.kind==='video'?'Vidéo en cours…':'Photo en cours…';
+  heading.textContent=item.dataset.phase==='validation'?'Vérification du fichier…':item.dataset.kind==='video'?'Vidéo en cours…':'Photo en cours…';
   if(!stage.querySelector('.vision-preview-loading')){
    const spinner=document.createElement('div');spinner.className='vision-preview-loading';
    spinner.setAttribute('role','status');spinner.setAttribute('aria-live','polite');
@@ -89,7 +89,9 @@ function update(){
  if(mediaType==='video'){node.controls=true;node.preload='metadata';node.playsInline=true}
  else node.alt='Dernière image générée dans cette discussion';
  stage.replaceChildren(node);
- heading.textContent=mediaType==='video'?'Vidéo générée':'Image générée';
+ heading.textContent='Chargement du résultat…';
+ node.addEventListener(mediaType==='video'?'loadeddata':'load',()=>{if(!isAdult()&&lastSrc===resolved.href)heading.textContent=mediaType==='video'?'Vidéo générée':'Image générée'});
+ node.addEventListener('error',()=>{if(!isAdult()&&lastSrc===resolved.href){heading.textContent='Fichier actuellement illisible';actions.hidden=true}});
  actions.hidden=false;open.href=resolved.href;download.href=resolved.href;
  const provenanceId=resolved.searchParams.get('provenance_id')||'';
  if(/^[A-Za-z0-9_-]{1,128}$/.test(provenanceId)){
@@ -104,7 +106,7 @@ document.addEventListener('studio:media-progress',e=>{
  const job=window.StudioProgress?.selectJob(e.detail?.jobs||[],ids);
  window.StudioProgress?.render(host,job||{});
 });
-new MutationObserver(update).observe(messages,{subtree:true,childList:true,attributes:true,attributeFilter:['src','data-prompt-ids']});
+new MutationObserver(update).observe(messages,{subtree:true,childList:true,attributes:true,attributeFilter:['src','data-prompt-ids','data-phase']});
 new MutationObserver(update).observe(document.body,{attributes:true,attributeFilter:['class']});
 update();
 // Public mode shortcuts point to existing application controls.

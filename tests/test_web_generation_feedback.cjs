@@ -54,7 +54,7 @@ test('Media results wait for engine completion even when an intermediate image a
   addMessage:(_id,message)=>messages.push(message),
   addLibrary:file=>library.push(file),
   conversationFor:()=>({profile:'auto'}),resultKindForModel:()=> 'image',
-  clearIrrelevantChatWarningsAfterMedia:()=>{},removeLoading:()=>{},window:{}
+  clearIrrelevantChatWarningsAfterMedia:()=>{},removeLoading:()=>{},verifyPublicOutput:async(file,id)=>{messages.push({role:'assistant',result:file});library.push(file);return true},window:{}
  });
  vm.runInContext(source.slice(source.indexOf('function outputFiles('),source.indexOf('\nwindow.onStudioAdvert=')),ctx);
  await ctx.waitResults(['render-id'],'conversation',{},'prompt','image');
