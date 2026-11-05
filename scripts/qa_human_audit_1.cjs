@@ -123,6 +123,44 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   await page.keyboard.press('Escape');
   assert.equal(await menu.isVisible(),false);
  });
+ await check('Vision top-right Studio return, vector-only drawer and public rail emoji',async()=>{
+  await page.goto(base+'/localaivision');await page.setViewportSize({width:1440,height:1000});
+  const link=page.locator('#visionStudioReturn');
+  assert.equal(await link.isVisible(),true);
+  assert.equal(await link.getAttribute('href'),'/studio');
+  await page.locator('#openSidebar').click();
+  assert.equal(await page.locator('#sidebar .studio-navigation .vision-nav-emoji').count(),0);
+  assert.equal(await page.locator('#navPhoto .nav-glyph svg').count(),1);
+  assert.equal(await page.locator('#sidebar #newConversation').isVisible(),false);
+  assert.ok(await page.locator('#qcmDock .qcm-emoji-vision').count()>0);
+  await page.keyboard.press('Escape');
+ });
+ await check('Photo chat retains media when removed from gallery and restores through pull drawer',async()=>{
+  await page.locator('#openSidebar').click();
+  await page.locator('#navPhoto').click();
+  await page.evaluate(()=>{
+    const c=conversationFor(activeConversationId);
+    addMessage(c.id,{role:'user',text:'PHOTO FICTIVE de recette, aucune génération GPU'});
+    const file={filename:'qa-conversation-archive.png',subfolder:'',type:'output'};
+    addMessage(c.id,{role:'assistant',result:file});
+    addLibrary(file,'image','PHOTO FICTIVE de recette','auto');
+  });
+  const pull=page.locator('#visionChatArchive .vision-archive-pull');
+  await pull.waitFor({state:'visible'});
+  await pull.click();
+  assert.equal(await page.locator('#visionArchivePanel .vision-archive-item').count(),1);
+  assert.equal(await page.evaluate(()=>conversationFor(activeConversationId).studioMode),'image');
+  page.once('dialog',d=>d.accept());
+  await page.getByRole('button',{name:'Retirer de la galerie'}).click();
+  assert.equal(await page.evaluate(()=>library.find(x=>x.filename==='qa-conversation-archive.png').galleryHidden),true);
+  assert.equal(await page.evaluate(()=>conversationFor(activeConversationId).messages.some(m=>m.result?.filename==='qa-conversation-archive.png')),true);
+  await page.getByRole('button',{name:'Restaurer dans Mes créations'}).click();
+  assert.equal(await page.evaluate(()=>library.find(x=>x.filename==='qa-conversation-archive.png').galleryHidden),false);
+  page.once('dialog',d=>d.dismiss());
+  await page.getByRole('button',{name:'Supprimer définitivement'}).click();
+  assert.equal(await page.evaluate(()=>conversationFor(activeConversationId).messages.some(m=>m.result?.filename==='qa-conversation-archive.png')),true);
+  await page.screenshot({path:path.join(output,'conversation-archive-recovery.png')});
+ });
  assert.deepEqual(errors,[]);
  }catch(e){results.error=e.stack;process.exitCode=1}
  finally{if(browser)await browser.close();server.kill();log.end();fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2))}
