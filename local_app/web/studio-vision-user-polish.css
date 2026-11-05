@@ -239,3 +239,40 @@ body[data-studio-page="vision"]:not(.nsfw-active) .vision-archive-empty{
 /* Preserve historical button label while enforcing the clock pictogram's cyan geometry. */
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #historyBtn>.nav-glyph{display:grid!important;place-items:center!important;width:34px;min-width:34px;height:34px}
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #historyBtn>.nav-glyph svg{width:23px;height:23px;stroke:#92f4ff!important;filter:drop-shadow(0 0 5px #38dcef9c)}
+
+/* Build 316 human audit 3 — premium right-aligned mode menu, no History entry. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry{
+ justify-content:flex-end!important;text-align:right!important;gap:10px!important;
+ padding:0 14px!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>.nav-glyph{
+ order:0;flex:0 0 34px;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>span:not(.nav-glyph):not(.vision-menu-chevron){
+ text-align:right!important;order:1;min-width:0;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>.vision-menu-chevron{
+ order:2;flex:0 0 24px;display:grid;place-items:center;width:24px;height:29px;
+ color:#93f3ff;opacity:.72;transform:translateX(0);
+ transition:transform .24s cubic-bezier(.2,.8,.2,1),opacity .2s,filter .2s;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>.vision-menu-chevron svg{
+ width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;
+ stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px #49dbf077);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry:is(:hover,:focus-visible,.active)>.vision-menu-chevron{
+ opacity:1;transform:translateX(4px);
+ filter:drop-shadow(0 0 5px #4ae5f7);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar #visionAdvancedToggle{
+ justify-content:flex-end!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar #visionAdvancedToggle>.vision-menu-chevron{
+ display:none!important;
+}
+/* Keep the History controller in the DOM for saved-chat access through the conversation drawer. */
+body[data-studio-page="vision"]:not(.nsfw-active) #historyBtn{display:none!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn{gap:0!important;min-width:118px!important}
+@media(prefers-reduced-motion:reduce){
+ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .vision-menu-chevron{transition:none!important;transform:none!important}
+}
