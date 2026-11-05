@@ -396,7 +396,7 @@ function deleteConversation(id){
    if(!m.result)continue;
    const existing=library.find(x=>x.profile!=='nsfw'&&mediaIdentity(x)===mediaIdentity(m.result));
    if(existing)existing.galleryHidden=false;
-   else library.unshift({...m.result,_id:crypto.randomUUID(),profile:'auto',kind:/\\.(mp4|webm|mov|mkv)$/i.test(m.result.filename||'')?'video':'image',prompt:lastPrompt,createdAt:new Date().toISOString()});
+   else library.unshift({...m.result,_id:crypto.randomUUID(),profile:'auto',kind:['.mp4','.webm','.mov','.mkv'].some(ext=>(m.result.filename||'').toLowerCase().endsWith(ext))?'video':'image',prompt:lastPrompt,createdAt:new Date().toISOString()});
   }
   renderLibraryCounts();notifyPublicLibraryChanged();
  }
