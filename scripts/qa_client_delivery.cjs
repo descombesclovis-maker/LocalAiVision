@@ -38,7 +38,7 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
    await page.screenshot({path:path.join(output,'web-header-'+name+'.png')});
   }
  });
- await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/localaiweb/livraisons?id='+id);await page.waitForURL(deliveryBase+'/localaiweb/livraisons?id='+id);await page.locator('#dossier').waitFor();
+ await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/localaiweb/livraisons?id='+id);await page.waitForURL(deliveryBase+'/localaiweb/livraisons?id='+id);await page.locator('#dossier').waitFor();await page.waitForFunction(()=>!document.body.hasAttribute('aria-busy'));
  await check('Free quote, accepted declaration, partial then full receipt, immutable invoice',async()=>{
   const values={'seller.name':'Atelier Fictif','seller.siret':'53784237900027','seller.address':'10 rue du Test, Paris','seller.payment_details':'Virement bancaire','seller.late_penalty_rate':'Taux contractuel','customer.name':'Client Démonstration','customer.address':'12 rue des Tests, Lyon','customer.siren':'123456789','service_date':new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Paris'})};
   for(const [name,value] of Object.entries(values))await page.locator('[name="'+name+'"]').fill(value);
@@ -46,9 +46,9 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
   page.once('dialog',d=>d.accept());await page.locator('#createQuote').click();await page.locator('#documentList a').first().waitFor();
   let d=await api('/api/web/delivery/dossier?id='+id,null,true);assert.ok(d.quote);assert.equal(d.invoice,null);
   const quoteResponse=await page.evaluate(async url=>{const r=await fetch(url);return {status:r.status,data:Array.from(new Uint8Array(await r.arrayBuffer()))}},'/api/web/delivery/document?id='+id+'&number='+d.quote);assert.equal(quoteResponse.status,200);const quote=Buffer.from(quoteResponse.data);assert.ok(quote.subarray(0,5).equals(Buffer.from('%PDF-')));fs.writeFileSync(path.join(output,'Devis-fictif.pdf'),quote);
-  await page.locator('[data-tab="payment"]').click();page.once('dialog',x=>x.accept());await page.locator('#acceptQuote').click();await page.waitForFunction(()=>document.querySelector('#acceptQuote').disabled);
+  await page.locator('[data-tab="payment"]').click();page.once('dialog',x=>x.accept());await page.locator('#acceptQuote').click();await page.waitForFunction(()=>document.querySelector('#acceptQuote').disabled&&!document.body.hasAttribute('aria-busy'));
   for(const [amount,reference] of [['40','fixture-receipt-1'],['60','fixture-receipt-2']]){
-   await page.locator('#paymentAmount').fill(amount);await page.locator('#paymentReference').fill(reference);page.once('dialog',x=>x.accept());await page.locator('#recordPayment').click();await page.waitForFunction(ref=>document.querySelector('#paymentHistory').textContent.includes(ref),reference);
+   await page.locator('#paymentAmount').fill(amount);await page.locator('#paymentReference').fill(reference);page.once('dialog',x=>x.accept());await page.locator('#recordPayment').click();await page.waitForFunction(ref=>document.querySelector('#paymentHistory').textContent.includes(ref)&&!document.body.hasAttribute('aria-busy'),reference);
    d=await api('/api/web/delivery/dossier?id='+id,null,true);assert.ok(d.invoice);assert.equal(d.assessment.payment.status,amount==='40'?'partial':'received');
   }
   const invoice=await page.evaluate(async url=>{const r=await fetch(url);return {status:r.status,data:Array.from(new Uint8Array(await r.arrayBuffer()))}},'/api/web/delivery/document?id='+id+'&number='+d.invoice);assert.equal(invoice.status,200);fs.writeFileSync(path.join(output,'Facture-fictive.pdf'),Buffer.from(invoice.data));
