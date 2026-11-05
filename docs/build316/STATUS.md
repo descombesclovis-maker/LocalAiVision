@@ -218,3 +218,19 @@ les messages sont lisibles avec de vrais retours à la ligne.
   **17 tests Node réussis** ; syntaxe des deux JS touchés et diff vérifiés.
 - `TERMINÉ ET TESTÉ` localement ; nouvelle CI Windows et captures requises avant
   qualification de l'EXE. Ces corrections ne changent aucun paramètre de génération.
+
+### Revue finale du journal de fichiers
+
+- Commit de suivi réel : `ef378883300d151961782a7eddba4c1d657ea31c`.
+  CI 42031666050 : build Windows **réussi**, y compris compilation, icône,
+  démarrage natif et mise à jour ; Chromium/Edge encore en cours à cette étape.
+- Le traitement d'un dossier comme fichier est maintenant refusé avant journalisation.
+  Cela empêche une suppression/écriture invalide de laisser un rollback impossible
+  et de bloquer la réouverture. Test de refus + réouverture avec médias intacts.
+- Validation locale finale de ce lot : **364 tests Python : 363 réussis,
+  1 ignoré Linux** ; les **17 tests Node** du lot précédent restent applicables
+  (aucun JS supplémentaire modifié). Nouvelle CI requise pour ce dernier garde-fou.
+- Captures réellement examinées du run 42031034744 : accueil desktop, éditeur
+  desktop/mobile et Vision mobile. Disposition préservée. Chromium a réussi sur
+  ce run ; Edge interrompu par la mise à jour de la branche, sans résultat global.
+  Ces captures sont des fixtures d'interface, pas des sites générés ni des rendus IA.

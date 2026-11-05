@@ -175,3 +175,17 @@ store.rename_file(sys.argv[2],'index.html','renamed.html')
             with self.assertRaises(OSError):self.store.delete_file(self.pid,'index.html')
         self.assertEqual((self.site/'index.html').read_text(),'old index')
         self.assertFalse((self.site.parent/'.site-transaction').exists())
+
+    def test_directory_is_rejected_before_it_can_leave_an_unrecoverable_journal(self):
+        folder=self.site/'styles.css'
+        folder.mkdir()
+        media=folder/'original.png'
+        media.write_bytes(b'original media')
+        for operation in (lambda:self.store.delete_file(self.pid,'styles.css'),
+                          lambda:self.store.write_files(self.pid,{'index.html':'new','styles.css':'new'})):
+            with self.assertRaises(ValueError):operation()
+            self.assertFalse((self.site.parent/'.site-transaction').exists())
+            self.assertEqual(media.read_bytes(),b'original media')
+        # A new store must still start normally after both invalid operations.
+        reopened=web_builder.LocalAiWebStore(self.root,None)
+        self.assertEqual(reopened.text_files(self.pid)['index.html'],'old index')

@@ -20,7 +20,9 @@ est `9a2bbee`, PR #65 en brouillon. Aucune fusion, release ou publication.
    fin ComfyUI avant ajout des sorties à la bibliothèque.
 9. Suivi Web par phases réelles, retrait des pourcentages fixes ; messages lisibles
    avec de vrais retours à la ligne.
-10. Décodage technique des sorties du benchmark public, au lieu du seul contrôle
+10. Rejet des dossiers traités comme fichiers avant journalisation, pour préserver
+    la réouverture du stockage après une requête invalide.
+11. Décodage technique des sorties du benchmark public, au lieu du seul contrôle
    « fichier non vide ». L'absence de décodeur laisse la validation non accordée.
 
 Fichiers principaux : `local_app/media_journal.py`, `private_access.py`, `server.py`,
@@ -30,7 +32,7 @@ Tests ciblés dans `tests/test_media_journal.py`, `test_private_access.py`,
 
 ## Preuves et limites
 
-- Python : 363 tests exécutés, 362 réussis, 1 ignoré sous Linux.
+- Python : 364 tests exécutés, 363 réussis, 1 ignoré sous Linux.
 - Node : 17 tests réussis (prompts, suivi Web, messages et fin réelle des médias).
 - Renommage interrompu : vrai processus tué après copie du nouveau fichier,
   récupération de l'original sans doublon à la réouverture.
@@ -63,7 +65,7 @@ les fichiers de code corrigés ont conservé leurs anciens octets.
 | Carte | Pas de nouvelle collecte ni de qualification des milliers d'établissements dans ce lot |
 | Publicité | Campagnes éditables et fidélité visuelle encore à compléter/valider |
 | Interface | Préservée ; revue artistique et captures de la nouvelle CI requises |
-| Windows | Run 42031034744 bloqué par une connexion SQLite non fermée dans un nouveau test ; correctif ajouté, nouvelle CI requise |
+| Windows | Run 42031666050 : EXE, icône, démarrage et mise à jour réussis sur ef37888 ; dernier garde-fou dossier à recompiler |
 
 ## Validation sur le PC cible
 

@@ -189,7 +189,8 @@ class LocalAiWebStore:
             p = safe_rel(rel)
             target = site / p
             if (p.name in PRIVATE_NAMES or any(part in IGNORED_DIRS for part in p.parts)
-                    or target.is_symlink() or not target.resolve().is_relative_to(site.resolve())):
+                    or target.is_symlink() or (target.exists() and not target.is_file())
+                    or not target.resolve().is_relative_to(site.resolve())):
                 raise ValueError('Chemin protégé ou invalide : ' + str(rel))
             changes[p.as_posix()] = body
         with _STORAGE_LOCK, project_lock(self.project_dir(project_id)):
@@ -209,7 +210,7 @@ class LocalAiWebStore:
                 for rel in changes:
                     old = site / rel
                     row = {'path': rel, 'existed': old.is_file()}
-                    if old.is_symlink() or not old.resolve().is_relative_to(site.resolve()):
+                    if old.is_symlink() or (old.exists() and not old.is_file()) or not old.resolve().is_relative_to(site.resolve()):
                         raise ValueError('Lien symbolique interdit dans une transaction.')
                     if row['existed']:
                         atomic_copy(old, journal / 'originals' / rel)
