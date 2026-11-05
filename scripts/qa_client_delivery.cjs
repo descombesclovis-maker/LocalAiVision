@@ -26,9 +26,9 @@ async function check(name,fn){await fn();result.checks.push({name,passed:true})}
  await check('Web viewport-wide header, preserved editor and menu on desktop, tablet and mobile',async()=>{
   for(const [name,width,height] of [['desktop',1440,1000],['tablet',820,1180],['mobile',390,844]]){
    await page.setViewportSize({width,height});await page.goto(base+'/localaiweb/editor?id='+id);await page.locator('#qcmEditorSplitter').waitFor({state:'attached'});await wait(500);
-   const header=await page.locator('.law-global-header').boundingBox(),logo=await page.locator('.law-global-header .chat-brand').boundingBox(),menu=await page.locator('#lawMobileMenuToggle').boundingBox();
+   const header=await page.locator('.law-global-header').boundingBox(),logo=await page.locator('.law-global-header .chat-brand').boundingBox(),back=await page.locator('#lawEditorReturn').boundingBox();
    assert.ok(Math.abs(header.x)<1&&Math.abs(header.width-width)<1,'full width '+name);
-   assert.ok(Math.abs(logo.x+logo.width/2-width/2)<1,'centered logo '+name);assert.ok(menu.x<=20,'far-left menu '+name);
+   assert.ok(Math.abs(logo.x+logo.width/2-width/2)<1,'centered logo '+name);assert.ok(back.x<=20,'far-left return '+name);assert.equal(await page.locator('#lawMobileMenuToggle').isVisible(),false);
    assert.equal(await page.locator('#webStudioReturn').isVisible(),true);assert.equal(await page.locator('#lawPublishBtn').count(),1);assert.equal(await page.locator('#lawPreview').count(),1);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
    await page.locator('#lawMobileMenuToggle').click();assert.equal(await page.locator('#connectAgent').isVisible(),true);assert.equal(await page.locator('#lawAgentSelect').isVisible(),true);
