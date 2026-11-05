@@ -290,3 +290,16 @@ body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #n
 body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation #newConversation>span{
  display:inline!important;
 }
+
+/* Navigation commune — icône ou emoji au-dessus, nom parfaitement centré sur tous les univers. */
+body[data-studio-page]:not(.nsfw-active) .qcm-dock .qcm-dock-link{
+ display:flex!important;flex-direction:column!important;align-items:center!important;
+ justify-content:center!important;text-align:center!important;gap:5px!important;
+}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock .qcm-dock-link>span{
+ display:grid!important;place-items:center!important;flex-shrink:0;line-height:1!important;
+}
+body[data-studio-page]:not(.nsfw-active) .qcm-dock .qcm-dock-link>small{
+ display:block!important;text-align:center!important;align-self:center!important;
+ max-width:100%;white-space:normal;line-height:1.15;margin:0 auto!important;
+}
