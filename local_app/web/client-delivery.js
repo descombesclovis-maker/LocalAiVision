@@ -16,7 +16,16 @@
   if(!response.ok){const result=await response.json().catch(()=>({}));throw Error(result.error||'Action indisponible ('+response.status+').')}
   return response.json();
  }
- async function run(fn){if(busy)return;busy=true;document.body.setAttribute('aria-busy','true');try{await fn()}catch(error){status(error.message,true)}finally{busy=false;document.body.removeAttribute('aria-busy')}}
+ async function run(fn){
+  if(busy)return;busy=true;document.body.setAttribute('aria-busy','true');
+  // Keep controls inert until the whole refresh finishes. A fast second click
+  // must wait for the updated version instead of being silently discarded.
+  $('#dossier').inert=true;$('#deliveryLibrary').inert=true;$('#projectSelect').disabled=true;
+  status('Traitement du dossier en cours…');
+  try{await fn()}catch(error){status(error.message,true)}finally{
+   busy=false;document.body.removeAttribute('aria-busy');$('#dossier').inert=false;$('#deliveryLibrary').inert=false;$('#projectSelect').disabled=false;
+  }
+ }
  function tab(name){document.querySelectorAll('[data-panel]').forEach(n=>n.hidden=n.dataset.panel!==name);document.querySelectorAll('[data-tab]').forEach(n=>n.dataset.tab===name?n.setAttribute('aria-current','step'):n.removeAttribute('aria-current'))}
  document.querySelectorAll('[data-tab]').forEach(n=>n.addEventListener('click',()=>tab(n.dataset.tab)));
  function valueField(form,name,value){const node=form.elements.namedItem(name);if(!node)return;if(node.type==='checkbox')node.checked=value===true;else node.value=value??''}
