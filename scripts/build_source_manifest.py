@@ -12,10 +12,10 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def manifest(root=ROOT):
-    paths=list((root/'local_app/web').rglob('*'))+list((root/'local_app').glob('*.py'))+list(root.glob('*.json'))
+    paths=list((root/'local_app/web').rglob('*'))+list((root/'local_app/data').rglob('*'))+list((root/'local_app').glob('*.py'))+list(root.glob('*.json'))
     return {'schema':1,'product_build':'316','files':{
         p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in sorted(paths) if p.is_file() and not p.is_symlink()}}
+        for p in sorted(paths) if p.is_file() and not p.is_symlink() and p.name!='source_manifest.json'}}
 
 
 if __name__=='__main__':

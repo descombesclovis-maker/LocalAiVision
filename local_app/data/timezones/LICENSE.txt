@@ -1,0 +1,6 @@
+Source: https://www.iana.org/time-zones
+Copyright: The Internet Assigned Numbers Authority (IANA)
+License: public-domain
+This database is in the public domain.
+
+Selected compiled TZif data from tzdb 2025b, provided as application data for the standard Python zoneinfo reader.

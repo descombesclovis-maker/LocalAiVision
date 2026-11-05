@@ -1,0 +1,12 @@
+{
+  "source": "https://www.iana.org/time-zones",
+  "snapshot_version": "2025b",
+  "origin": "TZif data already present in the build environment, /usr/share/zoneinfo; no package installed.",
+  "license": "IANA database public domain",
+  "scope": "Fallback for UTC, Europe/Paris and America/Los_Angeles only; system tzdb has priority. Not a claim to include the latest worldwide timezone rules.",
+  "files": {
+    "UTC": "8b85846791ab2c8a5463c83a5be3c043e2570d7448434d41398969ed47e3e6f2",
+    "Europe/Paris": "ab77a1488a2dd4667a4f23072236e0d2845fe208405eec1b4834985629ba7af8",
+    "America/Los_Angeles": "68977bb9ad6d186fefc6c7abd36010a66e30008dcb2d376087a41c49861e7268"
+  }
+}

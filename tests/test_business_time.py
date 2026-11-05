@@ -27,3 +27,17 @@ class BusinessTimeTests(unittest.TestCase):
             self.assertEqual(str(business_date(stamp('2026-01-01T23:30:00'), 'UTC')), '2026-01-01')
         with self.assertRaises(ValueError):
             business_date(0, 'Not/AZone')
+
+    def test_bundled_data_works_when_windows_has_no_iana_database(self):
+        from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
+        from local_app import business_time
+        class NoSystemDatabase:
+            def __new__(cls,name):raise ZoneInfoNotFoundError(name)
+            from_file=staticmethod(ZoneInfo.from_file)
+        business_time.business_zone.cache_clear()
+        self.addCleanup(business_time.business_zone.cache_clear)
+        with patch.object(business_time,'ZoneInfo',NoSystemDatabase):
+            self.assertEqual(str(business_time.business_date(stamp('2026-06-30T22:30:00'),'Europe/Paris')),'2026-07-01')
+            self.assertEqual(str(business_time.business_date(stamp('2026-01-01T00:30:00'),'America/Los_Angeles')),'2025-12-31')
+            self.assertEqual(str(business_time.business_date(0,'UTC')),'1970-01-01')
+            with self.assertRaises(ValueError):business_time.business_date(0,'Unavailable/Zone')
