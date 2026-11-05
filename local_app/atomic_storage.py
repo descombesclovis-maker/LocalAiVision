@@ -69,7 +69,8 @@ def install_file(pending, destination):
     pending, destination=Path(pending),Path(destination)
     if pending.parent.resolve()!=destination.parent.resolve():
         raise ValueError('Le fichier temporaire doit être sur le même répertoire.')
-    with pending.open('rb') as stream:os.fsync(stream.fileno())
+    # Windows _commit/FlushFileBuffers requires a writable descriptor.
+    with pending.open('r+b') as stream:os.fsync(stream.fileno())
     os.replace(pending,destination)
     if hasattr(os,'O_DIRECTORY'):
         directory=os.open(destination.parent,os.O_RDONLY|os.O_DIRECTORY)

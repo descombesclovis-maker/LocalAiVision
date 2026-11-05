@@ -54,12 +54,16 @@ jobs:
       - name: Record source and resource integrity
         run: |
           python scripts/build_source_manifest.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip freeze > build-dependencies.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run regression tests
         run: |
           python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/test_public_photo_faithfulness.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare branded Windows icon and PE metadata
         run: python scripts/prepare_windows_brand.py
