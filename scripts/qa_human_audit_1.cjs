@@ -105,6 +105,24 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   const receipt=await page.evaluate(()=>StudioMediaValidation.verify('/api/view?filename=qa-decoder.webm','video'));
   assert.equal(receipt.scope,'browser_first_frame_and_metadata');assert.equal(receipt.full_video_decode,false);assert.equal(receipt.width,16);assert.ok(receipt.duration_seconds>0);
  });
+ await check('Vision public gallery thumbnail, three-dot menu and fullscreen viewer',async()=>{
+  await page.locator('#openSidebar').click();
+  await page.locator('#navCreations').click();
+  const card=page.locator('#messages .gallery-card').first();
+  await card.waitFor();
+  const media=card.locator('img,video').first();
+  await media.click();
+  assert.equal(await page.locator('dialog.vision-gallery-modal').evaluate(node=>node.open),true);
+  await page.locator('.vision-gallery-modal .vision-dialog-close').first().click();
+  await card.locator('.vision-gallery-more').click();
+  const menu=card.locator('.vision-gallery-options');
+  assert.equal(await menu.getAttribute('role'),'menu');
+  assert.equal(await menu.locator('[role="menuitem"]').count(),3);
+  assert.equal(await card.locator('.vision-gallery-more').getAttribute('aria-expanded'),'true');
+  await page.screenshot({path:path.join(output,'gallery-menu-desktop.png')});
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.isVisible(),false);
+ });
  assert.deepEqual(errors,[]);
  }catch(e){results.error=e.stack;process.exitCode=1}
  finally{if(browser)await browser.close();server.kill();log.end();fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2))}
