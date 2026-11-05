@@ -4,35 +4,44 @@
  if(document.body.dataset.studioPage!=='vision')return;
  const isPrivate=()=>document.body.classList.contains('nsfw-active');
  const $=s=>document.querySelector(s);
- const emoji={navChat:'💬',navCreations:'🖼️',navPhoto:'📸',navVideo:'🎬',navNsfw:'🔐',studioAdOpen:'📣'};
+ // Only crisp cyan vectors belong in the hamburger drawer. Native emoji remain in the side rails.
  function makeIcon(d){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
   const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',d);
   svg.append(path);return svg;
  }
+ const navPaths={
+  navChat:'M20.5 11.4a8.2 8.2 0 0 1-8.4 8.2H7l-3.5 2 .8-5A8.3 8.3 0 1 1 20.5 11.4z M7.5 10h9 M7.5 13.5h6.2',
+  navCreations:'M4 3.5h6.7v6.7H4z M13.3 3.5H20v6.7h-6.7z M4 13.3h6.7V20H4z M13.3 13.3H20V20h-6.7z',
+  navPhoto:'M4.2 7h4l1.8-2.5h4.5L16.3 7h3.5a1.5 1.5 0 0 1 1.5 1.5V19H2.7V8.5A1.5 1.5 0 0 1 4.2 7z M15.7 13a3.7 3.7 0 1 1-7.4 0 3.7 3.7 0 1 1 7.4 0z',
+  navVideo:'M4.5 4.2h12A2 2 0 0 1 18.5 6v3l3-2v10l-3-2v3a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-1.8z M8.5 8.8l5.5 3.2-5.5 3.2z',
+  navNsfw:'M12 2.5 4 6.4v5.1c0 5 3.2 8.4 8 10 4.8-1.6 8-5 8-10V6.4z M9.5 11h5v5h-5z M10.4 11V9.4a1.6 1.6 0 0 1 3.2 0V11',
+  studioAdOpen:'M3 9.4 14.6 5v14L3 14.6z M14.6 8.2h3.1a2.5 2.5 0 0 1 0 5h-3.1 M6.5 16l2 4h3L9.9 15'
+ };
  function enhanceNavigation(){
-  for(const [id,glyph] of Object.entries(emoji)){
+  for(const [id,d] of Object.entries(navPaths)){
    const node=document.getElementById(id);
-   if(!node||node.querySelector('.vision-nav-emoji'))continue;
-   const icon=document.createElement('span');icon.className='vision-nav-emoji';
-   icon.setAttribute('aria-hidden','true');icon.textContent=glyph;
-   const next=node.querySelector('.nav-glyph');if(next)next.after(icon);else node.prepend(icon);
+   if(!node)continue;
+   // Remove only emoji accidentally inserted into this hamburger menu.
+   node.querySelectorAll('.vision-nav-emoji,.public-mode-icon').forEach(icon=>icon.remove());
+   const glyph=node.querySelector('.nav-glyph');
+   if(glyph&&!glyph.dataset.vectorPolished){glyph.replaceChildren(makeIcon(d));glyph.dataset.vectorPolished='true'}
   }
   const history=$('#historyBtn');
-  if(history&&!history.dataset.visionIconReady){
-   history.dataset.visionIconReady='1';
-   // Replace the font-specific monochrome clock with a reliable vector icon.
-   const first=[...history.childNodes].find(n=>n.nodeType===3);
-   if(first)first.remove();
-   const glyph=document.createElement('span');glyph.className='nav-glyph history-glyph';
-   glyph.append(makeIcon('M12 4a8 8 0 1 1-7.65 10.32M4 4v5h5M12 7v5l3 2'));
-   history.prepend(glyph);
-   const e=document.createElement('span');e.className='vision-nav-emoji';
-   e.setAttribute('aria-hidden','true');e.textContent='🕘';
-   glyph.after(e);
+  if(history){
+   history.querySelectorAll('.vision-nav-emoji').forEach(icon=>icon.remove());
+   if(!history.dataset.visionIconReady){
+    history.dataset.visionIconReady='1';
+    const first=[...history.childNodes].find(n=>n.nodeType===3);
+    if(first)first.remove();
+    const glyph=document.createElement('span');glyph.className='nav-glyph history-glyph';
+    glyph.append(makeIcon('M12 4a8 8 0 1 1-7.65 10.32M4 4v5h5M12 7v5l3 2'));
+    history.prepend(glyph);
+   }
   }
  }
+
  enhanceNavigation();
 
  const viewer=document.createElement('dialog');
