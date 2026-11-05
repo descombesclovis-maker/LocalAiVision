@@ -276,3 +276,25 @@ body[data-studio-page="vision"]:not(.nsfw-active) #visionStudioReturn{gap:0!impo
 @media(prefers-reduced-motion:reduce){
  body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .vision-menu-chevron{transition:none!important;transform:none!important}
 }
+
+/* Audit 4: centered visual contents (icon, label, arrow), premium pictograms. */
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry{
+ justify-content:center!important;text-align:center!important;gap:12px!important;
+ padding-inline:12px!important;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>span:not(.nav-glyph):not(.vision-menu-chevron){
+ order:1!important;text-align:center!important;flex:0 1 auto;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>.nav-glyph{order:0!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry>.vision-menu-chevron{order:2!important}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .vision-premium-icon{
+ width:24px!important;height:24px!important;overflow:visible;stroke:#a1f4ff!important;
+ stroke-width:1.62;stroke-linecap:round;stroke-linejoin:round;
+ filter:drop-shadow(0 0 4px #2bd8f3a3);
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation .vision-premium-icon .vision-nav-accent{
+ stroke:#63cfff!important;stroke-width:1.5;opacity:.89;
+}
+body[data-studio-page="vision"]:not(.nsfw-active) #sidebar .studio-navigation>.studio-nav-entry:is(:hover,:focus-visible,.active) .vision-premium-icon{
+ stroke:#dbfcff!important;filter:drop-shadow(0 0 6px #67ebffcc);
+}
