@@ -9,6 +9,7 @@ const base='http://127.0.0.1:3000',deliveryBase='http://ventes.localhost:3000',w
 const result={checks:[],limitations:['Fictional local identities and manually declared test receipts. No actual bank, Stripe, hosting or database account operation.']};let browser;
 async function api(route,body,delivery=false){
  const headers={'Content-Type':'application/json',...(delivery?{'Host':'ventes.localhost:3000','Origin':deliveryBase,'X-LocalAI-Delivery':'1'}:{})};
+ if(body)headers['Content-Length']=Buffer.byteLength(JSON.stringify(body));
  // node:http preserves the explicit virtual Host; Node's fetch ignores it.
  return new Promise((resolve,reject)=>{
   const request=require('node:http').request(base+route,{method:body?'POST':'GET',headers},response=>{const chunks=[];response.on('data',x=>chunks.push(x));response.on('end',()=>{try{const d=JSON.parse(Buffer.concat(chunks).toString());if(response.statusCode>=400)reject(Error(d.error||response.statusCode));else resolve(d)}catch(e){reject(e)}})});
