@@ -51,6 +51,9 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
+      - name: Bundle licensed brand-card photograph
+        run: python scripts/prepare_brand_card_photo.py
+
       - name: Record source and resource integrity
         run: |
           python scripts/build_source_manifest.py
@@ -304,6 +307,9 @@ jobs:
         with:
           ref: 8a3ea1704e571779a313fc88cc9b96505e28df61
           path: audit1-baseline
+      - name: Prepare local photographic brand asset for browser QA
+        run: python scripts/prepare_brand_card_photo.py
+
       - name: Build 316 human audit baseline and functional review
         shell: powershell
         run: |
