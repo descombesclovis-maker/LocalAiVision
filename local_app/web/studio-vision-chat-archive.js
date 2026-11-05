@@ -8,6 +8,11 @@
  const pull=document.createElement('button');pull.type='button';pull.className='vision-archive-pull';
  pull.setAttribute('aria-expanded','false');pull.setAttribute('aria-controls','visionArchivePanel');
  const panel=document.createElement('div');panel.id='visionArchivePanel';panel.className='vision-archive-panel';panel.hidden=true;
+ const conversationSwitch=document.createElement('button');conversationSwitch.type='button';
+ conversationSwitch.className='vision-archive-conversations';
+ conversationSwitch.textContent='Mes discussions sauvegardées';
+ conversationSwitch.addEventListener('click',()=>document.getElementById('historyBtn')?.click());
+ panel.append(conversationSwitch);
  const grid=document.createElement('div');grid.className='vision-archive-grid';panel.append(grid);
  root.append(pull,panel);chat.insertBefore(root,messages);
  let owner='',expanded=false,timer=null;
@@ -28,7 +33,7 @@
  }
  function update(){
   const conv=data();
-  if(privateMode()||!conv||conv.profile==='nsfw'||document.body.dataset.visionMode==='creations'||(conv.messages||[]).length===0){
+  if(privateMode()||!conv||conv.profile==='nsfw'||document.body.dataset.visionMode==='creations'||(!(conv.messages||[]).length&&!Object.values(conversations).some(c=>c.id!==conv.id&&c.profile!=='nsfw'&&(c.messages||[]).length))){
    root.hidden=true;return;
   }
   if(owner!==conv.id){owner=conv.id;expanded=false}
@@ -41,7 +46,7 @@
   grid.replaceChildren();
   if(!entries.length){
    const empty=document.createElement('p');empty.className='vision-archive-empty';
-   empty.textContent='Aucun média généré dans cette conversation pour le moment. Les échanges restent enregistrés dans Historique.';
+   empty.textContent='Aucun média généré dans cette conversation pour le moment. Les échanges restent disponibles via « Mes discussions sauvegardées ».';
    grid.append(empty);return;
   }
   const store=typeof library==='undefined'?[]:library;
