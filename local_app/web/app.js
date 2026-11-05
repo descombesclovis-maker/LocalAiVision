@@ -40,7 +40,7 @@ Réponds en français sauf si l’utilisateur demande une autre langue. Garde le
 
 Pour les questions générales, utilise tes connaissances internes sans simuler une recherche Internet. N’invente pas un fait pour paraître sûr : si une information est réellement incertaine, dis-le brièvement. Quand l’utilisateur expose un problème, ne te contente pas de l’expliquer : propose spontanément la solution la plus adaptée et l’étape suivante concrète.
 
-Adapte la longueur à la demande. Par défaut, écris comme dans une vraie conversation : phrases fluides, paragraphes courts, pas d’introduction scolaire ni de conclusion automatique. Utilise le Markdown naturellement : **mots importants en gras**, petites listes seulement quand elles aident, et quelques émojis bien choisis quand ils rendent la réponse plus vivante — jamais à chaque phrase.
+Adapte la longueur à la demande. Par défaut, écris comme dans une vraie conversation : phrases fluides, paragraphes courts, pas d’introduction scolaire ni de conclusion automatique. Utilise le Markdown naturellement : **mots importants en gras**, petites listes seulement quand elles aident, et des émojis et symboles expressifs (✨ 🎨 💡 ✅ 📌 🔍) quand ils aident à comprendre ou rendent l'échange chaleureux, sans en mettre artificiellement à chaque phrase. Tu peux fournir des liens HTTP(S) en Markdown quand tu connais une adresse fiable ; n'invente jamais de liens et ne prétends pas avoir ouvert les pages.
 
 Ne prétends pas avoir consulté Internet, un fichier ou une application si ce n’est pas réellement le cas.`;
 const kinds={image:['Image','▧'],video:['Vidéo','▣'],'video-heavy':['Vidéo','▣']};
@@ -61,16 +61,42 @@ function displayModelName(w){return modelAliases[w.id]||w.name}
 function profileLabel(key){return modelAliases['profile:'+key]||PROFILE_DEFAULTS[key]?.label||key}
 function profileSub(key){return PROFILE_DEFAULTS[key]?.sub||''}
 
-const APPLE_EMOJI_AVAILABLE=(()=>{try{return !!document.fonts?.check('16px "Apple Color Emoji"')}catch{return false}})();
+// Native system emoji work offline in the Windows desktop build.
 const EMOJI_SEGMENTER=(()=>{try{return typeof Intl!=='undefined'&&Intl.Segmenter?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null}catch{return null}})();
 function isEmojiCluster(s){try{return /\p{Extended_Pictographic}/u.test(s)||/[#*0-9]\uFE0F?\u20E3/u.test(s)}catch{return false}}
-function emojiCodepoints(s){return Array.from(s).map(ch=>ch.codePointAt(0).toString(16).toLowerCase()).join('-')}
 function appendEmojiAwareText(parent,text){
- const parts=EMOJI_SEGMENTER?[...EMOJI_SEGMENTER.segment(String(text||''))].map(x=>x.segment):Array.from(String(text||''));let plain='';
- const flush=()=>{if(plain){parent.appendChild(document.createTextNode(plain));plain=''}};
- for(const part of parts){if(!isEmojiCluster(part)){plain+=part;continue}flush();if(APPLE_EMOJI_AVAILABLE){const span=document.createElement('span');span.className='emoji-native-apple';span.textContent=part;parent.appendChild(span);continue}const img=document.createElement('img');img.className='emoji-3d';img.alt=part;img.title=part;img.loading='lazy';img.decoding='async';img.src='https://cdn.jsdelivr.net/gh/shuding/fluentui-emoji-unicode/assets/'+emojiCodepoints(part)+'_3d.png';img.onerror=()=>{const fallback=document.createElement('span');fallback.className='emoji-native-fallback';fallback.textContent=part;img.replaceWith(fallback)};parent.appendChild(img)}flush();
+ const parts=EMOJI_SEGMENTER?[...EMOJI_SEGMENTER.segment(String(text||''))].map(x=>x.segment):Array.from(String(text||''));
+ let plain='';const flush=()=>{if(plain){parent.appendChild(document.createTextNode(plain));plain=''}};
+ for(const part of parts){
+  if(!isEmojiCluster(part)){plain+=part;continue}
+  flush();const span=document.createElement('span');
+  span.className='emoji-native';span.textContent=part;parent.appendChild(span);
+ }
+ flush();
 }
-function appendInlineMarkup(parent,text){const re=/(\*\*[^*]+\*\*|`[^`]+`)/g;let last=0;for(const match of text.matchAll(re)){if(match.index>last)appendEmojiAwareText(parent,text.slice(last,match.index));const token=match[0],node=document.createElement(token.startsWith('**')?'strong':'code');if(token.startsWith('**'))appendEmojiAwareText(node,token.slice(2,-2));else node.textContent=token.slice(1,-1);parent.appendChild(node);last=match.index+token.length}if(last<text.length)appendEmojiAwareText(parent,text.slice(last))}
+function appendInlineMarkup(parent,text){
+ // Text-only DOM construction: clickable HTTP(S) links, emphasis and code, no HTML injection.
+ const re=/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]{1,160}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>"']+)/g;
+ let last=0;
+ for(const match of String(text||'').matchAll(re)){
+  if(match.index>last)appendEmojiAwareText(parent,text.slice(last,match.index));
+  const token=match[0];let node;
+  if(token.startsWith('**')){node=document.createElement('strong');appendEmojiAwareText(node,token.slice(2,-2))}
+  else if(token.startsWith('`')){node=document.createElement('code');node.textContent=token.slice(1,-1)}
+  else{
+   const md=token.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+   let url=md?md[2]:token,label=md?md[1]:token,suffix='';
+   if(!md){const m=url.match(/[.,;:!?]+$/);if(m){suffix=m[0];url=url.slice(0,-suffix.length);label=url}}
+   node=document.createElement('a');
+   try{const parsed=new URL(url);if(!['https:','http:'].includes(parsed.protocol))throw Error('Unsafe URL');node.href=parsed.href;node.target='_blank';node.rel='noopener noreferrer';appendEmojiAwareText(node,label)}
+   catch{node=document.createElement('span');appendEmojiAwareText(node,label)}
+  }
+  parent.appendChild(node);if(typeof suffix!=='undefined'&&suffix)appendEmojiAwareText(parent,suffix);
+  last=match.index+token.length;
+ }
+ if(last<text.length)appendEmojiAwareText(parent,text.slice(last));
+}
+
 function renderAssistantText(el,text){el.textContent='';const lines=String(text||'').replace(/\r/g,'').split('\n');let list=null;for(const raw of lines){const line=raw.trimEnd(),bullet=line.match(/^\s*[-*]\s+(.+)/);if(bullet){if(!list){list=document.createElement('ul');list.className='md-list';el.appendChild(list)}const li=document.createElement('li');appendInlineMarkup(li,bullet[1]);list.appendChild(li);continue}list=null;if(!line.trim()){const gap=document.createElement('div');gap.className='md-gap';el.appendChild(gap);continue}const heading=line.match(/^#{1,3}\s+(.+)/),p=document.createElement(heading?'div':'p');p.className=heading?'md-heading':'md-paragraph';appendInlineMarkup(p,heading?heading[1]:line);el.appendChild(p)}}
 function dismissKeyboard(){const p=$('#prompt');if(document.activeElement===p)p.blur()}
 function setChatAnswering(active){document.querySelector('.composer')?.classList.toggle('chat-answering',!!active)}
