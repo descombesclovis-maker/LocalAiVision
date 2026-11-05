@@ -16,7 +16,11 @@ est `9a2bbee`, PR #65 en brouillon. Aucune fusion, release ou publication.
 6. Un remplacement composé uniquement de formats non modifiables ne vide plus le site.
 7. Marqueur privé indépendant pour chaque soumission concurrente ; anciens marqueurs
    conservés jusqu'à résolution explicite, sans modification des politiques privées.
-8. Décodage technique des sorties du benchmark public, au lieu du seul contrôle
+8. États de rendu finaux stables malgré les événements tardifs ; attente de la
+   fin ComfyUI avant ajout des sorties à la bibliothèque.
+9. Suivi Web par phases réelles, retrait des pourcentages fixes ; messages lisibles
+   avec de vrais retours à la ligne.
+10. Décodage technique des sorties du benchmark public, au lieu du seul contrôle
    « fichier non vide ». L'absence de décodeur laisse la validation non accordée.
 
 Fichiers principaux : `local_app/media_journal.py`, `private_access.py`, `server.py`,
@@ -26,8 +30,8 @@ Tests ciblés dans `tests/test_media_journal.py`, `test_private_access.py`,
 
 ## Preuves et limites
 
-- Python : 362 tests exécutés, 361 réussis, 1 ignoré sous Linux.
-- Node : 13 tests réussis du parseur des prompts publics.
+- Python : 363 tests exécutés, 362 réussis, 1 ignoré sous Linux.
+- Node : 17 tests réussis (prompts, suivi Web, messages et fin réelle des médias).
 - Renommage interrompu : vrai processus tué après copie du nouveau fichier,
   récupération de l'original sans doublon à la réouverture.
 - Concurrence : 20 rendus acceptés puis terminés sur plusieurs connexions SQLite.
@@ -40,7 +44,8 @@ Tests ciblés dans `tests/test_media_journal.py`, `test_private_access.py`,
 ## Écart avec le Build 315.5
 
 Les 47 fichiers personnalisés ont déjà été intégrés et documentés par les lots
-précédents. Cette reprise ne retouche ni les logos ni les styles ni les animations.
+précédents. Cette reprise préserve les logos, les styles et les animations ; elle corrige
+le suivi textuel des générations et masque sa barre de pourcentage non mesurable.
 Elle renforce les mécanismes serveur de conservation et l'éditeur. Les médias et
 les données utilisateurs n'ont pas été importés dans l'environnement de travail.
 Le manifeste d'import reste la preuve de la référence 315.5, pas une promesse que
@@ -58,7 +63,7 @@ les fichiers de code corrigés ont conservé leurs anciens octets.
 | Carte | Pas de nouvelle collecte ni de qualification des milliers d'établissements dans ce lot |
 | Publicité | Campagnes éditables et fidélité visuelle encore à compléter/valider |
 | Interface | Préservée ; revue artistique et captures de la nouvelle CI requises |
-| Windows | Dernier run de référence 41942019758 réussi ; nouvelle CI à examiner |
+| Windows | Run 42031034744 bloqué par une connexion SQLite non fermée dans un nouveau test ; correctif ajouté, nouvelle CI requise |
 
 ## Validation sur le PC cible
 

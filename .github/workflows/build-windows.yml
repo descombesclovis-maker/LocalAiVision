@@ -62,7 +62,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/test_public_photo_faithfulness.cjs
+          node --test tests/test_public_photo_faithfulness.cjs tests/test_web_generation_feedback.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare branded Windows icon and PE metadata

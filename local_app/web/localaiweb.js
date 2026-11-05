@@ -45,20 +45,20 @@ function showSiteEditing(on){
  editOverlay.hidden=!on;
  if(on){
   $('#lawEditPhase').textContent='Codex prépare les modifications…';
-  $('#lawEditPercent').textContent='Étapes vérifiées : 0 %';
-  $('#lawEditTrack').style.width='0%';
+  $('#lawEditPercent').textContent='Étape en cours : préparation';
+  // The agent reports phases, not a measurable overall completion fraction.
+  $('#lawEditTrack').parentElement.hidden=true;
  }
 }
 function updateEditMilestones(status){
  if(!editOverlay||editOverlay.hidden)return;
- const milestones={planning:0,images:0,building:0,verification:25,repair:25,
-                   localization:40,preview:55,visual:65,design:75,done:100};
- const complete=milestones[String(status.phase||'').toLowerCase()];
+ const phases={planning:'préparation',images:'préparation des visuels',building:'écriture du site',
+  verification:'vérification technique',repair:'correction',localization:'vérification du français',
+  preview:'construction de l’aperçu',visual:'contrôle navigateur',design:'finitions visuelles',done:'terminée'};
+ const phase=String(status.phase||'').toLowerCase();
  $('#lawEditPhase').textContent=String(status.detail||'Modification en cours…').slice(0,150);
- if(Number.isFinite(complete)){
-  $('#lawEditTrack').style.width=complete+'%';
-  $('#lawEditPercent').textContent='Jalons validés : '+complete+' % (pas une estimation du temps restant)';
- }
+ $('#lawEditPercent').textContent='Étape en cours : '+(phases[phase]||'traitement');
+ $('#lawEditTrack').parentElement.hidden=true;
 }
 function codexRecovery(error){
  const raw=String(error?.message||error||'');
@@ -235,21 +235,21 @@ function generationFeedback(result){
  const report=result.quality;
  const visuals=result.visuals||{};
  const mediaNote=visuals.generated?.length
-  ?'\\nVisuels créés : '+visuals.generated.length+' photo(s).'
-  :visuals.notes?.length?'\\nVisuels : '+visuals.notes[0]:'';
+  ?'\nVisuels créés : '+visuals.generated.length+' photo(s).'
+  :visuals.notes?.length?'\nVisuels : '+visuals.notes[0]:'';
  const checked=report && report.ok;
  const metrics=result.generation_metrics||{};
  const duration=Number(metrics.total_seconds);
  const durationNote=Number.isFinite(duration)&&duration>=0
-  ?'\\nGénération : '+(duration<60?duration.toFixed(1)+' s':
+  ?'\nGénération : '+(duration<60?duration.toFixed(1)+' s':
        Math.floor(duration/60)+' min '+Math.round(duration%60)+' s')+
     ' · contrôle : '+Number(metrics.quality_seconds||0).toFixed(1)+' s'+
     ' · corrections : '+Number(metrics.repairs||0)
   :'';
  message((result.summary||'Le site a été enregistré.')+mediaNote+durationNote+
-  '\\n\\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
-  (report&&!checked?'\\nDes points de qualité restent à corriger.':'')+
-  '\\nAprès validation, clique sur « Publier » pour accéder aux publicités et devis.',
+  '\n\nTu peux maintenant consulter le site à droite et demander des modifications ciblées.'+
+  (report&&!checked?'\nDes points de qualité restent à corriger.':'')+
+  '\nAprès validation, clique sur « Publier » pour accéder aux publicités et devis.',
   'assistant');
 }
 async function watchGeneration(id){
@@ -282,7 +282,7 @@ async function watchGeneration(id){
          stop();
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
-          '\\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
+          '\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
           'assistant');
          showSiteEditing(false);codexRecovery(status.error||status.detail);stage='ready';refreshPublishing();stop();
        }else{
@@ -310,7 +310,7 @@ async function generate(text,originalPrompt=text){
  try{const current=await api('/api/web/preview/status?id='+encodeURIComponent(id));if(current.ready)showSiteEditing(true)}catch{}
  const existingBrief=projectBrief();
  const instructions=existingBrief
-  ?'BRIEF UTILISATEUR :\\n'+existingBrief+'\\n\\nDERNIÈRE DEMANDE :\\n'+text
+  ?'BRIEF UTILISATEUR :\n'+existingBrief+'\n\nDERNIÈRE DEMANDE :\n'+text
   :text;
  try{
   const result=await api('/api/web/generate/start',{id,prompt:instructions,original_prompt:originalPrompt});
@@ -323,7 +323,7 @@ async function generate(text,originalPrompt=text){
   await watchGeneration(id);
  }catch(error){
   message('Impossible de démarrer la génération : '+error.message+
-   '\\nVérifie « Codex connecté » dans l’en-tête. Les fichiers déjà créés sont conservés.');
+   '\nVérifie « Codex connecté » dans l’en-tête. Les fichiers déjà créés sont conservés.');
  }finally{setBusy(false)}
 }
 async function publish(){

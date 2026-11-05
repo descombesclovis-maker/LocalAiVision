@@ -2,6 +2,7 @@ import json
 import sqlite3
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -54,7 +55,7 @@ class MediaJournalTests(unittest.TestCase):
         media_journal.reserve(self.root,self.body,self.record)
         media_journal.accepted(self.root,self.record['ticket'],'old-active-id')
         # Emulate the existing pre-index schema, including older accepted IDs.
-        with sqlite3.connect(self.root/'media-journal.sqlite') as db:
+        with closing(sqlite3.connect(self.root/'media-journal.sqlite')) as db, db:
             db.execute('DROP TABLE renders')
             db.execute('DROP TABLE journal_meta')
             for i in range(1001):

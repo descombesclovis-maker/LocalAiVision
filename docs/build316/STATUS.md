@@ -193,3 +193,28 @@ D1/D3/O1/O5/O8 : qualification visible, contrats métier, édition et campagnes.
 Les générations réelles des six briefs et la qualification RTX 3060 restent
 bloquées par les moteurs/accès absents, et ne sont pas remplacées par des fixtures.
 Voir `FINAL_REPORT.md` pour la portée et les validations restantes.
+
+### Lot suivi réel et compatibilité Windows
+
+Commit du lot précédent : `d14ccf72f440d21f62c5d5014a392165a453ecfb`.
+CI 42031034744 : étape Python Windows en échec sur le nettoyage d'un nouveau
+**test**, qui gardait ouverte sa connexion SQLite de préparation de données
+anciennes. Le contexte `sqlite3.Connection` valide la transaction mais ne ferme
+pas la connexion ; fermeture explicite ajoutée. Aucun test ignoré pour masquer
+l'échec. QA navigateur de ce run en cours au moment de la correction suivante.
+
+Critères du lot : aucun événement tardif ne réactive une tâche terminée ; aucune
+sortie intermédiaire publiée comme rendu final ; les étapes Web restent factuelles ;
+les messages sont lisibles avec de vrais retours à la ligne.
+
+- `comfy_progress` : enregistrement idempotent, états finaux conservés même si
+  d'anciens événements WebSocket ou HTTP arrivent ensuite. Régression sur succès,
+  annulation et erreur.
+- Interface Vision : attente de `status.completed` avant ajout d'une sortie à
+  l'historique/bibliothèque ; un résultat intermédiaire ne termine plus la tâche.
+- Interface Web : phases réellement reçues, retrait des pourcentages fixes ;
+  retours à la ligne des comptes rendus et messages d'erreur corrigés.
+- Validation locale : **363 tests Python : 362 réussis, 1 ignoré Linux** ;
+  **17 tests Node réussis** ; syntaxe des deux JS touchés et diff vérifiés.
+- `TERMINÉ ET TESTÉ` localement ; nouvelle CI Windows et captures requises avant
+  qualification de l'EXE. Ces corrections ne changent aucun paramètre de génération.
