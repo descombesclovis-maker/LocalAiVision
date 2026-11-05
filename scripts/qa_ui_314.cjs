@@ -201,12 +201,9 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.goto(base+'/localaivision');await page.locator('#openSidebar').click();
    await page.waitForFunction(()=>document.getElementById('sidebar').getBoundingClientRect().left>=-1);
    // Mobile topbar CSS must not hide labels after those controls move to the menu.
-   for(const [id,label] of [['historyBtn','Historique']]){
-    const name=page.locator('#sidebar #'+id+' > span:last-child');
-    assert.equal(await name.isVisible(),true,id+' label hidden on mobile');
-    assert.equal((await name.innerText()).trim(),label);
-    const box=await name.boundingBox();assert.ok(box&&box.width>60,id+' label is too narrow');
-   }
+   assert.equal(await page.locator('#sidebar #historyBtn').isVisible(),false,'History must stay hidden: saved conversations use the chat recovery drawer');
+   const modeLabel=page.locator('#navPhoto > span:not(.nav-glyph):not(.vision-menu-chevron)');
+   assert.equal(await modeLabel.isVisible(),true);assert.equal((await modeLabel.innerText()).trim(),'Photo');
    assert.equal(await page.locator('#sidebar #newConversation').isVisible(),false,'New discussion must be hidden: selecting a mode creates its own chat');
     assert.equal(await page.locator('#sidebar #newConversation svg,#sidebar #newConversation img,#sidebar #newConversation .nav-glyph').count(),0);
    await page.screenshot({path:path.join(output,'vision-menu-mobile.png')});await page.keyboard.press('Escape');
