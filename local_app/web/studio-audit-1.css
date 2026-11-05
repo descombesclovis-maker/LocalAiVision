@@ -53,3 +53,7 @@ body[data-studio-page="editor"] #lawChatStatus{order:3;flex:1 1 100%;min-width:0
 body[data-studio-page="editor"] #lawGenerate{margin-left:auto}
 body[data-studio-page="vision"]:not(.nsfw-active) .output-verification-retry{display:block;margin:10px 0;padding:10px 14px;border:1px solid #64d6e780;border-radius:10px;color:#dffaff;background:#123849;cursor:pointer;font:inherit;font-size:13px}
 body[data-studio-page="vision"]:not(.nsfw-active) .output-verification-retry:disabled{opacity:.6;cursor:wait}
+
+/* Audit 2: new photographic brand-card composition with visible cyan-violet overlay. */
+body.universe-home .brand-universe .brand-cover{opacity:.51;object-fit:cover;object-position:center 47%;filter:saturate(.88)}
+body.universe-home .brand-universe::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(100deg,#2b17698c,#032f4a51 55%,#187c8a7c);mix-blend-mode:normal}
