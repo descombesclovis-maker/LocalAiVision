@@ -18,7 +18,7 @@ class FastFirstGenerationTests(unittest.TestCase):
             server._web_progress_rows.clear()
 
     def test_async_start_returns_ticket_and_prevents_duplicate_coding(self):
-        with patch.object(server,"_web_store",return_value=self.store), \
+        with patch.object(server,"_web_project_provider",return_value="codex"), patch.object(server,"_web_store",return_value=self.store), \
              patch.object(integrations_cli,"coding_agent_status",
                           return_value={"codex":{"installed":True,"ready":True}}), \
              patch.object(server.threading,"Thread") as thread:
@@ -34,17 +34,17 @@ class FastFirstGenerationTests(unittest.TestCase):
             self.assertFalse(status["preview_ready"])
 
     def test_unavailable_codex_fails_before_starting_a_job(self):
-        with patch.object(server,"_web_store",return_value=self.store), \
+        with patch.object(server,"_web_project_provider",return_value="codex"), patch.object(server,"_web_store",return_value=self.store), \
              patch.object(integrations_cli,"coding_agent_status",
                           return_value={"codex":{"installed":True,"ready":False}}), \
              patch.object(server.threading,"Thread") as thread:
-            with self.assertRaisesRegex(RuntimeError,"Codex"):
+            with self.assertRaisesRegex(RuntimeError,"codex"):
                 server._web_start_generation(self.pid,"Création d'un site moderne")
             thread.assert_not_called()
             self.assertNotIn(self.pid,server._web_generation_jobs)
 
     def test_stored_files_mark_first_preview_real_only(self):
-        with patch.object(server,"_web_store",return_value=self.store):
+        with patch.object(server,"_web_project_provider",return_value="codex"), patch.object(server,"_web_store",return_value=self.store):
             status=server._web_generation_status(self.pid)
             self.assertFalse(status["preview_ready"])
             site=self.store.project_dir(self.pid)/"site"

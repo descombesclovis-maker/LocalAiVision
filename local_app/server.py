@@ -382,12 +382,14 @@ def _web_start_generation(project_id, prompt, original_prompt=None):
             return {"ok": True, "already_running": True, "ticket": previous["ticket"]}
         # Validate the active coding agent BEFORE accepting a long job.
         settings = meta.get("settings") or {}
-        provider = str(settings.get("ai_provider") or "codex")
-        if provider == "claude" and not meta.get("agent_selected_by_user", False):
-            provider = "codex"
-        if provider in ("codex", "claude"):
+        provider = _web_project_provider(meta)
+        if provider in ('codex','claude'):
             from local_app import web_hybrid
             web_hybrid.select_coding_agent(provider, integrations_cli.coding_agent_status(provider))
+        else:
+            from local_app import web_local_engine
+            local=web_local_engine.status()
+            if not local['ready']:raise RuntimeError(local['detail'])
         store.remember_original_prompt(project_id, original_prompt)
         ticket = uuid.uuid4().hex
         _web_generation_jobs[project_id] = {
@@ -1622,12 +1624,18 @@ def run_chat(body):
 
 
 def _web_llm_generate(system, context, prompt):
+    from local_app import web_local_engine
     with _engine_lock:
-        _ensure_chat_components()
-        return llm.chat([
-            {'role': 'system', 'content': system},
-            {'role': 'user', 'content': 'CURRENT PROJECT FILES:\n' + context + '\n\nREQUEST:\n' + prompt},
-        ], {'temperature': 0.35, 'top_p': 0.9, 'max_tokens': 8192})
+        # Unlike chat setup, generation must not start a multi-GB download.
+        if comfy_online()[0]:
+            if comfy_busy():raise RuntimeError('Une génération Vision est en cours. Attends sa fin pour libérer la mémoire GPU.')
+            _free_comfy_if_idle()
+        return web_local_engine.generate(system,context,prompt)
+
+
+def _web_project_provider(meta):
+    settings=meta.get('settings') or {}
+    return str(settings.get('ai_provider') or 'local') if meta.get('agent_selected_by_user') else 'local'
 
 
 def _web_store():
@@ -2418,8 +2426,11 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e: self.send_json({"error":str(e)},502)
             return
         if u.path == "/api/web/agent/status":
-            provider = parse_qs(u.query).get("provider", ["codex"])[0]
-            self.send_json({"integrations": integrations_cli.coding_agent_status(provider)})
+            provider = parse_qs(u.query).get("provider", ["local"])[0]
+            if provider in ('local','auto'):
+                from local_app import web_local_engine
+                self.send_json({'integrations':{'local':web_local_engine.status()}})
+            else:self.send_json({"integrations": integrations_cli.coding_agent_status(provider)})
             return
         if u.path == "/api/web/capabilities":
             online, _detail = comfy_online()
@@ -3462,8 +3473,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Aucun réglage choisi.")
                 patch={}
                 if requested is not None:
-                    if requested not in ("codex","claude"):
-                        raise ValueError("Sélectionne Codex (ChatGPT) ou Claude Code.")
+                    if requested not in ("local","auto","codex","claude"):
+                        raise ValueError("Sélectionne le moteur local, Codex ou Claude Code.")
                     patch["ai_provider"]=requested
                 if direction is not None:
                     if direction not in ("auto","professional","cinematic","spatial3d"):
@@ -3507,25 +3518,14 @@ class Handler(BaseHTTPRequestHandler):
                 _web_progress(project_id, "planning", "Analyse du projet et choix de l'agent…")
                 meta = store.meta(project_id)
                 settings = meta.get("settings") or {}
-                # Codex is the default because the user has ChatGPT Plus.
-                # Old projects with an automatically assigned Claude provider
-                # migrate on first generation, unless Claude was explicitly
-                # chosen afterwards. All project files remain untouched.
-                provider = str(settings.get("ai_provider") or "codex")
-                if provider == "claude" and not meta.get("agent_selected_by_user", False):
-                    provider = "codex"
-                    settings = dict(settings)
-                    settings["ai_provider"] = provider
-                    meta["settings"] = settings
-                    store.write_meta(project_id,meta)
-                # Starting a site must not synchronously probe unrelated
-                # Vercel, Stripe, Supabase or GitHub credentials (minutes).
-                available = integrations_cli.coding_agent_status(provider)
-                agent_name = web_hybrid.select_coding_agent(
-                    provider, available,
-                    allow_local_fallback=(os.getenv("LOCALAIWEB_ALLOW_LOCAL_FALLBACK","")
-                                          .strip().lower() in ("1","true","yes"))
-                )
+                provider = _web_project_provider(meta)
+                if provider in ('local','auto'):
+                    from local_app import web_local_engine
+                    available={'local':web_local_engine.status()}
+                    if not available['local']['ready']:raise RuntimeError(available['local']['detail'])
+                else:
+                    available=integrations_cli.coding_agent_status(provider)
+                agent_name = web_hybrid.select_coding_agent(provider, available)
                 # First mockup: do not wait for a 12-GB GPU to produce up to
                 # three full-resolution photos before Codex even starts writing
                 # the website. Real images can be added in the next iteration.

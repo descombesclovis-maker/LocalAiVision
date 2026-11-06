@@ -14,34 +14,17 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 def select_coding_agent(provider, status, *, allow_local_fallback=False):
-    """Choose an authenticated real coding agent; never silently downgrade quality.
-
-    The old chat-only HTML generator is available solely by explicit request or
-    an explicit local-only configuration.
-    """
-    requested = str(provider or 'auto').strip().lower()
-    if requested not in ('auto', 'claude', 'codex', 'local'):
+    """Local is primary; remote agents require an explicit selection."""
+    requested = str(provider or 'local').strip().lower()
+    if requested not in ('auto','claude','codex','local'):
         raise ValueError('Moteur de création inconnu.')
-    if requested == 'local':
+    if requested in ('auto','local'):
         return 'local'
-    # Codex is the user-selected default, authenticated with ChatGPT Plus.
-    # Never fall back silently to an unapproved agent, a paid API or a
-    # low-quality local HTML template. Claude remains an explicit alternative.
-    agents = ('codex',) if requested == 'auto' else (requested,)
-    for candidate in agents:
-        if bool((status.get(candidate) or {}).get('ready')):
-            return candidate
-    entry=status.get('codex' if requested=='auto' else requested) or {}
+    entry=status.get(requested) or {}
+    if entry.get('ready'):return requested
     if entry.get('state') in ('timeout','check_failed','launch_failed'):
-        raise RuntimeError('État de l’agent impossible à vérifier : '+str(entry.get('detail') or '')+
-                           ' Réessaie la vérification. Les projets et la session restent conservés.')
-    target = 'Codex (ChatGPT Plus)'  if requested in ('auto','codex') else 'Claude Code'
-    raise RuntimeError(
-        'Agent de création non connecté : ' + target +
-        '. Ouvre la connexion dans LocalAiWeb puis authentifie-toi : '
-        'codex login pour ChatGPT Plus ou claude auth login pour Claude. '
-        'Tes projets et fichiers sont conservés. Aucun accès API payant n’est activé automatiquement.'
-    )
+        raise RuntimeError('État de l’agent impossible à vérifier : '+str(entry.get('detail') or ''))
+    raise RuntimeError('Agent optionnel non connecté : '+requested+'. Connecte-le ou sélectionne le moteur local. Les fichiers sont conservés.')
 
 
 MAX_AUTOMATIC_IMAGES = 3

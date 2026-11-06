@@ -82,22 +82,19 @@ class MobileStudiosTests(unittest.TestCase):
         self.assertTrue(web_business_map.selected_business(item["selection_token"]))
         self.assertIn("Google Maps",web_business_map.first_draft_prompt(item))
 
-    def test_codex_is_default_and_claude_remains_explicit_opt_in(self):
+    def test_local_is_default_and_cloud_agents_remain_explicit(self):
         status={"codex":{"ready":True},"claude":{"ready":True}}
-        self.assertEqual(web_hybrid.select_coding_agent("auto",status),"codex")
+        self.assertEqual(web_hybrid.select_coding_agent("auto",status),"local")
         self.assertEqual(web_hybrid.select_coding_agent("claude",status),"claude")
         self.assertEqual(web_hybrid.select_coding_agent("codex",status),"codex")
-        with self.assertRaisesRegex(RuntimeError,"Codex"):
-            web_hybrid.select_coding_agent(
-                "auto",{"claude":{"ready":True},"codex":{"ready":False}},
-                allow_local_fallback=True)
+        self.assertEqual(web_hybrid.select_coding_agent("auto",{}),"local")
 
-    def test_new_project_defaults_to_codex_chatgpt_plus(self):
+    def test_new_project_defaults_to_local_engine(self):
         from local_app import web_builder
         with tempfile.TemporaryDirectory() as folder:
             store=web_builder.LocalAiWebStore(folder,lambda *_:'{}')
             project=store.create("Un site premium")["project"]
-            self.assertEqual(project["settings"]["ai_provider"],"codex")
+            self.assertEqual(project["settings"]["ai_provider"],"local")
 
     def test_project_brand_affects_design_direction(self):
         a=web_creative_direction.brand_composition("marque de parfum artisanal", "Parfumerie A")

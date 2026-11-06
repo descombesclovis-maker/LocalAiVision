@@ -356,7 +356,7 @@ class LocalAiWebStore:
                                  'settings': {'quality':'premium','responsive':True,'accessibility':True,
                                               'seo':True,'performance':True,'micro_interactions':True,
                                               'reduced_motion':True,'semantic_html':True,'language':'fr',
-                                              'ai_provider':'codex',
+                                              'ai_provider':'local',
                                               'site_kind':'landing' if template == 'cinematic3d' else 'auto',
                                               'art_direction':'spatial3d' if template == 'cinematic3d' else 'auto'},
                                  'template':template, 'project_kind':'libre', 'original_prompt':None})
@@ -574,7 +574,7 @@ class LocalAiWebStore:
         context = json.dumps({'files': current, 'assets': self.assets(project_id)}, ensure_ascii=False)
         if len(context) > 90000: context = context[:90000]
         project_meta = self.meta(project_id)
-        from local_app import web_content_contract
+        from local_app import web_content_contract, web_site_architecture, web_creative_direction
         full_brief = web_content_contract.project_request(self, project_id, prompt)
         exact_spec = web_content_contract.specification(full_brief, project_meta.get('name',''))
         project_settings = project_meta.get('settings') or {}
@@ -624,6 +624,8 @@ class LocalAiWebStore:
             'responsive navigation, polished original copy, and coherent page composition.'
         )
         system += '\n' + web_content_contract.agent_instructions(exact_spec)
+        system += '\n' + web_site_architecture.instructions(full_brief)
+        system += '\n' + web_creative_direction.instructions(full_brief,project_meta.get('name',''))
         if agent_context:
             system += '\nADDITIONAL AUTOMATED CREATIVE ASSET MANIFEST:\n' + str(agent_context)[:12000]
         answer = self.llm_generate(system, context, prompt)
@@ -634,6 +636,7 @@ class LocalAiWebStore:
         # Hold candidate in memory until structural and contractual checks pass.
         contract = web_briefing.audit(files, full_brief)
         contract.extend(web_content_contract.check(files,exact_spec))
+        contract.extend(web_site_architecture.check(files,full_brief))
         if contract:
             fail_text = '\n'.join('- '+x['fix'] for x in contract)
             repair_request = (
@@ -647,6 +650,7 @@ class LocalAiWebStore:
                 files.update(candidate)
                 contract = web_briefing.audit(files,full_brief)
                 contract.extend(web_content_contract.check(files,exact_spec))
+                contract.extend(web_site_architecture.check(files,full_brief))
         if contract:
             reason = '; '.join(x['id'] for x in contract[:6])
             raise ValueError('Qualité insuffisante : '+reason+'. Aucune maquette non conforme n’a été appliquée. Précise les ressources ou réessaie.')

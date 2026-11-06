@@ -114,7 +114,7 @@ class ArtistCheckboxesAndBackground(unittest.TestCase):
             store=web_builder.LocalAiWebStore(Path(tmp)/"projects",lambda *_:"{}")
             project=store.create("Site indépendant")["project"]["id"]
             with server._web_generation_lock:server._web_generation_jobs.clear()
-            with patch.object(server,"_web_store",return_value=store), \
+            with patch.object(server,"_web_project_provider",return_value="codex"), patch.object(server,"_web_store",return_value=store), \
                  patch.object(integrations_cli,"coding_agent_status",
                      return_value={"codex":{"installed":True,"ready":True}}), \
                  patch.object(server.threading,"Thread") as thread:
@@ -123,7 +123,7 @@ class ArtistCheckboxesAndBackground(unittest.TestCase):
                 self.assertTrue(thread.call_args.kwargs["daemon"])
                 self.assertTrue((store.project_dir(project)/"generation_status.json").is_file())
             with server._web_generation_lock:server._web_generation_jobs.clear()
-            with patch.object(server,"_web_store",return_value=store):
+            with patch.object(server,"_web_project_provider",return_value="codex"), patch.object(server,"_web_store",return_value=store):
                 status=server._web_generation_status(project)
             self.assertEqual(status["state"],"error")
             self.assertIn("interrompue",status["error"])
