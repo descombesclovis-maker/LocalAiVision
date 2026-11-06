@@ -3,15 +3,14 @@
  'use strict';
  const byId=id=>document.getElementById(id);
  const prompt=byId('prompt'),welcome=byId('welcome'),messages=byId('messages');
- const navEntries=['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen'];
+ const navEntries=['navChat','navCreations','navPhoto','navVideo','studioAdOpen'];
  // Keep the original Studio landing intact: dedicated modes only replace its
  // *presentation*, never the saved conversation or media library.
  const originalWelcome=[...welcome.childNodes].map(node=>node.cloneNode(true));
  const modeCopy={
    image:{title:'Création de photographies',message:'Décris la photo que tu souhaites créer. Précise le sujet, l’environnement, l’éclairage ou le style recherché pour obtenir le résultat que tu imagines.',placeholder:'Décris ta photo…',nav:'navPhoto'},
    video:{title:'Création de vidéos',message:'Décris la vidéo que tu souhaites réaliser. Précise les personnages, les mouvements, le décor ou les mouvements de caméra pour donner vie à ton idée.',placeholder:'Décris ta vidéo…',nav:'navVideo'},
-   advert:{title:'Création de publicités',message:'Décris la publicité que tu souhaites créer. Je t’aiderai à préciser la marque, le produit, le format et le style pour réaliser une publicité adaptée à ton projet. Pour commencer, quelle marque ou entreprise souhaites-tu promouvoir ?',placeholder:'Décris ta publicité…',nav:'studioAdOpen'},
-   nsfw:{title:'Espace NSFW',message:'Bienvenue dans votre espace de création privé. Décrivez le contenu que vous souhaitez réaliser et personnalisez vos paramètres de génération selon vos préférences.',placeholder:'Décris ta création…',nav:'navNsfw'}
+   advert:{title:'Création de publicités',message:'Décris la publicité que tu souhaites créer. Je t’aiderai à préciser la marque, le produit, le format et le style pour réaliser une publicité adaptée à ton projet. Pour commencer, quelle marque ou entreprise souhaites-tu promouvoir ?',placeholder:'Décris ta publicité…',nav:'studioAdOpen'}
  };
  // A dedicated mode is an empty canvas. A completed chat is never erased:
  // createBlankConversation saves a new thread and previous ones stay in History.
@@ -93,15 +92,9 @@
    activeNav('navChat');
    hideSidebar();
  }
- function startMode(mode){
+ function startMode(mode){if(mode==='nsfw')return;
    window.StudioAds?.cancelChat?.();
-   if(mode==='nsfw'){
-     enterNsfwWorkspace(); // Preserves the existing PIN gate and all private settings.
-     const current=activeConversationId?conversations[activeConversationId]:null;
-     if(current?.profile!=='nsfw')return; // The locked gate will signal after authorization.
-     clearModeCanvas('nsfw',{preserveConversation:true});
-     return;
-   }
+   
    clearModeCanvas(mode);
    byId('taskMode').value=mode;
    updateSettingsVisibility();
@@ -294,16 +287,12 @@
    }catch(error){feedback.textContent='Import impossible : '+error.message}
    finally{btn.disabled=false}
  });
- document.addEventListener('localai:nsfw-entered',()=>{
-   // Called only after successful authorization; never expose a private welcome
-   // or touch the NSFW generation pipelines while locked.
-   clearModeCanvas('nsfw',{preserveConversation:true});
- });
+ 
  byId('navChat')?.addEventListener('click',home);
  byId('navCreations')?.addEventListener('click',gallery);
  byId('navPhoto')?.addEventListener('click',()=>startMode('image'));
  byId('navVideo')?.addEventListener('click',()=>startMode('video'));
- byId('navNsfw')?.addEventListener('click',()=>startMode('nsfw'));
+ 
  byId('visionAdvancedToggle')?.addEventListener('click',()=>{
    // Preserve historical LoRA controls without exposing a maze of settings
    // for each new generation: the natural-language prompt is authoritative.
@@ -326,9 +315,7 @@
        updateCreationModeGuide();
      }else if(mode==='advert'){
        window.StudioAds?.startChat?.({reuseConversation:true});
-     }else if(mode==='nsfw'){
-       clearModeCanvas('nsfw',{preserveConversation:true});
-     }else{
+     }else {
        home();
      }
      prompt.focus();
@@ -378,7 +365,7 @@
    const query=historySearch.value.toLocaleLowerCase('fr');
    const nsfwHistory=activeConversationId && conversations[activeConversationId]?.profile==='nsfw';
    const rows=Object.values(conversations)
-     .filter(c=>(c.profile==='nsfw')===!!nsfwHistory)
+     .filter(c=>c.profile!=='nsfw')
      .filter(c=>(c.title||'').toLocaleLowerCase('fr').includes(query))
      .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
    if(!rows.length){

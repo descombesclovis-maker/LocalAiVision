@@ -36,13 +36,13 @@ class InterfaceContract(unittest.TestCase):
 
         self.assertIn('id="modelAuto"', html)
         self.assertIn('id="modelRealistic"', html)
-        self.assertIn('id="modelNsfw"', html)
+        self.assertNotIn('id="modelNsfw"', html)
         self.assertNotIn('id="modelAnime"', html)
         self.assertNotIn('id="modelMotion"', html)
         self.assertIn('RealVisXL V5', html)
         self.assertIn('Wan 2.1', html)
         self.assertIn('HunyuanVideo 1.5', html)
-        self.assertIn('HunyuanImage 2.1', html)
+        self.assertIn('HunyuanImage 2.1', js)
         self.assertIn("text to image sdxl.json", js)
         self.assertIn("Video Wan texte.json", js)
         self.assertIn("HunyuanVideo 1.5 T2V.json", js)
@@ -55,7 +55,7 @@ class InterfaceContract(unittest.TestCase):
         self.assertNotIn("LAB Video - Wan 2.2 TI2V 5B.json", js)
         self.assertNotIn('value="motion"', html)
         self.assertNotIn('value="retouch"', html)
-        self.assertIn("reserved_profile:isIsolated?'nsfw':null",js)
+        self.assertIn("reserved_profile:null",js)
         self.assertIn("exact_prompt:false",js)
 
     def test_chat_contract(self):

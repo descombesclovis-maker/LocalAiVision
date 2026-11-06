@@ -14,12 +14,12 @@ class MobileStudiosTests(unittest.TestCase):
     def test_both_creation_studios_have_real_event_targets(self):
         home=(WEB/"index.html").read_text(encoding="utf-8")
         app=(WEB/"app.js").read_text(encoding="utf-8")
-        for button in ("studioPhotoVideo","studioNsfw"):
+        for button in ("studioPhotoVideo",):
             self.assertIn('id="'+button+'"',home)
             self.assertIn("$('#"+button+"').onclick",app)
         self.assertIn("activateStudio",app)
         self.assertIn("lva_conversations_v2",app)
-        self.assertIn("lva_nsfw_gate",app)
+        self.assertNotIn("requestNsfwPin",app)
 
     def test_map_shortcut_opens_france_focused_map_without_search(self):
         editor=(WEB/"localaiweb.html").read_text(encoding="utf-8")

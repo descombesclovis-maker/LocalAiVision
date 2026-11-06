@@ -41,7 +41,7 @@
    if(glyph&&!glyph.dataset.vectorPolished){glyph.replaceChildren(makePremiumIcon(id));glyph.dataset.vectorPolished='true'}
   }
   // All creation destinations receive a motion chevron. LoRA is a settings action, never a mode.
-  for(const id of ['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen']){
+  for(const id of ['navChat','navCreations','navPhoto','navVideo','studioAdOpen']){
    const node=document.getElementById(id);
    if(!node||node.querySelector('.vision-menu-chevron'))continue;
    const arrow=document.createElement('span');arrow.className='vision-menu-chevron';

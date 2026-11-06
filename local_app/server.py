@@ -9,7 +9,7 @@ try:
 except ImportError:
     import llm, workflows, web_builder, integrations_cli
 
-from local_app import private_access, media_journal
+from local_app import retired_media, media_journal
 from local_app import web_sales_orders
 web_sales_orders.isolate_config()
 _sales_attempts = []
@@ -305,6 +305,8 @@ def _media_request_worker(ticket,body):
                 media_journal.save(DATA,record)
 
 def _media_request_start(body):
+    if isinstance(body,dict) and (body.get('settings') or {}).get('reserved_profile') not in (None,'','auto','companion-realistic'):
+        raise ValueError('Ce profil a été retiré du produit.')
     if not isinstance(body,dict) or not body.get("workflow") or not str(body.get("prompt") or "").strip():
         raise ValueError("Choisis un modèle et décris la création.")
     ticket="prep-"+uuid.uuid4().hex
@@ -432,8 +434,8 @@ _comfy_proc = None
 _comfy_cwd = None
 _comfy_vram_args_cache = None
 STARTUP = {"state": "idle", "message": "Prêt", "error": None, "started_at": None}
-VERSION = "3.1.6"
-PRODUCT_BUILD = "316"
+VERSION = "3.1.7"
+PRODUCT_BUILD = "317"
 LORA_CATALOG = ROOT / "local_app" / "data" / "bjornulf_hunyuan_general.json"
 BUILD_INFO_PATH = ROOT / "local_app" / "data" / "build_info.json"
 UPDATE_REPO = "descombesclovis-maker/LocalAiVision"
@@ -1026,30 +1028,8 @@ def _explicit_style(prompt):
 
 
 def prepare_visual_request(prompt, selected_style='none', negative=None, reserved_profile=None, technical_quality=True):
-    if reserved_profile == 'nsfw':
-        try:
-            from local_app import nsfw_profile
-        except ImportError:
-            import nsfw_profile
-        prepared, neg, style = nsfw_profile.prepare_visual_request(
-            prompt, selected_style, negative, technical_quality)
-        raw = (prompt or '').strip()
-        # The user's own request must remain the first semantic instruction.
-        # Keep the profile's existing context, but move it after the raw prompt
-        # instead of letting a broad profile prefix dominate composition.
-        if raw and not prepared.startswith(raw):
-            remainder = prepared
-            pos = remainder.find(raw)
-            if pos >= 0:
-                remainder = (remainder[:pos] + remainder[pos + len(raw):]).strip()
-            prepared = raw + (('\n\n' + remainder) if remainder else '')
-        fidelity = (
-            "Prompt fidelity only: preserve the user's requested viewpoint, framing, "
-            "pose, clothing, scene, subject orientation and composition; do not replace "
-            "specified details with a generic studio pose."
-        )
-        prepared += '\n\n' + fidelity
-        return prepared, neg, style
+    if reserved_profile not in (None,'','auto','companion-realistic'):
+        raise ValueError('Ce profil de création a été retiré du produit.')
     """Preserve the user's request and add only neutral technical quality hints.
 
     The original prompt is never paraphrased, softened, expanded with age/clothing/
@@ -1889,12 +1869,14 @@ def run_generation(body):
             data = base64.b64decode(body['video'].split(',', 1)[-1], validate=True)
             video_ref = store_comfy_input(Path(body.get('video_name') or 'reference.mp4').name, data)
         settings = body.get('settings') or {}
+        if settings.get('reserved_profile') not in (None,'','auto','companion-realistic'):
+            raise ValueError('Cet espace a été retiré ; les données historiques sont conservées localement.')
         source_prompt = (body.get('prompt') or '').strip()
         # Choose speed/quality from the creative brief and actual loaded
         # workflow; never silently generate a 3-second low-res draft from a
         # 10-second request. User-specified values take priority over defaults.
         from local_app import media_director
-        planner = media_director.plan if settings.get("reserved_profile") == "nsfw" else media_director.public_plan
+        planner = media_director.public_plan
         settings = planner(source_prompt, workflows.profile(api), settings)
         source_negative = body.get('negative')
         if settings.get('prompt_translation'):
@@ -1942,18 +1924,13 @@ def run_generation(body):
                     record=_media_request_get(ticket)
                     if not record or record.get("cancel_requested"):
                         raise RuntimeError("Génération annulée avant son lancement.")
-                if settings.get('reserved_profile') == 'nsfw':
-                    submission_token=private_access.begin_submission(DATA)
                 result = queue_prompt(current)
                 if not result.get('prompt_id'):
                     raise RuntimeError(json.dumps(result, ensure_ascii=False))
                 results.append(result)
-                if settings.get('reserved_profile') == 'nsfw':
-                    private_access.register_job(DATA,result['prompt_id'])
-                    private_access.finish_submission(DATA,submission_token)
                 if ticket:
                     media_journal.accepted(DATA,ticket,result['prompt_id'])
-                if 'original_prompt' in body and settings.get('reserved_profile') != 'nsfw':
+                if True:  # Every public submission needs an access receipt, including direct API requests.
                     try:
                         from local_app import generation_provenance
                         generation_provenance.submitted(DATA, result['prompt_id'], build=build_info(),
@@ -2171,8 +2148,7 @@ def history(prompt_id):
     if prompt_id in result:
         from local_app import comfy_progress
         info=result[prompt_id]
-        if private_access.private_job(DATA,prompt_id):
-            private_access.register_outputs(DATA,prompt_id,info)
+        retired_media.register_outputs(DATA,prompt_id,info)
         from local_app import generation_provenance
         try:
             if generation_provenance.complete(DATA, prompt_id, info):
@@ -2303,37 +2279,30 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def _private_authorized(self):
-        return private_access.session(self.headers.get('Cookie','')) is not None
+        return False
 
     def _require_private(self):
-        if self._private_authorized():return True
-        self.send_json({'error':'Session privée requise ou expirée.'},403)
+        self.send_json({'error':'Cet espace a été retiré. Les anciennes données restent sur le poste local.'},410)
         return False
 
     def _private_job_allowed(self,pid):
         try:
-            if private_access.uncertain_submission(DATA) or private_access.private_job(DATA,pid):return self._require_private()
-            return True
-        except (OSError,ValueError):
-            self.send_json({'error':'Index privé indisponible ; accès refusé.'},503)
-            return False
+            if retired_media.allowed_job(DATA,pid):return True
+            self.send_json({'error':'Génération historique non publique ou non classée.'},403)
+        except (OSError,ValueError):self.send_json({'error':'Inventaire historique indisponible ; accès refusé.'},503)
+        return False
 
     def _private_file_allowed(self,filename,subfolder='',kind='output'):
         try:
-            if private_access.uncertain_submission(DATA):return self._require_private()
-            # Resolve outputs before serving them, even if the private tab has
-            # not polled its completion yet. Do not expose private history.
-            for pid in private_access.pending_jobs(DATA):
-                data=comfy_get('/history/'+quote(pid))
-                if pid in data:private_access.register_outputs(DATA,pid,data[pid])
-            if private_access.private_file(DATA,filename,subfolder,kind):return self._require_private()
-            return True
-        except (OSError,ValueError):
-            self.send_json({'error':'Confidentialité du média non vérifiable ; accès refusé.'},503)
-            return False
+            if retired_media.allowed_file(DATA,filename,subfolder,kind):return True
+            self.send_json({'error':'Média historique non public ou non classé.'},403)
+        except (OSError,ValueError):self.send_json({'error':'Inventaire historique indisponible ; accès refusé.'},503)
+        return False
 
     def do_GET(self):
         u = urlparse(self.path)
+        if u.path.startswith('/api/private/') or u.path in ('/nsfw','/private','/localaivision/nsfw'):
+            self.send_json({'error':'Espace retiré du produit. Données historiques conservées localement.'},410);return
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
         if u.path in ("/localaiweb/vente","/localaiweb/clients","/localaiweb/livraisons") and self._sales_host() in ("127.0.0.1","localhost"):
@@ -2630,9 +2599,6 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self.send_json({"error":str(exc)}, 400)
             return
-        if u.path == "/api/private/session":
-            self.send_json(private_access.session(self.headers.get('Cookie','')) or {'authenticated':False})
-            return
         if u.path == "/api/studio/activity":
             self.send_json(_studio_activity_status())
             return
@@ -2648,8 +2614,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 result=studio_media_jobs()
                 if not self._private_authorized():
-                    result['jobs']=[row for row in result['jobs'] if not private_access.uncertain_submission(DATA)
-                                    and not private_access.private_job(DATA,row.get('prompt_id'))
+                    result['jobs']=[row for row in result['jobs'] if retired_media.allowed_job(DATA,row.get('prompt_id'))
                                     and not (_media_request_get(row.get('request_ticket')) or {}).get('private')]
                     result['count']=len(result['jobs'])
                 self.send_json(result)
@@ -2937,6 +2902,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if u.path == "/" or u.path.startswith("/assets/"):
             rel = "index.html" if u.path=="/" else u.path[len("/assets/"):]
+            if rel in ('studio-adult-workspace.css',):
+                self.send_json({'error':'Ressource retirée.'},410);return
             p = (WEB / rel).resolve()
             if not p.is_relative_to(WEB.resolve()) or not p.exists() or not p.is_file():
                 self.send_response(404); self.end_headers(); return
@@ -3067,9 +3034,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         u=urlparse(self.path)
+        if u.path.startswith('/api/private/') or u.path in ('/nsfw','/private','/localaivision/nsfw'):
+            self.send_json({'error':'Espace retiré du produit. Données historiques conservées localement.'},410);return
         if not self._sales_surface(u.path) or not self._preview_boundary(u.path):
             return
-        if u.path.startswith('/api/private/') and not self._authorized_media_request():return
         if u.path=='/api/web/project/acceptance' and not self._authorized_media_request():return
         global _auto_update_draft_seen, _auto_update_last_action
         if u.path == "/api/loras/upload":
@@ -3106,6 +3074,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'error':'Action inconnue.'},404)
             except (OSError,ValueError,RuntimeError,KeyError,TypeError,AttributeError,sqlite3.Error) as exc:
                 self.send_json({'error':str(exc)},400)
+            return
+        if u.path=='/api/legacy/classify':
+            if not self._authorized_media_request():return
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 0<length<=4000000:raise ValueError('Inventaire trop volumineux.')
+                body=json.loads(self.rfile.read(length))
+                self.send_json(retired_media.classify(DATA,body.get('public',[]),body.get('retired',[]),body.get('public_jobs',[]),body.get('retired_jobs',[])))
+            except (OSError,ValueError,TypeError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
             return
         length=int(self.headers.get("Content-Length","0"))
         if u.path in ("/api/studio/brand/save","/api/studio/advert/render",
@@ -3148,8 +3125,6 @@ class Handler(BaseHTTPRequestHandler):
                 return
         if u.path=='/api/web/project/acceptance' and not 0 < length <= 12000:
             self.send_json({'error':'Taille incorrecte.'},413);return
-        if u.path.startswith('/api/private/') and not 0 < length <= 2_000_000:
-            self.send_json({'error':'Taille incorrecte.'},413);return
         if u.path=="/api/studio/settings/google":
             if self.headers.get("X-LocalAI-Settings")!="1" or not 0<length<=4096:
                 self.send_json({"error":"Action de configuration locale refusée."},403)
@@ -3177,22 +3152,6 @@ class Handler(BaseHTTPRequestHandler):
                 result=web_acceptance.record(store,pid,body)
                 self.send_json({'contract':result,'delivery':web_delivery_report(store,pid)})
             except (OSError,ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
-            return
-        if u.path == '/api/private/unlock':
-            try:
-                token,expires=private_access.unlock(body.get('code',''))
-                self.send_json({'authenticated':True,'expires_at':expires},headers={
-                    'Set-Cookie':private_access.COOKIE+'='+token+'; HttpOnly; SameSite=Strict; Path=/'})
-            except (ValueError,AttributeError) as exc:self.send_json({'error':str(exc)},403)
-            return
-        if u.path == '/api/private/lock':
-            private_access.revoke(self.headers.get('Cookie',''))
-            self.send_json({'authenticated':False},headers={'Set-Cookie':private_access.COOKIE+'=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'})
-            return
-        if u.path == '/api/private/index':
-            if not self._require_private():return
-            try:self.send_json({'indexed':private_access.index_legacy(DATA,body.get('files'))})
-            except (ValueError,OSError,AttributeError) as exc:self.send_json({'error':str(exc)},400)
             return
         if isinstance(body,dict):
             if u.path in ('/api/studio/media/start','/api/generate') and (body.get('settings') or {}).get('reserved_profile')=='nsfw':

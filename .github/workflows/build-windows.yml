@@ -8,7 +8,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish", "fix/studio-314-completion-motion-ui", "codex/studio-315-premium-stabilisation"]
+    branches: ["codex/studio-316-professional-overhaul", "main", "codex/studio-296-4k-polish", "codex/studio-313-complete-ui-reconstruction", "codex/studio-314-brand-polish", "fix/studio-314-completion-motion-ui", "codex/studio-315-premium-stabilisation"]
 
 concurrency:
   group: studio-build-${{ github.event.pull_request.number || github.ref }}
@@ -42,7 +42,7 @@ jobs:
           $version = $match.Groups[1].Value
           $tag = "build-$env:GITHUB_RUN_NUMBER"
           @{
-            product_build = "316"
+            product_build = "317"
             version = $version
             build_tag = $tag
             commit = $env:GITHUB_SHA
@@ -119,14 +119,12 @@ jobs:
             --hidden-import local_app.web_codex_writeback ^
             --hidden-import local_app.web_browser_qa ^
             --hidden-import local_app.integrations_cli ^
-            --hidden-import local_app.nsfw_profile ^
             --add-data "local_app\web;local_app\web" ^
             --add-data "local_app\data;local_app\data" ^
             --add-data "build\branding\LocalAiStudio.ico;local_app\assets" ^
             --add-data "local_app\bootstrap_windows.py;local_app" ^
             --add-data "local_app\server.py;local_app" ^
             --add-data "local_app\llm.py;local_app" ^
-            --add-data "local_app\nsfw_profile.py;local_app" ^
             --add-data "local_app\__init__.py;local_app" ^
             --add-data "text to image sdxl.json;." ^
             --add-data "Video Wan texte.json;." ^
