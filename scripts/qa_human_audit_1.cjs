@@ -135,8 +135,8 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
   assert.ok(await page.locator('#qcmDock .qcm-emoji-vision').count()>0);
   await page.keyboard.press('Escape');
  });
- await check('Vision mode menu alignment, six cyan arrows, keyboard and reduced motion on desktop and mobile',async()=>{
-  const ids=['navChat','navCreations','navPhoto','navVideo','navNsfw','studioAdOpen'];
+ await check('Vision mode menu alignment, five cyan arrows, keyboard and reduced motion on desktop and mobile',async()=>{
+  const ids=['navChat','navCreations','navPhoto','navVideo','studioAdOpen'];
   for(const [name,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
    await page.setViewportSize({width,height});await page.goto(base+'/localaivision');
    const link=page.locator('#visionStudioReturn');

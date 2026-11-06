@@ -45,7 +45,7 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    assert.ok(geometry.every(r=>Math.abs(r.x-geometry[0].x)<1&&Math.abs(r.w-geometry[0].w)<1&&Math.abs(r.h-geometry[0].h)<1));
    assert.equal(await page.evaluate(()=>document.querySelector('#sidebar').contains(document.elementFromPoint(35,300))),true);
    await check('Navigation icons restored except for distinct LoRA and New discussion actions',async()=>{
-    for(const id of ['navCreations','navPhoto','navVideo','studioAdOpen','navNsfw']){
+    for(const id of ['navCreations','navPhoto','navVideo','studioAdOpen']){
      const icon=sidebar.locator('#'+id+' .nav-glyph');
      assert.equal(await icon.evaluate(e=>getComputedStyle(e).display!=='none'),true,id+' icon hidden');
     }
@@ -64,24 +64,10 @@ async function check(name,fn){await fn();results.checks.push({name,passed:true})
    await page.locator('#openSidebar').click();await page.mouse.click(700,400);
    assert.equal(await sidebar.evaluate(x=>x.matches(':popover-open')),false);
   });
-  await check('Private PIN is verified by the server and creates an HttpOnly session',async()=>{
-   await page.locator('#openSidebar').click();await page.locator('#navNsfw').click();
-   const dialog=page.locator('#nsfwUnlockDialog');await dialog.waitFor({state:'visible'});
-   const digits=dialog.locator('.nsfw-pin-digit');
-   for(let i=0;i<4;i++)await digits.nth(i).fill('0');
-   await dialog.locator('[type="submit"]').click();
-   await page.waitForFunction(()=>document.getElementById('nsfwPinError').textContent.length>0);
-   assert.equal(await dialog.evaluate(x=>x.open),true);
-   for(let i=0;i<4;i++)await digits.nth(i).fill(String(i+1));
-   await dialog.locator('[type="submit"]').click();
-   await page.waitForFunction(()=>document.body.classList.contains('nsfw-active'));
-   const session=await page.evaluate(()=>fetch('/api/private/session').then(r=>r.json()));
-   assert.equal(session.authenticated,true);
-   const cookie=(await context.cookies()).find(x=>x.name==='localai_private_session');
-   assert.ok(cookie?.httpOnly);assert.equal(cookie.sameSite,'Strict');
-   await page.screenshot({path:path.join(output,'private-session-empty-workspace.png')});
-   await page.evaluate(()=>fetch('/api/private/lock',{method:'POST',headers:{'Content-Type':'application/json','X-LocalAI-Media':'1'},body:'{}'}));
-   assert.equal((await page.evaluate(()=>fetch('/api/private/session').then(r=>r.json()))).authenticated,false);
+  await check('Retired workspace cannot be opened or unlocked',async()=>{
+   assert.equal(await page.locator('#navNsfw,#nsfwUnlockDialog,#nsfwGallery').count(),0);
+   const status=await page.evaluate(()=>fetch('/api/private/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"code":"1234"}'}).then(r=>r.status));
+   assert.equal(status,410);
   });
   await page.goto(base+'/localaiweb');await page.locator('[data-qcm-filter="free"]').click();
   const card=name=>page.locator('article.card').filter({has:page.getByRole('button',{name:'Ouvrir le projet '+name,exact:true})});

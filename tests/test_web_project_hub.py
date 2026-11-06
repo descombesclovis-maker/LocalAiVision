@@ -57,19 +57,14 @@ class WebProjectHubTests(unittest.TestCase):
 
 
 class CodingAgentWorkflowTests(unittest.TestCase):
-    def test_codex_plus_default_requires_auth_and_no_silent_paid_fallback(self):
-        self.assertEqual(web_hybrid.select_coding_agent('auto',{'claude':{'ready':True},
-                                                             'codex':{'ready':True}}),'codex')
-        self.assertEqual(web_hybrid.select_coding_agent('auto',{'codex':{'ready':True}}),'codex')
-        self.assertEqual(web_hybrid.select_coding_agent('codex',{'codex':{'ready':True}}),'codex')
+    def test_local_default_never_silently_chooses_a_cloud_agent(self):
+        for status in ({},{'codex':{'ready':True}},{'claude':{'ready':True}}):
+            self.assertEqual(web_hybrid.select_coding_agent('auto',status),'local')
         self.assertEqual(web_hybrid.select_coding_agent('local',{}),'local')
-        with self.assertRaisesRegex(RuntimeError,'Codex'):
-            web_hybrid.select_coding_agent('auto',{'claude':{'ready':True}},allow_local_fallback=True)
-        with self.assertRaisesRegex(RuntimeError,'Codex'):
-            web_hybrid.select_coding_agent('auto',{},allow_local_fallback=True)
-        with self.assertRaisesRegex(RuntimeError,'Codex'):
-            web_hybrid.select_coding_agent('auto',{})
-        with self.assertRaisesRegex(RuntimeError,'Claude Code'):
+        self.assertEqual(web_hybrid.select_coding_agent('codex',{'codex':{'ready':True}}),'codex')
+        with self.assertRaisesRegex(RuntimeError,'codex'):
+            web_hybrid.select_coding_agent('codex',{'claude':{'ready':True}})
+        with self.assertRaisesRegex(RuntimeError,'claude'):
             web_hybrid.select_coding_agent('claude',{'codex':{'ready':True}})
 
     def test_successful_agent_uses_real_browser_screenshots_for_critique(self):

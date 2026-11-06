@@ -1,6 +1,6 @@
 """Natural-language quality planning and prompt-fidelity regressions."""
 import unittest
-from local_app import media_director,nsfw_profile
+from local_app import media_director
 
 class MediaDirectorTests(unittest.TestCase):
  def test_exact_ten_seconds_creates_real_duration_and_sampling_controls(self):
@@ -35,13 +35,6 @@ class MediaDirectorTests(unittest.TestCase):
  def test_1440p_is_not_forced_on_small_photo_gpu(self):
   p=media_director.plan("Photographie de produit", "hunyuanimage21",{"quality":"workflow","aspect":"auto"})
   self.assertEqual((p["width"],p["height"]),(1280,1280))
- def test_original_adult_prompt_is_preserved_without_generic_stereotypes(self):
-  prompt="Une adulte nue danse, lumière douce, gros plan sur les mains"
-  text,negative,_=nsfw_profile.prepare_visual_request(prompt,technical_quality=True)
-  self.assertTrue(text.startswith(prompt))
-  self.assertNotIn("trending girls",text)
-  self.assertNotIn("latina",text)
-  self.assertIn("temporal flicker",negative)
  def test_pass_through_unknown_workflows(self):
   self.assertEqual(media_director.plan("10 seconds","unknown",{"seed":12}),{"seed":12})
 

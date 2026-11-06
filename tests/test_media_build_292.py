@@ -81,17 +81,13 @@ class MediaBuild292Tests(unittest.TestCase):
         comfy_progress.mark(one, "done")
         comfy_progress.mark(two, "done")
 
-    def test_adult_gallery_and_standard_i2v_exist_without_erasing_saved_data(self):
+    def test_removed_workspace_preserves_storage_and_public_reference_upload(self):
         js = (WEB / "app.js").read_text(encoding="utf-8")
         html = (WEB / "index.html").read_text(encoding="utf-8")
-        css = (WEB / "studio-adult-workspace.css").read_text(encoding="utf-8")
-        self.assertIn("sessionStorage.getItem('lva_nsfw_gate')", js)
-        self.assertIn("requestNsfwPin().then(valid=>", js)
-        self.assertIn("profile==='nsfw'", js)
-        self.assertIn("renderNsfwGallery()", js)
-        self.assertIn('id="nsfwGallery"', html)
-        self.assertIn('value="i2v"', html)
-        self.assertIn("body.nsfw-active", css)
+        self.assertNotIn('id="navNsfw"', html)
+        self.assertNotIn('id="nsfwGallery"', html)
+        self.assertEqual(html.count('id="referenceImageInput"'), 1)
+        self.assertNotIn('requestNsfwPin', js)
         self.assertIn("lva_conversations_v2", js)
         self.assertIn("lva_library", js)
 

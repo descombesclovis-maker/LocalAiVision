@@ -16,9 +16,9 @@ class CodexPlusStudioTests(TestCase):
         self.project=self.store.create("Parfumerie Atelier")
         self.pid=self.project["project"]["id"]
 
-    def test_new_project_codex_and_persistent_cinematic_direction(self):
+    def test_new_project_local_and_persistent_cinematic_direction(self):
         meta=self.store.meta(self.pid)
-        self.assertEqual(meta["settings"]["ai_provider"],"codex")
+        self.assertEqual(meta["settings"]["ai_provider"],"local")
         self.assertEqual(meta["settings"]["art_direction"],"auto")
         self.store.update_settings(self.pid,{"ai_provider":"codex","art_direction":"spatial3d"})
         after=self.store.meta(self.pid)

@@ -54,7 +54,7 @@ function showSiteEditing(on){
   }
  }
  if(on){
-  $('#lawEditPhase').textContent='Codex prépare les modifications…';
+  $('#lawEditPhase').textContent='Le moteur prépare les modifications…';
   $('#lawEditPercent').textContent='Étape en cours : préparation';
   // The agent reports phases, not a measurable overall completion fraction.
   $('#lawEditTrack').parentElement.hidden=true;
@@ -285,7 +285,7 @@ async function watchGeneration(id){
          updateLivePreview(status,id);
          const elapsed=Math.floor((Date.now()-started)/1000);
          const time=elapsed>=60?' · '+Math.floor(elapsed/60)+' min écoulée(s)':'';
-         $('#lawChatStatus').textContent=(status.detail||'Codex prépare le site…')+time;
+         $('#lawChatStatus').textContent=(status.detail||'Le moteur prépare le site…')+time;
           updateEditMilestones(status);
        }else if(status.state==='done'){
          project=await api('/api/web/project?id='+encodeURIComponent(id));
@@ -299,7 +299,7 @@ async function watchGeneration(id){
          stop();
        }else if(status.state==='error'){
          message('Création interrompue : '+(status.error||status.detail||'Cause inconnue')+
-          '\nLe projet et ses fichiers existants sont conservés. Vérifie la connexion Codex puis relance la maquette.',
+          '\nLe projet et ses fichiers existants sont conservés. Vérifie le moteur sélectionné puis relance la maquette.',
           'assistant');
          showSiteEditing(false);codexRecovery(status.error||status.detail);stage='ready';refreshPublishing();stop();
        }else{
@@ -322,7 +322,7 @@ async function watchGeneration(id){
 async function generate(text,originalPrompt=text){
  await ensureProject();
  if(activeGeneration){message('Une création est déjà en cours pour ce site. Son avancement apparaît sous le champ de saisie.');return}
- setBusy(true,'Vérification de la connexion Codex et préparation du site…');
+ setBusy(true,'Vérification du moteur sélectionné et préparation du site…');
  const id=project.project.id;
  try{const current=await api('/api/web/preview/status?id='+encodeURIComponent(id));if(current.ready)showSiteEditing(true)}catch{}
  const existingBrief=projectBrief();
@@ -335,12 +335,12 @@ async function generate(text,originalPrompt=text){
    message('Première maquette lancée. Je construis les vrais fichiers du site. '+
     'La prévisualisation sera affichée dès la première compilation, sans attendre les finitions.');
   }else{
-   message('La génération précédente continue. Je rétablis son suivi sans relancer Codex.');
+   message('La génération précédente continue. Je rétablis son suivi sans relancer la génération.');
   }
   await watchGeneration(id);
  }catch(error){
   message('Impossible de démarrer la génération : '+error.message+
-   '\nVérifie « Codex connecté » dans l’en-tête. Les fichiers déjà créés sont conservés.');
+   '\nVérifie le moteur sélectionné dans l’en-tête. Les fichiers déjà créés sont conservés.');
  }finally{setBusy(false)}
 }
 async function publish(){

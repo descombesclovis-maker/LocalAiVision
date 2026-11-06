@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#171126"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/assets/manifest.webmanifest"><link rel="icon" href="/assets/brand-vision.svg" type="image/svg+xml"><title>LocalAiVision · LocalAI Studio</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/studio-redesign.css"><link rel="stylesheet" href="/assets/vision-generation.css"><link rel="stylesheet" href="/assets/studio-natural-vision.css"><link rel="stylesheet" href="/assets/studio-ads.css"><link rel="stylesheet" href="/assets/studio-activity.css">
-<link rel="stylesheet" href="/assets/studio-ui-polish.css"><link rel="stylesheet" href="/assets/studio-adult-workspace.css"><link rel="stylesheet" href="/assets/studio-qcm-v1.css"><link rel="stylesheet" href="/assets/studio-qcm-vision.css"><link rel="stylesheet" href="/assets/studio-qcm-library.css">
+<link rel="stylesheet" href="/assets/studio-ui-polish.css"><link rel="stylesheet" href="/assets/studio-qcm-v1.css"><link rel="stylesheet" href="/assets/studio-qcm-vision.css"><link rel="stylesheet" href="/assets/studio-qcm-library.css">
 <link rel="stylesheet" href="/assets/studio-system.css">
 <link rel="stylesheet" href="/assets/studio-custom-brand.css">
 <link rel="stylesheet" href="/assets/studio-vision-composer-polish.css">
@@ -24,7 +24,7 @@
       <button type="button" id="navCreations" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span><span>Mes créations</span></button>
       <button type="button" id="navPhoto" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Photo</span></button>
       <button type="button" id="navVideo" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="14" height="16" rx="3"/><path d="m17 9 4-3v12l-4-3"/><path d="m9 9 5 3-5 3z"/></svg></span><span>Vidéo</span></button>
-      <button type="button" id="navNsfw" class="studio-nav-entry"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v5c0 5.3 3.6 8 8 9 4.4-1 8-3.7 8-9V7z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 0 1 4 0v2"/></svg></span><span>NSFW</span></button>
+      
       <button type="button" id="studioAdOpen" class="studio-nav-entry" aria-label="Créer une publicité pour une marque"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 10 11-5v14L3 14z"/><path d="M14 8h4a3 3 0 0 1 0 6h-4M6 15l2 5h4l-2-5"/></svg></span><span>Publicité</span></button>
       <button type="button" id="visionAdvancedToggle" class="studio-nav-entry" aria-label="Gérer les LoRA et modèles locaux"><span class="nav-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14M5 12h14M5 19h14"/><circle cx="9" cy="5" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="11" cy="19" r="2"/></svg></span><span>LoRA et modèles</span></button>
     </nav>
@@ -50,16 +50,13 @@
         <div class="reserved-row"><button class="reserved-model" id="modelAuto"><span class="reserved-icon">◎</span><span class="reserved-copy"><b>Automatique</b><small>LocalVision choisit le moteur selon la demande</small></span><i></i></button><button class="reserved-rename" data-rename-profile="auto" title="Renommer">✎</button></div>
         <div class="reserved-row"><button class="reserved-model" id="modelRealistic"><span class="reserved-icon">◆</span><span class="reserved-copy"><b>Standard</b><small>Photo RealVisXL V5 · vidéo Wan 2.1</small></span><i></i></button><button class="reserved-rename" data-rename-profile="companion-realistic" title="Renommer">✎</button></div>
       </div>
-      <div class="section-title nsfw-title">ESPACES</div>
+      <div class="section-title">ESPACES</div>
       <div class="workspace-models">
-        <button class="workspace-entry nsfw-entry" id="modelNsfw"><span class="workspace-icon" id="nsfwLockIcon">⌑</span><span class="workspace-copy"><b>NSFW</b><small id="nsfwEntrySub">Verrouillé · HunyuanImage 2.1 · HunyuanVideo 1.5</small></span><span class="workspace-chevron">›</span></button>
+        
         <button class="workspace-entry future-entry" id="websitesWorkspace"><span class="workspace-icon">◇</span><span class="workspace-copy"><b>Sites web</b><small>Créateur de sites et apps · bientôt</small></span><span class="workspace-chevron">›</span></button>
         <button class="workspace-entry future-entry" id="automationsWorkspace"><span class="workspace-icon">↻</span><span class="workspace-copy"><b>Automatisations</b><small>Workflows récurrents et orchestration · bientôt</small></span><span class="workspace-chevron">›</span></button>
       </div>
-      <div id="nsfwLibraryLinks" class="nsfw-library-links hidden">
-        <button class="library-item" id="nsfwPhotosLibrary"><span>▧</span><span>Photos NSFW</span><em id="nsfwPhotoCount"></em></button>
-        <button class="library-item" id="nsfwVideosLibrary"><span>▣</span><span>Vidéos NSFW</span><em id="nsfwVideoCount"></em></button>
-      </div>
+      
       <div class="section-title library-title">MA BIBLIOTHÈQUE</div>
       <button class="library-item" id="photosLibrary"><span>▧</span><span>Mes photos générées</span><em id="photoCount"></em></button>
       <button class="library-item" id="videosLibrary"><span>▣</span><span>Mes vidéos générées</span><em id="videoCount"></em></button>
@@ -77,10 +74,10 @@
   <main class="main">
     <div class="main-topbar">
       <button class="open-sidebar" id="openSidebar" aria-controls="sidebar" aria-expanded="false" aria-label="Ouvrir le menu"><span></span><span></span><span></span></button>
-      <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button><button type="button" id="studioNsfw" class="studio-tab">NSFW</button></nav></div>
+      <div class="legacy-studio-switch" hidden><nav class="studio-switch"><button type="button" id="studioPhotoVideo" class="studio-tab">Photo / Vidéo</button></nav></div>
       <button type="button" id="homeBtn" class="topbar-home" aria-label="Revenir à l'accueil" title="Accueil"><img src="/assets/brand-vision.svg" alt=""><span>LocalAiVision</span></button>
       <a href="/studio" id="visionStudioReturn" class="vision-studio-return" title="Revenir à l’accueil de LocalAiStudio" aria-label="Retour à LocalAiStudio"><span>LocalAiStudio</span></a>
-      <div class="topbar-actions"><button type="button" id="nsfwGalleryToggle" class="topbar-action" hidden aria-label="Afficher les créations de l’espace adulte">Créations</button>
+      <div class="topbar-actions">
 
         <button class="topbar-action" id="historyBtn" type="button" title="Reprendre une conversation enregistrée" aria-label="Historique des conversations">◷ <span>Historique</span></button>
         <button class="topbar-action" id="newConversation" type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation">＋ <span>Nouvelle discussion</span></button>
@@ -190,17 +187,7 @@
                     </label>
                   </div>
 
-                  <div id="nsfwModePanel" class="nsfw-mode-panel hidden">
-                    <div class="nsfw-mode-tabs nsfw-mode-tabs-three">
-                      <button id="isolatedModeImage" type="button">Image · HunyuanImage 2.1</button>
-                      <button id="isolatedModeT2V" type="button">T2V · HunyuanVideo 1.5</button>
-                      <button id="isolatedModeI2V" type="button">I2V · HunyuanVideo 1.5</button>
-                    </div>
-                    <select id="isolatedVideoSource" class="hidden" aria-hidden="true"><option value="t2v">Texte → Vidéo</option><option value="i2v">Image → Vidéo</option></select>
-                    <div id="isolatedPhotoInfo" class="nsfw-mode-info">HunyuanImage 2.1 distilled FP8 · 8 étapes par défaut.</div>
-                    <div id="isolatedVideoInfo" class="nsfw-mode-info hidden">HunyuanVideo 1.5 en 480p · T2V : 50 étapes CFG distillé · I2V : 8 à 12 étapes step-distillé · durée et FPS ajustables.</div>
-                    <div id="isolatedImageAttachment" class="attachment hidden"><button id="attachReferenceImageBtn" type="button">+ Image de départ</button><span id="referenceImageName">Aucune image jointe</span><button id="clearReferenceImage" type="button" class="hidden">×</button><input id="referenceImageInput" type="file" accept="image/*" hidden></div>
-                  </div>
+                  
                 </div>
               </details>
             </div>
@@ -208,7 +195,7 @@
 
           <div class="composer-row">
             <div class="left-tools">
-              <button id="nsfwLoraGear" class="composer-tool nsfw-lora-gear" type="button" title="LoRA HunyuanVideo 1.5" aria-label="Ouvrir les LoRA et modèles de cet espace"><span>⚙</span><small>LoRA</small></button>
+              
               <button id="composerImageBtn" class="composer-tool" type="button" aria-label="Ajouter une image" title="Ajouter une image pour I2V"><span>+</span><small>Image</small></button>
               <button id="settingsBtn" class="composer-tool settings-button" type="button" aria-label="Ouvrir les réglages" title="Réglages"><span>⌘</span><small>Réglages</small></button>
             </div>
@@ -220,27 +207,9 @@
   </main>
 </div>
 
-<aside id="nsfwGallery" class="nsfw-gallery" aria-label="Créations de l’espace adulte" hidden>
- <header><div><b>Créations</b><small>Images et vidéos de cet espace uniquement</small></div><button type="button" id="nsfwGalleryClose" aria-label="Fermer la colonne des créations">×</button></header>
- <div id="nsfwGalleryList" class="nsfw-gallery-list"></div>
-</aside>
+
 <!-- Brand advertisements are now briefed in the main conversation, not a popup. -->
-<dialog id="nsfwUnlockDialog" class="nsfw-unlock-dialog" aria-labelledby="nsfwUnlockTitle" aria-describedby="nsfwUnlockHelp">
-  <form method="dialog" class="nsfw-unlock-panel" autocomplete="off">
-    <button type="button" class="nsfw-pin-close" aria-label="Fermer la fenêtre de déverrouillage" onclick="this.closest('dialog').close()">×</button>
-    <div class="nsfw-unlock-lock" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="14" y="28" width="36" height="29" rx="8" stroke="currentColor" stroke-width="3"/><path d="M22 28v-9a10 10 0 0 1 20 0v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="42" r="3" fill="currentColor"/><path d="M32 45v5" stroke="currentColor" stroke-width="3"/></svg></div>
-    <h2 id="nsfwUnlockTitle">Espace NSFW verrouillé</h2>
-    <p id="nsfwUnlockHelp">Entrez le code à 4 chiffres pour y accéder.</p>
-    <div class="nsfw-pin-digits" role="group" aria-label="Code d’accès à quatre chiffres">
-      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Premier chiffre" autocomplete="off" required>
-      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Deuxième chiffre" autocomplete="off" required>
-      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Troisième chiffre" autocomplete="off" required>
-      <input class="nsfw-pin-digit" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" aria-label="Quatrième chiffre" autocomplete="off" required>
-    </div>
-    <p id="nsfwPinError" role="alert" aria-live="assertive"></p>
-    <button type="submit" class="nsfw-pin-submit">Déverrouiller <span aria-hidden="true">→</span></button>
-  </form>
-</dialog>
+
 <div class="modal-backdrop hidden" id="modelModal">
   <div class="model-modal step-modal" role="dialog" aria-modal="true">
     <div class="modal-head">
@@ -278,6 +247,7 @@
 </dialog>
 <div id="toast" role="status"></div>
 <script src="/assets/studio-brand-picker.js" defer></script>
+<input type="file" id="referenceImageInput" accept="image/*" hidden>
 <script src="/assets/intent.js"></script>
 <script src="/assets/mask.js"></script>
 <script src="/assets/styles.js"></script>

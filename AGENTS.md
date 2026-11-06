@@ -3,7 +3,7 @@
 All coding agents (Codex, Claude Code and collaborators) working in this repository must use these constraints.
 
 ## Product architecture
-- One application, two frontends: **LocalAiVision** at `/` (Photo/Vidéo and separately gated NSFW) and **LocalAiWeb** at `/localaiweb`, editor `/localaiweb/editor`, business map `/localaiweb/map`. Do not split or silently rename products.
+- One application, two frontends: **LocalAiVision** at `/` (public Photo/Vidéo/Retouche/Publicité only; former reserved workspace removed in Build 317) and **LocalAiWeb** at `/localaiweb`, editor `/localaiweb/editor`, business map `/localaiweb/map`. Do not split or silently rename products.
 - Keep all existing models, prompt fidelity, LoRA routing, imported ComfyUI workflows, logs and repair/update entry points operational.
 - LocalAiWeb Pro and Libre project data live only under `LOCALAIWEB_DATA/projects`; LocalAiVision conversations/media do not share their saves. Do not erase, migrate or overwrite user data without explicit migration and backup.
 - The server defaults to loopback `127.0.0.1:3000`. Never expose a public listening interface, API secrets, development tools or unrestricted CORS to make phone access easier.
@@ -17,7 +17,7 @@ All coding agents (Codex, Claude Code and collaborators) working in this reposit
 6. Keep changes in a reviewable branch/PR until checks pass. Make no silent force pushes.
 
 ## Agent routing and budget
-- LocalAiWeb's default coding engine is **Codex CLI signed in with the user's ChatGPT Plus account**, explicitly selected for premium site generation without another subscription. If unavailable or unauthenticated on the user's Windows PC, fail with clear setup guidance instead of silently falling back to Claude Code, local Qwen or a paid API. Projects may explicitly select Claude Code; only such explicit opt-in allows that provider. Do not purchase API credit, install packages or enable billing without authorization.
+- LocalAiWeb's primary engine is local and independent of Codex. Codex and Claude are explicit optional engines. Never silently switch providers or enable billing. Preserve historical private media without loading the removed workspace or exposing its records in public galleries. Small development dependencies are authorized; heavyweight model downloads still require user consent.
 - Use distinct passes for briefing, code changes, browser QA and targeted repair. Treat a passing build as necessary but insufficient; do not certify artistic quality without actual visual review.
 
 ## LocalAiWeb design and generation

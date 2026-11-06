@@ -99,9 +99,9 @@ class CommercialWorkflowTests(unittest.TestCase):
     def test_studio_navigation_and_commercial_routes_exist(self):
         html=(ROOT/"local_app/web/index.html").read_text(encoding="utf-8")
         sidebar=html.split('<aside class="sidebar closed" id="sidebar"')[1].split("</aside>")[0]
-        for label in ("navChat","navCreations","navPhoto","navVideo","navNsfw"):
+        for label in ("navChat","navCreations","navPhoto","navVideo"):
             self.assertIn('id="'+label+'"',sidebar)
-        self.assertEqual(sidebar.count('class="studio-nav-entry"'),7)
+        self.assertEqual(sidebar.count('class="studio-nav-entry"'),6)
         self.assertIn('id="studioAdOpen"',sidebar)
         self.assertIn('id="visionAdvancedToggle"',sidebar)
         self.assertNotIn("Que veux tu créer ?",html)

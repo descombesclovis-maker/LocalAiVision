@@ -42,7 +42,7 @@ class OriginalPrompt314(unittest.TestCase):
         meta['settings']['ai_provider'] = 'local'
         self.store.write_meta(pid, meta)
         original = '  Mon site\nexact.  '
-        with patch.object(server, '_web_store', return_value=self.store), \
+        with patch('local_app.web_local_engine.status',return_value={'ready':True}), patch.object(server, '_web_store', return_value=self.store), \
              patch.object(server.threading, 'Thread'), \
              patch.object(server, '_web_persist_generation'), \
              patch.object(server, '_web_progress'), \

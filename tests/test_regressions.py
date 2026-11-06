@@ -96,13 +96,12 @@ class SettingsUi(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))
         for control in ('settingQuality','settingSteps','settingAspect','settingSeed','settingCount',
                         'settingDuration','settingFps','settingWidth','settingHeight','settingNegative',
-                        'settingTemperature','settingMaxTokens','settingSystem','taskMode',
-                        'isolatedModeImage','isolatedModeT2V','isolatedModeI2V'):
+                        'settingTemperature','settingMaxTokens','settingSystem','taskMode'):
             self.assertIn(f'id="{control}"', html)
 
-    def test_workspace_navigation_has_single_nsfw_entry_and_future_spaces(self):
+    def test_workspace_navigation_has_no_retired_entry_and_keeps_future_spaces(self):
         html = (ROOT / 'local_app' / 'web' / 'index.html').read_text(encoding='utf-8')
-        self.assertEqual(html.count('id="modelNsfw"'), 1)
+        self.assertEqual(html.count('id="modelNsfw"'), 0)
         self.assertNotIn('id="nsfwGate"', html)
         self.assertIn('id="websitesWorkspace"', html)
         self.assertIn('id="automationsWorkspace"', html)
@@ -162,7 +161,7 @@ class SettingsUi(unittest.TestCase):
         self.assertIn("accordionStyles')?.classList.toggle('hidden',isolated||kind==='chat')", source)
         self.assertIn("accordionLoras')?.classList.toggle('hidden',!visual)", source)
         self.assertIn("settings.loras=task==='video'&&[bestWorkflowId(ISOLATED_VIDEO_WORKFLOW),bestWorkflowId(ISOLATED_I2V_WORKFLOW)",source)
-        self.assertIn("chooseIsolatedCreationMode('i2v')", source)
+        self.assertNotIn("chooseIsolatedCreationMode", source)
 
 
 class LocalAiWebIsolation(unittest.TestCase):

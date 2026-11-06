@@ -8,7 +8,7 @@ if(!button)return;
 const selector=document.getElementById('lawAgentSelect');
 const projectId=(new URLSearchParams(location.search)).get('id')||'';
 const validProject=/^web-[a-f0-9]{12}$/.test(projectId);
-let state={},current='codex',saving=false;
+let state={},current='local',saving=false;
 
 async function api(url,body){
  const response=await fetch(url,body===undefined?{cache:'no-store'}:{
@@ -24,6 +24,7 @@ function feedback(value){
 function selectedProvider(){return selector?.value||current}
 function render(){
  const provider=selectedProvider(),entry=state[provider]||{installed:false,ready:false};
+ if(provider==='local'){button.textContent=entry.ready?'● Local · '+(entry.model||entry.backend):'○ Modèle local à installer';button.title=entry.detail||'Vérification du moteur local…';button.disabled=saving;if(selector)selector.disabled=saving;return}
  if(entry.ready){
   button.textContent=provider==='codex'?'● Codex connecté':'● Claude connecté';
   button.title='Agent authentifié. Cliquer pour revérifier la connexion.';
@@ -63,10 +64,7 @@ async function setup(){
   const result=await api('/api/web/project?id='+encodeURIComponent(projectId));
   const project=result.project||{};
   const saved=project.settings||{};
-  // Older projects had Claude hard-coded without a deliberate user choice.
-  // They migrate to Codex automatically unless Claude was selected manually.
-  const provider=saved.ai_provider==='claude'&&project.agent_selected_by_user===true
-   ?'claude':'codex';
+  const provider=project.agent_selected_by_user===true&&['local','auto','codex','claude'].includes(saved.ai_provider)?(saved.ai_provider==='auto'?'local':saved.ai_provider):'local';
   selector.value=provider;current=provider;
   render();
  }catch(error){feedback('Préférences de projet indisponibles : '+error.message)}
@@ -77,7 +75,7 @@ selector?.addEventListener('change',async()=>{
  try{
   await patchSettings({ai_provider:chosen});
   current=chosen;
-  feedback(chosen==='codex'
+  feedback(chosen==='local'?'Moteur local sélectionné. Aucun agent distant ni téléchargement automatique.':chosen==='codex'
    ?'Codex sélectionné. La connexion utilise ton abonnement ChatGPT Plus et ses quotas.'
    :'Claude Code sélectionné uniquement pour ce projet ; authentifie ton compte Claude.');
  }catch(error){
@@ -88,6 +86,7 @@ selector?.addEventListener('change',async()=>{
 button.addEventListener('click',async()=>{
  if(saving)return;
  const provider=selectedProvider(),entry=state[provider]||{};
+ if(provider==='local'){await check();feedback(state.local?.detail||'État local vérifié.');return}
  if(entry.ready||['timeout','check_failed','launch_failed'].includes(entry.state)){await check();feedback(state[provider]?.detail||'État revérifié.');return}
  if(!entry.installed){
   const docs=provider==='codex'?'https://developers.openai.com/codex/cli':

@@ -161,10 +161,8 @@ function fixture(project){
     assert.ok(delta.x<1&&delta.y<1,JSON.stringify(delta));
     await button.screenshot({path:path.join(output,'vision-import-detail.png')});
    });
-   await check('Reserved session excludes public plus and shared UI padding',async()=>{
-    const actual=await page.evaluate(()=>{document.body.classList.add('nsfw-active');const plus=document.querySelector('.studio-public-plus');return {display:getComputedStyle(plus).display,padding:getComputedStyle(document.body).paddingLeft}});
-    assert.equal(actual.display,'none');assert.equal(actual.padding,'0px');
-    // This tests CSS exclusion only. It does not unlock or alter reserved data.
+   await check('Removed workspace has no visible entry points',async()=>{
+    assert.equal(await page.locator('#navNsfw,#nsfwUnlockDialog,#nsfwGallery').count(),0);
    });
    await context.close();
    await video.saveAs(path.join(output,'parcours-interface.webm'));
