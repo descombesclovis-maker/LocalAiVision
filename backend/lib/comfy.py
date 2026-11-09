@@ -99,24 +99,32 @@ def _client(timeout: float = 30) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=5))
 
 
-async def _choices(c: httpx.AsyncClient, base: str, node: str, field: str) -> Optional[list[str]]:
-    """Return the list of available values for a ComfyUI loader node field.
+async def _choices(
+    c: httpx.AsyncClient, base: str, node: str, field: str,
+    cache: Optional[dict[str, Any]] = None,
+) -> Optional[list[str]]:
+    """Return a verified combo list, [] if empty, or None if it cannot be verified.
 
-    Returns:
-        list[str]  — the list when the request succeeds (may be empty if ComfyUI has no models).
-        None       — when the request fails for any reason (network error, bad status, unexpected
-                     response shape).  Callers MUST distinguish None (list unavailable) from []
-                     (list available but empty) to avoid false «model missing» diagnostics.
-
-    V1-C: changed from returning [] on error to returning None.  [] now means ComfyUI responded
-    but has no models in that category; None means we could not get the information at all.
+    A STRING socket is not a model list. Cache object_info per node for loaders with
+    several model fields (e.g. DualCLIPLoader); failed requests are cached too.
     """
+    cache = cache if cache is not None else {}
+    if node not in cache:
+        try:
+            r = await c.get(f"{base}/object_info/{node}")
+            r.raise_for_status()
+            cache[node] = r.json()
+        except Exception:
+            cache[node] = None
     try:
-        r = await c.get(f"{base}/object_info/{node}")
-        r.raise_for_status()
-        return list(r.json()[node]["input"]["required"][field][0])
-    except Exception:
-        return None
+        inputs = cache[node][node]["input"]
+        spec = inputs.get("required", {}).get(field) or inputs.get("optional", {}).get(field)
+        choices = spec[0]
+        if isinstance(choices, list) and all(isinstance(v, str) for v in choices):
+            return list(choices)
+    except (KeyError, TypeError, IndexError, AttributeError):
+        pass
+    return None
 
 
 async def reachable() -> bool:
@@ -166,60 +174,92 @@ async def test(s: dict) -> dict:
 _MISSING_FILE_RE = re.compile(r"\.(safetensors|ckpt|pt|bin|gguf|pth|sftensors)\b", re.I)
 
 
-async def _model_lists(c: httpx.AsyncClient, base: str) -> dict[str, Optional[list[str]]]:
-    """Fetch every model-file list ComfyUI currently knows (one round-trip per loader node).
+# Standard categories retain their historical keys for diagnostics and callers.
+_MODEL_LIST_FIELDS = {
+    ("CheckpointLoaderSimple", "ckpt_name"): "checkpoints",
+    ("UNETLoader", "unet_name"): "diffusion_models",
+    ("CLIPLoader", "clip_name"): "text_encoders",
+    ("VAELoader", "vae_name"): "vae",
+}
+_MODEL_FIELDS = {
+    "ckpt_name", "unet_name", "clip_name", "clip_name1", "clip_name2", "clip_name3",
+    "vae_name", "lora_name", "control_net_name", "style_model_name", "upscale_model_name",
+}
+ModelRequirements = dict[str, tuple[str, str, list[str]]]
 
-    V1-C: values may be None when a list endpoint fails.  Callers must handle None
-    (list unavailable) separately from [] (list available, no models in that category).
+
+def _model_requirements(s: dict, video: bool) -> ModelRequirements:
+    """Only concrete model files used by the selected workflow, never inactive defaults.
+
+    Custom API graphs can use other loaders: inspect their literal model inputs using
+    their own object_info schema. Linked/dynamic/opaque inputs remain ComfyUI's job;
+    they must never be diagnosed as absent using an unrelated preset's lists.
     """
+    custom = s.get("custom_video_workflow" if video else "custom_image_workflow", "").strip()
+    if custom:
+        try:
+            workflow = json.loads(custom)
+        except ValueError as exc:
+            raise WorkflowError(f"Workflow personnalisé invalide (JSON API attendu) : {exc}") from exc
+        if not isinstance(workflow, dict) or not all(
+            isinstance(node, dict) and isinstance(node.get("class_type"), str)
+            and isinstance(node.get("inputs"), dict) for node in workflow.values()
+        ):
+            raise WorkflowError("Workflow personnalisé invalide : export API de ComfyUI attendu.")
+    elif not video:
+        workflow = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": s["image_checkpoint"]}}}
+    else:
+        node, field = ("UNETLoader", "unet_name") if s["video_preset"] == "wan22" else ("CheckpointLoaderSimple", "ckpt_name")
+        workflow = {
+            "1": {"class_type": node, "inputs": {field: s["video_model"]}},
+            "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": s["video_text_encoder"]}},
+        }
+        # LTX uses the checkpoint's VAE, even if settings contain a stale external VAE.
+        if s["video_preset"] == "wan22":
+            workflow["3"] = {"class_type": "VAELoader", "inputs": {"vae_name": s.get("video_vae", "")}}
+    required: ModelRequirements = {}
+    for node in workflow.values():
+        loader = node["class_type"]
+        for field, value in node["inputs"].items():
+            if not isinstance(value, str) or not value or "{{" in value or value.lower() == "none":
+                continue
+            model_field = field in _MODEL_FIELDS
+            loader_file = "loader" in loader.lower() and bool(re.search(r"\.(?:safetensors|ckpt|pt|bin|gguf|pth|sftensors)$", value, re.I))
+            if not (model_field or loader_file):
+                continue
+            key = _MODEL_LIST_FIELDS.get((loader, field), f"{loader}.{field}")
+            files = required.setdefault(key, (loader, field, []))[2]
+            if value not in files:
+                files.append(value)
+    return required
+
+
+async def _model_lists(
+    c: httpx.AsyncClient, base: str, required: Optional[ModelRequirements] = None,
+) -> dict[str, Optional[list[str]]]:
+    """Fetch only the needed lists, once per loader node, with no cross-render cache."""
+    if required is None:  # compatibility for callers requesting the complete catalogue
+        required = {key: (node, field, []) for (node, field), key in _MODEL_LIST_FIELDS.items()}
+    cache: dict[str, Any] = {}
     return {
-        "checkpoints": await _choices(c, base, "CheckpointLoaderSimple", "ckpt_name"),
-        "diffusion_models": await _choices(c, base, "UNETLoader", "unet_name"),
-        "text_encoders": await _choices(c, base, "CLIPLoader", "clip_name"),
-        "vae": await _choices(c, base, "VAELoader", "vae_name"),
+        key: await _choices(c, base, node, field, cache)
+        for key, (node, field, _) in required.items()
     }
 
 
 def _missing_files(s: dict, lists: dict[str, Optional[list[str]]], video: bool) -> list[str]:
-    """Names of the model files required by the active preset that are confirmed absent.
-
-    V1-C: if a list is None (unavailable), the corresponding file is NOT reported as missing —
-    we cannot confirm absence without a valid list.  The caller (verify_ready) raises
-    ModelListUnavailable instead when any required list is None.
-
-    Image generations need the image checkpoint; video generations need the video model,
-    text encoder, and VAE.  The image checkpoint is NOT checked for video renders.
-    """
-    missing = []
-    if not video:
-        ckpts = lists.get("checkpoints")
-        if ckpts is not None and s["image_checkpoint"] not in ckpts:
-            missing.append(s["image_checkpoint"])
-    if video:
-        model_pool: Optional[list[str]]
-        if s["video_preset"] == "wan22":
-            model_pool = lists.get("diffusion_models")
-        else:
-            model_pool = lists.get("checkpoints")
-        if model_pool is not None and s["video_model"] not in model_pool:
-            missing.append(s["video_model"])
-        text_encoders = lists.get("text_encoders")
-        if text_encoders is not None and s["video_text_encoder"] not in text_encoders:
-            missing.append(s["video_text_encoder"])
-        vae = lists.get("vae")
-        if vae is not None and s.get("video_vae") and s["video_vae"] not in vae:
-            missing.append(s["video_vae"])
-    return missing
+    """Confirmed absences only: an unavailable or non-enumerable list proves nothing."""
+    return list(dict.fromkeys(
+        filename
+        for key, (_, _, files) in _model_requirements(s, video).items()
+        if lists.get(key) is not None
+        for filename in files if filename not in lists[key]
+    ))
 
 
-def _lists_unavailable(lists: dict[str, Optional[list[str]]], video: bool) -> list[str]:
-    """Return the names of lists that are None (failed to fetch) and are required for this generation type."""
-    required = ["checkpoints"] if not video else (
-        ["diffusion_models" if True else "checkpoints", "text_encoders", "vae"]
-    )
-    # More precise: for video, the relevant model pool depends on the preset.
-    # This function is called only when we already know which lists are None.
-    return [k for k, v in lists.items() if v is None]
+def _lists_unavailable(lists: dict[str, Optional[list[str]]], video: bool, s: dict) -> list[str]:
+    """Only unavailable lists required by this preset/custom workflow, not other engines."""
+    return [key for key in _model_requirements(s, video) if lists.get(key) is None]
 
 
 def _is_missing_model_error(detail: Any, hint: str) -> bool:
@@ -242,37 +282,32 @@ async def verify_ready(s: dict, video: bool = False) -> None:
     Never downloads or deletes anything.
     """
     base = s["base_url"].rstrip("/")
+    required = _model_requirements(s, video)
     try:
         async with _client(8) as c:
             r = await c.get(f"{base}/system_stats")
             r.raise_for_status()
-            lists = await _model_lists(c, base)
-    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
-        raise ComfyUnreachable(unreachable(s)) from exc
-    except httpx.HTTPStatusError as exc:
+            lists = await _model_lists(c, base, required)
+    except (httpx.RequestError, httpx.HTTPStatusError) as exc:
         raise ComfyUnreachable(unreachable(s)) from exc
 
-    # Check whether any required list failed to load.
-    unavailable = _lists_unavailable(lists, video)
+    # A confirmed missing file remains an explicit error, even if another list failed.
+    missing = _missing_files(s, lists, video)
+    if missing:
+        pool = list(dict.fromkeys(name for values in lists.values() for name in (values or [])))
+        avail = f" Modèles présents : {', '.join(pool[:5])}." if pool else ""
+        raise MissingModel(
+            f"Modèle(s) ComfyUI manquant(s) : {', '.join(missing)}.{avail} "
+            "Lancez download-models.ps1 puis redémarrez ComfyUI, ou choisissez un modèle présent dans Moteurs → Configurer."
+        )
+
+    unavailable = _lists_unavailable(lists, video, s)
     if unavailable:
         raise ModelListUnavailable(
             f"ComfyUI est joignable mais la liste des modèles est inaccessible "
             f"(endpoint object_info indisponible pour : {', '.join(unavailable)}). "
             "Impossible de confirmer la présence des modèles. "
             "Vérifiez que ComfyUI a terminé son démarrage, puis réessayez."
-        )
-
-    missing = _missing_files(s, lists, video)
-    if missing:
-        pool: Optional[list[str]]
-        if video and s["video_preset"] == "wan22":
-            pool = lists.get("diffusion_models")
-        else:
-            pool = lists.get("checkpoints")
-        avail = f" Modèles présents : {', '.join((pool or [])[:5])}." if pool else ""
-        raise MissingModel(
-            f"Modèle(s) ComfyUI manquant(s) : {', '.join(missing)}.{avail} "
-            "Lancez download-models.ps1 puis redémarrez ComfyUI, ou choisissez un modèle présent dans Moteurs → Configurer."
         )
 
 
@@ -493,8 +528,8 @@ async def generate_video(
 ) -> tuple[bytes, str]:
     """Generate a video via ComfyUI.
 
-    V1-C: verify_ready() is NOT called here.  All callers go through media.py which calls
-    verify_ready() before acquiring the GPU slot.  See generate_image() for rationale.
+    V1-C/V1-D: verify_ready() is NOT called here. media.py and the LocalAiWeb
+    hero-video caller each own their single pre-flight check. See generate_image() for rationale.
 
     Direct callers that bypass media.py must call verify_ready(s, video=True) themselves.
     """

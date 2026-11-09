@@ -350,10 +350,54 @@ LoRA ou paramètres de qualité. `DEFAULTS`, `IMAGE_PRESETS`, `VIDEO_PRESETS`, `
 
 ---
 
+## V1-D — Dernières corrections de fiabilité ComfyUI (réalisé)
+
+Base : `4124cef` (V1-C). Commit dédié V1-D sur `nextgen/claude-code`.
+
+### Corrections
+
+- Les pré-vérifications sont limitées aux listes effectivement utilisées : checkpoint photo pour
+  SDXL/FLUX, diffusion + encodeur + VAE pour Wan, checkpoint vidéo + encodeur pour LTX.
+  Un ancien réglage VAE externe ne bloque plus LTX (VAE fourni par son checkpoint).
+- Les workflows API personnalisés remplacent les exigences des presets : leurs fichiers littéraux
+  sont vérifiés avec le schéma de leur propre loader, y compris multi-CLIP et LoRA.
+  Les entrées liées/dynamiques/opaques restent à valider par ComfyUI, sans faux diagnostic d'absence.
+- `None` / schéma non énumérable reste « présence invérifiable » ; `[]` reste une liste valide vide.
+  Une absence confirmée garde son erreur explicite même si une autre liste est indisponible.
+- Seulement 2 requêtes pour une photo, 4 pour Wan, 3 pour LTX (`system_stats` inclus).
+  Chaque type de loader personnalisé est interrogé une seule fois par vérification, même sur erreur.
+- `_hero_video()` réalise sa propre vérification unique (appel direct hors `media.py`), sans ajouter
+  de contrôle dans `generate_video()` ni de slot GPU imbriqué. Une découverte indisponible produit
+  un avertissement et autorise la tentative existante ; un modèle confirmé absent est diagnostiqué.
+  Les erreurs serveur/workflow/rendu sont visibles dans le média et l'étape du projet, sans arrêter le site.
+
+### Périmètre préservé
+
+Aucun changement des checkpoints configurés, workflows de génération, prompts existants, modèles,
+CFG, samplers, steps, résolutions ou durées. Aucun téléchargement, aucune suppression de création.
+LocalAiWeb n'est modifié que dans le correctif vidéo d'en-tête demandé.
+
+### Validation
+
+- Référence avant correction : **71 tests** ComfyUI/modèles réussis.
+- **29 nouveaux tests V1-D** : modèles actifs/inactifs, Wan/LTX, workflows personnalisés,
+  schémas non vérifiables, déduplication des requêtes, erreurs et vidéo d'en-tête.
+- Commande ciblée : `.venv/Scripts/python.exe -m pytest tests/test_comfy_v1d.py tests/test_comfy_reliability.py tests/test_model_reliability.py -q`
+  depuis `backend` : **100 réussis, 0 échec**.
+- Non-régression : `.venv/Scripts/python.exe -m pytest tests/ -q` : **159 réussis, 0 échec**.
+- Premier passage : 6 erreurs de fixture (import Motor sans boucle asyncio) corrigées en exécutant
+  la fixture vidéo dans sa boucle asynchrone ; aucun contournement dans le code applicatif.
+- Avertissements préexistants pytest-asyncio/Starlette ; configuration pytest inchangée.
+- Tests HTTP/DB/rendus simulés, pas de test GPU ni d'affirmation de qualité visuelle.
+
+Fichiers : `backend/lib/comfy.py`, `backend/lib/pipeline.py`,
+`backend/tests/test_comfy_v1d.py`, adaptations de signatures des mocks dans
+`test_comfy_reliability.py` / `test_model_reliability.py`, ce journal.
+
 ## Prochaine étape recommandée
 
-**V2 — Compréhension avancée des instructions de génération** :
-- Préparation intelligente des prompts (fidélité aux descriptions, photoréalisme, cohérence vidéo).
-- Sélection automatique des paramètres adaptés au modèle.
-- Mouvements cohérents, conservation des sujets, précision des retouches.
-- Comparaison avec la version actuelle avant déploiement.
+**V2-A — Compréhension et préparation indépendante des prompts**, uniquement après validation
+et push de V1-D : LLM entièrement local optionnel, repli exact sur le prompt original,
+STRICT/ÉQUILIBRÉ/CRÉATIF, adaptateurs photo/T2V/I2V/retouche/publicité et comparaison explicite.
+Ne pas changer les paramètres ou les workflows ; ne pas activer automatiquement le nouveau moteur
+avant validation comparative sur RTX 3060 12 Go.

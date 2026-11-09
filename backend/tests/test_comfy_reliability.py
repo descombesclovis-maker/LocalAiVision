@@ -199,7 +199,7 @@ class TestVerifyReadyListUnavailable:
         s = {**comfy.DEFAULTS}
         monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-        async def _lists_with_none(c, base):
+        async def _lists_with_none(c, base, required=None):
             return {"checkpoints": None, "diffusion_models": None, "text_encoders": None, "vae": None}
 
         monkeypatch.setattr(comfy, "_model_lists", _lists_with_none)
@@ -215,7 +215,7 @@ class TestVerifyReadyListUnavailable:
         s = {**comfy.DEFAULTS, "image_checkpoint": "absent.safetensors"}
         monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-        async def _lists_available(c, base):
+        async def _lists_available(c, base, required=None):
             return {"checkpoints": ["other.safetensors"], "diffusion_models": [], "text_encoders": [], "vae": []}
 
         monkeypatch.setattr(comfy, "_model_lists", _lists_available)
@@ -229,7 +229,7 @@ class TestVerifyReadyListUnavailable:
         s = {**comfy.DEFAULTS}
         monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-        async def _lists_present(c, base):
+        async def _lists_present(c, base, required=None):
             return {
                 "checkpoints": [s["image_checkpoint"]],
                 "diffusion_models": [s["video_model"]],
@@ -270,7 +270,7 @@ class TestVerifyReadyListUnavailable:
         s = {**comfy.DEFAULTS}
         monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-        async def _lists_none(c, base):
+        async def _lists_none(c, base, required=None):
             return {"checkpoints": None, "diffusion_models": None, "text_encoders": None, "vae": None}
 
         monkeypatch.setattr(comfy, "_model_lists", _lists_none)
@@ -509,7 +509,7 @@ class TestDiagnosticMessages:
         s = {**comfy.DEFAULTS}
         monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-        async def _null_lists(c, base):
+        async def _null_lists(c, base, required=None):
             return {"checkpoints": None, "diffusion_models": None, "text_encoders": None, "vae": None}
 
         monkeypatch.setattr(comfy, "_model_lists", _null_lists)
@@ -526,7 +526,7 @@ class TestDiagnosticMessages:
         s = {**comfy.DEFAULTS, "image_checkpoint": "my-missing-model.safetensors"}
         monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-        async def _known_lists(c, base):
+        async def _known_lists(c, base, required=None):
             return {"checkpoints": ["other.safetensors"], "diffusion_models": [], "text_encoders": [], "vae": []}
 
         monkeypatch.setattr(comfy, "_model_lists", _known_lists)

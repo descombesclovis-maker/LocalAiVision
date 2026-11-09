@@ -160,9 +160,6 @@ async def _images_step(pid: str, p: dict, art: dict) -> list[dict]:
 
 async def _hero_video(pid: str, p: dict, art: dict, ref: tuple[bytes, str]) -> Optional[dict]:
     """Optional 3 s seamless-feeling loop animated from the hero image with Wan 2.2 / LTX (local ComfyUI)."""
-    if not await comfy.reachable():
-        await _step(pid, "images", "running", "Vidéo d'en-tête ignorée : ComfyUI injoignable")
-        return None
     brief = (art.get("image_briefs") or [{}])[0].get("prompt", "")
     prompt = (f"{brief}. Subtle cinematic motion, slow camera push-in, gentle parallax, natural ambient movement (steam, light, fabric, leaves), "
               f"{art.get('photo_style', '')}. Smooth, loopable, no cuts, no text.")
@@ -173,11 +170,28 @@ async def _hero_video(pid: str, p: dict, art: dict, ref: tuple[bytes, str]) -> O
 
     try:
         await _step(pid, "images", "running", "Vidéo d'en-tête (Wan 2.2 local) : démarrage…")
+        # This direct caller owns one pre-flight (generate_video does not repeat it).
+        # No nested GPU slot: local site generation already holds the project slot.
+        s = await comfy.get_settings()
+        try:
+            await comfy.verify_ready(s, video=True)
+        except comfy.ModelListUnavailable as exc:
+            # Preserve the previously working path when only discovery is unavailable.
+            log.warning("hero video %s: %s", pid, exc)
+            await progress("Liste des modèles indisponible : tentative de rendu sans confirmation")
         data, mime = await comfy.generate_video(prompt, "3", "16:9", ref, progress)
         await finish_media(m["id"], data, mime)
         return {"slot": "hero_video", "kind": "video", "id": m["id"], "url": media_url(m["id"]), "desc": "Vidéo d'en-tête animée"}
     except Exception as exc:  # the site must still be delivered without the video
-        await db.media.update_one({"id": m["id"]}, {"$set": {"status": "error", "error": str(exc)[:300]}})
+        label = (
+            "ComfyUI inaccessible" if isinstance(exc, comfy.ComfyUnreachable) else
+            "Modèle manquant" if isinstance(exc, comfy.MissingModel) else
+            "Workflow incompatible" if isinstance(exc, comfy.WorkflowError) else
+            "Échec du rendu local"
+        )
+        log.warning("hero video %s (%s): %s", pid, label, exc)
+        await db.media.update_one({"id": m["id"]}, {"$set": {"status": "error", "error": str(exc)[:300], "progress_label": label}})
+        await _step(pid, "images", "running", f"Vidéo d'en-tête ignorée : {label} — {str(exc)[:200]}")
         return None
 
 

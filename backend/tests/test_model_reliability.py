@@ -156,7 +156,7 @@ async def test_verify_ready_ok(monkeypatch):
     s = {**comfy.DEFAULTS}
     monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-    async def _lists(c, base):
+    async def _lists(c, base, required=None):
         # V1-C: lists must NOT be None; they must be proper lists for verify_ready to pass.
         return {"checkpoints": [s["image_checkpoint"]], "diffusion_models": [], "text_encoders": [], "vae": []}
 
@@ -181,7 +181,7 @@ async def test_verify_ready_missing_image(monkeypatch):
     s = {**comfy.DEFAULTS, "image_checkpoint": "absent.safetensors"}
     monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-    async def _lists(c, base):
+    async def _lists(c, base, required=None):
         return {"checkpoints": ["other.safetensors"], "diffusion_models": [], "text_encoders": [], "vae": []}
 
     monkeypatch.setattr(comfy, "_model_lists", _lists)
@@ -197,7 +197,7 @@ async def test_verify_ready_missing_video_lists_present_models(monkeypatch):
     s = {**comfy.DEFAULTS}  # wan22
     monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
-    async def _lists(c, base):
+    async def _lists(c, base, required=None):
         return {"checkpoints": [], "diffusion_models": [], "text_encoders": [s["video_text_encoder"]], "vae": [s["video_vae"]]}
 
     monkeypatch.setattr(comfy, "_model_lists", _lists)
