@@ -1,8 +1,7 @@
 import asyncio
-import io
+import logging
 import shutil
 import subprocess
-import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -10,20 +9,13 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from lib import comfy, diagnostic, gpu_queue
 from lib.db import db
+from lib.kit_export import KitExportError, build_kit
 from lib.store import now_iso
 from models.engines import ComfySettings, ComfyTest, Diagnostic, EnginePresets, KitInfo, QueueState
 
 router = APIRouter()
 ROOT = Path(__file__).resolve().parents[2]
-SKIP_DIRS = {"Output", "node_modules", "__pycache__", ".pytest_cache", "dist", ".vite", "tests", ".git", ".emergent", ".screenshots"}
-SKIP_FILES = {".env", "yarn-error.log", ".api_key", ".boot_token"}
-ENV_EXAMPLE = """MONGO_URL=mongodb://127.0.0.1:27017
-DB_NAME=localaistudio
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-APP_TZ=Europe/Paris
-# Optionnel — moteurs payants de secours (Claude, Nano Banana, Veo, Kling) :
-# EMERGENT_LLM_KEY=
-"""
+logger = logging.getLogger(__name__)
 
 
 @router.get("/diagnostic", response_model=Diagnostic)
@@ -67,14 +59,6 @@ async def presets():
     }
 
 
-def _add_tree(z: zipfile.ZipFile, src: Path, arc: str) -> None:
-    for p in src.rglob("*"):
-        rel = p.relative_to(src)
-        if any(part in SKIP_DIRS for part in rel.parts) or p.name in SKIP_FILES or p.suffix == ".pyc" or not p.is_file():
-            continue
-        z.write(p, f"{arc}/{rel.as_posix()}")
-
-
 INSTALLER = ROOT / "local-kit" / "installer" / "Output" / "Installer-LocalAiStudio.exe"
 
 
@@ -104,16 +88,11 @@ async def download_installer():
 
 @router.get("/kit/download")
 async def download_kit():
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        _add_tree(z, ROOT / "backend", "LocalAiStudio/backend")
-        _add_tree(z, ROOT / "frontend", "LocalAiStudio/frontend")
-        _add_tree(z, ROOT / "local-kit", "LocalAiStudio")
-        z.writestr("LocalAiStudio/backend/.env", ENV_EXAMPLE)
-        spec = ROOT / "memory" / "SPEC.md"
-        if spec.exists():
-            z.write(spec, "LocalAiStudio/SPEC.md")
-    buf.seek(0)
+    try:
+        buf = await asyncio.to_thread(build_kit, ROOT)
+    except KitExportError as exc:
+        logger.warning("Export du kit refusé : %s", exc)
+        raise HTTPException(503, "Kit indisponible : manifeste de distribution invalide ou incomplet") from exc
     return StreamingResponse(buf, media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="LocalAiStudio-kit-windows.zip"'})
 
 

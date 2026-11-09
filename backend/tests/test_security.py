@@ -532,14 +532,13 @@ class TestApiKeyProtection:
     """The API key and boot token files must not be included in kit downloads or committed to git."""
 
     def test_api_key_in_skip_files(self):
-        src = (ROOT / "backend" / "routers" / "engines.py").read_text()
-        assert ".api_key" in src
-        assert "SKIP_FILES" in src
+        from lib.kit_export import SKIP_FILES
+        assert ".api_key" in SKIP_FILES
 
     def test_boot_token_in_skip_files(self):
         """V1-B.2: .boot_token must also be excluded from kit downloads."""
-        src = (ROOT / "backend" / "routers" / "engines.py").read_text()
-        assert ".boot_token" in src
+        from lib.kit_export import SKIP_FILES
+        assert ".boot_token" in SKIP_FILES
 
     def test_api_key_gitignored(self):
         gitignore = (ROOT / ".gitignore").read_text()
@@ -550,10 +549,11 @@ class TestApiKeyProtection:
         gitignore = (ROOT / ".gitignore").read_text()
         assert ".boot_token" in gitignore
 
-    def test_env_example_uses_loopback(self):
-        src = (ROOT / "backend" / "routers" / "engines.py").read_text()
-        assert "CORS_ORIGINS=*" not in src
-        assert "localhost" in src
+    def test_kit_does_not_export_a_local_dotenv(self):
+        import zipfile
+        from lib.kit_export import build_kit
+        with zipfile.ZipFile(build_kit(ROOT)) as archive:
+            assert not any("/.env" in name.casefold() for name in archive.namelist())
 
     def test_launcher_generates_boot_token(self):
         """start-localaistudio.bat must generate LAS_BOOT_TOKEN on startup."""

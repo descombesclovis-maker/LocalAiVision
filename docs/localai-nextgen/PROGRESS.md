@@ -683,3 +683,11 @@ Décision : contrôle par régions **non adopté**. Il dégrade la fidélité de
 Limites : un seul sujet, 8 graines, un seul évaluateur, zones non optimisées, régions en anglais seulement (français non testé), pas de métrique objective. Le doute sur B et C de l'ancien benchmark (possiblement liés à Ollama) n'est pas tranché : Ollama était déjà déchargé pendant cette campagne et ces deux approches n'ont pas été relancées.
 
 Pistes non testées : inpainting SDXL en deux passes (sans téléchargement, avec le checkpoint existant) ; FLUX Dev (téléchargement à autoriser) ; ControlNet ou IP-Adapter (téléchargements à autoriser).
+
+## V2-F — Étape 1 : export ZIP sécurisé
+
+- `/api/kit/download` ne parcourt plus les dossiers locaux : `backend/kit_manifest.txt` est une liste explicite, révisable et livrée sans dépendance à Git. Les fichiers absents, les chemins dangereux, liens symboliques, jonctions Windows, liens physiques et entrées privées rendent l'export indisponible (503), sans archive partielle. Pas de repli sur un balayage.
+- Aucune copie des `.env*`, `.api_key`, `.boot_token`, environnements Python/Node, benchmarks, modèles ou médias utilisateur. L'ancien générateur pointait vers `local-kit` absent et omettait les scripts d'installation : le ZIP contient maintenant les sources et scripts explicitement listés. Le modèle d'environnement est un fichier d'exemple `installer/env.template`, pas la configuration locale.
+- Tests : 33 ciblés (route réellement authentifiée, jeu de faux secrets et données, refus de parcours de chemins, lien physique et jonction Windows), puis 450 tests backend passés. Mongo pointé sur `127.0.0.1:1` et base de test fictive : aucune écriture en base utilisateur. Export réel contrôlé : 113 fichiers, CRC valide, aucun secret ou dossier local interdit trouvé dans les noms.
+- Limite : le manifeste de distribution doit être mis à jour explicitement lorsqu'un fichier indispensable est ajouté. Les installateurs et leurs modèles de configuration restent à traiter pendant l'étape distribution.
+
