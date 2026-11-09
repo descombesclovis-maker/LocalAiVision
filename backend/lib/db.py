@@ -1,5 +1,6 @@
 """Shared Mongo handle — import `client`/`db` from here (server.py, routers, seed.py)."""
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -11,8 +12,66 @@ from pymongo import ASCENDING, DESCENDING, IndexModel
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+DB_NAME = os.environ["DB_NAME"]
+
+
+class LoopBoundClient:
+    """Motor client created inside the running event loop, recreated when the loop changes.
+
+    Motor binds its I/O to the loop that is current when the client is created. A module-level client is
+    created at import time, before the server's loop starts, so queries fail with "attached to a different
+    loop" (reproduced under uvicorn on Windows in V2-D: media, projects and settings all returned 500).
+    """
+
+    def __init__(self, url: str) -> None:
+        self._url = url
+        self._client: AsyncIOMotorClient | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def current(self) -> AsyncIOMotorClient:
+        loop = asyncio.get_running_loop()
+        if self._client is None or self._loop is not loop:
+            self.close()
+            self._client = AsyncIOMotorClient(self._url)
+            self._loop = loop
+        return self._client
+
+    def __getitem__(self, name: str):
+        return self.current()[name]
+
+    def __getattr__(self, name: str):
+        return getattr(self.current(), name)
+
+    def close(self) -> None:
+        if self._client is not None:
+            try:
+                self._client.close()
+            except Exception:  # the previous loop may already be closed
+                pass
+        self._client = None
+        self._loop = None
+
+
+class LoopBoundDatabase:
+    """Database handle resolved on each access, so `db.media` always uses the running loop's client."""
+
+    def __init__(self, client: LoopBoundClient, name: str) -> None:
+        self._client = client
+        self._name = name
+
+    def __getitem__(self, collection: str):
+        return self._client.current()[self._name][collection]
+
+    def motor(self):
+        """The real Motor database of the running loop (required by GridFS)."""
+        return self._client.current()[self._name]
+
+    def __getattr__(self, collection: str):
+        return getattr(self._client.current()[self._name], collection)
+
+
+client = LoopBoundClient(mongo_url)
+db = LoopBoundDatabase(client, DB_NAME)
 
 logger = logging.getLogger(__name__)
 

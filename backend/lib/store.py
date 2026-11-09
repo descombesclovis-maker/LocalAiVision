@@ -7,7 +7,15 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from lib.db import db
 
-bucket = AsyncIOMotorGridFSBucket(db, bucket_name="mediafs")
+
+class _LoopBoundBucket:
+    """GridFS bucket built on the running loop's database each time it is used (see lib.db)."""
+
+    def __getattr__(self, name: str):
+        return getattr(AsyncIOMotorGridFSBucket(db.motor(), bucket_name="mediafs"), name)
+
+
+bucket = _LoopBoundBucket()
 
 
 def now_iso() -> str:
