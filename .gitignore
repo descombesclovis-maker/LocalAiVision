@@ -46,3 +46,6 @@ ComfyUI/input/
 
 # jeton d'initialisation à usage unique (V1-B.2)
 **/.boot_token
+
+# V2-B benchmarks locaux (créations et rendus, jamais versionnés)
+backend/bench_runs/

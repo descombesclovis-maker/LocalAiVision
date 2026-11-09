@@ -468,3 +468,13 @@ conservation hors retouche, latence et VRAM. Garder les paramètres de générat
 ne pas activer automatiquement le moteur avant cette validation et une décision utilisateur.
 
 **Arrêt après V2-A.** Pas de nouvelle fonctionnalité secondaire ni de modification des moteurs.
+
+## V2-B — Évaluation reproductible (terminée côté outil ; GPU non exécuté)
+
+- Outil : `backend/lib/prompt_bench/` (corpus de 11 cas, approches A legacy / B V2-A équilibré / C ordre contraintes d'abord, contrôles textuels, manifest JSON, galerie HTML, rendu ComfyUI optionnel avec durée et pic VRAM). Protocole : `docs/localai-nextgen/PROMPT_BENCHMARK.md`.
+- Moteur actif, workflows, paramètres de génération et LocalAiWeb : **inchangés**. Sorties `backend/bench_runs/` git-ignorées.
+- Environnement constaté : RTX 3060 12 Go libre, Ollama actif (qwen2.5-coder:14b utilisé), ComfyUI **arrêté**, aucun checkpoint image/vidéo trouvé sur la machine. Rendus visuels **non réalisés**.
+- Résultats texte (`--llm-model qwen2.5-coder:14b`) : A 10/11, B 10/11, C 10/11. Le cas dense (≈140 tokens approx.) dépasse la fenêtre CLIP pour A, B et C (4/4/3 exigences tardives).
+- LLM réel : 7 prompts « prepared », 3 replis sur l'original, 1 « unsupported » (rétouche sans masque). Constat : B ajoute un gabarit anglais générique et retire le suffixe qualité du photo ; le fond du prompt n'est pas réécrit.
+- Tests : `tests/test_prompt_bench.py` ; 195 réussis (benchmark + préparation + fournisseur LLM).
+- Prochaine étape : rendus photo A/B/C sur la RTX 3060 avec ComfyUI lancé, en séparant suffixe et gabarit (variantes contrôlées), avant toute décision sur le moteur par défaut.
