@@ -1,54 +1,31 @@
-# LocalAI Studio — Web + Vision
+# LocalAiStudio NextGen — branche dédiée
 
-**LocalAI Studio** est une application Windows unique qui ouvre deux espaces de travail distincts, reliés par une bibliothèque de marques et un parcours commercial commun.
+> **ÉTAT : ACCUEIL / TRANSFERT EN ATTENTE.** Cette branche est réservée à **LocalAiStudio NextGen original (avant fusion)**. Le code source NextGen n'a **pas encore été transféré dans cette branche**. Ne pas commencer de modification du moteur tant que l'import n'est pas vérifié.
 
-L'exécutable reste nommé `LocalVisionAI.exe` pour préserver les mises à jour et les raccourcis existants. La fenêtre Windows est désormais nommée **LocalAI Studio**.
+## Source attendue
+Archive de référence : `LocalAiStudio-NextGen-Source-Avant-Fusion-Pour-Manyfold.zip` (capture NextGen transmise dans ChatGPT, avant fusion).
 
-## Les deux univers
+SHA-256 : `83b002299261f6935eb09165b4cd4fca98ef071251ffd47df34e0202208c9cfa`.
 
-À l'ouverture, `http://127.0.0.1:3000/` ou `/studio` affiche le choix des deux univers :
+Cette archive n'inclut pas nécessairement les derniers correctifs Claude Code (sous-lots 1.1-a et 1.2). **Avant toute optimisation, importer également ces commits depuis le vrai workspace Claude si disponibles** ; ne pas présumer qu'ils sont présents.
 
-- **LocalAiWeb** (`/localaiweb`) : bibliothèque de projets **libres** et **clients**, création de sites par Codex, aperçu, édition visuelle, sauvegardes, export ZIP, carte de prospection, CRM, devis, factures et publication explicite.
-- **LocalAiVision** (`/localaivision`) : ComfyUI + modèles locaux, chat et bibliothèques photo/vidéo, styles, workflows, retouches et espace isolé inchangés. Un atelier **Publicité** permet de préparer une campagne à partir d'une marque et d'exporter une version avec son véritable logo.
+## Arborescence voulue
+- `backend/` — FastAPI, routes, moteurs, tests et logique de génération.
+- `frontend/` — React/Vite et ressources de l'interface.
+- `installer/` — installateurs Windows.
+- `docs/localai-nextgen/` — architecture, état du projet, décisions.
+- `docs/localaivision-nextgen/` — audits, compatibilité des modèles, mesures et progression.
+- `install.ps1`, `start-localaistudio.bat`, `download-models.ps1`, `INSTALLATION.md` — scripts de la version source.
 
-La navigation **Univers** et **LocalAI Studio** permet de revenir à l'accueil sans supprimer les projets.
+## Règles
+1. **Branche unique : `nextgen/claude-code`.** Ne pas écrire sur `main` ni `codex/*`.
+2. **NextGen prioritaire, aucune fusion avec l'ancien LocalAiStudio.**
+3. Conserver fidèlement les moteurs et paramètres originaux. Ne jamais modifier un checkpoint par défaut sans benchmark.
+4. Ne publier ni `.env`, ni clés API, ni jetons, ni modèles (> plusieurs Go), ni données personnelles et créations d'utilisateur.
+5. Ne jamais supprimer un modèle ni lancer un téléchargement multi-Go sans confirmation utilisateur.
+6. Scripts Windows, API et tests à corriger par petites missions ; commit + compte rendu après chaque lot.
+7. Les tests GPU (RTX 3060 12 Go, ComfyUI) **doivent être réalisés sur le PC Windows** ; un audit cloud ne les valide pas.
+8. Ne pas présenter comme opérationnelle une fonctionnalité non testée.
 
-## Marques et projets clients
-
-- Ouvrir **Identités de marque** dans LocalAiWeb ou `/studio/brands`.
-- Enregistrer le nom réel de l'entreprise, son activité, son slogan, ses couleurs, son public, son message d'action et un logo **PNG/JPEG/WebP fourni avec autorisation**.
-- Dans un projet LocalAiWeb, sélectionner la marque dans l'en-tête : une copie privée du logo est rangée dans les ressources du projet et l'agent reçoit les informations de marque lors de la prochaine génération.
-- Dans LocalAiVision, cliquer **Publicité**, choisir cette même marque, le format **9:16, 1:1 ou 16:9**, l'objectif et le média. La génération utilise les workflows existants et les couleurs de marque comme direction artistique.
-- Le **logo officiel et les textes sont composés après génération**. Le média original est conservé. Les images publicitaires utilisent Pillow ; les vidéos nécessitent **FFmpeg** sur le PC. Une erreur d'export ne marque jamais la génération comme réussie.
-- Les versions publicitaires peuvent être copiées dans les ressources d'un projet LocalAiWeb avec **Ajouter à un site**.
-
-La création de sites reste non publiée par défaut. Vérifier les informations des entreprises, les droits sur les logos, les photos et les allégations publicitaires avant livraison.
-
-## Génération persistante et bibliothèque
-
-L'éditeur Web lance sa génération dans un worker côté **PC** : quitter l'éditeur ne l'arrête pas, tant que LocalAI Studio et Windows continuent de fonctionner. La pastille animée en haut à droite affiche les travaux Web actifs et la file d'attente photo/vidéo de ComfyUI. Cliquer dessus retourne au projet ou à l'univers en cours.
-
-La bibliothèque de sites fournit deux collections, miniatures disponibles, recherche, actualisation, réessai en cas d'échec et accès direct au projet conservant son propre historique. Elle n'affiche ni pourcentage inventé ni message de réussite en l'absence de fichiers.
-
-## Installation et limites
-
-Installer la dernière archive de [GitHub Releases](https://github.com/descombesclovis-maker/LocalAiVision/releases/latest), extraire puis lancer `LocalVisionAI.exe`. Le PC doit disposer des modèles et outils nécessaires. Codex requiert une connexion/authentification réelle. Les rendus photoréalistes et la vitesse sur GPU RTX 3060 dépendent des modèles, résolutions et étapes ; les tests logiciels ne garantissent pas un rendu visuel supérieur sans essai réel.
-
-Les outils de publication et les connecteurs restent configurables et doivent être autorisés avant tout déploiement. Aucune activité ni marque n'est automatiquement publiée à l'extérieur.
-
-Pour un accès privé depuis l'iPhone, lire [MOBILE_SETUP.md](MOBILE_SETUP.md). Le PC doit rester allumé.
-
-## Tests
-
-```bash
-python -m unittest discover -s tests -v
-node --check local_app/web/localaiweb.js
-node --check local_app/web/localaiweb-brand.js
-node --check local_app/web/studio-activity.js
-node --check local_app/web/studio-brands.js
-node --check local_app/web/studio-ads.js
-```
-
-La CI exécute les tests et compile un exécutable Windows, puis réalise les tests de démarrage et de mise à jour. Les tests fonctionnels sur les véritables modèles locaux et les aperçus réels restent nécessaires pour valider la qualité finale.
-
-Documentation complémentaire : [README_LOCALAIWEB_HYBRID.md](README_LOCALAIWEB_HYBRID.md), [README_LOCALAIWEB_PRO_MAP.md](README_LOCALAIWEB_PRO_MAP.md), [AGENTS.md](AGENTS.md).
+## Prochaine action
+**Importer intégralement le ZIP source indiqué, sans réécriture, et contrôler qu'il s'agit du bon snapshot.** Voir `docs/localai-nextgen/IMPORT.md`. Ne démarrer ensuite que la mission V1-A de protection des modèles, sur cette branche.
