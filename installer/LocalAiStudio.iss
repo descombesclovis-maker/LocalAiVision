@@ -38,8 +38,8 @@ Name: "comfyui"; Description: "Installer ComfyUI Desktop (photos, retouches, pub
 Name: "models"; Description: "Modèles photo et vidéo : FLUX.1 dev + Wan 2.2 (≈ 35 Go)"; GroupDescription: "Moteurs IA locaux (gratuits) :"
 
 [Files]
-Source: "{#Root}\backend\*"; DestDir: "{app}\backend"; Excludes: "__pycache__,.venv,*.pyc,tests,.env,.pytest_cache,pytest.ini"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#Root}\frontend\*"; DestDir: "{app}\frontend"; Excludes: "node_modules,dist,.vite,.env,yarn-error.log,.screenshots"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#Root}\backend\*"; DestDir: "{app}\backend"; Excludes: "__pycache__,.venv,*.pyc,tests,.env,.env.*,.pytest_cache,pytest.ini,.api_key,.boot_token,bench_runs,*.key,*.pem"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#Root}\frontend\*"; DestDir: "{app}\frontend"; Excludes: "node_modules,dist,.vite,.env,.env.*,yarn-error.log,.screenshots"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#KitDir}\*.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#KitDir}\*.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#KitDir}\*.md"; DestDir: "{app}"; Flags: ignoreversion

@@ -4,6 +4,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+import secrets
 import os
 import logging
 from pathlib import Path
@@ -87,6 +88,12 @@ async def init_session(request: Request):
     CSRF protection: ``SameSite=Strict`` prevents the cookie from being sent on cross-site
     requests.  No double-submit token is needed for a local app with ``SameSite=Strict``.
     """
+    existing = request.cookies.get(COOKIE_NAME, "")
+    if existing and secrets.compare_digest(existing, API_KEY):
+        # Page refresh or new tab with a valid session: idempotent, the consumed boot token is not needed.
+        response = JSONResponse({"ok": True, "session": "existing"})
+        response.set_cookie(COOKIE_NAME, API_KEY, httponly=True, samesite="strict", path="/api")
+        return response
     token = request.headers.get("x-boot-token", "")
     if not boot.consume(token):
         raise HTTPException(401, "Jeton d'initialisation invalide ou déjà utilisé")

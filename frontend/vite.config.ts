@@ -8,6 +8,10 @@ import { visualEdits } from "@emergentbase/visual-edits/vite";
 // Supervisor exports DISABLE_HOT_RELOAD=true when the platform sets ENABLE_RELOAD=false.
 const hotReloadDisabled = process.env.DISABLE_HOT_RELOAD === "true";
 
+// Security (V2-D): the dev server listens on loopback only. LAN or public exposure needs an explicit
+// LAS_VITE_EXPOSE=1 (used by the hosted preview); a plain `yarn dev` must never expose the app.
+const exposeDevServer = process.env.LAS_VITE_EXPOSE === "1";
+
 // Visual Edits (x-* JSX tagging, overlay, /edit-file endpoint) is dev-server-only by
 // default (apply: serve); escape hatch mirrors DISABLE_HOT_RELOAD.
 const visualEditsDisabled = process.env.DISABLE_VISUAL_EDITS === "true";
@@ -20,8 +24,12 @@ const emergentOverlayDisabled = process.env.DISABLE_EMERGENT_OVERLAY === "true";
 // If the env var is not set (manual dev), the backend writes it to .boot_token.
 // The proxy injects it as X-Boot-Token on /api/auth/init requests only —
 // no secret is embedded in the frontend bundle.
-const bootToken = process.env.LAS_BOOT_TOKEN
-  || (() => { try { return fs.readFileSync(path.resolve(__dirname, "../backend/.boot_token"), "utf-8").trim(); } catch { return ""; } })();
+// Read at request time: the backend rewrites backend/.boot_token on each start (manual dev), so a
+// value captured at config load would go stale after a backend restart (V2-D).
+function readBootToken(): string {
+  if (process.env.LAS_BOOT_TOKEN) return process.env.LAS_BOOT_TOKEN;
+  try { return fs.readFileSync(path.resolve(__dirname, "../backend/.boot_token"), "utf-8").trim(); } catch { return ""; }
+}
 
 // Fails open: a broken overlay package must degrade to "no overlay" (Vite's own overlay
 // takes over), never to "no dev server". Never let a preview aid take the app down.
@@ -98,9 +106,9 @@ export default defineConfig(async () => {
       ],
     },
     server: {
-      host: true,
+      host: exposeDevServer ? true : "127.0.0.1",
       port: 3000,
-      allowedHosts: true,
+      allowedHosts: exposeDevServer ? true : ["localhost", "127.0.0.1"],
       // Preview probe + /edit-file are cross-origin from the Emergent tab; Vite defaults to localhost-only CORS.
       cors: true,
       // No hmr.clientPort override: Vite infers the WS target from window.location, which
@@ -118,8 +126,8 @@ export default defineConfig(async () => {
           changeOrigin: true,
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq, req) => {
-              if (req.url?.startsWith("/api/auth/init") && bootToken) {
-                proxyReq.setHeader("X-Boot-Token", bootToken);
+              if (req.url?.startsWith("/api/auth/init") && readBootToken()) {
+                proxyReq.setHeader("X-Boot-Token", readBootToken());
               }
             });
           },

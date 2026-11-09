@@ -501,3 +501,18 @@ ne pas activer automatiquement le moteur avant cette validation et une décision
 - Application : aucune configuration `comfyui` enregistrée en base ; valeurs par défaut utilisées (URL 8188 correcte, preset `flux-dev` non installé). Pour générer dans LocalAiStudio, choisir le preset **SDXL** dans les réglages. Aucune écriture en base.
 - Tests : `tests/test_prompt_bench.py` + préparation + fournisseur LLM : 203 réussis, 0 échec.
 - Limites : une seule seed, une seule image par approche ; aucune vidéo ; aucune mesure de qualité objective ; pas de test via l'API authentifiée de l'application.
+
+
+## V2-D — Étape A : sécurité (objectif 10/10)
+
+Constats vérifiés dans le dépôt puis corrigés :
+
+- **Tunnels publics proposés dans l'interface** : `frontend/src/pages/Engines.tsx` affichait encore `cloudflared tunnel --url` pour Ollama (11434) et ComfyUI (8188), avec bouton de copie. Commandes et boutons retirés ; remplacés par un avertissement sans commande. `tunnel-preview.bat` était déjà neutralisé (V1-B), inchangé.
+- **Secrets dans l'installeur** : Inno Setup (`installer/LocalAiStudio.iss`) et NSIS (`installer/LocalAiStudio.nsi`) incluaient tout `backend/`. Sur ce poste, `backend/.api_key` existe et `backend/bench_runs/` contient les rendus de benchmark : ils auraient été embarqués. Exclusions ajoutées : `.api_key`, `.boot_token`, `bench_runs`, `*.key`, `*.pem`, `.env.*` (backend) et `.env.*` (frontend).
+- **Exposition du serveur Vite** : `frontend/vite.config.ts` utilisait `host: true` et `allowedHosts: true`, donc un `yarn dev` seul écoutait sur toutes les interfaces et acceptait tout nom d'hôte. Désormais loopback par défaut (`127.0.0.1`, hôtes `localhost`/`127.0.0.1`). L'exposition exige `LAS_VITE_EXPOSE=1` explicitement. Le lanceur `start-localaistudio.bat` (déjà `--host 127.0.0.1`) est inchangé. La prévisualisation hébergée doit définir `LAS_VITE_EXPOSE=1` ; ce cas n'a pas été testé.
+- **Jeton d'amorçage périmé** : Vite lisait `backend/.boot_token` une seule fois au démarrage. Après un redémarrage du backend, le proxy envoyait l'ancien jeton. Lecture désormais à chaque requête (`readBootToken()`).
+- **401 à chaque rafraîchissement** : `/api/auth/init` renvoyait 401 au second chargement (jeton déjà consommé) alors que le cookie de session était valide, ce qui journalisait une erreur dans le navigateur. Désormais 200 si le cookie `las_session` correspond à la clé persistante. Sans cookie, le jeton reste à usage unique.
+
+Tests : `backend/tests/test_security_v2d.py` (nouveau) couvre la page Engines, les exclusions Inno et NSIS, la configuration Vite, et le cycle de session sur la vraie route `/api/auth/init` (premier démarrage, mauvais jeton, rafraîchissement avec et sans cookie, redémarrage avec clé persistante, régénération du jeton). Suite backend complète : **392 réussis, 0 échec**.
+
+Non vérifié, à faire : compilation Inno Setup et NSIS (aucun compilateur installé sur ce poste) ; compilation TypeScript et interface navigateur (`frontend/node_modules` absent, donc Vite n'a pas été lancé) ; authentification dans un navigateur réel.

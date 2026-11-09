@@ -86,9 +86,9 @@ FunctionEnd
 Section "${APP} (obligatoire)" SecCore
   SectionIn RO
   SetOutPath "$INSTDIR\backend"
-  File /r /x __pycache__ /x .venv /x *.pyc /x tests /x .env /x .pytest_cache /x pytest.ini "${ROOT}\backend\*.*"
+  File /r /x __pycache__ /x .venv /x *.pyc /x tests /x .env /x .env.* /x .pytest_cache /x pytest.ini /x .api_key /x .boot_token /x bench_runs /x *.key /x *.pem "${ROOT}\backend\*.*"
   SetOutPath "$INSTDIR\frontend"
-  File /r /x node_modules /x dist /x .vite /x .env /x yarn-error.log /x .screenshots "${ROOT}\frontend\*.*"
+  File /r /x node_modules /x dist /x .vite /x .env /x .env.* /x yarn-error.log /x .screenshots "${ROOT}\frontend\*.*"
   SetOutPath "$INSTDIR"
   File "${KIT}\*.ps1"
   File "${KIT}\*.bat"

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Cable, Copy, Cpu, Download, HardDrive, Image as ImageIcon, Loader2, Settings2, AlertTriangle, Terminal } from "lucide-react";
+import { CheckCircle2, Cpu, Download, HardDrive, Image as ImageIcon, Loader2, Settings2, AlertTriangle, Terminal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FxButton } from "@/components/FxButton";
 import { LocalEngineDialog } from "@/components/LocalEngineDialog";
@@ -20,11 +20,6 @@ function Status({ loading, ok, message, testid }: { loading: boolean; ok?: boole
     </div>
   );
 }
-
-const TUNNELS = [
-  { k: "ollama", label: "Ollama", cmd: "cloudflared tunnel --url http://localhost:11434 --http-host-header localhost:11434" },
-  { k: "comfy", label: "ComfyUI", cmd: "cloudflared tunnel --url http://localhost:8188" },
-];
 
 const STEPS = [
   { t: "Téléchargez le kit", d: "Code complet de LocalAiStudio + scripts Windows." },
@@ -119,26 +114,16 @@ export default function Engines() {
         </div>
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[1.25fr_1fr]">
-          <section data-testid="tunnel-section" className="rounded-3xl border border-white/10 bg-panel/70 p-6 backdrop-blur-xl">
-            <p className="eyebrow flex items-center gap-1.5 text-violet-300"><Cable className="size-3.5" /> Brancher cette preview sur votre PC</p>
-            <h2 className="mt-2 font-heading text-xl font-semibold text-white">Pourquoi « non connecté » ?</h2>
+          <section data-testid="remote-access-section" className="rounded-3xl border border-amber-400/30 bg-panel/70 p-6 backdrop-blur-xl">
+            <p className="eyebrow flex items-center gap-1.5 text-amber-300"><AlertTriangle className="size-3.5" /> Accès distant</p>
+            <h2 className="mt-2 font-heading text-xl font-semibold text-white">Ne pas exposer les moteurs sur Internet</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Cette preview tourne sur un serveur en ligne : « localhost » désigne ce serveur, pas votre PC. Pour utiliser votre RTX depuis ici, ouvrez un tunnel gratuit
-              (Cloudflare, sans compte) sur votre PC, puis collez l'adresse <span className="font-mono text-slate-200">https://….trycloudflare.com</span> affichée dans « Configurer ».
-              En local avec le kit, rien à faire : tout se connecte seul.
+              Ollama et ComfyUI n'ont aucune authentification intégrée. Un tunnel public (Cloudflare, ngrok, redirection de port) donne accès à vos modèles, à votre GPU et à vos fichiers à quiconque connaît l'adresse. Aucune commande de tunnel public n'est proposée dans l'application.
             </p>
-            <div className="mt-4 space-y-2">
-              {TUNNELS.map((t) => (
-                <div key={t.k} className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-black/40 p-2 pl-3">
-                  <span className="w-16 shrink-0 text-[11px] text-slate-400">{t.label}</span>
-                  <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-cyan-200" data-testid={`tunnel-cmd-${t.k}`}>{t.cmd}</code>
-                  <button type="button" title="Copier" data-testid={`tunnel-copy-${t.k}`} onClick={() => navigator.clipboard?.writeText(t.cmd)} className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white">
-                    <Copy className="size-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[11px] text-slate-500">Le kit contient aussi <span className="font-mono">tunnel-preview.bat</span>, qui lance les deux tunnels d'un double-clic (winget install Cloudflare.cloudflared).</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-400">
+              Si un accès distant est indispensable, placez devant l'application une couche authentifiée (reverse proxy avec authentification, accès Zero Trust ou VPN). Ne l'ouvrez jamais directement sur un port moteur. L'accès distant n'est ni testé ni pris en charge.
+            </p>
+            <p className="mt-3 text-[11px] text-slate-500">Moteurs locaux, interface loopback uniquement : Ollama http://127.0.0.1:11434 · ComfyUI http://127.0.0.1:8188</p>
           </section>
           <section data-testid="gpu-queue-section" className="rounded-3xl border border-white/10 bg-panel/70 p-6 backdrop-blur-xl">
             <p className="eyebrow text-cyan-300">File d'attente GPU</p>
