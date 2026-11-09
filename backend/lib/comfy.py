@@ -55,6 +55,14 @@ class MissingModel(ComfyError):
     """A required model file is absent from ComfyUI's models folder."""
 
 
+class ModelListUnavailable(ComfyError):
+    """ComfyUI is reachable but the model list endpoint failed — cannot confirm presence or absence of models.
+
+    V1-C: distinguishes 'model absent' (MissingModel) from 'list unavailable' (this class).
+    A generation is *not* blocked on this error alone; callers may retry or proceed with a warning.
+    """
+
+
 class WorkflowError(ComfyError):
     """ComfyUI rejected the workflow (incompatible nodes, invalid custom JSON)."""
 
@@ -91,13 +99,24 @@ def _client(timeout: float = 30) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=5))
 
 
-async def _choices(c: httpx.AsyncClient, base: str, node: str, field: str) -> list[str]:
+async def _choices(c: httpx.AsyncClient, base: str, node: str, field: str) -> Optional[list[str]]:
+    """Return the list of available values for a ComfyUI loader node field.
+
+    Returns:
+        list[str]  — the list when the request succeeds (may be empty if ComfyUI has no models).
+        None       — when the request fails for any reason (network error, bad status, unexpected
+                     response shape).  Callers MUST distinguish None (list unavailable) from []
+                     (list available but empty) to avoid false «model missing» diagnostics.
+
+    V1-C: changed from returning [] on error to returning None.  [] now means ComfyUI responded
+    but has no models in that category; None means we could not get the information at all.
+    """
     try:
         r = await c.get(f"{base}/object_info/{node}")
         r.raise_for_status()
         return list(r.json()[node]["input"]["required"][field][0])
     except Exception:
-        return []
+        return None
 
 
 async def reachable() -> bool:
@@ -121,13 +140,24 @@ async def test(s: dict) -> dict:
             clips = await _choices(c, base, "CLIPLoader", "clip_name")
     except Exception:
         return {"ok": False, "message": unreachable(s), "gpu": "", "checkpoints": [], "diffusion_models": [], "text_encoders": []}
-    missing = [f for f in (s["image_checkpoint"],) if f not in ckpts]
-    vid_needed = [s["video_model"], s["video_text_encoder"]]
-    vid_have = (unets if s["video_preset"] == "wan22" else ckpts) + clips
-    missing += [f for f in vid_needed if f and f not in vid_have]
+    # V1-C: _choices returns None when the list endpoint failed; treat as unavailable (not empty).
+    lists_unavailable = ckpts is None or unets is None or clips is None
+    ckpts_safe = ckpts or []
+    unets_safe = unets or []
+    clips_safe = clips or []
     gpu = f"{dev.get('name', 'GPU')} · {round((dev.get('vram_total') or 0) / 1024**3, 1)} Go VRAM"
+    if lists_unavailable:
+        msg = (
+            f"ComfyUI joignable ({gpu}) mais la liste des modèles est inaccessible "
+            "(endpoint object_info indisponible). La génération peut fonctionner si les modèles sont installés."
+        )
+        return {"ok": True, "message": msg, "gpu": gpu, "checkpoints": ckpts_safe, "diffusion_models": unets_safe, "text_encoders": clips_safe}
+    missing = [f for f in (s["image_checkpoint"],) if f not in ckpts_safe]
+    vid_needed = [s["video_model"], s["video_text_encoder"]]
+    vid_have = (unets_safe if s["video_preset"] == "wan22" else ckpts_safe) + clips_safe
+    missing += [f for f in vid_needed if f and f not in vid_have]
     msg = f"ComfyUI prêt ({gpu})" if not missing else f"ComfyUI joignable ({gpu}), fichiers manquants : {', '.join(missing)}"
-    return {"ok": not missing, "message": msg, "gpu": gpu, "checkpoints": ckpts, "diffusion_models": unets, "text_encoders": clips}
+    return {"ok": not missing, "message": msg, "gpu": gpu, "checkpoints": ckpts_safe, "diffusion_models": unets_safe, "text_encoders": clips_safe}
 
 
 # ------------------------------------------------------------------ pre-flight model verification
@@ -136,8 +166,12 @@ async def test(s: dict) -> dict:
 _MISSING_FILE_RE = re.compile(r"\.(safetensors|ckpt|pt|bin|gguf|pth|sftensors)\b", re.I)
 
 
-async def _model_lists(c: httpx.AsyncClient, base: str) -> dict[str, list[str]]:
-    """Fetch every model-file list ComfyUI currently knows (one round-trip per loader node)."""
+async def _model_lists(c: httpx.AsyncClient, base: str) -> dict[str, Optional[list[str]]]:
+    """Fetch every model-file list ComfyUI currently knows (one round-trip per loader node).
+
+    V1-C: values may be None when a list endpoint fails.  Callers must handle None
+    (list unavailable) separately from [] (list available, no models in that category).
+    """
     return {
         "checkpoints": await _choices(c, base, "CheckpointLoaderSimple", "ckpt_name"),
         "diffusion_models": await _choices(c, base, "UNETLoader", "unet_name"),
@@ -146,22 +180,46 @@ async def _model_lists(c: httpx.AsyncClient, base: str) -> dict[str, list[str]]:
     }
 
 
-def _missing_files(s: dict, lists: dict[str, list[str]], video: bool) -> list[str]:
-    """Names of the model files required by the active preset that are not installed in ComfyUI.
-    Image generations need the image checkpoint; video generations need the video model, text encoder and VAE
-    (the image checkpoint is NOT required for a video render, so it is not checked when video=True)."""
+def _missing_files(s: dict, lists: dict[str, Optional[list[str]]], video: bool) -> list[str]:
+    """Names of the model files required by the active preset that are confirmed absent.
+
+    V1-C: if a list is None (unavailable), the corresponding file is NOT reported as missing —
+    we cannot confirm absence without a valid list.  The caller (verify_ready) raises
+    ModelListUnavailable instead when any required list is None.
+
+    Image generations need the image checkpoint; video generations need the video model,
+    text encoder, and VAE.  The image checkpoint is NOT checked for video renders.
+    """
     missing = []
-    if not video and s["image_checkpoint"] not in lists["checkpoints"]:
-        missing.append(s["image_checkpoint"])
+    if not video:
+        ckpts = lists.get("checkpoints")
+        if ckpts is not None and s["image_checkpoint"] not in ckpts:
+            missing.append(s["image_checkpoint"])
     if video:
-        model_pool = lists["diffusion_models"] if s["video_preset"] == "wan22" else lists["checkpoints"]
-        if s["video_model"] not in model_pool:
+        model_pool: Optional[list[str]]
+        if s["video_preset"] == "wan22":
+            model_pool = lists.get("diffusion_models")
+        else:
+            model_pool = lists.get("checkpoints")
+        if model_pool is not None and s["video_model"] not in model_pool:
             missing.append(s["video_model"])
-        if s["video_text_encoder"] not in lists["text_encoders"]:
+        text_encoders = lists.get("text_encoders")
+        if text_encoders is not None and s["video_text_encoder"] not in text_encoders:
             missing.append(s["video_text_encoder"])
-        if s.get("video_vae") and s["video_vae"] not in lists["vae"]:
+        vae = lists.get("vae")
+        if vae is not None and s.get("video_vae") and s["video_vae"] not in vae:
             missing.append(s["video_vae"])
     return missing
+
+
+def _lists_unavailable(lists: dict[str, Optional[list[str]]], video: bool) -> list[str]:
+    """Return the names of lists that are None (failed to fetch) and are required for this generation type."""
+    required = ["checkpoints"] if not video else (
+        ["diffusion_models" if True else "checkpoints", "text_encoders", "vae"]
+    )
+    # More precise: for video, the relevant model pool depends on the preset.
+    # This function is called only when we already know which lists are None.
+    return [k for k, v in lists.items() if v is None]
 
 
 def _is_missing_model_error(detail: Any, hint: str) -> bool:
@@ -171,9 +229,18 @@ def _is_missing_model_error(detail: Any, hint: str) -> bool:
 
 
 async def verify_ready(s: dict, video: bool = False) -> None:
-    """Pre-flight check run before a generation: ComfyUI must be reachable AND every model file required by the
-    active preset must already be present. Raises ComfyUnreachable or MissingModel with an actionable French
-    message. Reuses the models already installed in ComfyUI — never downloads or deletes anything."""
+    """Pre-flight check: ComfyUI must be reachable AND every required model file must be present.
+
+    Raises:
+        ComfyUnreachable      — ComfyUI server is not running or not reachable.
+        ModelListUnavailable  — ComfyUI is reachable but the model list endpoint failed.
+                                Cannot confirm presence or absence; the caller may still
+                                proceed if it trusts that models are installed.
+        MissingModel          — A required model file is confirmed absent from ComfyUI.
+
+    V1-C: distinguishes the three failure modes so callers can give precise diagnostics.
+    Never downloads or deletes anything.
+    """
     base = s["base_url"].rstrip("/")
     try:
         async with _client(8) as c:
@@ -184,10 +251,25 @@ async def verify_ready(s: dict, video: bool = False) -> None:
         raise ComfyUnreachable(unreachable(s)) from exc
     except httpx.HTTPStatusError as exc:
         raise ComfyUnreachable(unreachable(s)) from exc
+
+    # Check whether any required list failed to load.
+    unavailable = _lists_unavailable(lists, video)
+    if unavailable:
+        raise ModelListUnavailable(
+            f"ComfyUI est joignable mais la liste des modèles est inaccessible "
+            f"(endpoint object_info indisponible pour : {', '.join(unavailable)}). "
+            "Impossible de confirmer la présence des modèles. "
+            "Vérifiez que ComfyUI a terminé son démarrage, puis réessayez."
+        )
+
     missing = _missing_files(s, lists, video)
     if missing:
-        pool = (lists["diffusion_models"] or lists["checkpoints"]) if (video and s["video_preset"] == "wan22") else lists["checkpoints"]
-        avail = f" Modèles présents : {', '.join(pool[:5])}." if pool else ""
+        pool: Optional[list[str]]
+        if video and s["video_preset"] == "wan22":
+            pool = lists.get("diffusion_models")
+        else:
+            pool = lists.get("checkpoints")
+        avail = f" Modèles présents : {', '.join((pool or [])[:5])}." if pool else ""
         raise MissingModel(
             f"Modèle(s) ComfyUI manquant(s) : {', '.join(missing)}.{avail} "
             "Lancez download-models.ps1 puis redémarrez ComfyUI, ou choisissez un modèle présent dans Moteurs → Configurer."
@@ -378,8 +460,17 @@ async def generate_image(
     prompt: str, aspect: str = "1:1", ref: Optional[tuple[bytes, str]] = None, progress: Progress = None,
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
 ) -> tuple[bytes, str]:
+    """Generate an image via ComfyUI.
+
+    V1-C: verify_ready() is NOT called here.  All callers go through media.py which calls
+    verify_ready() before acquiring the GPU slot.  Calling it twice per generation was redundant
+    (5 extra HTTP round-trips: system_stats + 4 × object_info) and could cause a false
+    ModelListUnavailable error if object_info became briefly unavailable between the two calls.
+
+    Direct callers that bypass media.py (e.g. tests, CLI tools) must call verify_ready()
+    themselves before invoking this function.
+    """
     s = await get_settings()
-    await verify_ready(s, video=False)
     w, h = IMAGE_SIZES.get(aspect, IMAGE_SIZES["1:1"])
     seed = random.randint(1, 2**31)
     image = None
@@ -400,8 +491,14 @@ async def generate_video(
     prompt: str, duration: str, aspect: str, ref: Optional[tuple[bytes, str]] = None, progress: Progress = None,
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
 ) -> tuple[bytes, str]:
+    """Generate a video via ComfyUI.
+
+    V1-C: verify_ready() is NOT called here.  All callers go through media.py which calls
+    verify_ready() before acquiring the GPU slot.  See generate_image() for rationale.
+
+    Direct callers that bypass media.py must call verify_ready(s, video=True) themselves.
+    """
     s = await get_settings()
-    await verify_ready(s, video=True)
     w, h = VIDEO_SIZES.get(aspect, VIDEO_SIZES["16:9"])
     length = VIDEO_LENGTHS.get(duration, 73)
     seed = random.randint(1, 2**31)

@@ -20,7 +20,8 @@ def test_exception_hierarchy():
     from lib.local_engine import LocalEngineError, EngineUnreachable, ModelMissing
 
     # ComfyUI errors all inherit from ComfyError (existing `except comfy.ComfyError` still catches them).
-    for sub in (comfy.ComfyUnreachable, comfy.MissingModel, comfy.WorkflowError, comfy.GenerationError):
+    # V1-C adds ModelListUnavailable to the hierarchy.
+    for sub in (comfy.ComfyUnreachable, comfy.MissingModel, comfy.ModelListUnavailable, comfy.WorkflowError, comfy.GenerationError):
         assert issubclass(sub, comfy.ComfyError)
     assert issubclass(comfy.ComfyError, RuntimeError)
 
@@ -44,6 +45,16 @@ def test_missing_files_image_absent():
     s = {**comfy.DEFAULTS, "image_checkpoint": "absent.safetensors"}
     lists = {"checkpoints": ["other.safetensors"], "diffusion_models": [], "text_encoders": [], "vae": []}
     assert comfy._missing_files(s, lists, video=False) == ["absent.safetensors"]
+
+
+def test_missing_files_none_list_skips_check():
+    """V1-C: a None list means the request failed — must NOT report model as missing."""
+    from lib import comfy
+    s = {**comfy.DEFAULTS}
+    lists = {"checkpoints": None, "diffusion_models": None, "text_encoders": None, "vae": None}
+    # Even with the default checkpoint name, None list means we cannot confirm absence.
+    assert comfy._missing_files(s, lists, video=False) == []
+    assert comfy._missing_files(s, lists, video=True) == []
 
 
 def test_missing_files_video_ignores_image_checkpoint():
@@ -146,6 +157,7 @@ async def test_verify_ready_ok(monkeypatch):
     monkeypatch.setattr(comfy, "_client", lambda timeout=30: _Client(get=lambda u: _Resp(200, json_data={})))
 
     async def _lists(c, base):
+        # V1-C: lists must NOT be None; they must be proper lists for verify_ready to pass.
         return {"checkpoints": [s["image_checkpoint"]], "diffusion_models": [], "text_encoders": [], "vae": []}
 
     monkeypatch.setattr(comfy, "_model_lists", _lists)

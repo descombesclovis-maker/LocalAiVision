@@ -90,7 +90,10 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
 
     await db.media.update_one({"id": mid}, {"$set": {"progress_label": "En file d'attente GPU", "updated_at": now_iso()}})
     try:
-        await comfy.verify_ready(await comfy.get_settings(), video=False)
+        # V1-C: verify_ready is called once here (in media.py) before the GPU slot.
+        # generate_image() no longer calls it, eliminating the redundant second check.
+        s = await comfy.get_settings()
+        await comfy.verify_ready(s, video=False)
         async with gpu_queue.slot(mid, "photo", "ComfyUI", prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Rendu local sur votre GPU…", "updated_at": now_iso()}})
             data, mime = await comfy.generate_image(prompt, aspect, (base64.b64decode(ref), ref_mime) if ref else None, progress, queued)
@@ -99,6 +102,15 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
             await finish_media(mid, data, mime)
     except gpu_queue.JobCancelled:
         pass
+    except comfy.ComfyUnreachable as exc:
+        log.warning("comfy image %s: ComfyUI inaccessible: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc), "progress_label": "ComfyUI inaccessible", "updated_at": now_iso()}})
+    except comfy.ModelListUnavailable as exc:
+        log.warning("comfy image %s: liste des modèles indisponible: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc), "progress_label": "Liste des modèles indisponible", "updated_at": now_iso()}})
+    except comfy.MissingModel as exc:
+        log.warning("comfy image %s: modèle manquant: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc), "progress_label": "Modèle manquant", "updated_at": now_iso()}})
     except Exception as exc:
         log.warning("comfy image %s: %s", mid, exc)
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": _err(exc), "progress_label": "Échec", "updated_at": now_iso()}})
@@ -173,7 +185,10 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
 
     await db.media.update_one({"id": mid}, {"$set": {"progress_label": "En file d'attente GPU", "updated_at": now_iso()}})
     try:
-        await comfy.verify_ready(await comfy.get_settings(), video=True)
+        # V1-C: verify_ready is called once here (in media.py) before the GPU slot.
+        # generate_video() no longer calls it, eliminating the redundant second check.
+        s = await comfy.get_settings()
+        await comfy.verify_ready(s, video=True)
         async with gpu_queue.slot(mid, "video", "ComfyUI", body.prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "updated_at": now_iso()}})
             data, mime = await comfy.generate_video(body.prompt, body.duration, body.aspect_ratio, ref, progress, queued)
@@ -182,6 +197,15 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
             await finish_media(mid, data, mime)
     except gpu_queue.JobCancelled:
         pass
+    except comfy.ComfyUnreachable as exc:
+        log.warning("comfy video %s: ComfyUI inaccessible: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc), "progress_label": "ComfyUI inaccessible", "updated_at": now_iso()}})
+    except comfy.ModelListUnavailable as exc:
+        log.warning("comfy video %s: liste des modèles indisponible: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc), "progress_label": "Liste des modèles indisponible", "updated_at": now_iso()}})
+    except comfy.MissingModel as exc:
+        log.warning("comfy video %s: modèle manquant: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc), "progress_label": "Modèle manquant", "updated_at": now_iso()}})
     except Exception as exc:
         log.warning("comfy video %s: %s", mid, exc)
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec", "updated_at": now_iso()}})

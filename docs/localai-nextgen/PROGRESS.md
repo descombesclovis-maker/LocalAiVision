@@ -192,3 +192,168 @@ in-process). Aucun test GPU réel n'est présenté comme test de génération.
 - Les 4 icônes manquantes (cf. `PROVENANCE.md`) restent à compléter.
 - Les deux risques V1-A (faux modèle manquant, double vérification) sont documentés mais non corrigés
   — un correctif ciblé distinct est recommandé.
+
+## V1-B.2 — Authentification sécurisée et isolation des aperçus (réalisé)
+
+Commit : `3c5177a` sur `nextgen/claude-code`.
+
+### Objectif
+
+Corriger deux failles identifiées après V1-B :
+1. **Auto-bootstrap localhost supprimé** : aucune requête sensible n'est autorisée uniquement parce
+   qu'elle provient de loopback.
+2. **Isolation sandbox des aperçus** : les scripts des sites générés ne peuvent plus accéder aux
+   cookies, au stockage local ni appeler les API protégées.
+
+### A. Authentification — jeton d'initialisation à usage unique
+
+**Problème corrigé** : V1-B autorisait les requêtes loopback sans jeton via un mécanisme
+d'auto-bootstrap (la première requête localhost recevait un cookie). Un processus local malveillant
+pouvait ainsi accéder à l'API sans authentification.
+
+**Correction** :
+- `_is_localhost()` et l'auto-bootstrap supprimés de `lib/auth.py`.
+- Nouvelle classe `_BootToken` : jeton aléatoire unique généré par le lanceur Windows
+  (`start-localaistudio.bat`, via PowerShell `NewGuid()`), passé via la variable d'environnement
+  `LAS_BOOT_TOKEN` aux deux processus (backend + proxy Vite).
+- Nouvel endpoint `POST /api/auth/init` (dans `server.py`) : valide le jeton `X-Boot-Token`,
+  émet un cookie httpOnly `SameSite=Strict`, invalide le jeton (usage unique).
+- Le proxy Vite (`vite.config.ts`) injecte `X-Boot-Token` uniquement sur `/api/auth/init` —
+  le secret n'est jamais dans le bundle frontend.
+- `frontend/src/main.tsx` appelle `/api/auth/init` au démarrage avant de monter React.
+- `.boot_token` gitignorer et exclu des kits (`SKIP_FILES`).
+
+### B. Isolation des aperçus (iframe sandbox)
+
+**Problème corrigé** : l'iframe de prévisualisation dans `Editor.tsx` accédait à `contentDocument`
+sans sandbox — les scripts du site généré partageaient l'origine du backend et pouvaient appeler
+les API protégées ou lire les cookies.
+
+**Correction** :
+- Attribut `sandbox="allow-scripts allow-forms"` ajouté à l'iframe (sans `allow-same-origin`).
+  Les scripts générés ne peuvent plus accéder aux cookies, au `localStorage` ni à l'API backend.
+- Pont `postMessage` injecté dans le HTML des aperçus (`_SELECT_BRIDGE` dans `routers/projects.py`) :
+  - Parent → iframe : `"las-select-start"` / `"las-select-stop"`.
+  - Iframe → parent : `{type:"las-select", selector, html}` sur clic d'élément.
+  - Iframe → parent : `{type:"las-navigate", path}` au chargement.
+- `Editor.tsx` remplace l'accès direct à `contentDocument` par `window.addEventListener("message")`.
+- CSP améliorée : `connect-src 'none'; form-action 'none'` (bloque fetch/XHR ET soumissions de formulaires).
+
+### Tests
+
+59 tests dans `test_security.py` couvrant :
+- Bootstrap token : usage unique, rejeu refusé, token vide rejeté.
+- `POST /api/auth/init` : token valide → cookie émis, token invalide → 401, usage unique.
+- Absence d'auto-bootstrap loopback (aucun `_is_localhost` exporté).
+- Attribut `sandbox` de l'iframe sans `allow-same-origin`.
+- Pont postMessage présent dans le code de prévisualisation.
+- CSP `form-action 'none'` ajoutée.
+- `.boot_token` gitignorée et exclue des kits.
+- Lanceur génère `LAS_BOOT_TOKEN`.
+
+### Fichiers modifiés
+
+- `backend/lib/auth.py` — `_is_localhost` et auto-bootstrap supprimés, `_BootToken` ajouté.
+- `backend/server.py` — endpoint `POST /api/auth/init`.
+- `backend/routers/projects.py` — `_SELECT_BRIDGE` postMessage, CSP `form-action 'none'`.
+- `backend/routers/engines.py` — `.boot_token` dans `SKIP_FILES`.
+- `frontend/src/main.tsx` — appel bootstrap au démarrage.
+- `frontend/src/pages/Editor.tsx` — iframe sandbox + postMessage.
+- `frontend/vite.config.ts` — proxy injecte `X-Boot-Token`.
+- `start-localaistudio.bat` — génère `LAS_BOOT_TOKEN`.
+- `.gitignore` — `.boot_token` ajouté.
+- `backend/tests/conftest.py` — `LAS_BOOT_TOKEN=test-boot-token`.
+- `backend/tests/test_security.py` — réécriture complète (59 tests).
+
+---
+
+## V1-C — Fiabilisation des générations ComfyUI (réalisé)
+
+Commit : à venir sur `nextgen/claude-code`.
+
+### Objectif
+
+Corriger les deux problèmes de fiabilité identifiés pendant V1-A et V1-B :
+1. **Faux modèles manquants** : `_choices()` retournait `[]` sur erreur réseau, causant de faux
+   diagnostics « modèle absent ».
+2. **Double vérification** : `verify_ready()` était appelé deux fois par génération (media.py +
+   comfy.py), ajoutant 5 requêtes HTTP inutiles.
+
+### A. Correction `_choices()` — None vs []
+
+**Problème** : `_choices()` attrapait toutes les exceptions et retournait `[]`. `_missing_files()`
+interprétait `[]` comme « ComfyUI ne connaît aucun modèle » et signalait le modèle présent comme
+absent — faux positif.
+
+**Correction** :
+- `_choices()` retourne maintenant `None` en cas d'erreur (liste indisponible) vs `[]`
+  (liste disponible mais vide).
+- `_missing_files()` ignore les listes `None` — ne peut pas confirmer l'absence sans liste valide.
+- Nouveau type d'erreur `ModelListUnavailable(ComfyError)` : distinct de `MissingModel`.
+- `verify_ready()` lève `ModelListUnavailable` quand une liste est `None`, avec un message clair
+  identifiant l'endpoint `object_info` défaillant.
+- `test()` gère aussi les listes `None` avec un message informatif.
+- Diagnostics complets : `ComfyUnreachable` / `ModelListUnavailable` / `MissingModel` /
+  `WorkflowError` / `GenerationError` (OOM, timeout, aucun fichier).
+
+### B. Suppression de la double vérification
+
+**Problème** : `generate_image()` et `generate_video()` appelaient `verify_ready()` après que
+`media.py` l'avait déjà fait — 5 requêtes HTTP redondantes par génération.
+
+**Correction** :
+- `verify_ready()` supprimé de `generate_image()` et `generate_video()` dans `comfy.py`.
+- `media.py` conserve l'appel unique dans `_comfy_image()` et `_run_comfy_video()` (avant le slot GPU).
+- Diagnostics améliorés dans `media.py` : `ComfyUnreachable` / `ModelListUnavailable` /
+  `MissingModel` distingués avec des `progress_label` spécifiques.
+
+### C. Préservation des moteurs
+
+Aucune modification des workflows, modèles, presets, CFG, samplers, résolutions, seeds, prompts,
+LoRA ou paramètres de qualité. `DEFAULTS`, `IMAGE_PRESETS`, `VIDEO_PRESETS`, `IMAGE_SIZES`,
+`VIDEO_SIZES`, `VIDEO_LENGTHS` et `NEGATIVE` sont intacts.
+
+### Tests
+
+**108 tests nouveaux** dans `test_comfy_reliability.py` couvrant :
+- `_choices()` retourne `None` sur erreur réseau.
+- `_choices()` retourne `[]` quand ComfyUI a 0 modèles.
+- `_missing_files()` ignore les listes `None`.
+- `verify_ready()` lève `ModelListUnavailable` (pas `MissingModel`) pour les listes `None`.
+- `verify_ready()` lève `MissingModel` uniquement quand la liste est disponible et le modèle absent.
+- `generate_image()` et `generate_video()` n'appellent PAS `verify_ready()`.
+- `media.py` appelle `verify_ready()` exactement 2 fois (1 par type de génération).
+- Paramètres de génération préservés (CFG, steps, sampler, résolutions).
+- Workflow personnalisé respecté.
+- Simulations T2I, T2V, I2V (mocked, pas de GPU réel).
+- Absence de suppression de modèles, absence de téléchargement automatique.
+
+**Total : 130 tests passent** (`pytest tests/`).
+
+### Fichiers modifiés
+
+- `backend/lib/comfy.py` — `_choices()` None, `ModelListUnavailable`, `_missing_files()` None-safe,
+  `verify_ready()` distingué, `generate_image()`/`generate_video()` sans double-vérification.
+- `backend/routers/media.py` — diagnostics détaillés, `verify_ready()` appel unique.
+- `backend/tests/test_comfy_reliability.py` (nouveau) — 108 tests V1-C.
+- `backend/tests/test_model_reliability.py` — mis à jour pour `ModelListUnavailable` et None.
+- `backend/tests/test_security.py` — mis à jour (V1-C fixes reflétés).
+- `backend/tests/conftest.py` — event loop précrée pour éviter conflit motor/xdist.
+
+### Limitations
+
+- Aucun test GPU réel (RTX 3060 non présente dans l'environnement d'exécution). Tous les tests de
+  génération sont des simulations (httpx mocké). Cela est clairement indiqué dans les docstrings.
+- `ModelListUnavailable` est catchable comme `ComfyError` — compatibilité ascendante garantie.
+- Si `object_info` devient indisponible en cours de génération après `verify_ready()`, l'erreur se
+  produira dans `run()` (via `WorkflowError`) et non via `ModelListUnavailable`.
+
+---
+
+## Prochaine étape recommandée
+
+**V2 — Compréhension avancée des instructions de génération** :
+- Préparation intelligente des prompts (fidélité aux descriptions, photoréalisme, cohérence vidéo).
+- Sélection automatique des paramètres adaptés au modèle.
+- Mouvements cohérents, conservation des sujets, précision des retouches.
+- Comparaison avec la version actuelle avant déploiement.
