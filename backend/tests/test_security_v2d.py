@@ -47,10 +47,10 @@ def _iss_excludes(section_source: str, dest: str) -> list[str]:
 
 
 def _nsi_excludes(component: str) -> list[str]:
-    """Exclusions of the File /r line copying ${ROOT}\<component>\*.*"""
+    r"""Exclusions of the File /r line copying ${ROOT}\<component>\*.*"""
     src = (ROOT / "installer" / "LocalAiStudio.nsi").read_text(encoding="utf-8", errors="replace")
     for line in src.splitlines():
-        if "File /r" in line and "${ROOT}" in line and f"\{component}\\" in line:
+        if "File /r" in line and "${ROOT}" in line and f"\\{component}\\" in line:
             return re.findall(r"/x (\S+)", line)
     raise AssertionError(f"no File /r line for {component}")
 
@@ -100,6 +100,11 @@ def test_vite_listens_on_loopback_by_default():
     assert 'host: exposeDevServer ? true : "127.0.0.1"' in src
     assert 'allowedHosts: exposeDevServer ? true : ["localhost", "127.0.0.1"]' in src
     assert 'process.env.LAS_VITE_EXPOSE === "1"' in src
+
+
+def test_vite_api_target_is_configurable_with_safe_default():
+    src = _vite_src()
+    assert 'target: process.env.LAS_API_TARGET || "http://localhost:8001"' in src
 
 
 def test_vite_no_unconditional_host_true():

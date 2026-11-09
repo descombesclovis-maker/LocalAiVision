@@ -1,28 +1,349 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";import { Link, useParams } from "react-router-dom";import { AnimatePresence, motion } from "motion/react";import {  ArrowLeft, Bot, Code2, Download, ExternalLink, FileText, History, Laptop, Loader2, MousePointerClick, Plus, RotateCcw,  Send, ShieldCheck, Smartphone, Tablet, Trash2, Undo2, User, Wand2, X, Image as ImageIcon, Film, RefreshCw,} from "lucide-react";import { toast } from "sonner";import { AppShell } from "@/components/AppShell";import { FxButton, IconBtn } from "@/components/FxButton";import { StepTracker } from "@/components/StepTracker";import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";import { useMedia, useProject, useProjectAction, useVersions } from "@/lib/hooks";import type { Project, Selection } from "@/lib/types";import { STATUS_LABELS } from "@/lib/types";import { cn } from "@/lib/utils";const DEVICES = { desktop: { w: "100%", I: Laptop, l: "Ordinateur" }, tablet: { w: "820px", I: Tablet, l: "Tablette" }, mobile: { w: "390px", I: Smartphone, l: "Mobile" } } as const;type Device = keyof typeof DEVICES;function cssPath(el: Element): string {  const parts: string[] = [];  let cur: Element | null = el;  while (cur && cur.tagName !== "BODY" && parts.length < 5) {    let s = cur.tagName.toLowerCase();    if (cur.id) { parts.unshift(`${s}#${cur.id}`); break; }    const cls = Array.from(cur.classList).filter((c) => !c.startsWith("lais-")).slice(0, 2);    if (cls.length) s += "." + cls.join(".");    parts.unshift(s);    cur = cur.parentElement;  }  return parts.join(" > ");}function ChatPanel({ p, page, selection, clearSelection }: { p: Project; page: string; selection: Selection | null; clearSelection: () => void }) {  const [msg, setMsg] = useState("");  const { chat, retry } = useProjectAction(p.id);  const endRef = useRef<HTMLDivElement>(null);  const busy = ["queued", "generating", "editing"].includes(p.status);  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [p.messages.length, p.status]);  const send = () => {    if (!msg.trim()) return;    chat.mutate({ message: msg.trim(), page, selection, media_ids: [] }, { onSuccess: () => { setMsg(""); clearSelection(); } });  };  return (    <div className="flex min-h-0 flex-1 flex-col">      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" data-testid="chat-messages">        {(p.status === "generating" || p.status === "queued" || p.status === "needs_input" || (p.status === "error" && !p.files.length)) && <StepTracker steps={p.steps} />}        {p.status === "error" && (          <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200" data-testid="project-error">            {p.error}            <FxButton size="sm" tone="ghost" className="mt-3" data-testid="project-retry" onClick={() => retry.mutate()}><RefreshCw className="size-3.5" /> Reprendre</FxButton>          </div>        )}        <AnimatePresence initial={false}>          {p.messages.map((m, i) => (            <motion.div key={i} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className={cn("flex gap-2.5", m.role === "user" && "flex-row-reverse")}>              <span className={cn("mt-1 flex size-7 shrink-0 items-center justify-center rounded-full", m.role === "user" ? "bg-white/10" : "bg-gradient-to-br from-violet-500 to-fuchsia-500")}>                {m.role === "user" ? <User className="size-3.5" /> : <Bot className="size-3.5" />}              </span>              <div className={cn("max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed", m.role === "user" ? "rounded-tr-sm bg-violet-500/20 text-violet-50" : "glass rounded-tl-sm text-slate-200")} data-testid={`chat-msg-${i}`}>                {m.content}              </div>            </motion.div>          ))}        </AnimatePresence>        {p.status === "editing" && (          <div className="flex items-center gap-2 text-sm text-violet-200" data-testid="chat-editing">            <Loader2 className="size-4 animate-spin" /> Modification cibl├®e en coursÔÇª          </div>        )}        <div ref={endRef} />      </div>      <div className="border-t border-white/[0.06] p-3">        <AnimatePresence>          {selection && (            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-2 flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs text-cyan-100" data-testid="chat-selection-chip">              <MousePointerClick className="size-3.5 shrink-0" />              <span className="truncate font-mono">{selection.selector}</span>              <button type="button" className="ml-auto" onClick={clearSelection} data-testid="chat-selection-clear" aria-label="Retirer"><X className="size-3.5" /></button>            </motion.div>          )}        </AnimatePresence>        {p.status === "needs_input" && <p className="mb-2 text-xs text-amber-300">R├®pondez ├á la question pour lancer la g├®n├®ration.</p>}        <div className="glass flex items-end gap-2 rounded-2xl p-2 focus-within:border-violet-400/50">          <textarea            data-testid="chat-input"            value={msg}            onChange={(e) => setMsg(e.target.value)}            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}            rows={2}            disabled={busy}            placeholder={busy ? "G├®n├®ration en coursÔÇª" : p.status === "needs_input" ? "Votre r├®ponseÔÇª" : selection ? "Que faire de cet ├®l├®ment ?" : "Ex. Rends le hero plus spectaculaire, ajoute une page ├ëquipeÔÇª"}            className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-slate-500"          />          <FxButton size="sm" data-testid="chat-send" disabled={busy || !msg.trim() || chat.isPending} onClick={send} aria-label="Envoyer">            <Send className="size-3.5" />          </FxButton>        </div>      </div>    </div>  );}function CodePanel({ p }: { p: Project }) {  const files = p.files.filter((f) => f.path !== "_guide.md");  const [path, setPath] = useState(files[0]?.path ?? "index.html");  const server = files.find((f) => f.path === path)?.content ?? "";  const [draft, setDraft] = useState<{ path: string; content: string } | null>(null);  const { save } = useProjectAction(p.id);  const value = draft && draft.path === path ? draft.content : server;  useEffect(() => {    if (!draft || draft.content === server) return;    const t = window.setTimeout(() => save.mutate(draft, { onSuccess: () => { setDraft(null); toast.success("Sauvegard├® automatiquement"); } }), 1500);    return () => window.clearTimeout(t);    // eslint-disable-next-line react-hooks/exhaustive-deps  }, [draft]);  return (    <div className="flex h-full min-h-0 flex-col md:flex-row">      <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-white/[0.06] p-2 md:w-52 md:flex-col md:border-b-0 md:border-r">        {files.map((f) => (          <button key={f.path} type="button" data-testid={`code-file-${f.path}`} onClick={() => setPath(f.path)} className={cn("shrink-0 rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors", f.path === path ? "bg-violet-500/20 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")}>            {f.path}          </button>        ))}      </div>      <div className="relative min-h-0 flex-1">        <span className="absolute right-3 top-2 z-10 font-mono text-[10px] text-slate-500" data-testid="code-save-state">{save.isPending ? "SauvegardeÔÇª" : draft ? "Modifi├®" : "Enregistr├®"}</span>        <textarea          data-testid="code-editor"          spellCheck={false}          value={value}          onChange={(e) => setDraft({ path, content: e.target.value })}          className="size-full resize-none bg-[#07080c] p-4 font-mono text-[12.5px] leading-relaxed text-slate-200 outline-none"        />      </div>    </div>  );}function AssetsPanel({ p, page }: { p: Project; page: string }) {  const { data: media } = useMedia("");  const { chat } = useProjectAction(p.id);  const busy = p.status !== "ready";  const items = (media ?? []).filter((m) => m.status === "done");  const mine = items.filter((m) => p.asset_ids.includes(m.id));  const others = items.filter((m) => !p.asset_ids.includes(m.id));  const use = (id: string, video: boolean) =>    chat.mutate({      message: video ? "Utilise cette vid├®o en fond d'en-t├¬te (hero) de la page, avec un voile pour garder le texte lisible." : "Int├¿gre cette image dans la page ├á l'endroit le plus pertinent.",      page, selection: null, media_ids: [id],    }, { onSuccess: () => toast.success("Int├®gration lanc├®e") });  const Grid = ({ list, title }: { list: typeof items; title: string }) => (    <div>      <p className="eyebrow mb-3 text-slate-500">{title}</p>      {!list.length && <p className="mb-6 text-sm text-slate-500">Aucun m├®dia.</p>}      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">        {list.map((m) => (          <div key={m.id} className="group relative overflow-hidden rounded-xl border border-white/10" data-testid={`asset-${m.id}`}>            {m.kind === "video" ? <video src={m.url!} muted loop autoPlay playsInline className="aspect-video w-full object-cover" /> : <img src={m.url!} alt={m.prompt} className="aspect-video w-full object-cover" />}            <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/90 via-black/20 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">              <FxButton size="sm" tone={m.kind === "video" ? "vision" : "web"} disabled={busy} data-testid={`asset-use-${m.id}`} onClick={() => use(m.id, m.kind === "video")}>                {m.kind === "video" ? <><Film className="size-3.5" /> Fond d'en-t├¬te</> : <><ImageIcon className="size-3.5" /> Ins├®rer</>}              </FxButton>            </div>          </div>        ))}      </div>    </div>  );  return (    <div className="h-full overflow-y-auto p-5">      <Grid list={mine} title="Images du site (illustratives)" />      <Grid list={others} title="Biblioth├¿que LocalAiVision" />      <Link to="/vision" className="text-sm text-cyan-300 hover:text-white" data-testid="assets-open-vision">Cr├®er de nouveaux m├®dias dans LocalAiVision ÔåÆ</Link>    </div>  );}function PagesPanel({ p, page, openPage }: { p: Project; page: string; openPage: (f: string) => void }) {  const [title, setTitle] = useState("");  const { chat } = useProjectAction(p.id);  const busy = p.status !== "ready";  return (    <div className="h-full space-y-6 overflow-y-auto p-5">      <div className="space-y-2">        {p.pages.map((pg) => (          <div key={pg.file} className={cn("flex items-center gap-3 rounded-xl border p-3 transition-colors", pg.file === page ? "border-violet-400/50 bg-violet-500/10" : "border-white/10 bg-white/[0.02]")} data-testid={`page-row-${pg.file}`}>            <FileText className="size-4 text-violet-300" />            <div className="min-w-0 flex-1">              <p className="truncate text-sm">{pg.title}</p>              <p className="font-mono text-[11px] text-slate-500">{pg.file}</p>            </div>            <FxButton size="sm" tone="ghost" data-testid={`page-open-${pg.file}`} onClick={() => openPage(pg.file)}>Ouvrir</FxButton>            {pg.file !== "index.html" && (              <IconBtn disabled={busy} data-testid={`page-delete-${pg.file}`} aria-label="Supprimer" onClick={() => { if (window.confirm(`Supprimer ${pg.file} ?`)) chat.mutate({ message: `Supprime la page ${pg.file} et retire tous les liens qui y m├¿nent.`, page: pg.file, selection: null, media_ids: [] }); }}>                <Trash2 className="size-4" />              </IconBtn>            )}          </div>        ))}      </div>      <div className="glass flex gap-2 rounded-xl p-2">        <input data-testid="page-add-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nouvelle page, ex. ┬½ Notre ├®quipe ┬╗" className="flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-slate-500" />        <FxButton size="sm" data-testid="page-add-btn" disabled={busy || !title.trim()} onClick={() => chat.mutate({ message: `Ajoute une nouvelle page ┬½ ${title.trim()} ┬╗ coh├®rente avec le site, et ajoute-la ├á la navigation.`, page, selection: null, media_ids: [] }, { onSuccess: () => setTitle("") })}>          <Plus className="size-3.5" /> Ajouter        </FxButton>      </div>      {p.qa_report.length > 0 && (        <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] p-4" data-testid="qa-report">          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-200"><ShieldCheck className="size-4" /> Rapport du contr├┤le qualit├®</p>          <ul className="space-y-1 text-xs text-slate-300">{p.qa_report.map((r, i) => <li key={i}>ÔÇó {r}</li>)}</ul>        </div>      )}    </div>  );}function VersionsPanel({ p }: { p: Project }) {  const { data } = useVersions(p.id, p.version);  const { restore } = useProjectAction(p.id);  return (    <div className="h-full overflow-y-auto p-5">      <ol className="relative space-y-3 border-l border-white/10 pl-5">        {data?.map((v) => (          <li key={v.id} className="relative" data-testid={`version-${v.number}`}>            <span className={cn("absolute -left-[26px] top-3 size-3 rounded-full border-2", v.number === p.version ? "border-violet-300 bg-violet-500 shadow-[0_0_12px_rgba(139,92,246,0.9)]" : "border-slate-600 bg-obsidian")} />            <div className="glass flex items-center gap-3 rounded-xl p-3">              <div className="min-w-0 flex-1">                <p className="truncate text-sm">v{v.number} ┬À {v.label}</p>                <p className="text-xs text-slate-500">{new Date(v.created_at).toLocaleString("fr-FR")}</p>              </div>              {v.number === p.version ? <span className="text-xs text-violet-300">Actuelle</span> : (                <FxButton size="sm" tone="ghost" data-testid={`version-restore-${v.number}`} disabled={p.status !== "ready"} onClick={() => restore.mutate(v.number)}>                  <RotateCcw className="size-3.5" /> Restaurer                </FxButton>              )}            </div>          </li>        ))}      </ol>      {!data?.length && <p className="text-sm text-slate-500">Les versions appara├«tront apr├¿s la g├®n├®ration.</p>}    </div>  );}export default function Editor() {  const { id = "" } = useParams();  const { data: p, isError } = useProject(id);  const { undo } = useProjectAction(id);  const [device, setDevice] = useState<Device>("desktop");  const [page, setPage] = useState("index.html");  const [tab, setTab] = useState("preview");  const [selectMode, setSelectMode] = useState(false);  const [selection, setSelection] = useState<Selection | null>(null);  const [loadTick, setLoadTick] = useState(0);  const frame = useRef<HTMLIFrameElement>(null);  const hasSite = !!p?.files.length;  const src = useMemo(() => `/api/preview/${id}/${page}?v=${p?.version ?? 0}`, [id, page, p?.version]);  // Sandboxed preview communication (V1-B.2): the iframe has sandbox="allow-scripts allow-forms"
-  // (no allow-same-origin), so the parent cannot access contentDocument.  Element selection and
-  // navigation tracking happen via postMessage with a script injected by the backend preview endpoint.
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  ArrowLeft, Bot, Code2, Download, ExternalLink, FileText, History, Laptop, Loader2, MousePointerClick, Plus, RotateCcw,
+  Send, ShieldCheck, Smartphone, Tablet, Trash2, Undo2, User, Wand2, X, Image as ImageIcon, Film, RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
+import { AppShell } from "@/components/AppShell";
+import { FxButton, IconBtn } from "@/components/FxButton";
+import { StepTracker } from "@/components/StepTracker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMedia, useProject, useProjectAction, useVersions } from "@/lib/hooks";
+import type { Project, Selection } from "@/lib/types";
+import { STATUS_LABELS } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const DEVICES = { desktop: { w: "100%", I: Laptop, l: "Ordinateur" }, tablet: { w: "820px", I: Tablet, l: "Tablette" }, mobile: { w: "390px", I: Smartphone, l: "Mobile" } } as const;
+type Device = keyof typeof DEVICES;
+
+function ChatPanel({ p, page, selection, clearSelection }: { p: Project; page: string; selection: Selection | null; clearSelection: () => void }) {
+  const [msg, setMsg] = useState("");
+  const { chat, retry } = useProjectAction(p.id);
+  const endRef = useRef<HTMLDivElement>(null);
+  const busy = ["queued", "generating", "editing"].includes(p.status);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [p.messages.length, p.status]);
+  const send = () => {
+    if (!msg.trim()) return;
+    chat.mutate({ message: msg.trim(), page, selection, media_ids: [] }, { onSuccess: () => { setMsg(""); clearSelection(); } });
+  };
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" data-testid="chat-messages">
+        {(p.status === "generating" || p.status === "queued" || p.status === "needs_input" || (p.status === "error" && !p.files.length)) && <StepTracker steps={p.steps} />}
+        {p.status === "error" && (
+          <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200" data-testid="project-error">
+            {p.error}
+            <FxButton size="sm" tone="ghost" className="mt-3" data-testid="project-retry" onClick={() => retry.mutate()}><RefreshCw className="size-3.5" /> Reprendre</FxButton>
+          </div>
+        )}
+        <AnimatePresence initial={false}>
+          {p.messages.map((m, i) => (
+            <motion.div key={i} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className={cn("flex gap-2.5", m.role === "user" && "flex-row-reverse")}>
+              <span className={cn("mt-1 flex size-7 shrink-0 items-center justify-center rounded-full", m.role === "user" ? "bg-white/10" : "bg-gradient-to-br from-violet-500 to-fuchsia-500")}>
+                {m.role === "user" ? <User className="size-3.5" /> : <Bot className="size-3.5" />}
+              </span>
+              <div className={cn("max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed", m.role === "user" ? "rounded-tr-sm bg-violet-500/20 text-violet-50" : "glass rounded-tl-sm text-slate-200")} data-testid={`chat-msg-${i}`}>
+                {m.content}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {p.status === "editing" && (
+          <div className="flex items-center gap-2 text-sm text-violet-200" data-testid="chat-editing">
+            <Loader2 className="size-4 animate-spin" /> Modification ciblée en cours…
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+      <div className="border-t border-white/[0.06] p-3">
+        <AnimatePresence>
+          {selection && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-2 flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs text-cyan-100" data-testid="chat-selection-chip">
+              <MousePointerClick className="size-3.5 shrink-0" />
+              <span className="truncate font-mono">{selection.selector}</span>
+              <button type="button" className="ml-auto" onClick={clearSelection} data-testid="chat-selection-clear" aria-label="Retirer"><X className="size-3.5" /></button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {p.status === "needs_input" && <p className="mb-2 text-xs text-amber-300">Répondez à la question pour lancer la génération.</p>}
+        <div className="glass flex items-end gap-2 rounded-2xl p-2 focus-within:border-violet-400/50">
+          <textarea
+            data-testid="chat-input"
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            rows={2}
+            disabled={busy}
+            placeholder={busy ? "Génération en cours…" : p.status === "needs_input" ? "Votre réponse…" : selection ? "Que faire de cet élément ?" : "Ex. Rends le hero plus spectaculaire, ajoute une page Équipe…"}
+            className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-slate-500"
+          />
+          <FxButton size="sm" data-testid="chat-send" disabled={busy || !msg.trim() || chat.isPending} onClick={send} aria-label="Envoyer">
+            <Send className="size-3.5" />
+          </FxButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CodePanel({ p }: { p: Project }) {
+  const files = p.files.filter((f) => f.path !== "_guide.md");
+  const [path, setPath] = useState(files[0]?.path ?? "index.html");
+  const server = files.find((f) => f.path === path)?.content ?? "";
+  const [draft, setDraft] = useState<{ path: string; content: string } | null>(null);
+  const { save } = useProjectAction(p.id);
+  const value = draft && draft.path === path ? draft.content : server;
   useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow) return;
-      const data = e.data;
-      if (!data || typeof data !== "object") return;
-      if (data.type === "las-navigate") {
-        const m = String(data.path || "").match(/\/api\/preview\/[^/]+\/(.+)$/);
+    if (!draft || draft.content === server) return;
+    const t = window.setTimeout(() => save.mutate(draft, { onSuccess: () => { setDraft(null); toast.success("Sauvegardé automatiquement"); } }), 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+  return (
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-white/[0.06] p-2 md:w-52 md:flex-col md:border-b-0 md:border-r">
+        {files.map((f) => (
+          <button key={f.path} type="button" data-testid={`code-file-${f.path}`} onClick={() => setPath(f.path)} className={cn("shrink-0 rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors", f.path === path ? "bg-violet-500/20 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")}>
+            {f.path}
+          </button>
+        ))}
+      </div>
+      <div className="relative min-h-0 flex-1">
+        <span className="absolute right-3 top-2 z-10 font-mono text-[10px] text-slate-500" data-testid="code-save-state">{save.isPending ? "Sauvegarde…" : draft ? "Modifié" : "Enregistré"}</span>
+        <textarea
+          data-testid="code-editor"
+          spellCheck={false}
+          value={value}
+          onChange={(e) => setDraft({ path, content: e.target.value })}
+          className="size-full resize-none bg-[#07080c] p-4 font-mono text-[12.5px] leading-relaxed text-slate-200 outline-none"
+        />
+      </div>
+    </div>
+  );
+}
+
+function AssetsPanel({ p, page }: { p: Project; page: string }) {
+  const { data: media } = useMedia("");
+  const { chat } = useProjectAction(p.id);
+  const busy = p.status !== "ready";
+  const items = (media ?? []).filter((m) => m.status === "done");
+  const mine = items.filter((m) => p.asset_ids.includes(m.id));
+  const others = items.filter((m) => !p.asset_ids.includes(m.id));
+  const use = (id: string, video: boolean) =>
+    chat.mutate({
+      message: video ? "Utilise cette vidéo en fond d'en-tête (hero) de la page, avec un voile pour garder le texte lisible." : "Intègre cette image dans la page à l'endroit le plus pertinent.",
+      page, selection: null, media_ids: [id],
+    }, { onSuccess: () => toast.success("Intégration lancée") });
+  const Grid = ({ list, title }: { list: typeof items; title: string }) => (
+    <div>
+      <p className="eyebrow mb-3 text-slate-500">{title}</p>
+      {!list.length && <p className="mb-6 text-sm text-slate-500">Aucun média.</p>}
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {list.map((m) => (
+          <div key={m.id} className="group relative overflow-hidden rounded-xl border border-white/10" data-testid={`asset-${m.id}`}>
+            {m.kind === "video" ? <video src={m.url!} muted loop autoPlay playsInline className="aspect-video w-full object-cover" /> : <img src={m.url!} alt={m.prompt} className="aspect-video w-full object-cover" />}
+            <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/90 via-black/20 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+              <FxButton size="sm" tone={m.kind === "video" ? "vision" : "web"} disabled={busy} data-testid={`asset-use-${m.id}`} onClick={() => use(m.id, m.kind === "video")}>
+                {m.kind === "video" ? <><Film className="size-3.5" /> Fond d'en-tête</> : <><ImageIcon className="size-3.5" /> Insérer</>}
+              </FxButton>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="h-full overflow-y-auto p-5">
+      <Grid list={mine} title="Images du site (illustratives)" />
+      <Grid list={others} title="Bibliothèque LocalAiVision" />
+      <Link to="/vision" className="text-sm text-cyan-300 hover:text-white" data-testid="assets-open-vision">Créer de nouveaux médias dans LocalAiVision →</Link>
+    </div>
+  );
+}
+
+function PagesPanel({ p, page, openPage }: { p: Project; page: string; openPage: (f: string) => void }) {
+  const [title, setTitle] = useState("");
+  const { chat } = useProjectAction(p.id);
+  const busy = p.status !== "ready";
+  return (
+    <div className="h-full space-y-6 overflow-y-auto p-5">
+      <div className="space-y-2">
+        {p.pages.map((pg) => (
+          <div key={pg.file} className={cn("flex items-center gap-3 rounded-xl border p-3 transition-colors", pg.file === page ? "border-violet-400/50 bg-violet-500/10" : "border-white/10 bg-white/[0.02]")} data-testid={`page-row-${pg.file}`}>
+            <FileText className="size-4 text-violet-300" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm">{pg.title}</p>
+              <p className="font-mono text-[11px] text-slate-500">{pg.file}</p>
+            </div>
+            <FxButton size="sm" tone="ghost" data-testid={`page-open-${pg.file}`} onClick={() => openPage(pg.file)}>Ouvrir</FxButton>
+            {pg.file !== "index.html" && (
+              <IconBtn disabled={busy} data-testid={`page-delete-${pg.file}`} aria-label="Supprimer" onClick={() => { if (window.confirm(`Supprimer ${pg.file} ?`)) chat.mutate({ message: `Supprime la page ${pg.file} et retire tous les liens qui y mènent.`, page: pg.file, selection: null, media_ids: [] }); }}>
+                <Trash2 className="size-4" />
+              </IconBtn>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="glass flex gap-2 rounded-xl p-2">
+        <input data-testid="page-add-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nouvelle page, ex. « Notre équipe »" className="flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-slate-500" />
+        <FxButton size="sm" data-testid="page-add-btn" disabled={busy || !title.trim()} onClick={() => chat.mutate({ message: `Ajoute une nouvelle page « ${title.trim()} » cohérente avec le site, et ajoute-la à la navigation.`, page, selection: null, media_ids: [] }, { onSuccess: () => setTitle("") })}>
+          <Plus className="size-3.5" /> Ajouter
+        </FxButton>
+      </div>
+      {p.qa_report.length > 0 && (
+        <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] p-4" data-testid="qa-report">
+          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-200"><ShieldCheck className="size-4" /> Rapport du contrôle qualité</p>
+          <ul className="space-y-1 text-xs text-slate-300">{p.qa_report.map((r, i) => <li key={i}>• {r}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VersionsPanel({ p }: { p: Project }) {
+  const { data } = useVersions(p.id, p.version);
+  const { restore } = useProjectAction(p.id);
+  return (
+    <div className="h-full overflow-y-auto p-5">
+      <ol className="relative space-y-3 border-l border-white/10 pl-5">
+        {data?.map((v) => (
+          <li key={v.id} className="relative" data-testid={`version-${v.number}`}>
+            <span className={cn("absolute -left-[26px] top-3 size-3 rounded-full border-2", v.number === p.version ? "border-violet-300 bg-violet-500 shadow-[0_0_12px_rgba(139,92,246,0.9)]" : "border-slate-600 bg-obsidian")} />
+            <div className="glass flex items-center gap-3 rounded-xl p-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm">v{v.number} · {v.label}</p>
+                <p className="text-xs text-slate-500">{new Date(v.created_at).toLocaleString("fr-FR")}</p>
+              </div>
+              {v.number === p.version ? <span className="text-xs text-violet-300">Actuelle</span> : (
+                <FxButton size="sm" tone="ghost" data-testid={`version-restore-${v.number}`} disabled={p.status !== "ready"} onClick={() => restore.mutate(v.number)}>
+                  <RotateCcw className="size-3.5" /> Restaurer
+                </FxButton>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {!data?.length && <p className="text-sm text-slate-500">Les versions apparaîtront après la génération.</p>}
+    </div>
+  );
+}
+
+export default function Editor() {
+  const { id = "" } = useParams();
+  const { data: p, isError } = useProject(id);
+  const { undo } = useProjectAction(id);
+  const [device, setDevice] = useState<Device>("desktop");
+  const [page, setPage] = useState("index.html");
+  const [tab, setTab] = useState("preview");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
+  const frame = useRef<HTMLIFrameElement>(null);
+  const hasSite = !!p?.files.length;
+  const src = useMemo(() => `/api/preview/${id}/${page}?v=${p?.version ?? 0}`, [id, page, p?.version]);
+
+  // Sandboxed preview (V1-B.2): no allow-same-origin, so the parent never reads the iframe DOM.
+  // Element selection and navigation travel through postMessage; the bridge is injected by routers/projects.py.
+  useEffect(() => {
+    frame.current?.contentWindow?.postMessage(selectMode ? "las-select-start" : "las-select-stop", "*");
+  }, [selectMode, loadTick]);
+
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow || !e.data || typeof e.data !== "object") return;
+      const d = e.data as { type?: string; selector?: string; html?: string; path?: string };
+      if (d.type === "las-navigate" && typeof d.path === "string") {
+        const m = d.path.match(/\/api\/preview\/[^/]+\/(.+)$/);
         if (m && m[1] !== page) setPage(m[1]);
-      }
-      if (data.type === "las-select") {
-        setSelection({ page, selector: data.selector, html: data.html });
+      } else if (d.type === "las-select" && typeof d.selector === "string") {
+        setSelection({ page, selector: d.selector, html: String(d.html ?? "").slice(0, 3500) });
         setSelectMode(false);
-        toast("Élément sélectionné \u2014 d\u00E9crivez la modification dans le chat");
+        toast("Élément sélectionné — décrivez la modification dans le chat");
       }
     };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, [page]);
 
-  // Toggle element-selection mode in the sandboxed iframe via postMessage.
-  useEffect(() => {
-    if (!selectMode) return;
-    frame.current?.contentWindow?.postMessage("las-select-start", "*");
-    return () => frame.current?.contentWindow?.postMessage("las-select-stop", "*");
-  }, [selectMode, loadTick]);  return (    <AppShell tone="web" full>      <div className="flex h-[calc(100dvh-64px)] flex-col md:flex-row max-md:h-auto">        <aside className="flex h-[70dvh] w-full shrink-0 flex-col border-white/[0.06] bg-obsidian/40 backdrop-blur-xl md:h-auto md:w-[400px] md:border-r">          <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">            <Link to="/web" data-testid="editor-back" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"><ArrowLeft className="size-4" /></Link>            <div className="min-w-0 flex-1">              <p className="truncate font-heading font-semibold" data-testid="editor-project-name">{p?.name || "Nouveau site"}</p>              <p className="text-xs text-slate-500">{p ? `${STATUS_LABELS[p.status]} ┬À ${p.mode === "pro" ? "Pro" : "Libre"} ┬À v${p.version}` : isError ? "Hors ligne" : "ChargementÔÇª"}</p>            </div>            {p && ["generating", "editing", "queued"].includes(p.status) && <Loader2 className="size-4 animate-spin text-violet-300" />}          </div>          {p ? <ChatPanel p={p} page={page} selection={selection} clearSelection={() => setSelection(null)} /> : <div className="p-6 text-sm text-slate-500">{isError ? "Projet indisponible." : "Chargement du projetÔÇª"}</div>}        </aside>        <section className="flex min-h-[80dvh] min-w-0 flex-1 flex-col">          <Tabs value={tab} onValueChange={(v) => setTab(v as string)} className="flex min-h-0 flex-1 flex-col gap-0">            <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-obsidian/30 px-3 py-2 backdrop-blur-xl">              <TabsList className="bg-white/[0.04]">                <TabsTrigger value="preview" data-testid="tab-preview"><Laptop className="size-3.5" /> Aper├ºu</TabsTrigger>                <TabsTrigger value="pages" data-testid="tab-pages"><FileText className="size-3.5" /> Pages</TabsTrigger>                <TabsTrigger value="assets" data-testid="tab-assets"><ImageIcon className="size-3.5" /> Ressources</TabsTrigger>                <TabsTrigger value="code" data-testid="tab-code"><Code2 className="size-3.5" /> Code</TabsTrigger>                <TabsTrigger value="versions" data-testid="tab-versions"><History className="size-3.5" /> Versions</TabsTrigger>              </TabsList>              <div className="ml-auto flex flex-wrap items-center gap-1.5">                {tab === "preview" && (                  <>                    <select data-testid="editor-page-select" value={page} onChange={(e) => setPage(e.target.value)} className="h-9 max-w-44 rounded-lg border border-white/10 bg-panel px-2 text-xs outline-none">                      {(p?.pages.length ? p.pages : [{ file: "index.html", title: "Accueil" }]).map((pg) => <option key={pg.file} value={pg.file}>{pg.title.slice(0, 30)}</option>)}                    </select>                    <div className="flex gap-1 rounded-lg border border-white/10 p-0.5">                      {(Object.keys(DEVICES) as Device[]).map((d) => {                        const I = DEVICES[d].I;                        return <IconBtn key={d} active={device === d} data-testid={`editor-device-${d}`} aria-label={DEVICES[d].l} onClick={() => setDevice(d)} className="size-8 border-0"><I className="size-4" /></IconBtn>;                      })}                    </div>                    <IconBtn active={selectMode} disabled={!hasSite || p?.status !== "ready"} data-testid="editor-select-mode" aria-label="S├®lectionner un ├®l├®ment" title="S├®lectionner un ├®l├®ment" onClick={() => setSelectMode((s) => !s)}><MousePointerClick className="size-4" /></IconBtn>                  </>                )}                <IconBtn disabled={!p || p.version < 2 || p.status !== "ready"} data-testid="editor-undo" aria-label="Annuler" title="Annuler la derni├¿re modification" onClick={() => undo.mutate()}><Undo2 className="size-4" /></IconBtn>                <a href={hasSite ? `/api/preview/${id}/${page}` : undefined} target="_blank" rel="noreferrer" data-testid="editor-open-new-tab" className={cn("inline-flex size-9 items-center justify-center rounded-lg border border-white/10 text-slate-300 transition-colors hover:text-white", !hasSite && "pointer-events-none opacity-40")} aria-label="Ouvrir"><ExternalLink className="size-4" /></a>                <a href={hasSite ? `/api/projects/${id}/export` : undefined} data-testid="export-zip-btn" className={cn("fx-btn sm", !hasSite && "pointer-events-none opacity-40")}>                  <span className="fx-shine" aria-hidden /><span className="relative z-10 inline-flex items-center gap-1.5"><Download className="size-3.5" /> ZIP</span>                </a>              </div>            </div>            <TabsContent value="preview" className="relative min-h-0 flex-1 overflow-hidden">              {hasSite ? (                <div className="flex size-full justify-center overflow-auto p-3 md:p-5">                  <motion.div layout transition={{ type: "spring", stiffness: 220, damping: 28 }} className={cn("relative h-full min-h-[70dvh] overflow-hidden border border-white/10 bg-white shadow-[0_30px_100px_-30px_rgba(139,92,246,0.6)]", device === "desktop" ? "rounded-xl" : "rounded-[2rem] border-[6px] border-[#1E2235]")} style={{ width: DEVICES[device].w, maxWidth: "100%" }}>                    <iframe ref={frame} key={src} src={src} title="Aper├ºu du site" data-testid="editor-preview-iframe" className="size-full" sandbox="allow-scripts allow-forms" onLoad={() => setLoadTick((t) => t + 1)} />                    {p?.status === "editing" && <div className="pointer-events-none absolute inset-0 bg-violet-500/10 backdrop-blur-[1px]"><div className="absolute inset-x-0 h-24 bg-gradient-to-b from-transparent via-violet-400/30 to-transparent animate-scan" /></div>}                  </motion.div>                </div>              ) : (                <div className="flex size-full flex-col items-center justify-center gap-6 p-8 text-center">                  <div className="relative size-40">                    <div className="absolute inset-0 rounded-full border border-dashed border-violet-400/40 animate-spin-slow [animation-duration:12s]" />                    <div className="absolute inset-6 rounded-full border border-cyan-400/30 animate-spin-slow [animation-direction:reverse] [animation-duration:8s]" />                    <div className="absolute inset-12 flex items-center justify-center rounded-3xl bg-gradient-to-br from-violet-500/40 to-cyan-500/30 blur-[1px] animate-float"><Wand2 className="size-8 text-white" /></div>                  </div>                  <div>                    <p className="font-heading text-2xl font-semibold" data-testid="editor-building-title">{p?.status === "needs_input" ? "Une pr├®cision, et c'est parti" : p?.status === "error" ? "G├®n├®ration interrompue" : "Votre site prend formeÔÇª"}</p>                    <p className="mt-2 max-w-md text-sm text-slate-400">{p?.steps.find((s) => s.status === "running")?.detail || "Vous pouvez quitter cette page : la g├®n├®ration continue en arri├¿re-plan."}</p>                  </div>                </div>              )}            </TabsContent>            <TabsContent value="pages" className="min-h-0 flex-1">{p && <PagesPanel p={p} page={page} openPage={(f) => { setPage(f); setTab("preview"); }} />}</TabsContent>            <TabsContent value="assets" className="min-h-0 flex-1">{p && <AssetsPanel p={p} page={page} />}</TabsContent>            <TabsContent value="code" className="min-h-0 flex-1">{p && hasSite ? <CodePanel key={p.id} p={p} /> : <p className="p-6 text-sm text-slate-500">Le code appara├«tra apr├¿s la g├®n├®ration.</p>}</TabsContent>            <TabsContent value="versions" className="min-h-0 flex-1">{p && <VersionsPanel p={p} />}</TabsContent>          </Tabs>        </section>      </div>    </AppShell>  );}
+  return (
+    <AppShell tone="web" full>
+      <div className="flex h-[calc(100dvh-64px)] flex-col md:flex-row max-md:h-auto">
+        <aside className="flex h-[70dvh] w-full shrink-0 flex-col border-white/[0.06] bg-obsidian/40 backdrop-blur-xl md:h-auto md:w-[400px] md:border-r">
+          <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
+            <Link to="/web" data-testid="editor-back" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"><ArrowLeft className="size-4" /></Link>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-heading font-semibold" data-testid="editor-project-name">{p?.name || "Nouveau site"}</p>
+              <p className="text-xs text-slate-500">{p ? `${STATUS_LABELS[p.status]} · ${p.mode === "pro" ? "Pro" : "Libre"} · v${p.version}` : isError ? "Hors ligne" : "Chargement…"}</p>
+            </div>
+            {p && ["generating", "editing", "queued"].includes(p.status) && <Loader2 className="size-4 animate-spin text-violet-300" />}
+          </div>
+          {p ? <ChatPanel p={p} page={page} selection={selection} clearSelection={() => setSelection(null)} /> : <div className="p-6 text-sm text-slate-500">{isError ? "Projet indisponible." : "Chargement du projet…"}</div>}
+        </aside>
+
+        <section className="flex min-h-[80dvh] min-w-0 flex-1 flex-col">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as string)} className="flex min-h-0 flex-1 flex-col gap-0">
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-obsidian/30 px-3 py-2 backdrop-blur-xl">
+              <TabsList className="bg-white/[0.04]">
+                <TabsTrigger value="preview" data-testid="tab-preview"><Laptop className="size-3.5" /> Aperçu</TabsTrigger>
+                <TabsTrigger value="pages" data-testid="tab-pages"><FileText className="size-3.5" /> Pages</TabsTrigger>
+                <TabsTrigger value="assets" data-testid="tab-assets"><ImageIcon className="size-3.5" /> Ressources</TabsTrigger>
+                <TabsTrigger value="code" data-testid="tab-code"><Code2 className="size-3.5" /> Code</TabsTrigger>
+                <TabsTrigger value="versions" data-testid="tab-versions"><History className="size-3.5" /> Versions</TabsTrigger>
+              </TabsList>
+              <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                {tab === "preview" && (
+                  <>
+                    <select data-testid="editor-page-select" value={page} onChange={(e) => setPage(e.target.value)} className="h-9 max-w-44 rounded-lg border border-white/10 bg-panel px-2 text-xs outline-none">
+                      {(p?.pages.length ? p.pages : [{ file: "index.html", title: "Accueil" }]).map((pg) => <option key={pg.file} value={pg.file}>{pg.title.slice(0, 30)}</option>)}
+                    </select>
+                    <div className="flex gap-1 rounded-lg border border-white/10 p-0.5">
+                      {(Object.keys(DEVICES) as Device[]).map((d) => {
+                        const I = DEVICES[d].I;
+                        return <IconBtn key={d} active={device === d} data-testid={`editor-device-${d}`} aria-label={DEVICES[d].l} onClick={() => setDevice(d)} className="size-8 border-0"><I className="size-4" /></IconBtn>;
+                      })}
+                    </div>
+                    <IconBtn active={selectMode} disabled={!hasSite || p?.status !== "ready"} data-testid="editor-select-mode" aria-label="Sélectionner un élément" title="Sélectionner un élément" onClick={() => setSelectMode((s) => !s)}><MousePointerClick className="size-4" /></IconBtn>
+                  </>
+                )}
+                <IconBtn disabled={!p || p.version < 2 || p.status !== "ready"} data-testid="editor-undo" aria-label="Annuler" title="Annuler la dernière modification" onClick={() => undo.mutate()}><Undo2 className="size-4" /></IconBtn>
+                <a href={hasSite ? `/api/preview/${id}/${page}` : undefined} target="_blank" rel="noreferrer" data-testid="editor-open-new-tab" className={cn("inline-flex size-9 items-center justify-center rounded-lg border border-white/10 text-slate-300 transition-colors hover:text-white", !hasSite && "pointer-events-none opacity-40")} aria-label="Ouvrir"><ExternalLink className="size-4" /></a>
+                <a href={hasSite ? `/api/projects/${id}/export` : undefined} data-testid="export-zip-btn" className={cn("fx-btn sm", !hasSite && "pointer-events-none opacity-40")}>
+                  <span className="fx-shine" aria-hidden /><span className="relative z-10 inline-flex items-center gap-1.5"><Download className="size-3.5" /> ZIP</span>
+                </a>
+              </div>
+            </div>
+
+            <TabsContent value="preview" className="relative min-h-0 flex-1 overflow-hidden">
+              {hasSite ? (
+                <div className="flex size-full justify-center overflow-auto p-3 md:p-5">
+                  <motion.div layout transition={{ type: "spring", stiffness: 220, damping: 28 }} className={cn("relative h-full min-h-[70dvh] overflow-hidden border border-white/10 bg-white shadow-[0_30px_100px_-30px_rgba(139,92,246,0.6)]", device === "desktop" ? "rounded-xl" : "rounded-[2rem] border-[6px] border-[#1E2235]")} style={{ width: DEVICES[device].w, maxWidth: "100%" }}>
+                    <iframe ref={frame} key={src} src={src} title="Aperçu du site" data-testid="editor-preview-iframe" className="size-full" sandbox="allow-scripts allow-forms" onLoad={() => setLoadTick((t) => t + 1)} />
+                    {p?.status === "editing" && <div className="pointer-events-none absolute inset-0 bg-violet-500/10 backdrop-blur-[1px]"><div className="absolute inset-x-0 h-24 bg-gradient-to-b from-transparent via-violet-400/30 to-transparent animate-scan" /></div>}
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="flex size-full flex-col items-center justify-center gap-6 p-8 text-center">
+                  <div className="relative size-40">
+                    <div className="absolute inset-0 rounded-full border border-dashed border-violet-400/40 animate-spin-slow [animation-duration:12s]" />
+                    <div className="absolute inset-6 rounded-full border border-cyan-400/30 animate-spin-slow [animation-direction:reverse] [animation-duration:8s]" />
+                    <div className="absolute inset-12 flex items-center justify-center rounded-3xl bg-gradient-to-br from-violet-500/40 to-cyan-500/30 blur-[1px] animate-float"><Wand2 className="size-8 text-white" /></div>
+                  </div>
+                  <div>
+                    <p className="font-heading text-2xl font-semibold" data-testid="editor-building-title">{p?.status === "needs_input" ? "Une précision, et c'est parti" : p?.status === "error" ? "Génération interrompue" : "Votre site prend forme…"}</p>
+                    <p className="mt-2 max-w-md text-sm text-slate-400">{p?.steps.find((s) => s.status === "running")?.detail || "Vous pouvez quitter cette page : la génération continue en arrière-plan."}</p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="pages" className="min-h-0 flex-1">{p && <PagesPanel p={p} page={page} openPage={(f) => { setPage(f); setTab("preview"); }} />}</TabsContent>
+            <TabsContent value="assets" className="min-h-0 flex-1">{p && <AssetsPanel p={p} page={page} />}</TabsContent>
+            <TabsContent value="code" className="min-h-0 flex-1">{p && hasSite ? <CodePanel key={p.id} p={p} /> : <p className="p-6 text-sm text-slate-500">Le code apparaîtra après la génération.</p>}</TabsContent>
+            <TabsContent value="versions" className="min-h-0 flex-1">{p && <VersionsPanel p={p} />}</TabsContent>
+          </Tabs>
+        </section>
+      </div>
+    </AppShell>
+  );
+}

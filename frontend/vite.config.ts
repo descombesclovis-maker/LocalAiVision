@@ -122,7 +122,7 @@ export default defineConfig(async () => {
       // /api/auth/init requests only — the frontend never sees the token.
       proxy: {
         "/api": {
-          target: "http://localhost:8001",
+          target: process.env.LAS_API_TARGET || "http://localhost:8001",
           changeOrigin: true,
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq, req) => {
