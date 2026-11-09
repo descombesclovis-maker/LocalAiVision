@@ -224,3 +224,40 @@ async def test_raw_baseline_differs_from_legacy_only_by_suffix():
     raw = built["approaches"]["A0_raw"]["text"]
     legacy = built["approaches"]["A_legacy"]["text"]
     assert legacy == raw + core.LEGACY_IMAGE_SUFFIX
+
+
+def test_render_path_with_fake_comfy_writes_images_and_flags_first_load(tmp_path, monkeypatch):
+    """Exercises the real render loop (files, manifest, gallery) with a fake ComfyUI: no GPU."""
+    import types
+    from lib.prompt_bench import __main__ as bench
+
+    class FakeComfyError(Exception):
+        pass
+
+    async def verify_ready(settings, video=False):
+        return None
+
+    async def run(workflow, video, progress, on_queued, s=None):
+        return b"\x89PNG fake", "image/png"
+
+    fake = types.SimpleNamespace(
+        DEFAULTS={"base_url": "http://x", "image_preset": "sdxl", "image_checkpoint": "sd_xl_base_1.0.safetensors",
+                  "video_preset": "wan22"},
+        IMAGE_SIZES={"1:1": (1024, 1024)}, IMAGE_PRESETS={"sdxl": {"checkpoint": "sd_xl_base_1.0.safetensors"}},
+        ComfyError=FakeComfyError, verify_ready=verify_ready, run=run,
+        _image_workflow=lambda s, text, w, h, seed, img: {"5": {"class_type": "KSampler", "inputs": {"seed": seed, "steps": 30, "cfg": 6.5}}},
+    )
+    monkeypatch.setattr(bench, "_comfy", lambda: fake)
+    rc = bench.main(["--out", str(tmp_path), "--only", "photo_product", "--render-photo", "--image-preset", "sdxl",
+                     "--approach", "A0_raw", "--approach", "A_legacy", "--seed", "1234"])
+    assert rc == 0
+    run_dir = next(tmp_path.iterdir())
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["preflight"]["ok"] is True and manifest["preflight"]["checkpoint"] == "sd_xl_base_1.0.safetensors"
+    assert manifest["images_produced"] == 2 and manifest["renders_failed"] == 0 and manifest["rendered"] is True
+    flags = [r["may_include_model_load"] for r in manifest["renders"]]
+    assert flags == [True, False]
+    assert all((run_dir / r["file"]).exists() for r in manifest["renders"])
+    assert manifest["renders"][0]["params"]["KSampler"]["steps"] == 30  # recorded, never changed
+    html_page = (run_dir / "index.html").read_text(encoding="utf-8")
+    assert "renders/photo_product__A0_raw__s1234.png" in html_page

@@ -486,3 +486,18 @@ ne pas activer automatiquement le moteur avant cette validation et une décision
 - Tests : `tests/test_prompt_bench.py`, 27 réussis, 0 échec.
 - Essai réel : photo produit, approches A0/A/B/C, seed 1234 → contrôle ComfyUI en échec (`ComfyUnreachable`), 0 image, aucune comparaison visuelle. Ollama déchargé (qwen2.5-coder:14b).
 - Action requise : lancer ComfyUI et exécuter les commandes de `docs/localai-nextgen/PROMPT_BENCHMARK.md` (section V2-C).
+
+## V2-C.1 — Première génération photographique réelle (SDXL, photo produit)
+
+- **Correction** : le constat V2-C « ComfyUI absent » était faux. ComfyUI Desktop est installé (`AppData\Local\Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI`, venv PyTorch 2.12.1+cu130 avec CUDA, RTX 3060 détectée). Ses modèles partagés sont dans `AppData\Local\Comfy-Desktop\ComfyUI-Shared\models`, chargés par `extra_model_paths` de l'instance Desktop.
+- Modèles constatés : `checkpoints\sd_xl_base_1.0.safetensors` (6 938 078 334 o, taille officielle : aucune téléchargement nécessaire), `flux1-schnell-fp8`, LTX présents ; `flux1-dev-fp8` **absent** (preset par défaut de l'application).
+- ComfyUI lancé sur `127.0.0.1:8188` depuis le venv Desktop (version 0.37.2), sans téléchargement ni modification des modèles. Contrôle préalable du checkpoint SDXL : OK.
+- Rendu : photo produit, seed 1234, SDXL (1024², 30 steps, CFG 6,5, dpmpp_2m karras, paramètres de `comfy.py` inchangés), approches A0/A/B/C. Ollama déchargé (qwen2.5-coder:14b) avant le rendu.
+- Résultats : 4 images produites, 0 erreur. Durées : A0 26,6 s (inclut le chargement du checkpoint), A 22,4 s, B 22,5 s, C 22,4 s. Pic VRAM au-dessus de la base : A0 +7 828 MiB (chargement), A/B/C ≈ +2 750 MiB. VRAM totale après rendu : 7 813 / 12 288 MiB.
+- Observations visuelles (3 images distinctes examinées) : verre bleu cobalt, collerette dorée et marbre respectés ; aucune étiquette visible ; **« bouchon doré posé à droite » non respecté** (flacon centré) ; rendu propre mais léger aspect de synthèse sur le cristal. Un même seed produit des compositions différentes selon le texte : une comparaison à seed unique est donc bruitée.
+- **C = A** (empreintes identiques) : le prompt tient en une phrase, le réordonnancement ne change rien. Le suffixe qualité se colle après un point (« visible., highly detailed ») : défaut mineur du chemin legacy, non corrigé (changerait le moteur actif).
+- Correction de code : le manifeste marque `may_include_model_load` sur le premier rendu, pour ne pas comparer ses durées. Test de rendu avec faux ComfyUI ajouté.
+- Galerie : `backend\bench_runs\20261109-200129\index.html` (4 approches, prompts, statuts). Vérifiée dans le navigateur ; les « PASS » ne sont que des contrôles textuels.
+- Application : aucune configuration `comfyui` enregistrée en base ; valeurs par défaut utilisées (URL 8188 correcte, preset `flux-dev` non installé). Pour générer dans LocalAiStudio, choisir le preset **SDXL** dans les réglages. Aucune écriture en base.
+- Tests : `tests/test_prompt_bench.py` + préparation + fournisseur LLM : 203 réussis, 0 échec.
+- Limites : une seule seed, une seule image par approche ; aucune vidéo ; aucune mesure de qualité objective ; pas de test via l'API authentifiée de l'application.

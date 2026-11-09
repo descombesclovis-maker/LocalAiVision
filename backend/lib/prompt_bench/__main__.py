@@ -183,7 +183,10 @@ async def run_bench(args: argparse.Namespace) -> Path:
                     (out / rel).write_bytes(data)
                 renders.append({
                     "id": item["id"], "approach": name, "seed": seed, "kind": kind, "file": rel,
-                    "prompt_sent": text, "params": _workflow_params(wf), "resolution": [w, h], **meta,
+                    "prompt_sent": text, "params": _workflow_params(wf), "resolution": [w, h],
+                    # The first render of a session includes the checkpoint load: not comparable on time/VRAM.
+                    "may_include_model_load": not any(r.get("file") or r.get("error") for r in renders),
+                    **meta,
                 })
 
     manifest = {
