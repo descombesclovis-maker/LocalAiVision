@@ -138,7 +138,7 @@ async def run(host: str) -> dict:
     if online:
         checks.insert(0, _check("where", "Où tourne cette application ?", "info",
                                 "Vous consultez la preview en ligne : les vérifications portent sur le serveur, pas sur votre PC. "
-                                "Ollama et ComfyUI de votre PC ne sont joignables que via un tunnel.",
-                                "Installez LocalAiStudio sur votre PC (Moteurs → Kit Windows) ou ouvrez les tunnels avec tunnel-preview.bat."))
+                                "Ollama et ComfyUI de votre PC ne sont joignables que via un accès authentifié.",
+                                "Installez LocalAiStudio sur votre PC (Moteurs → Kit Windows). Les tunnels publics non authentifiés ont été désactivés pour des raisons de sécurité."))
     count = {k: sum(1 for c in checks if c["status"] == k) for k in ("ok", "warn", "error")}
     return {"checks": checks, "ok": count["ok"], "warn": count["warn"], "error": count["error"], "online": online, "checked_at": now_iso()}

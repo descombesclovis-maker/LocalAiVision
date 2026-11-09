@@ -65,13 +65,18 @@ Pour recompiler l'installateur vous-même : `installer\build-installer.bat` (Inn
 
 **Moteurs → Diagnostic** vérifie MongoDB, l'espace disque, Node.js, Ollama et son modèle, ComfyUI, la carte graphique et les fichiers de modèles, puis indique quoi corriger (avec la commande à copier).
 
-## 6. Utiliser votre PC depuis la preview en ligne (facultatif)
+## 6. Accès distant (facultatif, non recommandé)
 
-La preview en ligne ne peut pas joindre « localhost » chez vous : elle affiche donc « non connecté ». Pour l'utiliser quand même avec votre carte graphique :
-1. Lancez Ollama et ComfyUI sur votre PC.
-2. Double-cliquez sur `tunnel-preview.bat` : il installe cloudflared si besoin et ouvre deux tunnels gratuits.
-3. Dans la preview, onglet **Moteurs** : collez l'adresse `https://….trycloudflare.com` du tunnel Ollama dans « Ollama · Configurer », et celle du tunnel ComfyUI dans « ComfyUI · Configurer ».
-Les adresses changent à chaque lancement du tunnel. Fermez les fenêtres pour couper l'accès.
+La preview en ligne ne peut pas joindre « localhost » chez vous : elle affiche donc « non connecté ».
+Pour des raisons de sécurité, les tunnels publics non authentifiés ont été désactivés (V1-B) :
+Ollama et ComfyUI n'ont pas d'authentification intégrée — les exposer sur Internet donnait un accès
+complet à vos modèles IA, votre GPU et potentiellement vos fichiers.
+
+Si vous avez **réellement** besoin d'un accès distant, utilisez un reverse proxy avec authentification
+(Caddy, nginx) ou Cloudflare Access (Zero Trust) devant chaque moteur. Ne rouvrez jamais un tunnel
+public sans cette couche de protection.
+
+L'application reste concue pour un usage 100 % local. L'accès distant n'est ni testé ni supporté.
 
 ## 7. Moteur Premium (sites web)
 

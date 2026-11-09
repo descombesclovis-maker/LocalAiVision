@@ -16,10 +16,10 @@ from models.engines import ComfySettings, ComfyTest, Diagnostic, EnginePresets, 
 router = APIRouter()
 ROOT = Path(__file__).resolve().parents[2]
 SKIP_DIRS = {"Output", "node_modules", "__pycache__", ".pytest_cache", "dist", ".vite", "tests", ".git", ".emergent", ".screenshots"}
-SKIP_FILES = {".env", "yarn-error.log"}
+SKIP_FILES = {".env", "yarn-error.log", ".api_key"}
 ENV_EXAMPLE = """MONGO_URL=mongodb://127.0.0.1:27017
 DB_NAME=localaistudio
-CORS_ORIGINS=*
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 APP_TZ=Europe/Paris
 # Optionnel — moteurs payants de secours (Claude, Nano Banana, Veo, Kling) :
 # EMERGENT_LLM_KEY=

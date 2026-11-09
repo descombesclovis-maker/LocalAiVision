@@ -40,3 +40,6 @@ build/
 models/
 ComfyUI/output/
 ComfyUI/input/
+
+# clé d'API locale (V1-B) — jamais dans le dépôt
+**/.api_key

@@ -177,7 +177,17 @@ async def preview(pid: str, path: str, v: Optional[int] = Query(default=None)):
     if path not in m:
         raise HTTPException(404, "Fichier introuvable")
     mime = {"html": "text/html", "css": "text/css", "js": "application/javascript"}.get(path.rsplit(".", 1)[-1], "text/plain")
-    return Response(render(m, path), media_type=f"{mime}; charset=utf-8", headers={"Cache-Control": "no-store"})
+    # CSP: generated sites must NOT be able to call the LocalAiStudio API via fetch/XHR.
+    # <img>/<video> src still works (governed by img-src/media-src, not connect-src),
+    # so media assets referenced by the preview display correctly.
+    return Response(
+        render(m, path),
+        media_type=f"{mime}; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "connect-src 'none'",
+        },
+    )
 
 
 @router.get("/projects/{pid}/export")

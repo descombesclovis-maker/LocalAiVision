@@ -13,7 +13,31 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
+from lib.auth import AuthMiddleware
 from routers import companies, engines, media, projects
+
+# Restrictive CORS: only loopback origins by default.  The frontend (Vite dev server on
+# :3000 or :5173) and the backend itself (:8001) are the only legitimate callers.  If the
+# operator sets CORS_ORIGINS in .env we honour it, but never fall back to '*' — a wildcard
+# with allow_credentials=True is a security misconfiguration rejected by browsers anyway.
+_LOOPBACK_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
+]
+
+
+def _cors_origins() -> list[str]:
+    raw = os.environ.get("CORS_ORIGINS", "")
+    if raw:
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        # Filter out '*' — never serve credentials to every origin.
+        origins = [o for o in origins if o != "*"]
+        return origins or _LOOPBACK_ORIGINS
+    return _LOOPBACK_ORIGINS
 
 
 async def _recover_interrupted() -> None:
@@ -55,12 +79,13 @@ api_router.include_router(media.router)
 api_router.include_router(companies.router)
 api_router.include_router(engines.router)
 
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins(),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
 logging.basicConfig(
