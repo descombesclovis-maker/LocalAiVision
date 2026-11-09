@@ -6,6 +6,7 @@ Built-in workflows use ComfyUI core nodes. Users may also paste their own workfl
 import asyncio
 import json
 import random
+import re
 import time
 import uuid
 from typing import Any, Awaitable, Callable, Optional
@@ -43,7 +44,23 @@ Progress = Optional[Callable[[str], Awaitable[None]]]
 
 
 class ComfyError(RuntimeError):
-    pass
+    """Base error for any ComfyUI failure (kept so existing `except comfy.ComfyError` still catches all)."""
+
+
+class ComfyUnreachable(ComfyError):
+    """ComfyUI server is not running or not reachable."""
+
+
+class MissingModel(ComfyError):
+    """A required model file is absent from ComfyUI's models folder."""
+
+
+class WorkflowError(ComfyError):
+    """ComfyUI rejected the workflow (incompatible nodes, invalid custom JSON)."""
+
+
+class GenerationError(ComfyError):
+    """ComfyUI accepted the workflow but execution failed (OOM, timeout, no output)."""
 
 
 async def get_settings() -> dict:
@@ -57,7 +74,7 @@ async def save_settings(data: dict) -> dict:
             try:
                 json.loads(data[key])
             except ValueError as exc:
-                raise ComfyError(f"Workflow personnalisé invalide (JSON attendu, export « API » de ComfyUI) : {exc}") from exc
+                raise WorkflowError(f"Workflow personnalisé invalide (JSON attendu, export « API » de ComfyUI) : {exc}") from exc
     data = {**data, "base_url": data["base_url"].rstrip("/")}
     await db.settings.update_one({"id": "comfyui"}, {"$set": data}, upsert=True)
     return await get_settings()
@@ -111,6 +128,70 @@ async def test(s: dict) -> dict:
     gpu = f"{dev.get('name', 'GPU')} · {round((dev.get('vram_total') or 0) / 1024**3, 1)} Go VRAM"
     msg = f"ComfyUI prêt ({gpu})" if not missing else f"ComfyUI joignable ({gpu}), fichiers manquants : {', '.join(missing)}"
     return {"ok": not missing, "message": msg, "gpu": gpu, "checkpoints": ckpts, "diffusion_models": unets, "text_encoders": clips}
+
+
+# ------------------------------------------------------------------ pre-flight model verification
+
+# File extensions ComfyUI accepts as model weights — used to recognise a missing-file error.
+_MISSING_FILE_RE = re.compile(r"\.(safetensors|ckpt|pt|bin|gguf|pth|sftensors)\b", re.I)
+
+
+async def _model_lists(c: httpx.AsyncClient, base: str) -> dict[str, list[str]]:
+    """Fetch every model-file list ComfyUI currently knows (one round-trip per loader node)."""
+    return {
+        "checkpoints": await _choices(c, base, "CheckpointLoaderSimple", "ckpt_name"),
+        "diffusion_models": await _choices(c, base, "UNETLoader", "unet_name"),
+        "text_encoders": await _choices(c, base, "CLIPLoader", "clip_name"),
+        "vae": await _choices(c, base, "VAELoader", "vae_name"),
+    }
+
+
+def _missing_files(s: dict, lists: dict[str, list[str]], video: bool) -> list[str]:
+    """Names of the model files required by the active preset that are not installed in ComfyUI.
+    Image generations need the image checkpoint; video generations need the video model, text encoder and VAE
+    (the image checkpoint is NOT required for a video render, so it is not checked when video=True)."""
+    missing = []
+    if not video and s["image_checkpoint"] not in lists["checkpoints"]:
+        missing.append(s["image_checkpoint"])
+    if video:
+        model_pool = lists["diffusion_models"] if s["video_preset"] == "wan22" else lists["checkpoints"]
+        if s["video_model"] not in model_pool:
+            missing.append(s["video_model"])
+        if s["video_text_encoder"] not in lists["text_encoders"]:
+            missing.append(s["video_text_encoder"])
+        if s.get("video_vae") and s["video_vae"] not in lists["vae"]:
+            missing.append(s["video_vae"])
+    return missing
+
+
+def _is_missing_model_error(detail: Any, hint: str) -> bool:
+    """True when a workflow-rejection error clearly points at an absent model file (not a malformed graph)."""
+    blob = f"{detail} {hint}".lower()
+    return "not in list" in blob or "file not found" in blob or "no such file" in blob or bool(_MISSING_FILE_RE.search(f"{detail} {hint}"))
+
+
+async def verify_ready(s: dict, video: bool = False) -> None:
+    """Pre-flight check run before a generation: ComfyUI must be reachable AND every model file required by the
+    active preset must already be present. Raises ComfyUnreachable or MissingModel with an actionable French
+    message. Reuses the models already installed in ComfyUI — never downloads or deletes anything."""
+    base = s["base_url"].rstrip("/")
+    try:
+        async with _client(8) as c:
+            r = await c.get(f"{base}/system_stats")
+            r.raise_for_status()
+            lists = await _model_lists(c, base)
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
+        raise ComfyUnreachable(unreachable(s)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise ComfyUnreachable(unreachable(s)) from exc
+    missing = _missing_files(s, lists, video)
+    if missing:
+        pool = (lists["diffusion_models"] or lists["checkpoints"]) if (video and s["video_preset"] == "wan22") else lists["checkpoints"]
+        avail = f" Modèles présents : {', '.join(pool[:5])}." if pool else ""
+        raise MissingModel(
+            f"Modèle(s) ComfyUI manquant(s) : {', '.join(missing)}.{avail} "
+            "Lancez download-models.ps1 puis redémarrez ComfyUI, ou choisissez un modèle présent dans Moteurs → Configurer."
+        )
 
 
 # ------------------------------------------------------------------ workflows (ComfyUI API format)
@@ -248,7 +329,13 @@ async def run(
                 if nodes:
                     first = next(iter(nodes.values()))
                     hint = " — " + "; ".join(e.get("details") or e.get("message", "") for e in first.get("errors", [])[:2])
-                raise ComfyError(f"ComfyUI a refusé le workflow : {err}{hint}"[:400])
+                msg = f"ComfyUI a refusé le workflow : {err}{hint}"[:400]
+                if _is_missing_model_error(detail, hint):
+                    raise MissingModel(
+                        f"Modèle ComfyUI manquant : {msg} Lancez download-models.ps1 puis redémarrez ComfyUI, "
+                        "ou choisissez un modèle présent dans Moteurs → Configurer."
+                    )
+                raise WorkflowError(msg)
             pid = r.json()["prompt_id"]
             if on_queued:
                 await on_queued(pid)
@@ -264,17 +351,27 @@ async def run(
                 st = h.get("status", {})
                 if st.get("status_str") == "error":
                     msgs = [m[1].get("exception_message", "") for m in st.get("messages", []) if m[0] == "execution_error"]
-                    raise ComfyError(f"Erreur ComfyUI : {(msgs or ['exécution interrompue'])[0]}"[:400])
+                    raw = (msgs or ["exécution interrompue"])[0]
+                    blob = raw.lower()
+                    if any(k in blob for k in ("out of memory", "cuda out of memory", "oom", "vram", "ran out of memory", "could not allocate", "not enough memory")):
+                        raise GenerationError(
+                            f"VRAM insuffisante pour ce rendu ({raw[:200]}). Réduisez la résolution, choisissez FLUX schnell "
+                            "ou SDXL pour les photos, ou LTX-Video pour les vidéos (Moteurs → Configurer)."
+                        )
+                    raise GenerationError(f"Erreur de génération ComfyUI : {raw}"[:400])
                 f = _first_file(h.get("outputs", {}), video)
                 if not f:
-                    raise ComfyError("ComfyUI n'a produit aucun fichier")
+                    raise GenerationError("ComfyUI n'a produit aucun fichier — le workflow a échoué sans erreur explicite.")
                 fr = await c.get(f"{base}/view", params={"filename": f["filename"], "subfolder": f.get("subfolder", ""), "type": f.get("type", "output")})
                 fr.raise_for_status()
                 mime = fr.headers.get("content-type", "video/mp4" if video else "image/png").split(";")[0]
                 return fr.content, mime
-            raise ComfyError("Délai de rendu local dépassé")
+            raise GenerationError(
+                "Délai de rendu local dépassé — la carte graphique est peut-être trop lente ou a manqué de VRAM. "
+                "Réduisez la résolution ou la durée, puis réessayez."
+            )
     except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
-        raise ComfyError(unreachable(s)) from exc
+        raise ComfyUnreachable(unreachable(s)) from exc
 
 
 async def generate_image(
@@ -282,6 +379,7 @@ async def generate_image(
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
 ) -> tuple[bytes, str]:
     s = await get_settings()
+    await verify_ready(s, video=False)
     w, h = IMAGE_SIZES.get(aspect, IMAGE_SIZES["1:1"])
     seed = random.randint(1, 2**31)
     image = None
@@ -290,7 +388,7 @@ async def generate_image(
             async with _client() as c:
                 image = await _upload(c, s["base_url"], *ref)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
-            raise ComfyError(unreachable(s)) from exc
+            raise ComfyUnreachable(unreachable(s)) from exc
     if s["custom_image_workflow"].strip():
         wf = _fill(json.loads(s["custom_image_workflow"]), {"PROMPT": prompt, "NEGATIVE": NEGATIVE, "WIDTH": w, "HEIGHT": h, "SEED": seed, "IMAGE": image or ""})
     else:
@@ -303,6 +401,7 @@ async def generate_video(
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
 ) -> tuple[bytes, str]:
     s = await get_settings()
+    await verify_ready(s, video=True)
     w, h = VIDEO_SIZES.get(aspect, VIDEO_SIZES["16:9"])
     length = VIDEO_LENGTHS.get(duration, 73)
     seed = random.randint(1, 2**31)
@@ -312,7 +411,7 @@ async def generate_video(
             async with _client() as c:
                 image = await _upload(c, s["base_url"], *ref)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
-            raise ComfyError(unreachable(s)) from exc
+            raise ComfyUnreachable(unreachable(s)) from exc
     if s["custom_video_workflow"].strip():
         wf = _fill(json.loads(s["custom_video_workflow"]), {"PROMPT": prompt, "NEGATIVE": NEGATIVE, "WIDTH": w, "HEIGHT": h, "SEED": seed, "LENGTH": length, "IMAGE": image or ""})
     else:

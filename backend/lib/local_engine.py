@@ -9,6 +9,18 @@ from lib.db import db
 DEFAULTS = {"kind": "ollama", "base_url": "http://localhost:11434", "model": "qwen2.5-coder:14b", "num_ctx": 16384}
 
 
+class LocalEngineError(RuntimeError):
+    """Base error for the local text engine (Ollama / LM Studio / OpenAI-compatible)."""
+
+
+class EngineUnreachable(LocalEngineError):
+    """The local text engine server is not running or not reachable."""
+
+
+class ModelMissing(LocalEngineError):
+    """The configured text model is not installed on the server."""
+
+
 async def get_settings() -> dict:
     doc = await db.settings.find_one({"id": "local_engine"}, {"_id": 0, "id": 0}) or {}
     return {**DEFAULTS, **doc}
@@ -26,6 +38,18 @@ def _unreachable(s: dict) -> str:
         f"Moteur local injoignable à {s['base_url']}. Lancez {app} sur la machine qui exécute LocalAiStudio, "
         f"vérifiez que le modèle « {s['model']} » est installé, puis relancez."
     )
+
+
+def _engine_http_error(s: dict, status: int, body: str) -> LocalEngineError:
+    """Categorise an HTTP error from the local engine: a missing model vs a generic server error."""
+    blob = body.lower()
+    if status == 404 or "not found" in blob or "try pulling" in blob or "model not found" in blob:
+        cmd = f"ollama pull {s['model']}" if s["kind"] == "ollama" else "chargez-le dans LM Studio"
+        return ModelMissing(
+            f"Modèle de texte « {s['model']} » absent du serveur. Téléchargez-le : {cmd}, "
+            "ou choisissez un modèle présent dans Moteurs → Configurer."
+        )
+    return LocalEngineError(f"Moteur local : erreur {status} — {body[:200]}")
 
 
 async def list_models(s: dict) -> list[str]:
@@ -73,7 +97,7 @@ async def complete_local(
                         "options": {"num_ctx": s["num_ctx"], "num_predict": max_tokens, "temperature": 0.6}}
                 async with c.stream("POST", f"{s['base_url']}/api/chat", json=body) as r:
                     if r.status_code >= 400:
-                        raise RuntimeError(f"Moteur local : erreur {r.status_code} — {(await r.aread()).decode()[:200]}")
+                        raise _engine_http_error(s, r.status_code, (await r.aread()).decode()[:200])
                     async for line in r.aiter_lines():
                         if not line.strip():
                             continue
@@ -85,7 +109,7 @@ async def complete_local(
                 body = {"model": s["model"], "messages": messages, "stream": True, "max_tokens": max_tokens, "temperature": 0.6}
                 async with c.stream("POST", f"{s['base_url']}/chat/completions", json=body) as r:
                     if r.status_code >= 400:
-                        raise RuntimeError(f"Moteur local : erreur {r.status_code} — {(await r.aread()).decode()[:200]}")
+                        raise _engine_http_error(s, r.status_code, (await r.aread()).decode()[:200])
                     async for line in r.aiter_lines():
                         if not line.startswith("data:"):
                             continue
@@ -95,5 +119,5 @@ async def complete_local(
                         delta = json.loads(data)["choices"][0].get("delta", {})
                         await push(delta.get("content") or "")
     except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
-        raise RuntimeError(_unreachable(s)) from exc
+        raise EngineUnreachable(_unreachable(s)) from exc
     return "".join(out)

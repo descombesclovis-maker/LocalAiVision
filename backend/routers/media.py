@@ -90,6 +90,7 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
 
     await db.media.update_one({"id": mid}, {"$set": {"progress_label": "En file d'attente GPU", "updated_at": now_iso()}})
     try:
+        await comfy.verify_ready(await comfy.get_settings(), video=False)
         async with gpu_queue.slot(mid, "photo", "ComfyUI", prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Rendu local sur votre GPU…", "updated_at": now_iso()}})
             data, mime = await comfy.generate_image(prompt, aspect, (base64.b64decode(ref), ref_mime) if ref else None, progress, queued)
@@ -172,6 +173,7 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
 
     await db.media.update_one({"id": mid}, {"$set": {"progress_label": "En file d'attente GPU", "updated_at": now_iso()}})
     try:
+        await comfy.verify_ready(await comfy.get_settings(), video=True)
         async with gpu_queue.slot(mid, "video", "ComfyUI", body.prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "updated_at": now_iso()}})
             data, mime = await comfy.generate_video(body.prompt, body.duration, body.aspect_ratio, ref, progress, queued)

@@ -7,7 +7,7 @@ import uuid
 from typing import Awaitable, Callable, Optional
 
 from lib import comfy
-from lib.local_engine import complete_local
+from lib.local_engine import LocalEngineError, complete_local
 try:  # paid fallback engines; optional when running 100 % local
     from emergentintegrations.llm.chat import ImageContent, LlmChat, StreamDone, TextDelta, UserMessage
 except ImportError:  # pragma: no cover
@@ -123,6 +123,9 @@ def apply_edit(content: str, search: str, replace: str) -> Optional[str]:
 
 
 def friendly_error(exc: Exception) -> str:
+    # Categorised ComfyUI / local-engine errors already carry an actionable French message — surface it directly.
+    if isinstance(exc, (comfy.ComfyError, LocalEngineError)):
+        return str(exc)[:400]
     s = str(exc)
     if "budget" in s.lower() or "insufficient" in s.lower() or " 402" in s:
         return "Solde de la clé universelle insuffisant. Rechargez-le (Profil → Clé universelle → Ajouter du solde) puis cliquez sur « Reprendre »."
