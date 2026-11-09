@@ -34,7 +34,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 # -- persistent API key --------------------------------------------------------
 
 _KEY_FILE = Path(__file__).resolve().parent.parent / ".api_key"
-COOKIE_NAME = "las_session"
+# Overridable so two editions on the same host (e.g. installed + V2-E on 127.0.0.1) keep separate sessions.
+COOKIE_NAME = os.environ.get("LAS_SESSION_COOKIE", "").strip() or "las_session"
 
 
 def _load_or_create_key() -> str:

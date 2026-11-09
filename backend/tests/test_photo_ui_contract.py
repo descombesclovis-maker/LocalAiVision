@@ -33,3 +33,26 @@ def test_image_model_status_route_is_registered_before_the_generic_presets_route
     engines = _read("backend/routers/engines.py")
     assert '"/settings/comfyui/image-models"' in engines
     assert engines.index("/settings/comfyui/image-models") < engines.index("/settings/comfyui/presets")
+
+
+def test_session_cookie_name_is_overridable_per_edition():
+    """Two editions on 127.0.0.1 must not overwrite each other's session cookie."""
+    import os
+    import subprocess
+    import sys
+
+    def cookie_for(env_value):
+        env = dict(os.environ)
+        env.pop("LAS_SESSION_COOKIE", None)
+        if env_value is not None:
+            env["LAS_SESSION_COOKIE"] = env_value
+        out = subprocess.run(
+            [sys.executable, "-c", "from lib import auth; print(auth.COOKIE_NAME)"],
+            cwd=str(ROOT / "backend"), env=env, capture_output=True, text=True, timeout=120,
+        )
+        assert out.returncode == 0, out.stderr[-300:]
+        return out.stdout.strip().splitlines()[-1]
+
+    assert cookie_for(None) == "las_session"  # default unchanged
+    assert cookie_for("") == "las_session"
+    assert cookie_for("las_session_v2e") == "las_session_v2e"
