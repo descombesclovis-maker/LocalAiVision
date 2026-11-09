@@ -1,40 +1,24 @@
-# LocalAiStudio NextGen — branche de référence
+# LocalAiStudio NextGen — version Claude Code avant fusion
 
-**Branche dédiée :** `nextgen/claude-original`
+**Branche unique de travail : `nextgen/claude-original`**
 
-## État actuel : IMPORT DU CODE NEXTGEN À FINALISER
+Ce dépôt contient désormais **le code source original NextGen avant fusion**, React/TypeScript + FastAPI, scripts Windows et plugin NSIS. Les fichiers ont été importés depuis l'archive partagée dans ChatGPT, sans remplacer le moteur par celui de LocalAiStudio historique.
 
-Cette branche est volontairement isolée du code historique de `main`. Elle ne doit pas être confondue avec les branches `codex/studio-*`.
+## Références principales
+- Backend : `backend/server.py`, `backend/lib/`
+- Frontend : `frontend/package.json`, `frontend/src/`
+- Installation Windows : `install.ps1`, `start-localaistudio.bat`, `installer/`
+- Spécifications : `SPEC.md`, `INSTALLATION.md`
+- Suivi : `docs/localaivision-nextgen/PROGRESS.md`
 
-Le snapshot original **NextGen avant fusion** est disponible dans l’archive nommée :
-`LocalAiStudio-NextGen-Source-Avant-Fusion-Pour-Manyfold.zip`.
-C’est le code React + FastAPI remis dans la conversation ChatGPT. **Il ne contient pas nécessairement les dernières corrections 1.1-a et 1.2 de Claude Code** réalisées après la création de ce ZIP.
+## Important : limites de cette archive
+La copie source est **antérieure à la fusion**, mais elle n'intègre pas nécessairement les sous-lots **1.1-a, 1.2 et 1.3** exécutés ensuite dans l'environnement Claude Code. Ces corrections devront être récupérées et comparées séparément. La présence de scripts et workflows ne prouve pas une génération fonctionnelle sur Windows RTX 3060.
 
-**IMPORTANT : le code complet n’a pas encore été importé dans cette branche.** N’effectue pas de développement ni d’audit des moteurs sur cette branche tant que `backend/server.py` et `frontend/package.json` ne sont pas présents dans le dépôt distant.
+Ne pas importer le code de `main` ou des branches `codex/studio-*` comme s'il s'agissait de NextGen. Ne pas réutiliser l'audit V0 antérieur, puisqu'il visait `main`.
 
-## Procédure d’import contrôlée
-
-1. Fournir à Manyfold l’archive NextGen originale mentionnée ci-dessus (ne pas utiliser le ZIP « Fusion »).
-2. Se placer sur la branche `nextgen/claude-original` et vérifier `git status`.
-3. Exécuter `python scripts/import_nextgen_archive.py /chemin/vers/LocalAiStudio-NextGen-Source-Avant-Fusion-Pour-Manyfold.zip` depuis la racine.
-4. Vérifier l’absence de secrets, de modèles téléchargés, d’environnements locaux et d’écrasements de fichiers existants.
-5. Vérifier `backend/server.py`, `frontend/package.json`, `frontend/src/App.tsx`, `INSTALLATION.md` et les scripts Windows.
-6. Lancer les tests ciblés **sans télécharger de modèles**.
-7. Faire un commit uniquement après validation, pousser la branche, vérifier les fichiers sur GitHub.
-8. Si une archive plus récente de Claude Code devient disponible, l’intégrer dans une **révision séparée** avec comparaison des fichiers et sans perte des protections.
-
-## Structure attendue après import
-```text
-backend/             # FastAPI, pipelines Web/Vision, ComfyUI
-frontend/            # React, TypeScript, Vite
-installer/           # Windows, scripts installateurs
-docs/                # Suivi et provenance
-scripts/             # Outils d'import et diagnostic
-install.ps1
-start-localaistudio.bat
-INSTALLATION.md
-SPEC.md
-```
-
-## Politique de sécurité
-Aucun `.env`, clé API, modèle IA, création multimédia ou dossier utilisateur dans Git. **Ne déployez pas publiquement** cette version non validée, et ne présumez pas qu’elle inclut le verrou d’accès/isolement développés plus tard dans Claude Code.
+## Consignes pour Manyfold
+1. Basculer explicitement sur `nextgen/claude-original`, vérifier `git status` et l'origine distante.
+2. Auditer ce code **sans suppression ni téléchargement de modèles** et sans déploiement cloud.
+3. Créer une branche de travail basée sur NextGen pour chaque sous-lot, puis ouvrir une PR vers NextGen (pas vers `main`).
+4. Tester les modifications ciblées. Documenter ce qui n'a pas pu être testé sur GPU local Windows.
+5. Préserver les modèles, médias, projets, clés utilisateur et configurations.
