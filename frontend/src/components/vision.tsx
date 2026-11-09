@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useVideoModels } from "@/lib/hooks";
 import { apiPost } from "@/lib/api";
+import { useComfy, useImageModels } from "@/lib/companyHooks";
 import type { ImageRequest, Media, VideoRequest } from "@/lib/types";
 import { mediaFileUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,18 @@ export function PhotoStudio() {
   const [ref, setRef] = useState<string | null>(null);
   const { data } = useMedia("image");
   const { image } = useMediaActions();
+  const { data: models } = useImageModels();
+  const { data: comfyCfg } = useComfy();
+  const [comfyPreset, setComfyPreset] = useState<string | null>(null);
+  // Only installed presets are selectable. A null state (ComfyUI cannot list models) is kept, not treated as missing.
+  const candidates = (models ?? []).filter((m) => m.installed !== false);
+  const noneInstalled = !!models && models.length > 0 && models.every((m) => m.installed === false);
+  const savedKey = comfyCfg?.image_preset ?? null;
+  const choice =
+    (comfyPreset && candidates.some((m) => m.key === comfyPreset) ? comfyPreset : null) ??
+    candidates.find((m) => m.key === savedKey)?.key ??
+    candidates[0]?.key ??
+    savedKey;
   const mine = (data ?? []).filter((m) => m.source === "photo").slice(0, 12);
   return (
     <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
@@ -106,6 +119,41 @@ export function PhotoStudio() {
           <ModelCard testid="photo-model-nano-banana" active={model === "nano-banana"} onClick={() => setModel("nano-banana")} title="Nano Banana" tagline="Secours en ligne, rapide" badge="Payant" />
           <ModelCard testid="photo-model-nano-banana-pro" active={model === "nano-banana-pro"} onClick={() => setModel("nano-banana-pro")} title="Nano Banana Pro" tagline="Secours en ligne, qualité max" badge="Payant" />
         </div>
+        {model === "comfy" && (
+          <div data-testid="photo-preset-picker" className="space-y-2">
+            <Label className="block text-xs text-slate-400">Modèle ComfyUI</Label>
+            {(models ?? []).map((m) => {
+              const missing = m.installed === false;
+              const active = choice === m.key;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  data-testid={`photo-preset-${m.key}`}
+                  aria-pressed={active}
+                  disabled={missing}
+                  onClick={() => setComfyPreset(m.key)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition",
+                    active ? "border-violet-400 bg-violet-500/15 text-white" : "border-white/10 text-slate-300 hover:bg-white/5",
+                    missing && "cursor-not-allowed opacity-40",
+                  )}
+                >
+                  <span>{m.label}</span>
+                  <span className="text-[11px] text-slate-400">
+                    {m.installed === true ? "installé" : m.installed === false ? "non installé" : "vérification…"}
+                  </span>
+                </button>
+              );
+            })}
+            {!models && <p className="text-xs text-slate-400">Chargement des modèles…</p>}
+            {noneInstalled && (
+              <p data-testid="photo-no-model" className="text-xs text-amber-300">
+                Aucun modèle image installé dans ComfyUI. Lancez download-models.ps1, puis redémarrez ComfyUI.
+              </p>
+            )}
+          </div>
+        )}
         <textarea data-testid="photo-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={5} placeholder="Ex. Flacon de parfum ambré sur pierre volcanique, lumière rasante dorée, macro éditoriale…" className={cn(field, "resize-none")} />
         <div className="flex flex-wrap gap-2">
           {(["1:1", "4:5", "16:9", "9:16"] as const).map((a) => <Chip key={a} testid={`photo-aspect-${a}`} active={aspect === a} onClick={() => setAspect(a)}>{a}</Chip>)}
@@ -114,7 +162,7 @@ export function PhotoStudio() {
           <Label className="mb-2 block text-xs text-slate-400">Transformer une image (facultatif)</Label>
           <RefPicker value={ref} onChange={setRef} testid="photo-ref" />
         </div>
-        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-photo-btn" disabled={prompt.trim().length < 3 || image.isPending} onClick={() => image.mutate({ prompt, model, aspect_ratio: aspect, ref_media_id: ref }, { onSuccess: () => toast.success("Photo en cours de création") })}>
+        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-photo-btn" disabled={prompt.trim().length < 3 || image.isPending || (model === "comfy" && noneInstalled)} onClick={() => image.mutate({ prompt, model, aspect_ratio: aspect, ref_media_id: ref, comfy_preset: model === "comfy" ? choice : null }, { onSuccess: () => toast.success("Photo en cours de création") })}>
           <Sparkles className="size-4" /> {ref ? "Transformer l'image" : "Générer la photo"}
         </FxButton>
       </div>

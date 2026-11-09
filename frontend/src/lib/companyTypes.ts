@@ -82,3 +82,5 @@ export interface QueueState { items: QueueItem[]; total_eta_s: number }
 export interface DiagCheck { key: string; label: string; status: "ok" | "warn" | "error" | "info"; detail: string; fix: string; cmd: string }
 export interface Diagnostic { checks: DiagCheck[]; ok: number; warn: number; error: number; online: boolean; checked_at: string }
 export interface KitInfo { installer_available: boolean; installer_size_mb: number }
+
+export interface ImageModelStatus { key: string; label: string; checkpoint: string; installed: boolean | null }

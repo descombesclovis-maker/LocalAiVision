@@ -82,7 +82,7 @@ async def delete_media(mid: str):
     return {"ok": True}
 
 
-async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_mime: str) -> None:
+async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_mime: str, comfy_preset: str | None = None) -> None:
     async def progress(label: str) -> None:
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
 
@@ -93,11 +93,11 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
     try:
         # V1-C: verify_ready is called once here (in media.py) before the GPU slot.
         # generate_image() no longer calls it, eliminating the redundant second check.
-        s = await comfy.get_settings()
+        s = comfy.image_settings(await comfy.get_settings(), comfy_preset)
         await comfy.verify_ready(s, video=False)
         async with gpu_queue.slot(mid, "photo", "ComfyUI", prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Rendu local sur votre GPU…", "updated_at": now_iso()}})
-            data, mime = await comfy.generate_image(prompt, aspect, (base64.b64decode(ref), ref_mime) if ref else None, progress, queued)
+            data, mime = await comfy.generate_image(prompt, aspect, (base64.b64decode(ref), ref_mime) if ref else None, progress, queued, preset=comfy_preset)
         d = await db.media.find_one({"id": mid})
         if d and d["status"] != "cancelled":
             await finish_media(mid, data, mime)
@@ -117,9 +117,9 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": _err(exc), "progress_label": "Échec", "updated_at": now_iso()}})
 
 
-async def _run_image(mid: str, prompt: str, model: str, ref: str | None, aspect: str = "1:1", ref_mime: str = "image/png") -> None:
+async def _run_image(mid: str, prompt: str, model: str, ref: str | None, aspect: str = "1:1", ref_mime: str = "image/png", comfy_preset: str | None = None) -> None:
     if model == "comfy":
-        return await _comfy_image(mid, prompt, ref, aspect, ref_mime)
+        return await _comfy_image(mid, prompt, ref, aspect, ref_mime, comfy_preset)
     await db.media.update_one({"id": mid}, {"$set": {"status": "running", "progress_label": "Génération en cours…", "updated_at": now_iso()}})
     try:
         data, mime = await generate_image(prompt, model, ref, aspect=aspect, ref_mime=ref_mime)
@@ -139,7 +139,7 @@ async def create_image(body: ImageRequest):
         if ref:
             full = f"Transform the provided image: {body.prompt}. Keep composition quality. Aspect ratio {body.aspect_ratio}."
     m = await create_media("image", "photo", body.prompt, "local-comfyui" if body.model == "comfy" else body.model, aspect_ratio=body.aspect_ratio)
-    spawn(_run_image(m["id"], full, body.model, ref, body.aspect_ratio, ref_mime or "image/png"))
+    spawn(_run_image(m["id"], full, body.model, ref, body.aspect_ratio, ref_mime or "image/png", body.comfy_preset))
     return _out(m)
 
 

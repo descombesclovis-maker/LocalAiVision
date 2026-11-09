@@ -50,6 +50,12 @@ async def test_comfy(body: ComfySettings):
     return await comfy.test(body.model_dump())
 
 
+@router.get("/settings/comfyui/image-models")
+async def image_models():
+    """Installed state of each image preset (True/False, None = ComfyUI list unavailable)."""
+    return await comfy.image_model_status(await comfy.get_settings())
+
+
 @router.get("/settings/comfyui/presets", response_model=EnginePresets)
 async def presets():
     return {

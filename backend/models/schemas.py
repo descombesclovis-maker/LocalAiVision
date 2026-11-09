@@ -143,6 +143,7 @@ class ImageRequest(BaseModel):
     model: Literal["comfy", "nano-banana", "nano-banana-pro"] = "comfy"
     aspect_ratio: Literal["1:1", "16:9", "9:16", "4:5"] = "1:1"
     ref_media_id: Optional[str] = None
+    comfy_preset: Optional[Literal["flux-dev", "flux-schnell", "sdxl"]] = None
 
 
 class VideoRequest(BaseModel):

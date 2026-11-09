@@ -5,6 +5,7 @@ Built-in workflows use ComfyUI core nodes. Users may also paste their own workfl
 """
 import asyncio
 import json
+import logging
 import random
 import re
 import time
@@ -14,6 +15,8 @@ from typing import Any, Awaitable, Callable, Optional
 import httpx
 
 from lib.db import db
+
+_log = logging.getLogger("localaistudio.comfy")
 
 IMAGE_PRESETS = {
     "flux-dev": {"label": "FLUX.1 dev (fp8)", "checkpoint": "flux1-dev-fp8.safetensors"},
@@ -428,6 +431,69 @@ def _first_file(outputs: dict, video: bool) -> Optional[dict]:
     return files[0] if files else None
 
 
+def image_settings(s: dict, preset: Optional[str]) -> dict:
+    """Return settings with a per-request image preset applied (None keeps the saved settings)."""
+    if not preset:
+        return s
+    if preset not in IMAGE_PRESETS:
+        raise ValueError(f"Preset image inconnu : {preset}")
+    return {**s, "image_preset": preset, "image_checkpoint": IMAGE_PRESETS[preset]["checkpoint"]}
+
+
+async def image_model_status(s: dict) -> list[dict]:
+    """Installed state of each image preset: True/False, or None when ComfyUI cannot list its checkpoints."""
+    try:
+        async with _client(10) as c:
+            ckpts = await _choices(c, s["base_url"], "CheckpointLoaderSimple", "ckpt_name", {})
+    except Exception:  # noqa: BLE001 — status is informative, it must never break the page
+        ckpts = None
+    return [
+        {
+            "key": key,
+            "label": v["label"],
+            "checkpoint": v["checkpoint"],
+            "installed": None if ckpts is None else v["checkpoint"] in ckpts,
+        }
+        for key, v in IMAGE_PRESETS.items()
+    ]
+
+
+def progress_from_ws(msg: Any, pid: str, elapsed: int) -> Optional[str]:
+    """Turn one ComfyUI websocket message into a user-facing label; None when it is not ours or not a step."""
+    if not isinstance(msg, dict) or msg.get("type") != "progress":
+        return None
+    d = msg.get("data") or {}
+    if d.get("prompt_id", pid) != pid:
+        return None
+    value, total = d.get("value"), d.get("max")
+    if not isinstance(value, int) or not isinstance(total, int) or not 0 <= value <= total or total <= 0:
+        return None
+    return f"Rendu local sur votre GPU · étape {value}/{total} · {elapsed}s"
+
+
+async def _ws_progress(base: str, client_id: str, pid: str, progress: Progress, started: float, live: dict) -> None:
+    """Stream ComfyUI step progress. Best effort: any failure leaves the elapsed-time labels in charge."""
+    try:
+        import websockets  # optional at runtime; only needed for step labels
+    except ImportError:
+        _log.warning("websockets absent : progression par étapes désactivée (pip install -r requirements.txt)")
+        return
+    url = re.sub(r"^http", "ws", base) + f"/ws?clientId={client_id}"
+    try:
+        async with websockets.connect(url, max_size=None, open_timeout=5) as ws:
+            async for raw in ws:
+                if isinstance(raw, bytes) or progress is None:
+                    continue  # binary frames are preview images
+                label = progress_from_ws(json.loads(raw), pid, int(time.monotonic() - started))
+                if label:
+                    live["steps"] = True
+                    await progress(label)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        _log.info("ComfyUI websocket progress unavailable: %s", exc)
+
+
 async def run(
     workflow: dict, video: bool, progress: Progress = None, on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
     s: Optional[dict] = None,
@@ -435,9 +501,12 @@ async def run(
     s = s or await get_settings()
     base = s["base_url"]
     started = time.monotonic()
+    client_id = uuid.uuid4().hex  # unique per render: ComfyUI routes this client's websocket events
+    ws_task: Optional[asyncio.Task] = None
+    live: dict = {"steps": False}
     try:
         async with _client(60) as c:
-            r = await c.post(f"{base}/prompt", json={"prompt": workflow, "client_id": "localaistudio"})
+            r = await c.post(f"{base}/prompt", json={"prompt": workflow, "client_id": client_id})
             if r.status_code >= 400:
                 detail = r.json() if "json" in r.headers.get("content-type", "") else r.text
                 err = detail.get("error", {}).get("message") if isinstance(detail, dict) else str(detail)
@@ -456,13 +525,14 @@ async def run(
             pid = r.json()["prompt_id"]
             if on_queued:
                 await on_queued(pid)
+            ws_task = asyncio.create_task(_ws_progress(base, client_id, pid, progress, started, live))
             limit = 3600 if video else 900
             while time.monotonic() - started < limit:
                 await asyncio.sleep(2)
                 h = (await c.get(f"{base}/history/{pid}")).json().get(pid)
                 elapsed = int(time.monotonic() - started)
                 if not h:
-                    if progress:
+                    if progress and not live["steps"]:
                         await progress(f"Rendu local sur votre GPU · {elapsed}s")
                     continue
                 st = h.get("status", {})
@@ -489,11 +559,15 @@ async def run(
             )
     except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
         raise ComfyUnreachable(unreachable(s)) from exc
+    finally:
+        if ws_task is not None:
+            ws_task.cancel()
 
 
 async def generate_image(
     prompt: str, aspect: str = "1:1", ref: Optional[tuple[bytes, str]] = None, progress: Progress = None,
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
+    preset: Optional[str] = None,
 ) -> tuple[bytes, str]:
     """Generate an image via ComfyUI.
 
@@ -505,7 +579,7 @@ async def generate_image(
     Direct callers that bypass media.py (e.g. tests, CLI tools) must call verify_ready()
     themselves before invoking this function.
     """
-    s = await get_settings()
+    s = image_settings(await get_settings(), preset)
     w, h = IMAGE_SIZES.get(aspect, IMAGE_SIZES["1:1"])
     seed = random.randint(1, 2**31)
     image = None

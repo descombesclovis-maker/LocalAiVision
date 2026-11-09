@@ -595,3 +595,33 @@ Hypothèses techniques (non démontrées) :
 2. Corriger la mesure de durée (préparation LLM avant rendu, déchargement d'Ollama), puis relancer B et C.
 3. Tester la composition régionale (sans téléchargement) sur le cas spatial, avec au moins 8 seeds.
 4. Décider du modèle par défaut après ces résultats ; FLUX Schnell est un candidat crédible pour la mise en page, pas encore un choix.
+
+## V2-E — Étape 1 : interface Photo entièrement utilisable (validée)
+
+Parcours testé dans **Chrome, fenêtre normale** (pilotage Playwright via protocole de débogage, pas la prévisualisation 83 px), backend de test `127.0.0.1:8002`, Vite `127.0.0.1:3001`, base `localaistudio_nextgen_original`, ComfyUI `127.0.0.1:8188`.
+
+Validé :
+- **Session** : première fenêtre OK (cookie `HttpOnly`) ; sans cookie → 401 ; fenêtre neuve après consommation du jeton → message « Session non ouverte » (avant : page vide sans explication).
+- **Sélection du modèle** : sélecteur dans Studio (FLUX.1 dev grisé « non installé », FLUX.1 schnell et SDXL « installé »). Le choix est transmis au rendu (`comfy_preset`) ; l'historique ComfyUI confirme le checkpoint réellement utilisé (`flux1-schnell-fp8` 4 étapes ; `sd_xl_base_1.0` 30 étapes `dpmpp_2m`).
+- **Génération** : clic sur « Générer la photo » → `POST /api/media/images` 200 → rendu terminé (FLUX Schnell 23,0 s, SDXL 29,0 s, incluant le chargement).
+- **Progression réelle** : « étape 4/30 … 29/30 » en direct depuis le WebSocket ComfyUI (avant : seulement le temps écoulé).
+- **Résultat et bibliothèque** : carte de résultat, bibliothèque avec les 5 photos, téléchargement d'un PNG valide (1,4 à 1,7 Mo).
+
+Cause du blocage précédent : l'outil de navigation limitait la fenêtre à 83 px, ce qui faisait tomber les clics hors du bouton. En fenêtre normale, le clic déclenche bien la requête : **ce n'était pas un défaut de l'application**.
+
+Corrections apportées (commit de l'étape) :
+- `comfy.py` : `image_settings()` (preset par requête, validé), `image_model_status()`, progression WebSocket (`progress_from_ws`, `_ws_progress`) avec repli sur le temps écoulé ; `client_id` unique par rendu ; avertissement journalisé si `websockets` est absent.
+- `routers/media.py`, `models/schemas.py` : champ `comfy_preset` (Literal, valeurs inconnues rejetées).
+- `routers/engines.py` : `GET /api/settings/comfyui/image-models` (installé / non installé / inconnu).
+- Frontend : sélecteur `photo-preset-picker`, bouton bloqué seulement si aucun modèle n'est installé, `main.tsx` affiche « Session non ouverte » seulement sur un refus explicite (401/403).
+- `requirements.txt` : `websockets==17.4`.
+
+Tests : 421 passés (backend), dont 16 ciblés incluant un vrai test WebSocket contre un serveur local ; `tsc` sans erreur.
+
+Limites et non-validé :
+- La progression par étapes a été observée sur SDXL ; FLUX Schnell n'a pas été relancé après la correction (même mécanisme).
+- La tuile de bibliothèque n'indique pas le modèle utilisé (seul l'historique ComfyUI le prouve).
+- Le venv du dépôt `backend/.venv` ne contient pas `uvicorn` (présent dans `requirements.txt`) : l'installation Windows n'est pas complète sur cette machine (voir Mission 2).
+- Le lanceur officiel utilise les ports 8001/3000, occupés par l'édition installée : non testé tel quel.
+- Trois photos de test ont été ajoutées à la base `localaistudio_nextgen_original` (aucune photo existante modifiée ou supprimée).
+- Les erreurs 403 de polices dans la console sont dues à la jonction `node_modules` de l'environnement de test, pas au produit.
