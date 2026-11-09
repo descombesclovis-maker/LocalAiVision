@@ -269,7 +269,7 @@ les API protégées ou lire les cookies.
 
 ## V1-C — Fiabilisation des générations ComfyUI (réalisé)
 
-Commit : à venir sur `nextgen/claude-code`.
+Commit : `4124cef` sur `nextgen/claude-code`.
 
 ### Objectif
 
@@ -352,7 +352,7 @@ LoRA ou paramètres de qualité. `DEFAULTS`, `IMAGE_PRESETS`, `VIDEO_PRESETS`, `
 
 ## V1-D — Dernières corrections de fiabilité ComfyUI (réalisé)
 
-Base : `4124cef` (V1-C). Commit dédié V1-D sur `nextgen/claude-code`.
+Base : `4124cef` (V1-C). Commit V1-D : `294002d`, poussé et confirmé sur `nextgen/claude-code`.
 
 ### Corrections
 
@@ -394,10 +394,77 @@ Fichiers : `backend/lib/comfy.py`, `backend/lib/pipeline.py`,
 `backend/tests/test_comfy_v1d.py`, adaptations de signatures des mocks dans
 `test_comfy_reliability.py` / `test_model_reliability.py`, ce journal.
 
-## Prochaine étape recommandée
+## V2-A — Compréhension et préparation indépendante des prompts (réalisé)
 
-**V2-A — Compréhension et préparation indépendante des prompts**, uniquement après validation
-et push de V1-D : LLM entièrement local optionnel, repli exact sur le prompt original,
-STRICT/ÉQUILIBRÉ/CRÉATIF, adaptateurs photo/T2V/I2V/retouche/publicité et comparaison explicite.
-Ne pas changer les paramètres ou les workflows ; ne pas activer automatiquement le nouveau moteur
-avant validation comparative sur RTX 3060 12 Go.
+Démarré **après validation et push de V1-D `294002d`**, confirmé sur GitHub.
+Commit dédié V2-A sur `nextgen/claude-code`. Documentation : [PROMPT_PREPARATION.md](PROMPT_PREPARATION.md).
+
+### Module et garanties
+
+- Package central `backend/lib/prompt_preparation/`, indépendant des générateurs et sans I/O
+  à l'import. Aucune intégration active dans les routes existantes ; `enabled=False` par défaut.
+- Analyse JSON par le LLM **entièrement local déjà configuré** (Ollama / OpenAI-compatible local),
+  une requête au maximum, pas de listage préalable/retry/téléchargement/fallback payant.
+  Endpoints loopback seulement, proxies et redirections désactivés, validation des URLs/ports.
+- Sujet, attributs, environnement, actions, cadrage, lumière, obligations, interdictions, détails
+  à conserver et style ; également relations spatiales, mouvements et identité.
+  Chaque élément cite le texte exact, sa phrase source et ses offsets Unicode.
+- Original intégral conservé. Analyse inventée/non conforme, LLM absent ou timeout : repli sur
+  l'original exact, sans troncature. Annulation de l'appelant propagée.
+- Trois modes STRICT/ÉQUILIBRÉ/CRÉATIF. ÉQUILIBRÉ recommandé mais **pas activé automatiquement**.
+  Les politiques n'autorisent jamais de remplacer une exigence explicite.
+- Adaptateurs photo, T2V, I2V, retouche et publicité : priorités d'analyse et instructions fixes
+  adaptées à la tâche. Aucune réécriture visuelle libre du LLM n'entre dans le candidat.
+- Les citations restent dans les diagnostics et ne sont **pas réinjectées comme consignes positives** :
+  même un extrait exact peut perdre la portée d'une négation/titre de liste/exception distant.
+  Le texte préparé garde tout l'original une seule fois, puis des politiques d'exécution non visuelles.
+- Contradictions sourcées : `needs_clarification`, candidat original, aucune résolution automatique.
+  Retouche sans masque, identité, positions/mouvements non contrôlés : avertissements honnêtes.
+  Tâche ou masque non pris en charge : `unsupported`, sans tentative d'inventer un workflow.
+- `compare_preparations()` conserve toujours l'ancien prompt sélectionné ; API/CLI JSON pour
+  afficher original/candidat/analyse/diagnostics. Aucun rendu déclenché, aucune création modifiée.
+
+### Tests
+
+Depuis `backend` (configuration pytest/xdist inchangée) :
+
+- `.venv/Scripts/python.exe -m pytest tests/test_prompt_preparation.py tests/test_prompt_local_provider.py -q`
+  : **175 réussis, 0 échec** (72 moteur/corpus/non-régression, 103 fournisseur local).
+- `.venv/Scripts/python.exe -m pytest tests/ -q` : **334 réussis, 0 échec**.
+- Corpus de 9 demandes, chacune dans les 3 modes : photo détaillée, couleurs multi-objets,
+  positions, caméra fixe/mouvements complexes, chorégraphie caméra demandée, identité I2V,
+  retouche localisée, publicité/texte exact, contradictions. Cas adversariaux de négation,
+  citations inventées, paramètres non autorisés, URL distante, erreurs réseau et désactivation.
+- Non-régression du vrai constructeur de prompt photo existant et comparaison conservant l'ancien
+  choix ; CLI UTF-8/CRLF sans DB ; compilation Python réussie.
+- Erreurs intermédiaires de collecte/syntaxe pendant les éditions corrigées ; aucun échec final.
+  Avertissements préexistants pytest-asyncio/Starlette. Black non installé dans le venv : pas
+  d'installation ajoutée ; cette disponibilité n'affecte pas les tests applicatifs.
+
+### Fichiers
+
+- `backend/lib/prompt_preparation/{__init__,__main__,types,engine,adapters,local_llm}.py`.
+- `backend/tests/test_prompt_preparation.py`, `backend/tests/test_prompt_local_provider.py`.
+- `backend/tests/fixtures/prompts_v2a.json`.
+- `docs/localai-nextgen/PROMPT_PREPARATION.md` et ce journal.
+
+### Limites et périmètre
+
+Aucun modèle téléchargé, aucune création supprimée, aucun checkpoint/workflow/sampler/résolution/
+CFG/step de génération modifié. LocalAiWeb n'a aucune modification V2-A.
+Le préparateur est conservateur : compréhension structurée + garde-fous + politiques par tâche,
+pas de traduction ni de réécriture créative libre. La qualité d'extraction d'un vrai LLM et sa
+capacité à détecter toutes les contradictions restent à évaluer ; les tests utilisent des
+annotations/HTTP simulés. Ils **ne prouvent pas une meilleure fidélité visuelle**.
+Les capacités manquantes (masques, identité verrouillée, spatial/caméra dédiés) ne sont pas ajoutées.
+Les négatifs fixes existants, dont les conflits éventuels avec la demande, restent inchangés.
+Aucun test GPU ou qualité visuelle effectué pendant cette mission.
+
+## Prochaine étape recommandée — V2-B (non commencée)
+
+Validation comparative locale de l'analyse réelle, puis original/ancien/candidats sur la
+**RTX 3060 12 Go** : respect des obligations, couleurs/positions, mouvements, identité,
+conservation hors retouche, latence et VRAM. Garder les paramètres de génération contrôlés ;
+ne pas activer automatiquement le moteur avant cette validation et une décision utilisateur.
+
+**Arrêt après V2-A.** Pas de nouvelle fonctionnalité secondaire ni de modification des moteurs.

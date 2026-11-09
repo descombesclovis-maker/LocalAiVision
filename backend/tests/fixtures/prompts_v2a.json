@@ -1,0 +1,147 @@
+[
+  {
+    "id": "detailed_editorial_photo",
+    "task": "photo",
+    "prompt": "Photographie éditoriale d’une femme adulte aux taches de rousseur, cheveux bouclés châtains, manteau bleu marine, debout dans une serre humide. Plan taille à hauteur des yeux, focale 50 mm. Lumière diffuse de fin d’après-midi, reflets doux sur les vitres. Le manteau doit rester bleu marine. Style documentaire naturel, sans peau lissée ni texte ajouté.",
+    "annotations": {
+      "subject": ["femme adulte"],
+      "attributes": ["taches de rousseur", "cheveux bouclés châtains", "manteau bleu marine"],
+      "environment": ["serre humide"],
+      "actions": ["debout"],
+      "framing": ["Plan taille à hauteur des yeux, focale 50 mm"],
+      "lighting": ["Lumière diffuse de fin d’après-midi, reflets doux sur les vitres"],
+      "mandatory": ["Le manteau doit rester bleu marine"],
+      "forbidden": ["sans peau lissée ni texte ajouté"],
+      "preserve": ["Le manteau doit rester bleu marine"],
+      "style": ["Style documentaire naturel"]
+    },
+    "required": ["taches de rousseur", "cheveux bouclés châtains", "manteau bleu marine", "50 mm", "sans peau lissée ni texte ajouté"]
+  },
+  {
+    "id": "separate_object_colors",
+    "task": "photo",
+    "prompt": "Une voiture noire est garée à gauche d’un vélo rouge. Une valise jaune se trouve devant le vélo, sans masquer ses roues. La voiture doit rester noire, le vélo doit rester rouge et la valise doit rester jaune. Ne pas intervertir les couleurs et ne pas ajouter de véhicule.",
+    "annotations": {
+      "subject": ["voiture noire"],
+      "attributes": ["voiture noire", "vélo rouge", "valise jaune"],
+      "spatial_relations": ["à gauche d’un vélo rouge", "devant le vélo, sans masquer ses roues"],
+      "mandatory": ["La voiture doit rester noire, le vélo doit rester rouge et la valise doit rester jaune"],
+      "forbidden": ["Ne pas intervertir les couleurs et ne pas ajouter de véhicule"],
+      "preserve": ["La voiture doit rester noire, le vélo doit rester rouge et la valise doit rester jaune"]
+    },
+    "required": ["voiture noire", "vélo rouge", "valise jaune", "à gauche", "devant le vélo, sans masquer ses roues", "Ne pas intervertir les couleurs"]
+  },
+  {
+    "id": "precise_spatial_layout",
+    "task": "photo",
+    "prompt": "Un cube bleu est derrière une sphère rouge, tous deux sur une table blanche. Un cône vert est à droite du cube mais à gauche de la sphère dans l’image finale. Vue en plongée légère, aucun objet ne se touche. Garder ces positions exactes et les trois objets entièrement visibles.",
+    "annotations": {
+      "subject": ["cube bleu"],
+      "attributes": ["sphère rouge", "cône vert", "table blanche"],
+      "environment": ["table blanche"],
+      "spatial_relations": ["derrière une sphère rouge", "à droite du cube mais à gauche de la sphère dans l’image finale"],
+      "framing": ["Vue en plongée légère"],
+      "forbidden": ["aucun objet ne se touche"],
+      "mandatory": ["Garder ces positions exactes et les trois objets entièrement visibles"],
+      "preserve": ["Garder ces positions exactes"]
+    },
+    "required": ["cube bleu", "sphère rouge", "cône vert", "derrière", "à droite du cube mais à gauche de la sphère", "aucun objet ne se touche", "entièrement visibles"]
+  },
+  {
+    "id": "complex_subject_motion_fixed_camera",
+    "task": "text-to-video",
+    "prompt": "Caméra immobile sur trépied pendant toute la séquence. Un cycliste au casque jaune traverse le cadre de gauche à droite, passe derrière un banc rouge, puis s’arrête au premier plan. Les roues tournent pendant le déplacement et cessent de tourner à l’arrêt. Aucun travelling, zoom, panoramique ni coupe. Le casque reste jaune et le banc reste rouge du début à la fin.",
+    "annotations": {
+      "subject": ["cycliste au casque jaune"],
+      "attributes": ["casque jaune", "banc rouge"],
+      "actions": ["traverse le cadre de gauche à droite, passe derrière un banc rouge, puis s’arrête au premier plan"],
+      "motion": ["Caméra immobile sur trépied pendant toute la séquence", "Les roues tournent pendant le déplacement et cessent de tourner à l’arrêt"],
+      "spatial_relations": ["de gauche à droite", "derrière un banc rouge", "au premier plan"],
+      "mandatory": ["Caméra immobile sur trépied pendant toute la séquence", "Le casque reste jaune et le banc reste rouge du début à la fin"],
+      "forbidden": ["Aucun travelling, zoom, panoramique ni coupe"],
+      "preserve": ["Le casque reste jaune et le banc reste rouge du début à la fin"]
+    },
+    "required": ["Caméra immobile", "de gauche à droite", "puis s’arrête", "cessent de tourner à l’arrêt", "Aucun travelling, zoom, panoramique ni coupe", "du début à la fin"]
+  },
+  {
+    "id": "requested_camera_choreography",
+    "task": "text-to-video",
+    "prompt": "Une danseuse en robe verte tourne lentement au centre d’une salle vide. Pendant les deux premières secondes, la caméra effectue un travelling avant lent ; ensuite elle décrit un arc vers la droite sans changer de hauteur. La danseuse tourne dans le sens inverse des aiguilles d’une montre pendant l’arc. Aucun changement de tenue, aucune coupe, aucune accélération brusque.",
+    "annotations": {
+      "subject": ["danseuse en robe verte"],
+      "attributes": ["robe verte"],
+      "environment": ["salle vide"],
+      "actions": ["tourne lentement", "tourne dans le sens inverse des aiguilles d’une montre pendant l’arc"],
+      "motion": ["Pendant les deux premières secondes, la caméra effectue un travelling avant lent ; ensuite elle décrit un arc vers la droite sans changer de hauteur"],
+      "mandatory": ["sans changer de hauteur"],
+      "forbidden": ["Aucun changement de tenue, aucune coupe, aucune accélération brusque"],
+      "preserve": ["Aucun changement de tenue"]
+    },
+    "required": ["robe verte", "deux premières secondes", "travelling avant lent", "ensuite", "arc vers la droite", "sans changer de hauteur", "sens inverse des aiguilles d’une montre", "aucune coupe"]
+  },
+  {
+    "id": "image_to_video_identity",
+    "task": "image-to-video",
+    "reference_provided": true,
+    "prompt": "Animer uniquement la personne de l’image de référence : elle cligne des yeux puis sourit légèrement, caméra fixe. Conserver strictement le même visage, la cicatrice sur la joue gauche et la monture noire des lunettes. Ne pas modifier la coiffure, les vêtements, l’arrière-plan ni la direction de la lumière. Aucun rajeunissement et aucun remplacement de personne.",
+    "annotations": {
+      "subject": ["personne de l’image de référence"],
+      "actions": ["elle cligne des yeux puis sourit légèrement"],
+      "motion": ["caméra fixe"],
+      "identity": ["Conserver strictement le même visage, la cicatrice sur la joue gauche et la monture noire des lunettes"],
+      "mandatory": ["Conserver strictement le même visage, la cicatrice sur la joue gauche et la monture noire des lunettes"],
+      "preserve": ["Ne pas modifier la coiffure, les vêtements, l’arrière-plan ni la direction de la lumière"],
+      "forbidden": ["Aucun rajeunissement et aucun remplacement de personne"]
+    },
+    "required": ["cligne des yeux puis sourit légèrement", "caméra fixe", "même visage", "cicatrice sur la joue gauche", "monture noire", "Ne pas modifier la coiffure", "Aucun rajeunissement"]
+  },
+  {
+    "id": "localized_retouch",
+    "task": "retouch",
+    "reference_provided": true,
+    "prompt": "Retoucher uniquement le petit logo sur la manche gauche : remplacer le logo blanc par un logo gris, à taille identique. Préserver exactement le visage, les mains, le tissu, les plis, le fond et toutes les autres zones. Ne pas changer la pose, les couleurs du vêtement ni le cadrage.",
+    "annotations": {
+      "subject": ["petit logo sur la manche gauche"],
+      "attributes": ["logo blanc", "logo gris"],
+      "actions": ["remplacer le logo blanc par un logo gris, à taille identique"],
+      "mandatory": ["Retoucher uniquement le petit logo sur la manche gauche"],
+      "preserve": ["Préserver exactement le visage, les mains, le tissu, les plis, le fond et toutes les autres zones"],
+      "identity": ["Préserver exactement le visage"],
+      "forbidden": ["Ne pas changer la pose, les couleurs du vêtement ni le cadrage"]
+    },
+    "required": ["uniquement", "manche gauche", "remplacer le logo blanc par un logo gris", "à taille identique", "toutes les autres zones", "Ne pas changer la pose"]
+  },
+  {
+    "id": "advertising_exact_product_details",
+    "task": "advertising",
+    "prompt": "Publicité minimaliste pour le flacon vert ÉCLAT, bouchon doré, à droite d’une boîte ivoire. Afficher le texte exact « ÉCLAT — 30 ml » sur l’étiquette, sans changer l’orthographe ni la quantité. Fond gris clair, ombre douce vers la gauche, cadrage de face. Ne pas inventer de bénéfice médical, de promotion ni d’autre marque.",
+    "annotations": {
+      "subject": ["flacon vert ÉCLAT"],
+      "attributes": ["bouchon doré", "boîte ivoire"],
+      "spatial_relations": ["à droite d’une boîte ivoire"],
+      "mandatory": ["Afficher le texte exact « ÉCLAT — 30 ml » sur l’étiquette, sans changer l’orthographe ni la quantité"],
+      "preserve": ["sans changer l’orthographe ni la quantité"],
+      "environment": ["Fond gris clair"],
+      "lighting": ["ombre douce vers la gauche"],
+      "framing": ["cadrage de face"],
+      "style": ["Publicité minimaliste"],
+      "forbidden": ["Ne pas inventer de bénéfice médical, de promotion ni d’autre marque"]
+    },
+    "required": ["flacon vert ÉCLAT", "bouchon doré", "à droite", "ÉCLAT — 30 ml", "sans changer l’orthographe ni la quantité", "Ne pas inventer de bénéfice médical"]
+  },
+  {
+    "id": "contradictory_same_scope",
+    "task": "text-to-video",
+    "prompt": "Une seule voiture doit rester entièrement noire pendant toute la séquence. Cette même voiture doit rester entièrement rouge pendant toute la séquence. La caméra doit rester immobile et effectuer simultanément un travelling continu.",
+    "annotations": {
+      "subject": ["Une seule voiture"],
+      "mandatory": ["entièrement noire pendant toute la séquence", "entièrement rouge pendant toute la séquence"],
+      "motion": ["La caméra doit rester immobile et effectuer simultanément un travelling continu"]
+    },
+    "conflicts": [
+      {"left": "entièrement noire pendant toute la séquence", "right": "entièrement rouge pendant toute la séquence", "kind": "mutually_exclusive"},
+      {"left": "rester immobile", "right": "effectuer simultanément un travelling continu", "kind": "mutually_exclusive"}
+    ],
+    "required": ["entièrement noire", "entièrement rouge", "pendant toute la séquence", "rester immobile", "simultanément un travelling continu"]
+  }
+]
