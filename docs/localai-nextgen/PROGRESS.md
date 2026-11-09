@@ -478,3 +478,11 @@ ne pas activer automatiquement le moteur avant cette validation et une décision
 - LLM réel : 7 prompts « prepared », 3 replis sur l'original, 1 « unsupported » (rétouche sans masque). Constat : B ajoute un gabarit anglais générique et retire le suffixe qualité du photo ; le fond du prompt n'est pas réécrit.
 - Tests : `tests/test_prompt_bench.py` ; 195 réussis (benchmark + préparation + fournisseur LLM).
 - Prochaine étape : rendus photo A/B/C sur la RTX 3060 avec ComfyUI lancé, en séparant suffixe et gabarit (variantes contrôlées), avant toute décision sur le moteur par défaut.
+
+## V2-C — Premières générations réelles (bloquées : ComfyUI non joignable)
+
+- Inventaire : ComfyUI absent (`127.0.0.1:8188` fermé, aucune installation trouvée sur C:, D:, E:). Aucun checkpoint FLUX, SDXL, Wan ou LTX et aucun encodeur T5/UMT5 sur les disques. Ollama 0.40.15 actif avec 8 modèles texte/vision uniquement.
+- Benchmark : sélection explicite du modèle (`--image-preset` / `--image-checkpoint`), contrôle préalable ComfyUI (refus sans repli silencieux), approches `A0_raw` (sans suffixe) pour isoler le suffixe, `--unload-ollama` ciblé, compteur d'images et d'échecs dans le manifeste. Défauts de génération inchangés.
+- Tests : `tests/test_prompt_bench.py`, 27 réussis, 0 échec.
+- Essai réel : photo produit, approches A0/A/B/C, seed 1234 → contrôle ComfyUI en échec (`ComfyUnreachable`), 0 image, aucune comparaison visuelle. Ollama déchargé (qwen2.5-coder:14b).
+- Action requise : lancer ComfyUI et exécuter les commandes de `docs/localai-nextgen/PROMPT_BENCHMARK.md` (section V2-C).

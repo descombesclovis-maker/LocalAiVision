@@ -43,3 +43,23 @@ Ouvrir `index.html`, comparer A/B/C avec **la même seed**, noter : fidélité a
 - A et B diffèrent sur deux points à la fois : le suffixe qualité (retiré par B) et le gabarit anglais ajouté par les adaptateurs. Un test contrôlé doit les séparer (variantes B sans gabarit, A sans suffixe).
 - Le LLM ne modifie pas le fond du prompt : V2-A conserve le texte source et place l'analyse en diagnostic.
 - La rétouche localisée est « unsupported » (aucun masque dans l'application) ; l'I2V est traitée comme référence fournie.
+
+## V2-C — Lancer les premiers rendus sur votre PC (PowerShell)
+
+Prérequis : ComfyUI lancé (Desktop, ou `python main.py --listen` dans son dossier) sur `http://127.0.0.1:8188`, et le checkpoint choisi présent dans son dossier `models\checkpoints`.
+
+```powershell
+cd C:\Users\desco\Documents\LocalAiVision\backend
+# 1) Vérifier le checkpoint réellement installé (ne télécharge rien)
+Invoke-RestMethod http://127.0.0.1:8188/object_info/CheckpointLoaderSimple | ConvertTo-Json -Depth 6 | Select-String "flux1|sdxl|sd_xl"
+# 2) Photo produit, seed unique, 4 approches (A0 brut, A legacy, B V2-A, C ordre)
+.venv\Scripts\python.exe -m lib.prompt_bench --only photo_product --render-photo --seed 1234 `
+  --approach A0_raw --approach A_legacy --approach B_v2a_balanced --approach C_constraint_first `
+  --llm-model qwen2.5-coder:14b --unload-ollama
+# 3) Ouvrir la galerie
+start .\bench_runs\(dossier le plus récent)\index.html
+```
+
+Modèle explicite : `--image-preset flux-dev|flux-schnell|sdxl` ou `--image-checkpoint NOM.safetensors`. Un checkpoint absent fait échouer le contrôle préalable ; aucun autre modèle n'est utilisé à la place.
+`--unload-ollama` décharge uniquement `--llm-model` avant le rendu.
+Les paramètres (résolution 1:1 = 1024², steps, sampler, CFG, négatif) restent ceux de `comfy.py`.

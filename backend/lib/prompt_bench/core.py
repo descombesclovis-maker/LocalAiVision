@@ -92,6 +92,7 @@ async def build_item(item: dict, analyzer: Optional[Callable] = None) -> dict[st
     prompt, task = item["prompt"], item["task"]
     prepared, status = await v2a_text(prompt, task, analyzer)
     texts = {
+        "A0_raw": prompt,  # isolates the legacy quality suffix (A vs A0)
         "A_legacy": legacy_text(prompt, task),
         "B_v2a_balanced": prepared,
         "C_constraint_first": ordered_text(prompt, task),
@@ -108,7 +109,8 @@ async def build_item(item: dict, analyzer: Optional[Callable] = None) -> dict[st
 
 def summarize(results: list[dict]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
-    for name in ("A_legacy", "B_v2a_balanced", "C_constraint_first"):
+    names = list(results[0]["approaches"]) if results else []
+    for name in names:
         checks = [r["approaches"][name]["checks"] for r in results]
         summary[name] = {
             "pass": sum(c["pass"] for c in checks),

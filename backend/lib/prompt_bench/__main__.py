@@ -26,13 +26,24 @@ from lib.prompt_preparation import LocalAnalyzer, LocalLLMConfig
 from .corpus import CORPUS, IMAGE_TASKS
 from .core import build_item, summarize
 
-APPROACHES = ("A_legacy", "B_v2a_balanced", "C_constraint_first")
+APPROACHES = ("A0_raw", "A_legacy", "B_v2a_balanced", "C_constraint_first")
+
+
+def _unload_ollama(url: str, model: str) -> str:
+    """Ask Ollama to evict one model from VRAM (keep_alive=0). Only the named model is touched."""
+    import httpx
+    try:
+        r = httpx.post(f"{url.rstrip('/')}/api/generate", json={"model": model, "keep_alive": 0}, timeout=30)
+        return "unloaded" if r.status_code == 200 else f"http {r.status_code}"
+    except Exception as exc:
+        return f"error: {exc}"
 
 
 def _comfy():
     """Import comfy lazily: text-only runs must not require MONGO_URL or a database."""
     import os
     os.environ.setdefault("MONGO_URL", "mongodb://127.0.0.1:1")  # never contacted by text-only runs
+    os.environ.setdefault("DB_NAME", "localaistudio_bench_unused")
     from lib import comfy
     return comfy
 
@@ -98,8 +109,23 @@ async def _render(comfy: Any, workflow: dict, video: bool, settings: dict) -> tu
     return data, mime, {"duration_s": round(time.monotonic() - start, 1), "vram_peak_delta_mib": gpu.peak_delta_mib, "error": error}
 
 
+def settings_for(comfy: Any, args: argparse.Namespace) -> dict:
+    """Effective ComfyUI settings for a benchmark run: app defaults, overridden ONLY by explicit CLI choices."""
+    settings = {**comfy.DEFAULTS, "base_url": args.comfy_url}
+    if args.image_preset:
+        if args.image_preset not in comfy.IMAGE_PRESETS:
+            raise SystemExit(f"preset image inconnu : {args.image_preset} (choix : {', '.join(comfy.IMAGE_PRESETS)})")
+        settings["image_preset"] = args.image_preset
+        settings["image_checkpoint"] = comfy.IMAGE_PRESETS[args.image_preset]["checkpoint"]
+    if args.image_checkpoint:
+        settings["image_checkpoint"] = args.image_checkpoint  # explicit file name, verified by verify_ready
+    return settings
+
+
 async def run_bench(args: argparse.Namespace) -> Path:
     analyzer = None
+    if args.llm_model:
+        analyzer = LocalAnalyzer(LocalLLMConfig("ollama", args.llm_url, args.llm_model, 16384))
     if args.llm_model:
         analyzer = LocalAnalyzer(LocalLLMConfig("ollama", args.llm_url, args.llm_model, 16384))
 
@@ -112,17 +138,31 @@ async def run_bench(args: argparse.Namespace) -> Path:
 
     rendering = args.render_photo or args.render_video
     comfy = _comfy() if rendering else None
-    settings = {**comfy.DEFAULTS, "base_url": args.comfy_url} if rendering else {}
+    settings: dict = {}
+    preflight: dict = {"checked": False}
+    if rendering:
+        settings = settings_for(comfy, args)
+        if args.unload_ollama and args.llm_model:
+            preflight["ollama_unload"] = _unload_ollama(args.llm_url, args.llm_model)
+        try:
+            await comfy.verify_ready(settings, video=args.render_video and not args.render_photo)
+            preflight.update(checked=True, ok=True, checkpoint=settings["image_checkpoint"], video_preset=settings["video_preset"])
+        except comfy.ComfyError as exc:
+            preflight.update(checked=True, ok=False, error=f"{type(exc).__name__}: {exc}")
     render_plan = []
-    if args.render_photo:
+    if args.render_photo and preflight.get("ok", not rendering):
         render_plan += [(i, "photo") for i in items if i["task"] in IMAGE_TASKS]
-    if args.render_video:
+    if args.render_video and preflight.get("ok", not rendering):
         render_plan += [(i, "video") for i in items if i["task"] == "text-to-video"]
+    if args.approach:
+        approaches = tuple(a for a in APPROACHES if a in args.approach)
+    else:
+        approaches = APPROACHES
 
     renders: list[dict] = []
     for item, kind in render_plan:
         result = next(r for r in results if r["id"] == item["id"])
-        for name in APPROACHES:
+        for name in approaches:
             text = result["approaches"][name]["text"]
             for seed in args.seed:
                 if kind == "photo":
@@ -147,15 +187,19 @@ async def run_bench(args: argparse.Namespace) -> Path:
                 })
 
     manifest = {
-        "schema_version": 1, "created": stamp, "scope": "text_checks_and_optional_renders",
+        "schema_version": 2, "created": stamp, "scope": "text_checks_and_optional_renders",
         "v2a_llm": args.llm_model or "none (fallback to original text)",
-        "comfy_url": args.comfy_url if renders else None,
-        "rendered": bool(renders),
+        "comfy_url": args.comfy_url if rendering else None,
+        "preflight": preflight,
+        "images_produced": sum(1 for r in renders if r.get("file")),
+        "renders_failed": sum(1 for r in renders if r.get("error")),
+        "rendered": any(r.get("file") for r in renders),
         "summary": summarize(results),
         "items": results, "renders": renders,
         "notes": [
             "Text checks are proxies (CLIP token count estimated at 1.3 tokens/word).",
             "Visual quality, fidelity and anatomy must be judged by eye on renders/ with the same seeds.",
+            "A0_raw / A_legacy isolate the quality suffix ; B adds the V2-A template ; C only reorders clauses.",
         ],
     }
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -168,7 +212,7 @@ def _gallery(m: dict) -> str:
     renders = {(r["id"], r["approach"], r["seed"]): r for r in m["renders"]}
     for item in m["items"]:
         cells = []
-        for name in APPROACHES:
+        for name in (n for n in APPROACHES if n in item["approaches"]):
             a = item["approaches"][name]
             media = ""
             for (rid, rname, seed), r in renders.items():
@@ -201,14 +245,25 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--render-video", action="store_true", help="Rend les T2V via ComfyUI (coûteux).")
     p.add_argument("--seed", type=int, action="append", default=None, help="Seed(s) ; répétable. Défaut : 1234.")
     p.add_argument("--comfy-url", default="http://127.0.0.1:8188")
+    p.add_argument("--image-preset", help="flux-dev | flux-schnell | sdxl (définit aussi le checkpoint).")
+    p.add_argument("--image-checkpoint", help="Nom exact du checkpoint installé dans ComfyUI (prioritaire).")
+    p.add_argument("--approach", action="append", help=f"Restreindre aux approches : {', '.join(APPROACHES)}.")
+    p.add_argument("--unload-ollama", action="store_true",
+                   help="Décharge le modèle --llm-model de la VRAM avant le rendu (ne touche aucun autre modèle).")
     args = p.parse_args(argv)
     args.seed = args.seed or [1234]
     unknown = set(args.only) - {i["id"] for i in CORPUS}
     if unknown:
         p.error(f"identifiants inconnus : {sorted(unknown)}")
+    if args.approach and set(args.approach) - set(APPROACHES):
+        p.error(f"approches inconnues : {sorted(set(args.approach) - set(APPROACHES))}")
     out = asyncio.run(run_bench(args))
     print(f"Résultats : {out / 'index.html'}")
-    print(json.dumps(json.loads((out / 'manifest.json').read_text(encoding='utf-8'))['summary'], ensure_ascii=False, indent=2))
+    manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+    if manifest["preflight"].get("checked") and not manifest["preflight"].get("ok"):
+        print(f"Rendu NON lancé (contrôle ComfyUI) : {manifest['preflight']['error']}")
+    print(f"Images produites : {manifest['images_produced']} ; échecs : {manifest['renders_failed']}")
+    print(json.dumps(manifest['summary'], ensure_ascii=False, indent=2))
     return 0
 
 

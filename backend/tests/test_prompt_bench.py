@@ -94,7 +94,7 @@ async def test_v2a_reference_declared_for_image_to_video_not_retouch():
 async def test_build_item_returns_three_approaches_and_checks():
     item = next(i for i in CORPUS if i["id"] == "t2v_camera_fixed")
     built = await core.build_item(item)
-    assert set(built["approaches"]) == {"A_legacy", "B_v2a_balanced", "C_constraint_first"}
+    assert set(built["approaches"]) == {"A0_raw", "A_legacy", "B_v2a_balanced", "C_constraint_first"}
     assert built["approaches"]["B_v2a_balanced"]["text"] == item["prompt"]
     assert built["approaches"]["A_legacy"]["text"] == item["prompt"]  # video raw, as the app sends it
     assert all("checks" in a for a in built["approaches"].values())
@@ -162,3 +162,65 @@ def test_cli_rejects_unknown_identifiers(tmp_path):
 
 def test_image_tasks_constant_matches_corpus():
     assert IMAGE_TASKS == {"photo", "retouch", "advertising"}
+
+
+def _args(**kw):
+    import argparse
+    base = dict(comfy_url="http://127.0.0.1:8188", image_preset=None, image_checkpoint=None)
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
+def test_settings_defaults_are_untouched_without_explicit_choice(monkeypatch):
+    monkeypatch.setenv("MONGO_URL", "mongodb://127.0.0.1:1")
+    from lib.prompt_bench.__main__ import _comfy, settings_for
+    comfy = _comfy()
+    s = settings_for(comfy, _args())
+    assert s["image_preset"] == comfy.DEFAULTS["image_preset"]
+    assert s["image_checkpoint"] == comfy.DEFAULTS["image_checkpoint"]
+
+
+def test_settings_explicit_preset_and_checkpoint_override(monkeypatch):
+    monkeypatch.setenv("MONGO_URL", "mongodb://127.0.0.1:1")
+    from lib.prompt_bench.__main__ import _comfy, settings_for
+    comfy = _comfy()
+    s = settings_for(comfy, _args(image_preset="sdxl"))
+    assert s["image_checkpoint"] == comfy.IMAGE_PRESETS["sdxl"]["checkpoint"]
+    s2 = settings_for(comfy, _args(image_preset="sdxl", image_checkpoint="mon_modele.safetensors"))
+    assert s2["image_checkpoint"] == "mon_modele.safetensors"  # explicit name wins, never silent
+
+
+def test_unknown_image_preset_is_refused(monkeypatch):
+    monkeypatch.setenv("MONGO_URL", "mongodb://127.0.0.1:1")
+    from lib.prompt_bench.__main__ import _comfy, settings_for
+    with pytest.raises(SystemExit):
+        settings_for(_comfy(), _args(image_preset="inconnu"))
+
+
+def test_unknown_approach_is_refused(tmp_path):
+    with pytest.raises(SystemExit):
+        bench_main(["--out", str(tmp_path), "--approach", "Z"])
+
+
+def test_unreachable_comfy_never_reports_images(tmp_path, monkeypatch):
+    monkeypatch.setenv("MONGO_URL", "mongodb://127.0.0.1:1")
+    rc = bench_main(["--out", str(tmp_path), "--only", "photo_product", "--render-photo",
+                     "--comfy-url", "http://127.0.0.1:1"])
+    assert rc == 0
+    manifest = json.loads(next(tmp_path.iterdir()).joinpath("manifest.json").read_text(encoding="utf-8"))
+    assert manifest["preflight"]["checked"] and manifest["preflight"]["ok"] is False
+    assert manifest["images_produced"] == 0 and manifest["renders"] == [] and manifest["rendered"] is False
+
+
+def test_approach_set_includes_raw_baseline_for_suffix_isolation():
+    from lib.prompt_bench.__main__ import APPROACHES
+    assert "A0_raw" in APPROACHES and "A_legacy" in APPROACHES
+
+
+@pytest.mark.asyncio
+async def test_raw_baseline_differs_from_legacy_only_by_suffix():
+    item = next(i for i in CORPUS if i["id"] == "photo_product")
+    built = await core.build_item(item)
+    raw = built["approaches"]["A0_raw"]["text"]
+    legacy = built["approaches"]["A_legacy"]["text"]
+    assert legacy == raw + core.LEGACY_IMAGE_SUFFIX
