@@ -516,3 +516,82 @@ Constats vérifiés dans le dépôt puis corrigés :
 Tests : `backend/tests/test_security_v2d.py` (nouveau) couvre la page Engines, les exclusions Inno et NSIS, la configuration Vite, et le cycle de session sur la vraie route `/api/auth/init` (premier démarrage, mauvais jeton, rafraîchissement avec et sans cookie, redémarrage avec clé persistante, régénération du jeton). Suite backend complète : **392 réussis, 0 échec**.
 
 Non vérifié, à faire : compilation Inno Setup et NSIS (aucun compilateur installé sur ce poste) ; compilation TypeScript et interface navigateur (`frontend/node_modules` absent, donc Vite n'a pas été lancé) ; authentification dans un navigateur réel.
+
+
+## V2-D — Étapes B et C : génération photo depuis l'application, comparaison contrôlée
+
+### Corrections techniques (commits poussés)
+
+- `d005a34` — **Erreurs 500 sur réglages, médias, projets** : le client Motor était créé à l'import, donc lié à une autre boucle asyncio qu'uvicorn. `lib/db.py` crée désormais un client par boucle (proxys paresseux, `db.motor()`) ; `lib/store.py` idem pour GridFS. Test : `tests/test_db_loop.py`. Vérifié : routes 200 sur uvicorn.
+- `44471b8` — **Editor.tsx restauré** : le commit V1-B.2 (`3c5177a`) avait écrasé les retours à la ligne ; les `//` avalaient le code et le frontend ne compilait plus. Restauration depuis `3170eb8`, puis réapplication des seuls changements de sécurité : iframe `sandbox="allow-scripts allow-forms"` (sans `allow-same-origin`), sélection et navigation par `postMessage`. `tsc --noEmit` passe. `vite.config.ts` : cible du proxy configurable via `LAS_API_TARGET` (défaut inchangé).
+- `3497980` — **Suffixe photo** : l'application produisait « … marbre blanc., highly detailed ». Helper partagé `lib/photo_prompt.py` (application et benchmark). Cas benchmark `photo_spatial_product` ajouté (phrase de contrôle spatial).
+- Suite backend : **402 tests réussis, 0 échec**. Les anciens tests qui encodaient « prompt + suffixe » ont été mis à jour, la différence voulue étant documentée.
+
+### Génération depuis l'application — état réel
+
+Démontré :
+- Backend authentifié (cookie de session) : `POST /api/media/images` avec le corps envoyé par le bouton (`model=comfy`, `aspect_ratio=1:1`).
+- Preset par défaut `flux-dev` : erreur explicite en français, qui liste `flux1-dev-fp8` manquant et les modèles présents. Le média passe en `error` avec ce message.
+- Réglage `image_preset` passé à `sdxl` (checkpoint `sd_xl_base_1.0.safetensors`) via `PUT /api/settings/comfyui`, base `localaistudio_nextgen_original`. Réversible ; aucune autre valeur modifiée.
+- Génération SDXL réussie : **27,3 s** (chargement inclus), PNG de 1,05 Mo, média `done` visible dans `GET /api/media`. Image : `backend/bench_runs/app_flow/349182bf-8fa3-4598-ae62-27865428ea89.png`.
+
+Non démontré :
+- **Parcours de clic dans l'interface non validé.** Le navigateur intégré n'offre qu'une fenêtre d'environ 83 px de haut ; le clic par référence et l'activation clavier n'ont pas déclenché de `POST` (aucune trace côté backend ni proxy). Cause non identifiée : à vérifier sur votre poste.
+- Affichage de la bibliothèque et du lecteur dans l'interface : non vérifié visuellement.
+
+Points relevés, non corrigés :
+- Au démarrage, le backend a fait passer un média `pending` de `localaistudio_nextgen_original` en `error` (« Interrompue par un redémarrage ») : comportement normal de `_recover_interrupted`, mais c'est une écriture sur des données existantes.
+- Si le jeton d'amorçage a déjà été consommé, l'interface reste vide (401 silencieux) sans invite de reconnexion.
+- Une installation neuve garde le preset `flux-dev` par défaut (absent) : l'erreur est claire, mais le repli automatique vers un modèle présent n'est pas implémenté (décision à prendre, car il change un défaut).
+- `POST /api/settings/comfyui/test` exige un corps (422 sans corps).
+- L'édition installée (`AppData\Local\LocalAiStudio-Editions\NextGen-Avant-Fusion`) n'a pas ces corrections et son backend n'a pas d'authentification : elle doit être mise à jour. Je n'y ai pas touché sans accord.
+
+### Comparaison photo — cas spatial
+
+Cas : « Un flacon de parfum bleu au centre avec son bouchon doré posé séparément à droite, sur une surface en marbre blanc. » Seeds 1001 à 1004, identiques entre approches. Paramètres par preset : SDXL 1024², 30 steps, CFG 6,5, dpmpp_2m karras ; FLUX Schnell 1024², 4 steps, CFG 1,0, euler.
+
+Runs : `backend/bench_runs/20261109-210428` (SDXL) et `backend/bench_runs/20261109-211459` (FLUX Schnell), 32 rendus, 0 échec. Galerie : `backend/bench_runs/photo_spatial_compare/` (`grid_sdxl.png`, `grid_flux_schnell.png`, `summary.md`, `index.html`), générée par `backend/scripts/photo_compare_grid.py`.
+
+Mesures brutes (`summary.md`) :
+
+| Modèle | Approche | Durée moy. (s) | Min–max (s) | Prompt (car.) |
+|---|---|---|---|---|
+| SDXL | A0 brut | 22,4 | 22,4–22,5 | 115 |
+| SDXL | A historique | 22,5 | 22,4–22,5 | 187 |
+| SDXL | B V2-A | 45,7 | 22,7–62,7 | 310 |
+| SDXL | C contraintes | 58,3 | 52,7–62,8 | 187 |
+| FLUX Schnell | A0 brut | 40,2 | 34,6–46,7 | 115 |
+| FLUX Schnell | A historique | 44,7 | 40,6–46,7 | 187 |
+| FLUX Schnell | B V2-A | 50,8 | 42,9–68,8 | 115 |
+| FLUX Schnell | C contraintes | 60,2 | 36,6–117,0 | 187 |
+
+Évaluation visuelle (examen des grilles, 4 seeds × 4 approches, sans note chiffrée) :
+
+- **Fidélité spatiale** : SDXL n'a jamais posé le bouchon doré séparément à droite (bouchon sur le flacon dans 3 seeds sur 4 ; au seed 1002, une petite sphère dorée apparaît à droite). FLUX Schnell place un **objet séparé à droite dans 4 seeds sur 4**, pour les quatre approches. Mais cet objet **n'est pas doré** (bleu, noir ou crème) : la couleur n'est pas respectée.
+- **Réalisme** : FLUX Schnell donne un éclairage plus photographique et moins de rendu « CGI » que SDXL (appréciation visuelle seule, sans métrique objective).
+- **Défauts** : SDXL produit des textes illisibles sur le flacon (B, seed 1003). FLUX Schnell ajoute des étiquettes avec des noms de marque inventés, non demandées.
+- **Régularité** : la composition varie fortement selon le seed dans les deux modèles (SDXL seed 1004 : branches dorées et pétales ; FLUX seed 1002 : flacon centré à gauche).
+- **Approches** : A_legacy et C sont identiques sur ce prompt à une phrase (attendu). A0 et A se ressemblent fortement en FLUX : le suffixe qualité a peu d'effet. B ajoute un préambule anglais générique sans amélioration nette.
+
+Hypothèses techniques (non démontrées) :
+- Les durées élevées de B et C (SDXL et FLUX) apparaissent après la préparation LLM de B : Ollama (qwen2.5-coder:14b, environ 8 Go de VRAM) semble occuper la VRAM ou être rechargé, ce qui ralentit ComfyUI. Vérification possible : préparer tous les prompts avant tout rendu, décharger Ollama, puis rendre. Tant que ce n'est pas fait, les durées de B et C ne sont pas comparables.
+
+### Limites
+
+- Un seul sujet, quatre seeds, un seul cas spatial. Aucune métrique objective de fidélité ou de qualité. Évaluation visuelle par un seul examinateur.
+- Aucun test de portrait ni de vidéo.
+- Aucun test de relance dans l'interface (voir plus haut).
+
+### Alternatives techniques (non testées)
+
+- Contrôle spatial par régions (`ConditioningSetArea` + `ConditioningCombine` dans ComfyUI) : sans téléchargement, à tester sur le cas spatial.
+- Composition en deux passes : génération du flacon, puis du bouchon séparément, puis assemblage.
+- FLUX Dev (`flux1-dev-fp8`) : fidélité meilleure attendue, mais fichier absent ; téléchargement à autoriser.
+- Couleur spécifique : inpainting ciblé ou prompt de couleur renforcé, à tester.
+
+### Recommandation pour la prochaine étape
+
+1. Vérifier le parcours de clic dans l'interface sur votre poste (génération, progression, bibliothèque).
+2. Corriger la mesure de durée (préparation LLM avant rendu, déchargement d'Ollama), puis relancer B et C.
+3. Tester la composition régionale (sans téléchargement) sur le cas spatial, avec au moins 8 seeds.
+4. Décider du modèle par défaut après ces résultats ; FLUX Schnell est un candidat crédible pour la mise en page, pas encore un choix.
