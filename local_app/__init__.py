@@ -1,1 +1,0 @@
-"""LocalVisionAI application package."""

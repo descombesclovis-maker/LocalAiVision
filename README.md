@@ -1,54 +1,40 @@
-# LocalAI Studio — Web + Vision
+# LocalAiStudio NextGen — branche de référence
 
-**LocalAI Studio** est une application Windows unique qui ouvre deux espaces de travail distincts, reliés par une bibliothèque de marques et un parcours commercial commun.
+**Branche dédiée :** `nextgen/claude-original`
 
-L'exécutable reste nommé `LocalVisionAI.exe` pour préserver les mises à jour et les raccourcis existants. La fenêtre Windows est désormais nommée **LocalAI Studio**.
+## État actuel : IMPORT DU CODE NEXTGEN À FINALISER
 
-## Les deux univers
+Cette branche est volontairement isolée du code historique de `main`. Elle ne doit pas être confondue avec les branches `codex/studio-*`.
 
-À l'ouverture, `http://127.0.0.1:3000/` ou `/studio` affiche le choix des deux univers :
+Le snapshot original **NextGen avant fusion** est disponible dans l’archive nommée :
+`LocalAiStudio-NextGen-Source-Avant-Fusion-Pour-Manyfold.zip`.
+C’est le code React + FastAPI remis dans la conversation ChatGPT. **Il ne contient pas nécessairement les dernières corrections 1.1-a et 1.2 de Claude Code** réalisées après la création de ce ZIP.
 
-- **LocalAiWeb** (`/localaiweb`) : bibliothèque de projets **libres** et **clients**, création de sites par Codex, aperçu, édition visuelle, sauvegardes, export ZIP, carte de prospection, CRM, devis, factures et publication explicite.
-- **LocalAiVision** (`/localaivision`) : ComfyUI + modèles locaux, chat et bibliothèques photo/vidéo, styles, workflows, retouches et espace isolé inchangés. Un atelier **Publicité** permet de préparer une campagne à partir d'une marque et d'exporter une version avec son véritable logo.
+**IMPORTANT : le code complet n’a pas encore été importé dans cette branche.** N’effectue pas de développement ni d’audit des moteurs sur cette branche tant que `backend/server.py` et `frontend/package.json` ne sont pas présents dans le dépôt distant.
 
-La navigation **Univers** et **LocalAI Studio** permet de revenir à l'accueil sans supprimer les projets.
+## Procédure d’import contrôlée
 
-## Marques et projets clients
+1. Fournir à Manyfold l’archive NextGen originale mentionnée ci-dessus (ne pas utiliser le ZIP « Fusion »).
+2. Se placer sur la branche `nextgen/claude-original` et vérifier `git status`.
+3. Exécuter `python scripts/import_nextgen_archive.py /chemin/vers/LocalAiStudio-NextGen-Source-Avant-Fusion-Pour-Manyfold.zip` depuis la racine.
+4. Vérifier l’absence de secrets, de modèles téléchargés, d’environnements locaux et d’écrasements de fichiers existants.
+5. Vérifier `backend/server.py`, `frontend/package.json`, `frontend/src/App.tsx`, `INSTALLATION.md` et les scripts Windows.
+6. Lancer les tests ciblés **sans télécharger de modèles**.
+7. Faire un commit uniquement après validation, pousser la branche, vérifier les fichiers sur GitHub.
+8. Si une archive plus récente de Claude Code devient disponible, l’intégrer dans une **révision séparée** avec comparaison des fichiers et sans perte des protections.
 
-- Ouvrir **Identités de marque** dans LocalAiWeb ou `/studio/brands`.
-- Enregistrer le nom réel de l'entreprise, son activité, son slogan, ses couleurs, son public, son message d'action et un logo **PNG/JPEG/WebP fourni avec autorisation**.
-- Dans un projet LocalAiWeb, sélectionner la marque dans l'en-tête : une copie privée du logo est rangée dans les ressources du projet et l'agent reçoit les informations de marque lors de la prochaine génération.
-- Dans LocalAiVision, cliquer **Publicité**, choisir cette même marque, le format **9:16, 1:1 ou 16:9**, l'objectif et le média. La génération utilise les workflows existants et les couleurs de marque comme direction artistique.
-- Le **logo officiel et les textes sont composés après génération**. Le média original est conservé. Les images publicitaires utilisent Pillow ; les vidéos nécessitent **FFmpeg** sur le PC. Une erreur d'export ne marque jamais la génération comme réussie.
-- Les versions publicitaires peuvent être copiées dans les ressources d'un projet LocalAiWeb avec **Ajouter à un site**.
-
-La création de sites reste non publiée par défaut. Vérifier les informations des entreprises, les droits sur les logos, les photos et les allégations publicitaires avant livraison.
-
-## Génération persistante et bibliothèque
-
-L'éditeur Web lance sa génération dans un worker côté **PC** : quitter l'éditeur ne l'arrête pas, tant que LocalAI Studio et Windows continuent de fonctionner. La pastille animée en haut à droite affiche les travaux Web actifs et la file d'attente photo/vidéo de ComfyUI. Cliquer dessus retourne au projet ou à l'univers en cours.
-
-La bibliothèque de sites fournit deux collections, miniatures disponibles, recherche, actualisation, réessai en cas d'échec et accès direct au projet conservant son propre historique. Elle n'affiche ni pourcentage inventé ni message de réussite en l'absence de fichiers.
-
-## Installation et limites
-
-Installer la dernière archive de [GitHub Releases](https://github.com/descombesclovis-maker/LocalAiVision/releases/latest), extraire puis lancer `LocalVisionAI.exe`. Le PC doit disposer des modèles et outils nécessaires. Codex requiert une connexion/authentification réelle. Les rendus photoréalistes et la vitesse sur GPU RTX 3060 dépendent des modèles, résolutions et étapes ; les tests logiciels ne garantissent pas un rendu visuel supérieur sans essai réel.
-
-Les outils de publication et les connecteurs restent configurables et doivent être autorisés avant tout déploiement. Aucune activité ni marque n'est automatiquement publiée à l'extérieur.
-
-Pour un accès privé depuis l'iPhone, lire [MOBILE_SETUP.md](MOBILE_SETUP.md). Le PC doit rester allumé.
-
-## Tests
-
-```bash
-python -m unittest discover -s tests -v
-node --check local_app/web/localaiweb.js
-node --check local_app/web/localaiweb-brand.js
-node --check local_app/web/studio-activity.js
-node --check local_app/web/studio-brands.js
-node --check local_app/web/studio-ads.js
+## Structure attendue après import
+```text
+backend/             # FastAPI, pipelines Web/Vision, ComfyUI
+frontend/            # React, TypeScript, Vite
+installer/           # Windows, scripts installateurs
+docs/                # Suivi et provenance
+scripts/             # Outils d'import et diagnostic
+install.ps1
+start-localaistudio.bat
+INSTALLATION.md
+SPEC.md
 ```
 
-La CI exécute les tests et compile un exécutable Windows, puis réalise les tests de démarrage et de mise à jour. Les tests fonctionnels sur les véritables modèles locaux et les aperçus réels restent nécessaires pour valider la qualité finale.
-
-Documentation complémentaire : [README_LOCALAIWEB_HYBRID.md](README_LOCALAIWEB_HYBRID.md), [README_LOCALAIWEB_PRO_MAP.md](README_LOCALAIWEB_PRO_MAP.md), [AGENTS.md](AGENTS.md).
+## Politique de sécurité
+Aucun `.env`, clé API, modèle IA, création multimédia ou dossier utilisateur dans Git. **Ne déployez pas publiquement** cette version non validée, et ne présumez pas qu’elle inclut le verrou d’accès/isolement développés plus tard dans Claude Code.
