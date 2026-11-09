@@ -3,7 +3,7 @@ title LocalAiStudio
 cd /d %~dp0
 echo == LocalAiStudio : demarrage ==
 REM Generate one-time bootstrap token for secure session initialization (V1-B.2)
-for /f "delims=" %%t in ('powershell -NoProfile -Command "[System.Guid]::NewGuid().ToString('N') + [System.Guid]::NewGuid().ToString('N')"') do set LAS_BOOT_TOKEN=%%t
+for /f "delims=" %%t in ('backend\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"') do set LAS_BOOT_TOKEN=%%t
 net start MongoDB >nul 2>&1
 start "Ollama" /min cmd /c "ollama serve"
 set DISABLE_VISUAL_EDITS=true

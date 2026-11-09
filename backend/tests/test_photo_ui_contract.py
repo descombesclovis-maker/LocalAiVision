@@ -56,3 +56,11 @@ def test_session_cookie_name_is_overridable_per_edition():
     assert cookie_for(None) == "las_session"  # default unchanged
     assert cookie_for("") == "las_session"
     assert cookie_for("las_session_v2e") == "las_session_v2e"
+
+
+def test_launchers_generate_boot_token_without_nested_quotes():
+    """The old PowerShell-in-for/f generator produced an empty LAS_BOOT_TOKEN (every init returned 401)."""
+    for rel in ["start-localaistudio.bat", "scripts/build-parallel-edition.ps1"]:
+        text = _read(rel)
+        assert "NewGuid" not in text, rel
+        assert 'python.exe -c "import secrets; print(secrets.token_hex(32))"' in text, rel

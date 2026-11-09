@@ -89,7 +89,7 @@ $launcher = Join-Path $Target "start-localaistudio-v2e.bat"
 title LocalAiStudio NextGen V2-E
 cd /d %~dp0
 echo == LocalAiStudio NextGen V2-E : demarrage (backend $BackendPort, interface $FrontendPort) ==
-for /f "delims=" %%t in ('powershell -NoProfile -Command "[System.Guid]::NewGuid().ToString('N') + [System.Guid]::NewGuid().ToString('N')"') do set LAS_BOOT_TOKEN=%%t
+for /f "delims=" %%t in ('backend\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"') do set LAS_BOOT_TOKEN=%%t
 net start MongoDB >nul 2>&1
 set DISABLE_VISUAL_EDITS=true
 set DISABLE_EMERGENT_OVERLAY=true
