@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
@@ -13,7 +14,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
-from lib.auth import AuthMiddleware
+from lib.auth import AuthMiddleware, boot, API_KEY, COOKIE_NAME
 from routers import companies, engines, media, projects
 
 # Restrictive CORS: only loopback origins by default.  The frontend (Vite dev server on
@@ -72,6 +73,32 @@ api_router = APIRouter(prefix="/api")
 @api_router.get("/")
 async def root():
     return {"message": "LocalAiStudio API"}
+
+
+@api_router.post("/auth/init")
+async def init_session(request: Request):
+    """One-time session initialisation.
+
+    The Windows launcher generates a random bootstrap token (``LAS_BOOT_TOKEN``) and passes
+    it to both the backend and the Vite proxy.  The frontend calls this endpoint; the Vite
+    proxy injects the token as ``X-Boot-Token``.  The backend validates it, issues an httpOnly
+    ``SameSite=Strict`` session cookie, and invalidates the token (one-time use).
+
+    CSRF protection: ``SameSite=Strict`` prevents the cookie from being sent on cross-site
+    requests.  No double-submit token is needed for a local app with ``SameSite=Strict``.
+    """
+    token = request.headers.get("x-boot-token", "")
+    if not boot.consume(token):
+        raise HTTPException(401, "Jeton d'initialisation invalide ou déjà utilisé")
+    response = JSONResponse({"ok": True})
+    response.set_cookie(
+        COOKIE_NAME,
+        API_KEY,
+        httponly=True,
+        samesite="strict",
+        path="/api",
+    )
+    return response
 
 
 api_router.include_router(projects.router)

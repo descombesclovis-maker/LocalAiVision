@@ -16,7 +16,7 @@ from models.engines import ComfySettings, ComfyTest, Diagnostic, EnginePresets, 
 router = APIRouter()
 ROOT = Path(__file__).resolve().parents[2]
 SKIP_DIRS = {"Output", "node_modules", "__pycache__", ".pytest_cache", "dist", ".vite", "tests", ".git", ".emergent", ".screenshots"}
-SKIP_FILES = {".env", "yarn-error.log", ".api_key"}
+SKIP_FILES = {".env", "yarn-error.log", ".api_key", ".boot_token"}
 ENV_EXAMPLE = """MONGO_URL=mongodb://127.0.0.1:27017
 DB_NAME=localaistudio
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000

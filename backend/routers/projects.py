@@ -13,6 +13,36 @@ from models.schemas import ChatRequest, FileUpdate, Project, ProjectCreate, Proj
 
 router = APIRouter()
 
+# Element-selection bridge injected into preview HTML (V1-B.2).
+# The preview iframe is sandboxed (sandbox="allow-scripts allow-forms", no allow-same-origin),
+# so the parent Editor cannot access contentDocument.  Instead, this script runs inside the
+# iframe and communicates via postMessage:
+#   - Parent → iframe: "las-select-start" / "las-select-stop"
+#   - Iframe → parent: {type: "las-select", selector, html} on element click
+#   - Iframe → parent: {type: "las-navigate", path} on page load
+_SELECT_BRIDGE = (
+    '<style>.las-hover{outline:2px solid #22D3EE!important;outline-offset:2px;'
+    'cursor:crosshair!important;box-shadow:0 0 0 9999px rgba(9,10,15,.25)!important}</style>\n'
+    '<script>(function(){var m=false;'
+    'addEventListener("message",function(e){'
+    'if(e.data==="las-select-start")m=true;'
+    'if(e.data==="las-select-stop")m=false;});'
+    'document.addEventListener("mouseover",function(e){if(m)e.target.classList.add("las-hover");},true);'
+    'document.addEventListener("mouseout",function(e){if(m)e.target.classList.remove("las-hover");},true);'
+    'document.addEventListener("click",function(e){'
+    'if(!m)return;e.preventDefault();e.stopPropagation();e.target.classList.remove("las-hover");'
+    'var p=[],c=e.target;'
+    'while(c&&c.tagName!=="BODY"&&p.length<5){'
+    'var s=c.tagName.toLowerCase();'
+    'if(c.id){p.unshift(s+"#"+c.id);break;}'
+    'var cl=Array.from(c.classList).filter(function(x){return !x.startsWith("lais-");}).slice(0,2);'
+    'if(cl.length)s+="."+cl.join(".");p.unshift(s);c=c.parentElement;}'
+    'parent.postMessage({type:"las-select",selector:p.join(" > "),'
+    'html:e.target.outerHTML.slice(0,3500)},"*");m=false;},true);'
+    'parent.postMessage({type:"las-navigate",path:location.pathname},"*");'
+    '})();</script>'
+)
+
 
 def _summary(d: dict) -> dict:
     d = {k: v for k, v in d.items() if k != "_id"}
@@ -177,15 +207,23 @@ async def preview(pid: str, path: str, v: Optional[int] = Query(default=None)):
     if path not in m:
         raise HTTPException(404, "Fichier introuvable")
     mime = {"html": "text/html", "css": "text/css", "js": "application/javascript"}.get(path.rsplit(".", 1)[-1], "text/plain")
-    # CSP: generated sites must NOT be able to call the LocalAiStudio API via fetch/XHR.
+    content = render(m, path)
+    # Inject element-selection bridge into HTML previews (V1-B.2 sandbox isolation).
+    # The sandboxed iframe (no allow-same-origin) can't be accessed via contentDocument,
+    # so the parent communicates via postMessage. This script handles hover/click selection
+    # and reports navigation back to the parent.
+    if path.endswith(".html") and not path.startswith("_"):
+        content = content + _SELECT_BRIDGE
+    # CSP: generated sites must NOT be able to call the LocalAiStudio API via fetch/XHR
+    # (connect-src 'none') or submit forms to API endpoints (form-action 'none').
     # <img>/<video> src still works (governed by img-src/media-src, not connect-src),
     # so media assets referenced by the preview display correctly.
     return Response(
-        render(m, path),
+        content,
         media_type=f"{mime}; charset=utf-8",
         headers={
             "Cache-Control": "no-store",
-            "Content-Security-Policy": "connect-src 'none'",
+            "Content-Security-Policy": "connect-src 'none'; form-action 'none'",
         },
     )
 

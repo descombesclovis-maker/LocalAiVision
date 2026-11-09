@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -13,6 +14,14 @@ const visualEditsDisabled = process.env.DISABLE_VISUAL_EDITS === "true";
 
 // Branded error overlay (build + runtime errors); escape hatch mirrors the two above.
 const emergentOverlayDisabled = process.env.DISABLE_EMERGENT_OVERLAY === "true";
+
+// One-time bootstrap token for secure session initialization (V1-B.2).
+// The Windows launcher (start-localaistudio.bat) sets LAS_BOOT_TOKEN in the env.
+// If the env var is not set (manual dev), the backend writes it to .boot_token.
+// The proxy injects it as X-Boot-Token on /api/auth/init requests only —
+// no secret is embedded in the frontend bundle.
+const bootToken = process.env.LAS_BOOT_TOKEN
+  || (() => { try { return fs.readFileSync(path.resolve(__dirname, "../backend/.boot_token"), "utf-8").trim(); } catch { return ""; } })();
 
 // Fails open: a broken overlay package must degrade to "no overlay" (Vite's own overlay
 // takes over), never to "no dev server". Never let a preview aid take the app down.
@@ -101,10 +110,19 @@ export default defineConfig(async () => {
       watch: hotReloadDisabled ? null : { usePolling: true, interval: 300 },
       // The /api proxy convention: frontend code calls relative /api/*, never an
       // absolute backend URL. Target is the FastAPI dev server (supervisor: backend).
+      // The configure hook injects the one-time bootstrap token (X-Boot-Token) on
+      // /api/auth/init requests only — the frontend never sees the token.
       proxy: {
         "/api": {
           target: "http://localhost:8001",
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              if (req.url?.startsWith("/api/auth/init") && bootToken) {
+                proxyReq.setHeader("X-Boot-Token", bootToken);
+              }
+            });
+          },
         },
       },
     },
