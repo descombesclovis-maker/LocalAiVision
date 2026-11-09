@@ -625,3 +625,28 @@ Limites et non-validé :
 - Le lanceur officiel utilise les ports 8001/3000, occupés par l'édition installée : non testé tel quel.
 - Trois photos de test ont été ajoutées à la base `localaistudio_nextgen_original` (aucune photo existante modifiée ou supprimée).
 - Les erreurs 403 de polices dans la console sont dues à la jonction `node_modules` de l'environnement de test, pas au produit.
+
+## V2-E — Étape 2 : édition distincte corrigée (validée), édition installée non modifiée
+
+Build : `scripts/build-parallel-edition.ps1` → `%LOCALAPPDATA%\LocalAiStudio-Editions\NextGen-V2E` (commit `82fccde`, 142 fichiers suivis). Ports 8011 (backend) / 3011 (interface), écoute `127.0.0.1`, lanceur `start-localaistudio-v2e.bat`, cookie de session `las_session_v2e`, base `localaistudio_nextgen_original` (choix à confirmer : c'est la base où se trouve le travail NextGen ; l'édition installée lit `localaistudio`, vide).
+
+Préservé : bases (sauvegarde logique préalable, voir ci-dessous), modèles (ComfyUI partagé, aucune copie), configuration (`backend/.env` créé une fois, jamais écrasé par un rebuild). Non copiés : `.env`, `.api_key`, `.boot_token`, `bench_runs/`, venv, node_modules (le venv est copié en lecture seule puis synchronisé ; `node_modules` est une jonction vers celui de l'édition installée, à remplacer par une vraie installation avant diffusion).
+
+Validé dans Chrome (fenêtre normale) :
+- Démarrage par son propre lanceur, écoute uniquement sur `127.0.0.1:8011` et `127.0.0.1:3011`.
+- Sans cookie : `401` sur `/api/media`.
+- CORS : seule l'origine locale `http://127.0.0.1:3011` est renvoyée ; une origine étrangère ne reçoit aucun `Access-Control-Allow-Origin`.
+- Première ouverture : initialisation par jeton d'amorçage, cookie `las_session_v2e` distinct de `las_session` (l'édition du dépôt sur 3001 garde sa session).
+- Génération SDXL de bout en bout : POST 200, rendu terminé en 28,7 s, `ckpt=sd_xl_base_1.0`, 30 étapes ; téléchargement PNG valide (1,33 Mo).
+
+Bug trouvé et corrigé (lanceurs officiel et V2-E, commit `82fccde`) : la génération du jeton via `powershell` dans `for /f` contenait des guillemets simples imbriqués ; le jeton restait **vide** et l'initialisation renvoyait 401 dans notre test (le fichier de repli `backend/.boot_token` n'a pas été créé). Remplacé par `python -c "import secrets; ..."` (64 caractères hexadécimaux vérifiés). Garde-fou ajouté dans `test_photo_ui_contract.py`.
+
+Sauvegarde préalable (lecture seule, `scripts/backup_db.py`) : `C:/Users/desco/AppData/Local/LocalAiStudio-Backups/20261110-002138` (3 bases, 8,3 Mo, JSON Lines, GridFS inclus).
+
+Constats sur l'édition installée `NextGen-Avant-Fusion` (non modifiée, action à décider par vous) :
+- `CORS_ORIGINS=*` et la réponse renvoie l'origine demandée (`Access-Control-Allow-Origin: https://evil.example`) : une page web ouverte dans votre navigateur peut interagir avec son API.
+- Sans cookie, `/api/media` et `/api/projects` répondent **500** au lieu de 401 : la requête atteint le gestionnaire sans contrôle d'authentification (l'erreur 500 vient de l'ancien client Motor corrigé en `d005a34`, pas d'un refus d'accès).
+- `tunnel-preview.bat` de l'édition installée lance encore `cloudflared` (tunnels publics vers Ollama et ComfyUI, sans authentification). Aucun tunnel n'était actif au moment du contrôle. La version du dépôt est neutralisée depuis V1-B.
+- Action recommandée : remplacer l'édition installée par la version V2-E après votre autorisation (son dossier, sa base et ses données restent intacts ; la sauvegarde ci-dessus permet un retour arrière).
+
+Non validé : installation Windows complète par le script `install.ps1` ; installeurs Inno/NSIS (compilateurs absents) ; la version distincte n'a pas encore été testée avec le navigateur par défaut de Windows.
