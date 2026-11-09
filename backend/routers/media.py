@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from lib import comfy, fal, gpu_queue
+from lib.photo_prompt import comfy_photo_prompt
 from lib.db import db
 from lib.llm import friendly_error, generate_image
 from lib.pipeline import spawn
@@ -132,7 +133,7 @@ async def _run_image(mid: str, prompt: str, model: str, ref: str | None, aspect:
 async def create_image(body: ImageRequest):
     ref, ref_mime = await _ref_b64(body.ref_media_id)
     if body.model == "comfy":
-        full = f"{body.prompt}, highly detailed, professional photography, sharp focus, premium quality"
+        full = comfy_photo_prompt(body.prompt)
     else:
         full = f"{body.prompt}. Aspect ratio {body.aspect_ratio}. High-end, detailed, no watermark."
         if ref:

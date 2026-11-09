@@ -17,11 +17,12 @@ import unicodedata
 from typing import Any, Awaitable, Callable, Optional
 
 from lib.prompt_preparation import FidelityMode, PromptTask, prepare_prompt
+from lib.photo_prompt import PHOTO_QUALITY_SUFFIX, comfy_photo_prompt
 from lib.prompt_preparation.engine import split_clauses
 
 from .corpus import IMAGE_TASKS
 
-LEGACY_IMAGE_SUFFIX = ", highly detailed, professional photography, sharp focus, premium quality"
+LEGACY_IMAGE_SUFFIX = PHOTO_QUALITY_SUFFIX
 CONSTRAINT_RE = re.compile(
     r"\b(noir|noire|noirs|blanc|blanche|rouge|rouges|bleu|bleue|bleus|vert|verte|verts|jaune|gris|grise|doré|dorée|"
     r"beige|crème|cobalt|bordeaux|orange|ne |n'|sans|pas de|pas |immobile|fixe|exact|exactement|identique|même|conserv|"
@@ -38,7 +39,7 @@ def _norm(text: str) -> str:
 
 
 def legacy_text(prompt: str, task: str) -> str:
-    return prompt + LEGACY_IMAGE_SUFFIX if task in IMAGE_TASKS else prompt
+    return comfy_photo_prompt(prompt) if task in IMAGE_TASKS else prompt
 
 
 def ordered_text(prompt: str, task: str) -> str:
@@ -46,7 +47,7 @@ def ordered_text(prompt: str, task: str) -> str:
     constrained = [c.text for c in clauses if CONSTRAINT_RE.search(c.text)]
     others = [c.text for c in clauses if not CONSTRAINT_RE.search(c.text)]
     text = " ".join(constrained + others)
-    return text + LEGACY_IMAGE_SUFFIX if task in IMAGE_TASKS else text
+    return comfy_photo_prompt(text) if task in IMAGE_TASKS else text
 
 
 def _unavailable_analyzer(system: str, payload: str) -> Awaitable[str]:

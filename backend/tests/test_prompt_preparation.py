@@ -275,7 +275,8 @@ async def test_current_photo_route_keeps_its_legacy_preparation(monkeypatch):
     monkeypatch.setattr(media, "_out", lambda value: value)
     body = ImageRequest(prompt="Une voiture noire, caméra fixe.", model="comfy")
     await media.create_image(body)
-    assert media._run_image.call_args.args[1] == body.prompt + ", highly detailed, professional photography, sharp focus, premium quality"
+    # Trailing period removed before the suffix (no "caméra fixe., highly…").
+    assert media._run_image.call_args.args[1] == "Une voiture noire, caméra fixe, highly detailed, professional photography, sharp focus, premium quality"
     assert media.create_media.await_args.args[2] == body.prompt
     guard.assert_not_awaited()
 

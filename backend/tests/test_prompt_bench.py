@@ -223,7 +223,9 @@ async def test_raw_baseline_differs_from_legacy_only_by_suffix():
     built = await core.build_item(item)
     raw = built["approaches"]["A0_raw"]["text"]
     legacy = built["approaches"]["A_legacy"]["text"]
-    assert legacy == raw + core.LEGACY_IMAGE_SUFFIX
+    # Allowed difference: the quality suffix, and the trailing period is dropped (no "blanc., highly…").
+    assert legacy == raw.rstrip(" .,;") + core.LEGACY_IMAGE_SUFFIX
+    assert ".," not in legacy
 
 
 def test_render_path_with_fake_comfy_writes_images_and_flags_first_load(tmp_path, monkeypatch):

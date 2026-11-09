@@ -21,6 +21,12 @@ CORPUS: tuple[dict, ...] = (
         "forbidden": ["rouge", "noir"],
     },
     {
+        "id": "photo_spatial_product", "task": "photo",
+        "prompt": "Un flacon de parfum bleu au centre avec son bouchon doré posé séparément à droite, sur une surface en marbre blanc.",
+        "must": ["bleu", "doré", "séparément", "à droite", "marbre blanc"],
+        "forbidden": ["rouge", "noir"],
+    },
+    {
         "id": "photo_multi_objects", "task": "photo",
         "prompt": "Une table en bois avec trois objets : une tasse rouge à gauche, un livre bleu au centre, et une plante verte à droite. "
                   "La tasse rouge est devant le livre bleu. Pas de personne dans l'image.",
