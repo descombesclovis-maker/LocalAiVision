@@ -650,3 +650,36 @@ Constats sur l'édition installée `NextGen-Avant-Fusion` (non modifiée, action
 - Action recommandée : remplacer l'édition installée par la version V2-E après votre autorisation (son dossier, sa base et ses données restent intacts ; la sauvegarde ci-dessus permet un retour arrière).
 
 Non validé : installation Windows complète par le script `install.ps1` ; installeurs Inno/NSIS (compilateurs absents) ; la version distincte n'a pas encore été testée avec le navigateur par défaut de Windows.
+
+## V2-E — Étape 3 : contrôle spatial par régions SDXL (expérience, non adoptée)
+
+Script d'expérience (hors application) : `backend/scripts/regional_sdxl_experiment.py`. Protocole : SDXL base `sd_xl_base_1.0`, 1024², 30 étapes, CFG 6,5, `dpmpp_2m` karras, négatif = `NEGATIVE` de l'application, graines 1001–1008, un rendu à la fois, file ComfyUI vide. Ollama : aucun modèle chargé, vérifié et déchargé avant la campagne (`unloaded=[]`).
+
+Variantes :
+- `base_fr` : prompt A0 du benchmark (référence exacte).
+- `base_en` : même contenu en un seul prompt anglais (contrôle de la langue).
+- `region_en` : prompt global + zone « flacon » (512×768 à x=256, y=128) + zone « bouchon » (256×256 à x=768, y=448), combinées par `ConditioningCombine`.
+
+Mesures brutes (`backend/bench_runs/regional_sdxl/20261110-003252/results.json`, gitignoré) :
+
+| Variante | n | Moyenne (s) | Min–max (s) |
+|---|---|---|---|
+| base_fr | 8 | 22,5 | 22,4–22,8 |
+| base_en | 8 | 22,4 | 22,4–22,8 |
+| region_en | 8 | 34,9 | 34,8–34,9 |
+
+Le rendu régional coûte environ 55 % de temps en plus (passes de conditionnement supplémentaires).
+
+Jugement visuel (un seul évaluateur, non aveugle, vignettes 200 px : subjectif, à confirmer) :
+
+| Critère | base_fr | base_en | region_en |
+|---|---|---|---|
+| Flacon bleu | 8/8 | 8/8 | 4/8 (les autres : ambre, clair/blanc, ou motif de cartes) |
+| Bouchon doré | environ 8/8 | 8/8 | 1/8 |
+| Bouchon séparé à droite | 0/8 | 1/8 | 0/8 (3/8 avec un objet décoratif chromé à droite, pas un bouchon) |
+
+Décision : contrôle par régions **non adopté**. Il dégrade la fidélité des couleurs demandées et ne produit pas le bouchon séparé. Workflows par défaut inchangés (aucune amélioration démontrée). La campagne en une graine de vérification (`20261110-003123`) est conservée.
+
+Limites : un seul sujet, 8 graines, un seul évaluateur, zones non optimisées, régions en anglais seulement (français non testé), pas de métrique objective. Le doute sur B et C de l'ancien benchmark (possiblement liés à Ollama) n'est pas tranché : Ollama était déjà déchargé pendant cette campagne et ces deux approches n'ont pas été relancées.
+
+Pistes non testées : inpainting SDXL en deux passes (sans téléchargement, avec le checkpoint existant) ; FLUX Dev (téléchargement à autoriser) ; ControlNet ou IP-Adapter (téléchargements à autoriser).
