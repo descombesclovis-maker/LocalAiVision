@@ -720,3 +720,32 @@ Pistes non testées : inpainting SDXL en deux passes (sans téléchargement, ave
 - Les deux bases de test `las_v2f_35535a3366d2fd9c3711` et `las_v2f_276f5c7d2a6566f08772` ont été créées et conservées. Les 3 bases utilisateur correspondent encore document par document à la sauvegarde V2-F après les essais. Refus d'écraser un dossier existant vérifié via le .bat. 484 tests backend passés.
 - Ce résultat valide l'installateur **script**, pas un `.exe` compilé/signé ni une machine vierge. Les anciens scripts Inno/NSIS ne sont pas recommandés ; l'édition V2-E existante n'est pas encore déliée dans cette étape.
 
+## V2-F — Étape 6 : préparation vidéo (inventaire, compatibilité RTX 3060, recommandation)
+
+Inventaire des modèles vidéo réellement installés (ComfyUI-Shared, vérifié via `object_info` et listing disque) :
+- `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors` (3,2 GB, `models/diffusion_models/`) — UNETLoader, compatible RTX 3060 12 Go
+- `ltx-2.3-22b-dev-fp8.safetensors` (29,1 GB, `models/checkpoints/`) — CheckpointLoaderSimple, trop volumineux pour 12 Go de VRAM
+- VAE : `wan_2.1_vae.safetensors`, `ltx-2.5-video-vae-bf16.safetensors` présents
+- CLIP : `umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `t5xxl_fp8_e4m3fn.safetensors` présents
+
+Présets dans `VIDEO_PRESETS` (`backend/lib/comfy.py`, inchangés par défaut) :
+- `wan22` (Wan 2.2 TI2V 5B) : modèle `wan2.2_ti2v_5B_fp16.safetensors` ABSENT, text_encoder présent, VAE `wan2.2_vae.safetensors` ABSENT → génération vidéo échouera si sélectionné
+- `ltxv` (LTX-Video 2B) : modèle `ltx-video-2b-v0.9.5.safetensors` ABSENT, text_encoder `t5xxl_fp16.safetensors` ABSENT → génération vidéo échouera si sélectionné
+- `wan21_fun_camera` (ajouté) : modèle PRÉSENT, text_encoder PRÉSENT, VAE PRÉSENT → prêt pour vérification
+
+Modification : `backend/lib/comfy.py`
+- Ajout du preset `wan21_fun_camera` (Wan 2.1 Fun Camera 1.3B, RTX 3060 12 Go)
+- Constante `UNET_BASED_VIDEO_PRESETS = {"wan22", "wan21_fun_camera"}` pour la vérification des modèles (UNETLoader vs CheckpointLoaderSimple)
+- `verify_ready` et `_model_requirements` reconnaissent les deux presets UNET
+- Le `video_preset` par défaut reste `wan22` (aucun changement de comportement par défaut, aucun modèle n'est téléchargé)
+- `_video_workflow` n'a pas de branche dédiée à `wan21_fun_camera` : ce preset nécessite un `custom_video_workflow` utilisateur (nodes WAN 2.1 spécifiques non intégrés par défaut)
+
+Meilleur candidat T2V/I2V pour RTX 3060 12 Go : **Wan 2.1 Fun Camera 1.3B** (3,2 GB, VRAM compatible). LTX 2.3 22B (29 GB) est hors de portée de 12 Go.
+
+Optimisations proposées (non testées) :
+- Quantification fp8/bf16 déjà appliquée sur les modèles installés
+- Chargement séquentiel (un modèle à la fois) pour éviter la fragmentation VRAM
+- `custom_video_workflow` utilisateur pour WAN 2.1 Fun Camera
+
+Tests : 104 tests comfy/kit passés. Aucune génération vidéo lancée (pas de workflow WAN 2.1 validé, pas de téléchargement de modèle).
+

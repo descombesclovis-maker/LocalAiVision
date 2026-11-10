@@ -23,8 +23,12 @@ IMAGE_PRESETS = {
     "flux-schnell": {"label": "FLUX.1 schnell (fp8, rapide)", "checkpoint": "flux1-schnell-fp8.safetensors"},
     "sdxl": {"label": "SDXL", "checkpoint": "sd_xl_base_1.0.safetensors"},
 }
+# Presets vidéo basés sur UNETLoader (modèle dans diffusion_models/, pas CheckpointLoaderSimple).
+UNET_BASED_VIDEO_PRESETS = {"wan22", "wan21_fun_camera"}
+
 VIDEO_PRESETS = {
     "wan22": {"label": "Wan 2.2 TI2V 5B", "model": "wan2.2_ti2v_5B_fp16.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "vae": "wan2.2_vae.safetensors"},
+    "wan21_fun_camera": {"label": "Wan 2.1 Fun Camera 1.3B (RTX 3060 12 Go)", "model": "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "vae": "wan_2.1_vae.safetensors"},
     "ltxv": {"label": "LTX-Video 2B", "model": "ltx-video-2b-v0.9.5.safetensors", "text_encoder": "t5xxl_fp16.safetensors", "vae": ""},
 }
 DEFAULTS = {
@@ -165,7 +169,7 @@ async def test(s: dict) -> dict:
         return {"ok": True, "message": msg, "gpu": gpu, "checkpoints": ckpts_safe, "diffusion_models": unets_safe, "text_encoders": clips_safe}
     missing = [f for f in (s["image_checkpoint"],) if f not in ckpts_safe]
     vid_needed = [s["video_model"], s["video_text_encoder"]]
-    vid_have = (unets_safe if s["video_preset"] == "wan22" else ckpts_safe) + clips_safe
+    vid_have = (unets_safe if s["video_preset"] in UNET_BASED_VIDEO_PRESETS else ckpts_safe) + clips_safe
     missing += [f for f in vid_needed if f and f not in vid_have]
     msg = f"ComfyUI prêt ({gpu})" if not missing else f"ComfyUI joignable ({gpu}), fichiers manquants : {', '.join(missing)}"
     return {"ok": not missing, "message": msg, "gpu": gpu, "checkpoints": ckpts_safe, "diffusion_models": unets_safe, "text_encoders": clips_safe}
@@ -212,13 +216,14 @@ def _model_requirements(s: dict, video: bool) -> ModelRequirements:
     elif not video:
         workflow = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": s["image_checkpoint"]}}}
     else:
-        node, field = ("UNETLoader", "unet_name") if s["video_preset"] == "wan22" else ("CheckpointLoaderSimple", "ckpt_name")
+        node, field = ("UNETLoader", "unet_name") if s["video_preset"] in UNET_BASED_VIDEO_PRESETS else ("CheckpointLoaderSimple", "ckpt_name")
         workflow = {
             "1": {"class_type": node, "inputs": {field: s["video_model"]}},
             "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": s["video_text_encoder"]}},
         }
         # LTX uses the checkpoint's VAE, even if settings contain a stale external VAE.
-        if s["video_preset"] == "wan22":
+        # Wan 2.2 and Wan 2.1 Fun Camera use an external VAE.
+        if s["video_preset"] in UNET_BASED_VIDEO_PRESETS:
             workflow["3"] = {"class_type": "VAELoader", "inputs": {"vae_name": s.get("video_vae", "")}}
     required: ModelRequirements = {}
     for node in workflow.values():
