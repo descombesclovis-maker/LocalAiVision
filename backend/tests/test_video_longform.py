@@ -11,6 +11,12 @@ from lib.video_longform import (
     segment_is_resumable,
     _record_vram_sample,
     total_unique_frames,
+    CAMERA_STRATEGIES,
+    SubjectObservation,
+    camera_pose_for_segment,
+    estimate_subject_hue,
+    observe_subject,
+    framing_risk,
 )
 
 
@@ -85,3 +91,76 @@ def test_longform_refuses_t2v_or_invalid_wan_frame_counts():
         build_wan_workflow(settings, "p", "", 1)
     with pytest.raises(ValueError, match=r"4n\+1"):
         build_wan_workflow(settings, "p", "source.png", 1, length=72)
+
+
+def test_neutral_bounded_and_keyframe_camera_policies():
+    centered = SubjectObservation(170, (0.4, 0.2, 0.6, 0.8), 0.5, 0.5, 500)
+    drifted_right = SubjectObservation(170, (0.72, 0.2, 0.99, 0.8), 0.855, 0.5, 500)
+    assert camera_pose_for_segment("neutral", 1, "Pan Left") == "Static"
+    assert camera_pose_for_segment("legacy", 2, "Pan Left", centered) == "Pan Left"
+    assert camera_pose_for_segment("bounded", 1, "Pan Left") == "Pan Left"
+    assert camera_pose_for_segment("bounded", 2, "Pan Left", drifted_right) == "Pan Right"
+    assert camera_pose_for_segment("bounded", 2, "Pan Left", centered) == "Static"
+    assert camera_pose_for_segment("keyframe", 2, "Pan Left", centered, ("Pan Left", "Zoom Out")) == "Zoom Out"
+    assert camera_pose_for_segment("keyframe", 4, "Pan Left", centered, ("Pan Left", "Static")) == "Static"
+
+
+def test_subject_color_guard_locates_reference_and_rejects_edge_drift(tmp_path: Path):
+    from PIL import Image, ImageDraw
+
+    reference = tmp_path / "reference.png"
+    image = Image.new("RGB", (200, 200), (170, 170, 170))
+    ImageDraw.Draw(image).rectangle((72, 66, 128, 154), fill=(5, 28, 220))
+    image.save(reference)
+    hue = estimate_subject_hue(reference, (0.30, 0.30, 0.40, 0.50))
+    centered = observe_subject(reference, hue)
+    assert centered is not None
+    assert abs(centered.center_x - 0.5) < 0.02
+    assert framing_risk(centered) is None
+
+    shifted = tmp_path / "shifted.png"
+    drift = Image.new("RGB", (200, 200), (170, 170, 170))
+    ImageDraw.Draw(drift).rectangle((174, 66, 199, 154), fill=(5, 28, 220))
+    drift.save(shifted)
+    observation = observe_subject(shifted, hue)
+    assert observation is not None
+    assert framing_risk(observation) is not None
+    assert framing_risk(None) == "subject color anchor not detected"
+
+
+def test_wan_workflow_supports_persistent_reference_and_opt_in_kitchen_attention():
+    settings = {"video_preset": "wan21_fun_camera", "video_model": "wan.safetensors",
+                "video_text_encoder": "umt5.safetensors", "video_vae": "wan.vae"}
+    workflow = build_wan_workflow(settings, "same object", "current.png", 11, "Pan Right",
+                                  reference_image_name="initial.png", attention_backend="comfy kitchen attention")
+    assert workflow["9"]["inputs"]["image"] == "current.png"
+    assert workflow["18"]["inputs"]["image"] == "initial.png"
+    assert workflow["10"]["inputs"]["image"] == ["18", 0]
+    assert workflow["11"]["inputs"]["start_image"] == ["9", 0]
+    assert workflow["19"]["class_type"] == "ModelAttentionBackend"
+    assert workflow["19"]["inputs"]["attention"] == "comfy kitchen attention"
+    assert workflow["4"]["inputs"]["model"] == ["19", 0]
+
+    default_workflow = build_wan_workflow(settings, "same object", "current.png", 11)
+    assert default_workflow["4"]["inputs"]["model"] == ["1", 0]
+    assert "19" not in default_workflow
+
+
+def test_attention_backend_rejects_unknown_value():
+    settings = {"video_preset": "wan21_fun_camera", "video_model": "wan.safetensors",
+                "video_text_encoder": "umt5.safetensors", "video_vae": "wan.vae"}
+    with pytest.raises(ValueError, match="Unsupported attention backend"):
+        build_wan_workflow(settings, "p", "source.png", 1, attention_backend="unverified")
+
+
+def test_camera_strategy_names_are_experimental_and_explicit():
+    assert CAMERA_STRATEGIES == ("legacy", "neutral", "bounded", "keyframe")
+    with pytest.raises(ValueError, match="Unsupported camera strategy"):
+        camera_pose_for_segment("automatic_magic", 1, "Pan Left")
+
+
+def test_subject_roi_rejects_out_of_frame_values():
+    from lib.video_longform import _validate_roi
+
+    with pytest.raises(ValueError, match="normalized"):
+        _validate_roi((0.9, 0.1, 0.2, 0.2))

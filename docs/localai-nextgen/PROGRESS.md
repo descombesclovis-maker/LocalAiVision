@@ -965,3 +965,37 @@ Wan 1.3B est la seule option vidéo qualifiée sur ce poste. LTX-Video 2B distil
 - Sources officielles consultées : [ComfyUI CLI flags/offload/dynamic VRAM](https://docs.comfy.org/development/comfyui-server/startup-flags); [fiche Wan 2.1 Fun Camera et licence Apache-2.0](https://huggingface.co/alibaba-pai/Wan2.1-Fun-V1.1-1.3B-Control-Camera); [LTX-2.3 model card](https://huggingface.co/Lightricks/LTX-2.3) et [licence LTX-2 (version datée)](https://huggingface.co/Lightricks/LTX-2.3/blob/3c6a4e66e5d0a684231950b9c74dd4ded7b6fadc/LICENSE); [repo officiel LTX-Video/distilled 2B](https://github.com/Lightricks/ltx-video); [LTX-Video Open Weights License 0.X](https://huggingface.co/Lightricks/LTX-Video-0.9.8-13B-distilled/blob/main/LTX-Video-Open-Weights-License-0.X.txt).
 - Run local ignoré Git : `backend/bench_runs/v2j/continuity_two_segment_20261110/index.html`; ComfyUI actif, file vide après le test. Aucun autre changement à l'installation.
 - Fin V2-J : **arrêt après prototype 6 s**. Ne pas télécharger de poids, activer LongForm dans l'UI ni promettre 30 s avant validation multi-seed du cadrage/mouvement.
+
+## V2-K — Contrôle de continuité vidéo, prototype deux segments
+
+### Modifications ciblées
+- `backend/lib/video_longform.py` garde le mode historique `legacy` par défaut et ajoute des modes expérimentaux `neutral`, `bounded` et `keyframe`.
+- `bounded` choisit une correction latérale à la frontière de segment depuis la position mesurée du sujet; dans les modes `bounded` et `keyframe`, l'image initiale reste la référence CLIP Vision, tandis que l'image finale précédente demeure l'image de départ I2V.
+- Garde-fou de cadrage local : déduit une teinte dominante dans une ROI normalisée opérateur, suit les pixels chromatiques correspondants sur l'image de fin, enregistre boîte/risque et refuse le segment suivant si le sujet n'est plus détectable ou approche du bord. **C'est un détecteur chromatique expérimental, pas de la détection sémantique; les sujets achromatiques/multicolores ou les reflets peuvent demander une ROI adaptée ou désactiver explicitement le garde.**
+- `ModelAttentionBackend` de Comfy Kitchen est désormais disponible comme option CLI explicite et enregistrée dans l'empreinte du run. PyTorch reste le défaut; aucun moteur par défaut n'a été changé.
+- Prévalidation auprès de l'API ComfyUI des checkpoints, poses caméra et backends attention effectivement exposés. Les données et sorties restent dans `backend/bench_runs/` (ignoré par Git).
+
+### Contrôle sur l'ancien rendu V2-J (sans GPU)
+- Extraction/détection sur toutes les **144 images** de la vidéo V2-J; 144/144 observations de l'ancre bleue obtenues. Centre horizontal du flacon : x=0,510 au départ, 0,805 à la frontière (frame 72), 0,940 en fin; premier contact du masque avec le bord à la frame 78. La politique bornée aurait donc choisi `Pan Right` à la frontière, avant la sortie observée.
+- Les trois stratégies sont exposées et testées au niveau de la construction/politique : `neutral` = `Static`; `bounded` = correction de dérive; `keyframe` = poses explicites par segment et référence initiale persistante. Faute de coût raisonnable pour plusieurs campagnes à ~7 min par segment, seules la trajectoire bornée et la référence persistante ont été rendues ensemble; neutral et keyframe n'ont pas reçu de rendu visuel indépendant. Ne pas interpréter cela comme un A/B visuel des trois stratégies.
+
+### Un rendu GPU contrôlé (2 × 3 s)
+- Même source/hachage, prompt, seeds (753934134/135), 832×480, 24 fps, 73 frames/segment, 20 steps, CFG 6, sampler `uni_pc`, scheduler `simple`; attention PyTorch, sans Ollama chargé. Le segment 1 reçoit `Pan Left`; le contrôleur observe x=0,805 à sa fin et choisit `Pan Right` pour le segment 2. Les deux segments utilisent la même image initiale persistante comme référence CLIP Vision; le second démarre de l'image de fin du premier.
+- Sortie locale : `backend/bench_runs/v2k/bounded_keyframe_20261110/` (galerie `index.html`, MP4 assemblé et manifeste). H.264, **144 frames = 6,000 s**, 832×480 à 24 fps. File ComfyUI vide après le test.
+- Temps ComfyUI : segment 1 **428,752 s**, segment 2 **430,375 s**, total **859,127 s (~14 min 19 s)**. Segment 2 : échantillonnage observé 399,968 s, setup au premier pas 11,375 s, SaveVideo 1,344 s. Le client de collecte du segment 1 a été interrompu après soumission; le job ComfyUI a fini sans être relancé, puis ses sorties ont été récupérées via l'historique Comfy et le run repris pour le segment 2. Sa VRAM n'a donc qu'une mesure externe partielle.
+- VRAM globale NVIDIA observée : segment 1 **7 973 MiB** (échantillonnage externe commencé ~30 s après soumission, donc pas pic absolu garanti); segment 2 **8 544 MiB / 12 288 MiB** avec le collecteur du prototype. Occupation GPU observée jusqu'à 100 %. Le segment 2 a observé 19 234 MiB RAM système utilisés au pic, sur 32 665 MiB.
+- Référence V2-J : 426,750 + 424,453 = 851,203 s. Le nouveau run est ~7,9 s (0,9 %) plus lent, différence trop faible pour conclure; l'objectif était le cadrage, pas le débit.
+
+### Résultat visuel mesuré et limites
+- Analyse couleur des 144 frames du nouveau MP4 : 144/144 détectées; centre x=0,510 au départ, 0,805 à la frontière puis 0,567 en fin; aucune boîte détectée ne touche le bord. Le flacon repart vers le centre avec Pan Right; déplacement par frame reste progressif (maximum observé du centroïde ~0,005 largeur de frame). MAE RGB au raccord 5,295/255 contre moyenne intra-segment 4,670/255 : valeurs descriptives seulement, pas un score perceptuel.
+- À l'examen de la vidéo entière et de la planche-contact, silhouette bleu cobalt, décor et cap restent cohérents; pas de sortie de cadre dans ce run. Le cap est attaché à la bouteille dans l'image source et le texte d'étiquette reste illisible. Une seed et un sujet ne démontrent pas la robustesse générale.
+- Le garde-fou ne surveille les transitions de segment qu'au moment où l'image de fin est disponible; il ne coupe pas un segment en cours. La détection par couleur ne convient pas à tous les sujets et ne prouve pas la stabilité d'identité sémantique.
+- ComfyUI local expose bien les options `pytorch attention` et `comfy kitchen attention`; le graphe opt-in `ModelAttentionBackend` est testé structurellement, mais **aucun rendu V2-K avec INT8 n'a été effectué**. Pas de gain de performance revendiqué. PyTorch reste inchangé par défaut.
+
+### Validation V2-K
+- `tests/test_video_longform.py`, `test_video_v2h.py`, `test_comfy_v1d.py`: **60 réussis**; compilation Python et `git diff --check` réussis. Aucune suite backend complète relancée.
+- Aucun téléchargement, changement de modèle, installation, route de production ou workflow par défaut. Pas de génération 30 s.
+- Artefacts/vidéos locaux ignorés par Git : `backend/bench_runs/v2k/bounded_keyframe_20261110/`. Le commit contient uniquement le prototype, ses tests et ce suivi.
+- Prochaine étape recommandée : campagnes courtes contrôlées et distinctes `Static`, trajectoire bornée et keyframes sur au moins plusieurs seeds, puis sujets à hue différente; décider si un détecteur vision local plus générique est justifié avant de rendre LongForm accessible dans l'interface.
+
+Fin de V2-K : arrêter ici; ne pas étendre à 30 s et ne pas activer Comfy Kitchen par défaut.

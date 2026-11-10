@@ -36,6 +36,133 @@ class SegmentSpec:
     seed: int
 
 
+@dataclass(frozen=True)
+class SubjectObservation:
+    hue: int
+    bbox: tuple[float, float, float, float]
+    center_x: float
+    center_y: float
+    pixels: int
+
+
+CAMERA_STRATEGIES = ("legacy", "neutral", "bounded", "keyframe")
+ATTENTION_BACKENDS = ("pytorch attention", "comfy kitchen attention")
+DEFAULT_SUBJECT_ROI = (0.32, 0.34, 0.38, 0.42)
+
+
+def _validate_roi(roi: tuple[float, float, float, float]) -> None:
+    x, y, width, height = roi
+    if width <= 0 or height <= 0 or x < 0 or y < 0 or x + width > 1 or y + height > 1:
+        raise ValueError("subject ROI must be normalized x,y,width,height inside [0,1]")
+
+
+def _hue_distance(a: int, b: int) -> int:
+    distance = abs(a - b)
+    return min(distance, 256 - distance)
+
+
+def estimate_subject_hue(image_path: Path, roi: tuple[float, float, float, float] = DEFAULT_SUBJECT_ROI) -> int:
+    """Find a dominant saturated hue inside an operator-defined subject ROI.
+
+    This lightweight guard is for distinctly chromatic subjects, not semantic object detection.
+    It deliberately fails if the ROI has no reliable color anchor rather than guessing.
+    """
+    from PIL import Image
+
+    _validate_roi(roi)
+    with Image.open(image_path) as source:
+        hsv = source.convert("HSV")
+        width, height = hsv.size
+        x, y, rw, rh = roi
+        crop = hsv.crop((int(x * width), int(y * height), max(int((x + rw) * width), 1), max(int((y + rh) * height), 1)))
+        bins = [0] * 16
+        pixels = crop.tobytes()
+        for i in range(0, len(pixels), 3):
+            hue, saturation, value = pixels[i], pixels[i + 1], pixels[i + 2]
+            if saturation >= 70 and value >= 24:
+                bins[(hue * 16) // 256] += 1
+    bucket = max(range(16), key=bins.__getitem__)
+    if bins[bucket] < 32:
+        raise ValueError("No distinct saturated subject color found in subject ROI; adjust --subject-roi or use --no-subject-guard")
+    return int((bucket + 0.5) * 256 / 16) % 256
+
+
+def observe_subject(
+    image_path: Path, hue: int, tolerance: int = 18,
+    search_roi: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 0.86),
+) -> SubjectObservation | None:
+    """Locate the persistent chromatic subject signature; coordinates are normalized.
+
+    The default search region omits the bottom 14% to avoid tracking a mirror reflection
+    as a second continuation of the object in product-shot scenes.
+    """
+    from PIL import Image
+
+    _validate_roi(search_roi)
+    with Image.open(image_path) as source:
+        hsv = source.convert("HSV")
+        width, height = hsv.size
+        rx, ry, rw, rh = search_roi
+        x0, y0 = int(rx * width), int(ry * height)
+        x1, y1 = max(x0 + 1, int((rx + rw) * width)), max(y0 + 1, int((ry + rh) * height))
+        xs: list[int] = []
+        ys: list[int] = []
+        pixels = hsv.tobytes()
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                index = (y * width + x) * 3
+                target_hue, saturation, value = pixels[index], pixels[index + 1], pixels[index + 2]
+                if saturation >= 55 and value >= 20 and _hue_distance(target_hue, hue) <= tolerance:
+                    xs.append(x)
+                    ys.append(y)
+    if len(xs) < max(32, width * height // 5000):
+        return None
+    left, right = min(xs), max(xs) + 1
+    top, bottom = min(ys), max(ys) + 1
+    bbox = (left / width, top / height, right / width, bottom / height)
+    return SubjectObservation(hue, bbox, (left + right) / (2 * width), (top + bottom) / (2 * height), len(xs))
+
+
+def framing_risk(observation: SubjectObservation | None) -> str | None:
+    """Return a fail-closed reason if the anchored subject is lost or near frame exit."""
+    if observation is None:
+        return "subject color anchor not detected"
+    left, top, right, bottom = observation.bbox
+    if left <= 0.01 or right >= 0.99 or top <= 0.01 or bottom >= 0.99:
+        return "anchored subject touches the frame edge"
+    if not 0.12 <= observation.center_x <= 0.88 or not 0.10 <= observation.center_y <= 0.90:
+        return "anchored subject center is outside the safe framing zone"
+    if right - left < 0.04 or bottom - top < 0.05:
+        return "anchored subject is too small or partially lost"
+    return None
+
+
+def camera_pose_for_segment(
+    strategy: str, segment_index: int, requested_pose: str,
+    observation: SubjectObservation | None = None, keyframes: tuple[str, ...] = ("Pan Left", "Static"),
+) -> str:
+    """Choose a per-segment pose; bounded mode counters observed lateral drift."""
+    if strategy not in CAMERA_STRATEGIES:
+        raise ValueError(f"Unsupported camera strategy: {strategy}")
+    if segment_index < 1:
+        raise ValueError("segment_index is one-based")
+    if strategy == "legacy":
+        return requested_pose
+    if strategy == "neutral":
+        return "Static"
+    if strategy == "keyframe":
+        if not keyframes:
+            return "Static"
+        return keyframes[min(segment_index - 1, len(keyframes) - 1)]
+    if segment_index == 1 or observation is None:
+        return requested_pose
+    if observation.center_x > 0.62:
+        return "Pan Right"
+    if observation.center_x < 0.38:
+        return "Pan Left"
+    return "Static"
+
+
 def plan_segments(target_seconds: int, segment_seconds: int = SEGMENT_SECONDS, seed: int = 753934134) -> list[SegmentSpec]:
     """Plan exact 24fps Wan segments; adjacent segments share one boundary frame."""
     if target_seconds <= 0 or segment_seconds not in (3, 5) or target_seconds % segment_seconds:
@@ -93,6 +220,7 @@ def build_wan_workflow(
     settings: dict[str, Any], prompt: str, image_name: str, seed: int,
     camera_pose: str = "Pan Left", width: int = 832, height: int = 480,
     length: int = FRAMES_PER_SEGMENT, output_prefix: str = "LocalAiVision/longform",
+    reference_image_name: str | None = None, attention_backend: str = "pytorch attention",
 ) -> dict[str, Any]:
     """Mirror the app's Wan Fun Camera I2V graph and additionally save the last frame as a keyframe."""
     if settings.get("video_preset") != "wan21_fun_camera":
@@ -101,8 +229,10 @@ def build_wan_workflow(
         raise ValueError("An input image is required for Wan Fun Camera I2V")
     if length < 5 or (length - 1) % 4:
         raise ValueError("Wan frame count must satisfy 4n+1")
+    if attention_backend not in ATTENTION_BACKENDS:
+        raise ValueError(f"Unsupported attention backend: {attention_backend}")
     neg = "static, blurry, low quality, distorted, watermark, text, jitter, deformed"
-    return {
+    workflow = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": settings["video_model"], "weight_dtype": "default"}},
         "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": settings["video_text_encoder"], "type": "wan", "device": "default"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": settings["video_vae"]}},
@@ -127,6 +257,14 @@ def build_wan_workflow(
         "16": {"class_type": "ImageFromBatch", "inputs": {"image": ["13", 0], "batch_index": length - 1, "length": 1}},
         "17": {"class_type": "SaveImage", "inputs": {"images": ["16", 0], "filename_prefix": f"{output_prefix}/end_frame"}},
     }
+    if reference_image_name and reference_image_name != image_name:
+        workflow["18"] = {"class_type": "LoadImage", "inputs": {"image": reference_image_name}}
+        workflow["10"]["inputs"]["image"] = ["18", 0]
+    if attention_backend == "comfy kitchen attention":
+        workflow["19"] = {"class_type": "ModelAttentionBackend", "inputs": {
+            "model": ["1", 0], "attention": "comfy kitchen attention"}}
+        workflow["4"]["inputs"]["model"] = ["19", 0]
+    return workflow
 
 
 def _named_file(outputs: dict[str, Any], extensions: tuple[str, ...]) -> dict[str, str] | None:
@@ -298,7 +436,9 @@ async def _render_one(base: str, workflow: dict[str, Any], output_dir: Path, seg
             pass
 
 
-async def _verify_models(base: str) -> dict[str, Any]:
+async def _verify_models(
+    base: str, attention_backend: str = "pytorch attention", camera_poses: tuple[str, ...] = (),
+) -> dict[str, Any]:
     requirements = {
         "UNETLoader": ("unet_name", "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors"),
         "CLIPLoader": ("clip_name", "umt5_xxl_fp8_e4m3fn_scaled.safetensors"),
@@ -318,6 +458,22 @@ async def _verify_models(base: str) -> dict[str, Any]:
             if expected not in choices:
                 raise RuntimeError(f"Required installed model not verified: {expected} ({node}/{field})")
             status[expected] = "present in ComfyUI object_info"
+        attention = await c.get(f"{base}/object_info/ModelAttentionBackend")
+        if attention.is_success:
+            choices = attention.json()["ModelAttentionBackend"]["input"]["required"]["attention"][1]["options"]
+            status["attention_backends"] = choices
+        else:
+            choices = ["pytorch attention"]
+            status["attention_backends"] = choices
+        if attention_backend not in choices:
+            raise RuntimeError(f"Requested attention backend is not installed/available in ComfyUI: {attention_backend}")
+        camera = await c.get(f"{base}/object_info/WanCameraEmbedding")
+        camera.raise_for_status()
+        supported_poses = camera.json()["WanCameraEmbedding"]["input"]["required"]["camera_pose"][1]["options"]
+        status["camera_poses"] = supported_poses
+        unsupported_poses = sorted(set(camera_poses) - set(supported_poses))
+        if unsupported_poses:
+            raise RuntimeError(f"Requested camera poses are not supported by installed ComfyUI: {unsupported_poses}")
     status["gpu"] = (stats.get("devices") or [{}])[0]
     status["ram"] = stats.get("system", {})
     return status
@@ -328,18 +484,34 @@ async def run_prototype(args: argparse.Namespace) -> Path:
     out = Path(args.output_dir).resolve()
     manifest_path = out / "manifest.json"
     initial = Path(args.input_image).resolve()
+    roi = tuple(args.subject_roi)
+    _validate_roi(roi)
     if not initial.is_file():
         raise FileNotFoundError(initial)
+    if args.camera_strategy not in CAMERA_STRATEGIES:
+        raise ValueError(f"Unsupported camera strategy: {args.camera_strategy}")
+    if args.attention_backend not in ATTENTION_BACKENDS:
+        raise ValueError(f"Unsupported attention backend: {args.attention_backend}")
+    if args.camera_strategy == "bounded" and not args.subject_guard:
+        raise ValueError("bounded camera strategy requires the subject framing guard")
+    anchor_hue = estimate_subject_hue(initial, roi) if args.subject_guard else None
+    initial_observation = observe_subject(initial, anchor_hue) if anchor_hue is not None else None
+    if args.subject_guard and framing_risk(initial_observation):
+        raise ValueError(f"Initial image is not trackable inside the configured subject ROI: {framing_risk(initial_observation)}")
     if args.resume:
         if not out.is_dir() or not manifest_path.is_file():
             raise FileNotFoundError(f"Cannot resume without an existing manifest: {manifest_path}")
     elif out.exists() and any(out.iterdir()):
         raise FileExistsError(f"Refusing to overwrite data in an existing run directory: {out}")
     out.mkdir(parents=True, exist_ok=True)
-    environment = await _verify_models(base)
+    environment = await _verify_models(base, args.attention_backend,
+                                       (args.camera_pose, *tuple(args.camera_keyframes), "Static", "Pan Right"))
     specs = plan_segments(6, 3, args.seed)
     config = {
         "model": "wan21_fun_camera", "prompt": args.prompt, "camera_pose": args.camera_pose,
+        "camera_strategy": args.camera_strategy, "camera_keyframes": list(args.camera_keyframes),
+        "attention_backend": args.attention_backend, "subject_guard": args.subject_guard,
+        "subject_roi": list(roi), "subject_hue": anchor_hue,
         "width": 832, "height": 480, "fps": FPS, "segment_seconds": 3, "frames_per_segment": FRAMES_PER_SEGMENT,
         "steps": 20, "cfg": 6.0, "sampler": "uni_pc", "scheduler": "simple", "base_seed": args.seed,
         "initial_image_sha256": sha256_file(initial), "overlap_frames": 1,
@@ -348,35 +520,59 @@ async def run_prototype(args: argparse.Namespace) -> Path:
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest.get("config_sha256") != fingerprint:
-            raise ValueError("Resume refused: prompt, source image, model or parameters differ from the saved manifest")
+            raise ValueError("Resume refused: prompt, source image, camera policy, attention backend or parameters differ from the saved manifest")
     else:
-        manifest = {"schema": 1, "created_utc": datetime.now(timezone.utc).isoformat(), "status": "running",
+        manifest = {"schema": 2, "created_utc": datetime.now(timezone.utc).isoformat(), "status": "running",
                     "environment_preflight": environment, "config": config, "config_sha256": fingerprint, "segments": [
                         {"index": s.index, "status": "pending", "start_frame": s.start_frame, "frame_count": s.frame_count,
                          "unique_frames": s.unique_frames, "seed": s.seed} for s in specs]}
+        manifest["subject_guard_note"] = "Dominant-hue tracking within an operator-selected ROI; not semantic object detection."
         save_manifest(manifest_path, manifest)
     current_source = initial
+    current_observation = initial_observation
+    persistent_reference = args.camera_strategy in ("bounded", "keyframe")
     async with httpx.AsyncClient(timeout=60) as client:
+        fixed_reference_name = await _upload_local_image(client, base, initial) if persistent_reference else None
         for spec in specs:
             row = manifest["segments"][spec.index - 1]
             video_path = out / f"segment-{spec.index:02d}.mp4"
             frame_path = out / f"segment-{spec.index:02d}-end.png"
             if segment_is_resumable(manifest, spec.index, out):
                 current_source = frame_path
+                current_observation = observe_subject(frame_path, anchor_hue) if anchor_hue is not None else None
                 continue
-            row.update({"status": "running", "source_image": str(current_source), "started_utc": datetime.now(timezone.utc).isoformat()})
+            if args.subject_guard and spec.index > 1:
+                risk = framing_risk(current_observation)
+                if risk:
+                    manifest["status"] = "drift_guard_stopped"
+                    manifest["stop_reason"] = risk
+                    save_manifest(manifest_path, manifest)
+                    raise RuntimeError(f"Refusing segment {spec.index}: subject framing guard: {risk}")
+            pose = camera_pose_for_segment(args.camera_strategy, spec.index, args.camera_pose,
+                                           current_observation, tuple(args.camera_keyframes))
+            row.update({"status": "running", "source_image": str(current_source), "camera_pose": pose,
+                        "reference_image": str(initial if persistent_reference else current_source),
+                        "started_utc": datetime.now(timezone.utc).isoformat()})
             save_manifest(manifest_path, manifest)
             source_name = await _upload_local_image(client, base, current_source)
+            reference_name = fixed_reference_name if persistent_reference else source_name
             settings = {"video_preset": "wan21_fun_camera", "video_model": "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors",
                         "video_text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "video_vae": "wan_2.1_vae.safetensors"}
-            workflow = build_wan_workflow(settings, args.prompt, source_name, spec.seed, args.camera_pose,
-                                          output_prefix=f"LocalAiVision/longform/{out.name}/s{spec.index:02d}")
+            workflow = build_wan_workflow(settings, args.prompt, source_name, spec.seed, pose,
+                                          output_prefix=f"LocalAiVision/longform/{out.name}/s{spec.index:02d}",
+                                          reference_image_name=reference_name,
+                                          attention_backend=args.attention_backend)
             try:
                 video_path, frame_path, metrics = await _render_one(base, workflow, out, spec)
+                observation = observe_subject(frame_path, anchor_hue) if anchor_hue is not None else None
+                risk = framing_risk(observation) if args.subject_guard else None
                 row.update({"status": "done", "video": video_path.name, "end_frame": frame_path.name,
                             "video_sha256": sha256_file(video_path), "end_frame_sha256": sha256_file(frame_path),
-                            "finished_utc": datetime.now(timezone.utc).isoformat(), "metrics": metrics})
+                            "finished_utc": datetime.now(timezone.utc).isoformat(), "metrics": metrics,
+                            "subject_framing": asdict(observation) if observation else None,
+                            "framing_risk": risk})
                 current_source = frame_path
+                current_observation = observation
             except Exception as exc:
                 row.update({"status": "error", "error": f"{type(exc).__name__}: {exc}"[:1200],
                             "failed_utc": datetime.now(timezone.utc).isoformat()})
@@ -384,6 +580,12 @@ async def run_prototype(args: argparse.Namespace) -> Path:
                 save_manifest(manifest_path, manifest)
                 raise
             save_manifest(manifest_path, manifest)
+            if risk and spec.index < len(specs):
+                manifest["status"] = "drift_guard_stopped"
+                manifest["stop_reason"] = risk
+                manifest["stopped_before_segment"] = spec.index + 1
+                save_manifest(manifest_path, manifest)
+                raise RuntimeError(f"Subject framing guard stopped before segment {spec.index + 1}: {risk}")
     assembled = out / "longform-6s.mp4"
     if not assembled.exists() or not manifest.get("assembly") or not segment_is_resumable(manifest, 1, out) or not segment_is_resumable(manifest, 2, out):
         manifest["status"] = "assembling"
@@ -408,7 +610,7 @@ async def run_prototype(args: argparse.Namespace) -> Path:
             raise
     manifest["status"] = "done"
     manifest["total_unique_frames"] = total_unique_frames(6, 3)
-    manifest["note"] = "Two 3-second segments; segment 2 starts from the exact final decoded frame saved by segment 1. The 6-second assembly removes one repeated boundary frame and trims the endpoint to 144 frames at 24 fps."
+    manifest["note"] = "Experimental two-segment continuity; strategy, persistent visual anchor and framing guard are recorded per run."
     save_manifest(manifest_path, manifest)
     _write_gallery(out, manifest)
     return out
@@ -430,13 +632,27 @@ def _write_gallery(folder: Path, manifest: dict[str, Any]) -> None:
     for row in manifest["segments"]:
         if row.get("status") == "done":
             rows.append(f'<section><h2>Segment {row["index"]}</h2><video controls src="{row["video"]}"></video><img src="{row["end_frame"]}" alt="End frame"></section>')
-    html = "<!doctype html><meta charset=utf-8><title>V2-J LongForm prototype</title><style>body{font:16px system-ui;background:#111;color:#eee}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem}video,img{width:100%}section{background:#222;padding:1rem}</style><h1>V2-J · Two-segment continuity</h1><main>" + "".join(rows) + "</main>"
+    html = "<!doctype html><meta charset=utf-8><title>LongForm continuity experiment</title><style>body{font:16px system-ui;background:#111;color:#eee}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem}video,img{width:100%}section{background:#222;padding:1rem}</style><h1>LongForm · Two-segment continuity experiment</h1><main>" + "".join(rows) + "</main>"
     (folder / "index.html").write_text(html, encoding="utf-8")
 
 
 def _default_comfy_python() -> str:
     root = Path(os.environ.get("LOCALAPPDATA", "")) / "Comfy-Desktop" / "ComfyUI-Installs" / "ComfyUI" / "ComfyUI"
     return str(root / ".venv" / "Scripts" / "python.exe")
+
+
+def _parse_roi(value: str) -> tuple[float, float, float, float]:
+    try:
+        roi = tuple(float(part.strip()) for part in value.split(","))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("ROI must be four comma-separated normalized numbers") from exc
+    if len(roi) != 4:
+        raise argparse.ArgumentTypeError("ROI must be x,y,width,height")
+    try:
+        _validate_roi(roi)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return roi
 
 
 def main() -> None:
@@ -447,9 +663,20 @@ def main() -> None:
     parser.add_argument("--comfy-python", default=_default_comfy_python(), help="Existing ComfyUI Python used only for local PyAV assembly")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=753934134)
-    parser.add_argument("--camera-pose", default="Pan Left")
+    parser.add_argument("--camera-pose", default="Pan Left", help="Requested starting pose for legacy/bounded strategies")
+    parser.add_argument("--camera-strategy", choices=CAMERA_STRATEGIES, default="legacy",
+                        help="legacy repeats pose; neutral uses Static; bounded corrects observed lateral drift; keyframe uses explicit per-segment poses and a persistent reference")
+    parser.add_argument("--camera-keyframes", default="Pan Left,Static", help="Comma-separated pose sequence for keyframe strategy")
+    parser.add_argument("--subject-roi", type=_parse_roi, default=DEFAULT_SUBJECT_ROI,
+                        help="Normalized x,y,width,height color-anchor ROI in the reference image")
+    parser.add_argument("--no-subject-guard", dest="subject_guard", action="store_false",
+                        help="Disable the chromatic-subject framing guard (not recommended for longform)")
+    parser.set_defaults(subject_guard=True)
+    parser.add_argument("--attention-backend", choices=ATTENTION_BACKENDS, default="pytorch attention",
+                        help="Experimental ComfyUI attention backend; default remains PyTorch")
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     args = parser.parse_args()
+    args.camera_keyframes = tuple(item.strip() for item in args.camera_keyframes.split(",") if item.strip())
     result = asyncio.run(run_prototype(args))
     print(json.dumps({"status": "done", "output_dir": str(result), "gallery": str(result / "index.html"),
                       "manifest": str(result / "manifest.json")}, ensure_ascii=False, indent=2))
