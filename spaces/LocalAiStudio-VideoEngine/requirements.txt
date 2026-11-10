@@ -1,2 +1,17 @@
-gradio==6.25.0
-# `spaces` and a compatible CUDA/PyTorch build are supplied by the hosted ZeroGPU runtime.
+# Upstream SANA-Video 2.0 preview requirements; ZeroGPU supplies compatible torch/spaces runtime.
+torchvision
+accelerate
+diffusers>=0.40.0
+transformers>=5.0.0
+sentencepiece
+protobuf
+timm
+einops
+numpy
+pillow
+pyrallis
+pytz
+termcolor
+tqdm
+imageio
+imageio-ffmpeg
