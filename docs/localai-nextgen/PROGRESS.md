@@ -698,3 +698,10 @@ Pistes non testées : inpainting SDXL en deux passes (sans téléchargement, ave
 - Test réel Vite + backend sur ports isolés, sans démarrage de Mongo : origine étrangère 403 (sans ACAO), export sans session 401, ouverture locale 200 avec cookie HttpOnly/SameSite=Strict, export authentifié 200, rejeu du jeton 401, preflight étranger 400. Interface chargée dans le navigateur avec backend factice ; aucune erreur console après configuration des réponses factices. `tsc` OK ; 458 tests backend passés.
 - `docs/localai-nextgen/V2-F-ANCIENNE-EDITION.md` décrit une neutralisation réversible à soumettre à autorisation. Aucune action sur l'ancienne édition : son API 8001 reste sans authentification et CORS `*`, son script de tunnel demeure dangereux ; aucun processus cloudflared actif au contrôle. Les instances V2-E déjà lancées utilisent encore leur ancien code tant qu'elles ne sont pas mises à jour/redémarrées.
 
+## V2-F — Étape 3 : sauvegarde logique vérifiée avant distribution
+
+- `scripts/backup_db.py` utilise le JSON étendu canonique BSON (préservation des ObjectId, Int64, dates et données binaires GridFS), refuse d'écraser un répertoire de sauvegarde existant et propose `--verify`. Les documents exportés sont comparés par empreinte SHA-256 à une nouvelle lecture de chaque collection ; aucune écriture MongoDB.
+- Sauvegarde `C:/Users/desco/AppData/Local/LocalAiStudio-Backups/V2F-20261110-010754` : `localaistudio`, `localaistudio_nextgen_original` (1 projet, 6 médias, 6 fichiers et 34 blocs GridFS) et `localaistudio_fusion_beta` ; toutes les collections correspondent au moment de la vérification. Documents `_manifest.json` et `_verification.json` fournis. Taille : environ 10 Mo.
+- Limites : ce n'est pas un snapshot atomique et aucune restauration n'a été testée ; les données de `fusion_beta` portent des statuts actifs historiques et n'ont pas été modifiées. La file ComfyUI était vide lors du relevé.
+- Tests : 9 tests de sauvegarde (dont types BSON, GridFS, modification détectée et non-écrasement), 467 tests backend passés. Les tests utilisent une base Mongo fictive et n'accèdent pas aux bases utilisateur.
+
