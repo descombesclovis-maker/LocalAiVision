@@ -705,3 +705,10 @@ Pistes non testées : inpainting SDXL en deux passes (sans téléchargement, ave
 - Limites : ce n'est pas un snapshot atomique et aucune restauration n'a été testée ; les données de `fusion_beta` portent des statuts actifs historiques et n'ont pas été modifiées. La file ComfyUI était vide lors du relevé.
 - Tests : 9 tests de sauvegarde (dont types BSON, GridFS, modification détectée et non-écrasement), 467 tests backend passés. Les tests utilisent une base Mongo fictive et n'accèdent pas aux bases utilisateur.
 
+## V2-F — Étape 4 : dépendances Windows indépendantes
+
+- Le runtime local est figé dans `requirements-local.txt` (23 paquets directs et transitifs) ; `requirements-windows-py311.lock` contient les SHA-256 des roues Windows x64 / CPython 3.11, installables avec `--require-hashes --only-binary=:all:`. Les moteurs payants restent optionnels, non requis pour démarrer le moteur local.
+- Création d'un venv entièrement neuf depuis les roues vérifiées (5,5 Mo, cache local), `pip check` et import réel du serveur réussis. `uvicorn==0.52.1` et `websockets==17.4` sont présents. Le venv du dépôt a aussi été synchronisé sur ce runtime : `uvicorn`, `python-multipart`, `tzdata` et `click` manquants ajoutés ; FastAPI et pymongo remis aux versions indiquées par le dépôt. `pip check` OK.
+- Préparation de Yarn 1.22.22 local via `installer/tooling/package-lock.json` (intégrité npm) ; aucun lien vers l'ancienne édition nécessaire. Le futur installateur doit encore utiliser cet outil et `frontend/yarn.lock`.
+- Tests : 469 backend passés, dont vérification du lock et de son inclusion dans le kit. Limites : ce lock vise Windows x64/Python 3.11 ; pas de validation d'un .exe ni de machine Windows vierge à ce stade. Le fichier historique `backend/requirements.txt` contient encore des dépendances développeur/optionnelles non utilisées par ce runtime.
+

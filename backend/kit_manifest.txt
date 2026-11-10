@@ -107,7 +107,10 @@ installer/LocalAiStudio.nsi
 installer/build-installer.bat
 installer/env.template
 installer/nsis-plugins/x86-unicode/INetC.dll
+installer/tooling/package-lock.json
+installer/tooling/package.json
 requirements-local.txt
+requirements-windows-py311.lock
 scripts/backup_db.py
 scripts/build-parallel-edition.ps1
 start-localaistudio.bat
