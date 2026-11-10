@@ -4,7 +4,6 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-import secrets
 import os
 import logging
 from pathlib import Path
@@ -15,7 +14,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
-from lib.auth import AuthMiddleware, boot, API_KEY, COOKIE_NAME
+from lib.auth import AuthMiddleware, boot, API_KEY, COOKIE_NAME, tokens_equal
 from routers import companies, engines, media, projects
 
 # Restrictive CORS: only loopback origins by default.  The frontend (Vite dev server on
@@ -88,8 +87,13 @@ async def init_session(request: Request):
     CSRF protection: ``SameSite=Strict`` prevents the cookie from being sent on cross-site
     requests.  No double-submit token is needed for a local app with ``SameSite=Strict``.
     """
+    # CORS alone does not stop a cross-site form POST: reject it before consuming the
+    # one-time boot token, even when the proxy has injected a valid token.
+    origin = request.headers.get("origin")
+    if (origin and origin not in _cors_origins()) or request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(403, "Origine non autorisée pour l'ouverture de session")
     existing = request.cookies.get(COOKIE_NAME, "")
-    if existing and secrets.compare_digest(existing, API_KEY):
+    if existing and tokens_equal(existing, API_KEY):
         # Page refresh or new tab with a valid session: idempotent, the consumed boot token is not needed.
         response = JSONResponse({"ok": True, "session": "existing"})
         response.set_cookie(COOKIE_NAME, API_KEY, httponly=True, samesite="strict", path="/api")

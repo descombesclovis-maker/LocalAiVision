@@ -86,6 +86,11 @@ def _init_boot_token() -> str:
     return token
 
 
+def tokens_equal(left: str, right: str) -> bool:
+    """Compare tokens without timing leaks and accept malformed non-ASCII inputs safely."""
+    return secrets.compare_digest(left.encode("utf-8"), right.encode("utf-8"))
+
+
 class _BootToken:
     """Manages the one-time bootstrap token: ``consume()`` invalidates it after first use."""
 
@@ -95,7 +100,7 @@ class _BootToken:
 
     def consume(self, token: str) -> bool:
         """Return True if *token* matches and hasn't been consumed yet; invalidate it."""
-        if self._consumed or not token or token != self._token:
+        if self._consumed or not token or not tokens_equal(token, self._token):
             return False
         self._consumed = True
         try:
@@ -124,12 +129,12 @@ boot = _BootToken()
 # Paths that never require a token: preview HTML (served to sandboxed generated sites),
 # media file serving (images/videos referenced by <img>/<video> tags), health check,
 # and the one-time session-initialisation endpoint (which validates the boot token itself).
-_EXEMPT_PREFIXES = ("/api/preview/", "/api/auth/init")
+_EXEMPT_PREFIXES = ("/api/preview/",)
 _HEALTH_PATHS = frozenset({"/api", "/api/"})
 
 
 def _is_exempt(path: str) -> bool:
-    if path in _HEALTH_PATHS:
+    if path in _HEALTH_PATHS or path == "/api/auth/init":
         return True
     if any(path.startswith(p) for p in _EXEMPT_PREFIXES):
         return True
@@ -162,8 +167,8 @@ class AuthMiddleware:
     """Pure ASGI auth middleware (no BaseHTTPMiddleware — safe with StreamingResponse).
 
     Flow:
-      1. OPTIONS, non-/api, and exempt paths → pass through.
-      2. Valid X-API-Key header or las_session cookie → pass through.
+      1. OPTIONS, non-/api, public asset reads, and POST /api/auth/init → pass through.
+      2. Valid X-API-Key header or configured session cookie → pass through.
       3. Anything else → 401 JSON.
 
     No request is ever authorised because it comes from localhost.
@@ -181,12 +186,14 @@ class AuthMiddleware:
         path = scope["path"]
         method = scope["method"]
 
-        # CORS preflight, non-API paths, and exempt endpoints never need auth.
-        if method == "OPTIONS" or not path.startswith("/api") or _is_exempt(path):
+        # Public previews/media are read-only; bootstrap is explicitly POST-only.
+        is_public_read = method in {"GET", "HEAD"} and _is_exempt(path) and path != "/api/auth/init"
+        is_bootstrap = method == "POST" and path == "/api/auth/init"
+        if method == "OPTIONS" or not path.startswith("/api") or is_public_read or is_bootstrap:
             return await self.app(scope, receive, send)
 
         token = _extract_token(scope)
-        if token == API_KEY:
+        if token is not None and tokens_equal(token, API_KEY):
             return await self.app(scope, receive, send)
 
         # No auto-bootstrap: reject ALL unauthenticated requests, including localhost.

@@ -109,8 +109,9 @@ export default defineConfig(async () => {
       host: exposeDevServer ? true : "127.0.0.1",
       port: 3000,
       allowedHosts: exposeDevServer ? true : ["localhost", "127.0.0.1"],
-      // Preview probe + /edit-file are cross-origin from the Emergent tab; Vite defaults to localhost-only CORS.
-      cors: true,
+      // Never add wildcard CORS on top of the authenticated local API proxy. Hosted preview
+      // exposure remains an explicit opt-in; normal Windows launches are same-origin.
+      cors: exposeDevServer,
       // No hmr.clientPort override: Vite infers the WS target from window.location, which
       // is correct on both localhost:3000 (smoke) and the https/:443 preview proxy.
       // Build-error rendering: emergent-overlay when it loaded, else Vite's own overlay.
@@ -126,8 +127,10 @@ export default defineConfig(async () => {
           changeOrigin: true,
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq, req) => {
-              if (req.url?.startsWith("/api/auth/init") && readBootToken()) {
-                proxyReq.setHeader("X-Boot-Token", readBootToken());
+              const pathname = req.url?.split("?", 1)[0];
+              if (req.method === "POST" && pathname === "/api/auth/init") {
+                const bootToken = readBootToken();
+                if (bootToken) proxyReq.setHeader("X-Boot-Token", bootToken);
               }
             });
           },

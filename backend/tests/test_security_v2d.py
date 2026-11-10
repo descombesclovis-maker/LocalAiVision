@@ -111,13 +111,16 @@ def test_vite_no_unconditional_host_true():
     src = _vite_src()
     assert not re.search(r"^\s*host:\s*true\s*,", src, re.M), "host: true must only be reachable through LAS_VITE_EXPOSE"
     assert not re.search(r"^\s*allowedHosts:\s*true\s*,", src, re.M)
+    assert "cors: exposeDevServer" in src
+    assert not re.search(r"^\s*cors:\s*true\s*,", src, re.M)
 
 
 def test_vite_reads_boot_token_at_request_time():
     """After a backend restart the boot token file changes; the proxy must not keep a stale value."""
     src = _vite_src()
     assert "readBootToken" in src
-    assert "proxyReq.setHeader(\"X-Boot-Token\", readBootToken())" in src
+    assert 'proxyReq.setHeader("X-Boot-Token", bootToken)' in src
+    assert 'req.method === "POST" && pathname === "/api/auth/init"' in src
 
 
 # ------------------------------------------------------------------ 4. Session lifecycle (real route)
