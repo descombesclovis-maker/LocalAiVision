@@ -874,3 +874,44 @@ Première génération vidéo locale réelle sur RTX 3060 12 Go via l'API authen
 
 Validation V2-H committée sur `nextgen/claude-code` après les tests finaux.
 
+## V2-I — optimisation mesurée du workflow vidéo (réalisé, optimisation non activée par défaut)
+
+### Environnement et protocole
+- ComfyUI Desktop existant sur `127.0.0.1:8188`, version API `0.37.2`, PyTorch `2.12.1+cu130`, RTX 3060 12 Gio. File vide avant l'essai ; Ollama n'avait aucun modèle chargé.
+- Aucun paquet, modèle ou installation n'a été téléchargé ou modifié.
+- Comparaison sur le même historique V2-H : même seed `753934134`, image d'entrée `las_5bd50f6f4a.png`, prompt, pose `Pan Left`, 832×480, 73 frames, 24 fps, 20 steps, CFG 6, `uni_pc`/`simple`.
+- Une seule modification expérimentale : insertion du nœud ComfyUI `ModelAttentionBackend` avec `comfy kitchen attention` (attention dense INT8 Comfy Kitchen). Le workflow actif de LocalAiVision n'a pas été modifié.
+
+### Mesures observées
+| Mesure | Référence V2-H (PyTorch attention) | Comfy Kitchen INT8 | Écart |
+|---|---:|---:|---:|
+| Mesure | Référence PyTorch | Comfy Kitchen INT8 | Écart observé |
+|---|---:|---:|---:|
+| Temps ComfyUI start→success, seed 753934134 appariée | 447,069 s | 286,813 s | −35,9 % |
+| Intervalle d'échantillonnage (mesure V2-H distincte / cette expérience) | 423,953 s | 254,391 s | indicatif : −40,0 % |
+| Pic VRAM global (mesure V2-H distincte / cette expérience) | 10 344 MiB | 9 989 MiB | indicatif : −355 MiB (−3,4 %) |
+| Durée MP4 | 3,0417 s | 3,0417 s | identique |
+| Taille vidéo | 258 414 o | 262 161 o | +1,5 % |
+
+La comparaison visuelle et le temps ComfyUI start→success sont appariés sur le même seed `753934134`. Les temps d'échantillonnage et pics VRAM de V2-H proviennent d'une autre génération de mêmes paramètres dont le seed n'a pas été enregistré dans le résumé UI : ces deux deltas sont indicatifs, pas une mesure A/B strictement appariée. Le rendu expérimental a gardé 20 étapes et 73 images ; aucune réduction de résolution, FPS, durée ou steps. `nvidia-smi` a relevé une utilisation GPU généralement à 100 % pendant l'échantillonnage. Cela, ainsi que la part dominante des étapes, pointe vers le calcul de débruitage/attention comme levier principal ; aucun profilage Nsight n'a été effectué, donc le partage exact calcul/bande passante/transferts reste non démontré.
+
+### Qualité — examen exhaustif des frames
+- Les deux MP4 ont été décodés en entier : 73/73 frames chacun, mêmes dimensions, cadence et durée.
+- Planche appariée de toutes les frames : `backend/bench_runs/v2i/paired_all_frames.jpg`. Mesures descriptives locales dans `visual_comparison_summary.json` (erreur moyenne inter-images réduites : 1,012/255 entre sorties ; MAE temporelle 3,088 contre 3,102). Ces différences de pixels ne sont pas des scores de qualité.
+- À l'examen visuel côte-à-côte, le flacon, ses couleurs et le décor paraissent stables et quasi identiques ; aucun nouvel artefact évident. Le mouvement Pan Left reste faible dans les deux versions : l'attention INT8 n'améliore pas l'amplitude caméra.
+- Cette vérification sur une seed est un criblage qualitatif, pas une preuve statistique d'absence de dégradation sur tous les prompts/seeds.
+
+### Décision et prochaines pistes
+- Gain de vitesse substantiel démontré sur cet essai, sans dégradation visuelle évidente ; le workflow de production reste inchangé tant qu'une comparaison multi-seed n'a pas confirmé le résultat. V2-I n'introduit donc aucune modification comportementale dans l'application.
+- Le temps expérimental reste 286,8 s, au-dessus de l'objectif progressif de 180 s ; il faudrait encore environ 37 % de réduction.
+- Piste suivante prioritaire : comparaison multi-seed du backend Comfy Kitchen INT8. SageAttention/xFormers ne sont pas installés ; Triton, SageAttention, xFormers et FlashAttention séparé sont absents de l'environnement inspecté. Torch SDPA reste disponible. `torch.compile` est à faible priorité ici : Triton absent et coût de compilation/compatibilité Windows non mesurés.
+- Ne pas accélérer en diminuant silencieusement frames, résolution ou étapes ; le décodage/encodage n'est pas le goulet principal vu la durée mesurée de l'échantillonnage.
+
+### Validation et artefacts locaux
+- Tests ciblés : `tests/test_video_v2h.py` + `tests/test_comfy_v1d.py` — 46 réussis. Aucun rendu vidéo supplémentaire après cette comparaison.
+- Les vidéos, mesures et scripts expérimentaux sont locaux et ignorés par Git dans `backend/bench_runs/v2i/` : référence `baseline_v2h_seed753934134.mp4`, sortie `comfy_kitchen_int8_seed753934134.mp4`, mesures `comfy_kitchen_int8_metrics.json`, `visual_comparison_summary.json`, planche `paired_all_frames.jpg`.
+- Sources consultées : documentation officielle ComfyUI [Model Attention Backend](https://docs.comfy.org/built-in-nodes/ModelAttentionBackend) (backend INT8 et repli PyTorch si indisponible) ; tutoriel PyTorch [Scaled Dot Product Attention](https://docs.pytorch.org/tutorials/intermediate/scaled_dot_product_attention_tutorial.html) (kernels SDPA fusionnés et dispatch CUDA).
+- Aucun changement de modèle, workflow par défaut, installation existante ou données utilisateur. Seule cette documentation est ajoutée pour V2-I.
+
+Fin de V2-I : arrêter ici, ne pas activer le backend expérimental par défaut sans validation multi-seed.
+
