@@ -90,6 +90,63 @@ async def test_confirmed_missing_is_not_hidden_by_another_unavailable_list(monke
         await comfy.verify_ready(dict(comfy.DEFAULTS), video=True)
 
 
+async def test_unsupported_video_preset_is_refused(monkeypatch):
+    mock_comfy(monkeypatch, {})
+    s = {**comfy.DEFAULTS, "video_preset": "nonexistent-preset"}
+    with pytest.raises(comfy.WorkflowError, match="non pris en charge"):
+        comfy._video_workflow(s, "prompt", 832, 480, 73, 1, None)
+
+
+async def test_wan21_fun_camera_requires_image(monkeypatch):
+    mock_comfy(monkeypatch, {})
+    s = {**comfy.DEFAULTS, "video_preset": "wan21_fun_camera"}
+    s.update({k: v for k, v in comfy.VIDEO_PRESETS["wan21_fun_camera"].items() if k != "label"})
+    with pytest.raises(comfy.WorkflowError, match="Image-to-Video"):
+        comfy._video_workflow(s, "prompt", 832, 480, 73, 1, None)
+
+
+async def test_wan21_fun_camera_builds_i2v_camera_workflow(monkeypatch):
+    mock_comfy(monkeypatch, {
+        "UNETLoader": {"unet_name": [comfy.VIDEO_PRESETS["wan21_fun_camera"]["model"]]},
+        "CLIPLoader": {"clip_name": [comfy.VIDEO_PRESETS["wan21_fun_camera"]["text_encoder"]]},
+        "VAELoader": {"vae_name": [comfy.VIDEO_PRESETS["wan21_fun_camera"]["vae"]]},
+        "CLIPVisionLoader": {"clip_name": ["clip_vision_h.safetensors"]},
+    })
+    s = {**comfy.DEFAULTS, "video_preset": "wan21_fun_camera"}
+    s.update({k: v for k, v in comfy.VIDEO_PRESETS["wan21_fun_camera"].items() if k != "label"})
+    wf = comfy._video_workflow(s, "un flacon bleu sur marbre", 832, 480, 25, 42, "ref.png", camera_pose="Zoom In")
+    classes = {n["class_type"] for n in wf.values()}
+    assert "UNETLoader" in classes
+    assert "CLIPLoader" in classes
+    assert "VAELoader" in classes
+    assert "CLIPVisionLoader" in classes
+    assert "WanCameraEmbedding" in classes
+    assert "WanCameraImageToVideo" in classes
+    assert "VAEDecode" in classes
+    assert "CreateVideo" in classes
+    assert "SaveVideo" in classes
+    # WanCameraImageToVideo must receive camera_conditions and clip_vision_output
+    i2v = next(n for n in wf.values() if n["class_type"] == "WanCameraImageToVideo")
+    assert i2v["inputs"]["camera_conditions"] == ["8", 0]
+    assert i2v["inputs"]["clip_vision_output"] == ["10", 0]
+    assert i2v["inputs"]["start_image"] == ["9", 0]
+    assert i2v["inputs"]["width"] == 832
+    assert i2v["inputs"]["height"] == 480
+    assert i2v["inputs"]["length"] == 25
+    # WanCameraEmbedding receives the camera pose
+    cam = next(n for n in wf.values() if n["class_type"] == "WanCameraEmbedding")
+    assert cam["inputs"]["camera_pose"] == "Zoom In"
+    assert cam["inputs"]["width"] == 832
+    assert cam["inputs"]["height"] == 480
+    assert cam["inputs"]["length"] == 25
+    # KSampler receives the latent from WanCameraImageToVideo
+    ksampler = next(n for n in wf.values() if n["class_type"] == "KSampler")
+    assert ksampler["inputs"]["latent_image"] == ["11", 2]
+    assert ksampler["inputs"]["positive"] == ["11", 0]
+    assert ksampler["inputs"]["negative"] == ["11", 1]
+    assert ksampler["inputs"]["model"] == ["4", 0]
+
+
 @pytest.mark.parametrize("video", [False, True])
 async def test_custom_workflow_uses_custom_models_not_preset_defaults(monkeypatch, video):
     workflow = {

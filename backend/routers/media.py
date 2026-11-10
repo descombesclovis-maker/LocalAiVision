@@ -188,11 +188,14 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
     try:
         # V1-C: verify_ready is called once here (in media.py) before the GPU slot.
         # generate_video() no longer calls it, eliminating the redundant second check.
+        # Apply the requested video preset BEFORE verification so the correct models are checked.
         s = await comfy.get_settings()
+        if body.comfy_preset:
+            s = comfy.video_settings(s, body.comfy_preset)
         await comfy.verify_ready(s, video=True)
         async with gpu_queue.slot(mid, "video", "ComfyUI", body.prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "updated_at": now_iso()}})
-            data, mime = await comfy.generate_video(body.prompt, body.duration, body.aspect_ratio, ref, progress, queued)
+            data, mime = await comfy.generate_video(body.prompt, body.duration, body.aspect_ratio, ref, progress, queued, camera_pose=body.camera_pose, preset=body.comfy_preset)
         d = await db.media.find_one({"id": mid})
         if d and d["status"] != "cancelled":
             await finish_media(mid, data, mime)

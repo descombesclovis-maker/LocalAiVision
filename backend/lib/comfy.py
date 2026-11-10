@@ -350,13 +350,24 @@ def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Opti
     return wf
 
 
-def _video_workflow(s: dict, prompt: str, w: int, h: int, length: int, seed: int, image: Optional[str]) -> dict:
+def _video_workflow(s: dict, prompt: str, w: int, h: int, length: int, seed: int, image: Optional[str], camera_pose: str = "Static") -> dict:
+    """Build the ComfyUI workflow for the selected video preset.
+
+    Raises WorkflowError when the preset is unknown or unsupported — an
+    unsupported preset is never silently routed to an incompatible engine.
+    """
+    preset = s["video_preset"]
+    if preset not in VIDEO_PRESETS:
+        raise WorkflowError(
+            f"Préset vidéo inconnu ou non pris en charge : {preset}. "
+            f"Choisissez parmi : {', '.join(sorted(VIDEO_PRESETS))}."
+        )
     neg = "static, blurry, low quality, distorted, watermark, text, jitter, deformed"
     save = {
         "20": {"class_type": "CreateVideo", "inputs": {"images": ["8", 0], "fps": 24}},
         "21": {"class_type": "SaveVideo", "inputs": {"video": ["20", 0], "filename_prefix": "LocalAiStudio/video", "format": "mp4", "codec": "h264"}},
     }
-    if s["video_preset"] == "wan22":
+    if preset == "wan22":
         wf: dict[str, Any] = {
             "1": {"class_type": "UNETLoader", "inputs": {"unet_name": s["video_model"], "weight_dtype": "default"}},
             "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": s["video_text_encoder"], "type": "wan", "device": "default"}},
@@ -374,6 +385,37 @@ def _video_workflow(s: dict, prompt: str, w: int, h: int, length: int, seed: int
         if image:
             wf["10"] = {"class_type": "LoadImage", "inputs": {"image": image}}
             wf["7"]["inputs"]["start_image"] = ["10", 0]
+        return wf
+    if preset == "wan21_fun_camera":
+        if not image:
+            raise WorkflowError(
+                "Wan 2.1 Fun Camera est un modèle Image-to-Video : une image de départ est requise. "
+                "Sélectionnez une image de référence avant de générer."
+            )
+        wf = {
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": s["video_model"], "weight_dtype": "default"}},
+            "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": s["video_text_encoder"], "type": "wan", "device": "default"}},
+            "3": {"class_type": "VAELoader", "inputs": {"vae_name": s["video_vae"]}},
+            "4": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["1", 0], "shift": 8.0}},
+            "5": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["2", 0]}},
+            "7": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "clip_vision_h.safetensors"}},
+            "8": {"class_type": "WanCameraEmbedding", "inputs": {"camera_pose": camera_pose, "width": w, "height": h, "length": length, "speed": 1.0}},
+            "9": {"class_type": "LoadImage", "inputs": {"image": image}},
+            "10": {"class_type": "CLIPVisionEncode", "inputs": {"clip_vision": ["7", 0], "image": ["9", 0], "crop": "center"}},
+            "11": {"class_type": "WanCameraImageToVideo", "inputs": {
+                "positive": ["5", 0], "negative": ["6", 0], "vae": ["3", 0],
+                "width": w, "height": h, "length": length, "batch_size": 1,
+                "clip_vision_output": ["10", 0], "start_image": ["9", 0],
+                "camera_conditions": ["8", 0]}},
+            "12": {"class_type": "KSampler", "inputs": {
+                "model": ["4", 0], "positive": ["11", 0], "negative": ["11", 1],
+                "latent_image": ["11", 2], "seed": seed,
+                "steps": 20, "cfg": 6.0, "sampler_name": "uni_pc", "scheduler": "simple", "denoise": 1.0}},
+            "13": {"class_type": "VAEDecode", "inputs": {"samples": ["12", 0], "vae": ["3", 0]}},
+            "14": {"class_type": "CreateVideo", "inputs": {"images": ["13", 0], "fps": 24}},
+            "15": {"class_type": "SaveVideo", "inputs": {"video": ["14", 0], "filename_prefix": "LocalAiStudio/video", "format": "mp4", "codec": "h264"}},
+        }
         return wf
     # LTX-Video
     wf = {
@@ -460,6 +502,27 @@ async def image_model_status(s: dict) -> list[dict]:
             "installed": None if ckpts is None else v["checkpoint"] in ckpts,
         }
         for key, v in IMAGE_PRESETS.items()
+    ]
+
+
+async def video_model_status(s: dict) -> list[dict]:
+    """Installed state of each video preset: True/False, or None when ComfyUI cannot list its models."""
+    try:
+        async with _client(10) as c:
+            unets = await _choices(c, s["base_url"], "UNETLoader", "unet_name", {})
+            ckpts = await _choices(c, s["base_url"], "CheckpointLoaderSimple", "ckpt_name", {})
+            clips = await _choices(c, s["base_url"], "CLIPLoader", "clip_name", {})
+    except Exception:  # noqa: BLE001 — status is informative, it must never break the page
+        unets = ckpts = clips = None
+    have = list(dict.fromkeys((unets or []) + (ckpts or []) + (clips or [])))
+    return [
+        {
+            "key": key,
+            "label": v["label"],
+            "model": v["model"],
+            "installed": None if have is None else v["model"] in have,
+        }
+        for key, v in VIDEO_PRESETS.items()
     ]
 
 
@@ -601,9 +664,21 @@ async def generate_image(
     return await run(wf, False, progress, on_queued, s=s)
 
 
+def video_settings(s: dict, preset: Optional[str]) -> dict:
+    """Return settings with a per-request video preset applied (None keeps the saved settings)."""
+    if not preset:
+        return s
+    if preset not in VIDEO_PRESETS:
+        raise ValueError(f"Préset vidéo inconnu : {preset}")
+    p = VIDEO_PRESETS[preset]
+    return {**s, "video_preset": preset, "video_model": p["model"], "video_text_encoder": p["text_encoder"], "video_vae": p["vae"]}
+
+
 async def generate_video(
     prompt: str, duration: str, aspect: str, ref: Optional[tuple[bytes, str]] = None, progress: Progress = None,
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
+    camera_pose: str = "Static",
+    preset: Optional[str] = None,
 ) -> tuple[bytes, str]:
     """Generate a video via ComfyUI.
 
@@ -612,7 +687,7 @@ async def generate_video(
 
     Direct callers that bypass media.py must call verify_ready(s, video=True) themselves.
     """
-    s = await get_settings()
+    s = video_settings(await get_settings(), preset)
     w, h = VIDEO_SIZES.get(aspect, VIDEO_SIZES["16:9"])
     length = VIDEO_LENGTHS.get(duration, 73)
     seed = random.randint(1, 2**31)
@@ -626,7 +701,7 @@ async def generate_video(
     if s["custom_video_workflow"].strip():
         wf = _fill(json.loads(s["custom_video_workflow"]), {"PROMPT": prompt, "NEGATIVE": NEGATIVE, "WIDTH": w, "HEIGHT": h, "SEED": seed, "LENGTH": length, "IMAGE": image or ""})
     else:
-        wf = _video_workflow(s, prompt, w, h, length, seed, image)
+        wf = _video_workflow(s, prompt, w, h, length, seed, image, camera_pose=camera_pose)
     return await run(wf, True, progress, on_queued, s=s)
 
 

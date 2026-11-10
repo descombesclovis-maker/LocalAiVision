@@ -153,6 +153,8 @@ class VideoRequest(BaseModel):
     duration: str = ""
     aspect_ratio: str = "16:9"
     ref_media_id: Optional[str] = None
+    camera_pose: str = "Static"
+    comfy_preset: Optional[Literal["wan22", "wan21_fun_camera", "ltxv"]] = None
 
 
 class UploadRequest(BaseModel):
