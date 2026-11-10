@@ -38,6 +38,20 @@ def gpu_sample():
     except Exception as e:
         return {"gpu_sample_error": str(e)}
 
+def require_idle_gpu(samples, max_util_pct=15):
+    """Refuse a benchmark if any sampled GPU load is already material."""
+    if len(samples) < 3:
+        raise RuntimeError("Need at least three GPU samples before benchmarking")
+    errors = [sample.get("gpu_sample_error") for sample in samples if sample.get("gpu_sample_error")]
+    if errors:
+        raise RuntimeError(f"GPU telemetry unavailable; refusing benchmark: {errors[0]}")
+    peak = max(sample["gpu_util_pct"] for sample in samples)
+    if peak > max_util_pct:
+        raise RuntimeError(
+            f"GPU busy (sampled peak {peak}% > {max_util_pct}%); "
+            "refusing benchmark rather than competing with user applications"
+        )
+
 def workflow(backend, steps, suffix):
     # Diagnostic-only tiny latent (not a quality sample): 256x256, 5 frames.
     seed = 20261110
@@ -119,6 +133,16 @@ async def main():
     statuses = httpx.get(f"{BASE}/queue",timeout=5).json()
     if statuses.get("queue_running") or statuses.get("queue_pending"):
         raise SystemExit("ComfyUI busy; refusing to contend with another job")
+    gpu_samples = []
+    for _ in range(3):
+        gpu_samples.append(gpu_sample())
+        if len(gpu_samples) < 3:
+            await asyncio.sleep(2)
+    try:
+        require_idle_gpu(gpu_samples)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    print("GPU idle preflight", json.dumps(gpu_samples), flush=True)
     # One denoise iteration only: measures compatibility + cost on a deliberately
     # tiny, non-quality workload. It cannot be used to claim production speed.
     baseline=await run_one("pytorch attention",1,"baseline_256_5f_1step",timeout_s=90)

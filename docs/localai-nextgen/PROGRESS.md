@@ -1228,3 +1228,40 @@ Application testée sur Vite `127.0.0.1:3002` / backend `127.0.0.1:8012`, avec s
 - Nouveaux tests modèle-free vérifiant les contrôles inchangés (256×256, 5 images, 1 pas, prompt français/seed) et l'unique nœud d'attention ajouté dans la variante INT8. Les outils n'infèrent pas à l'import.
 - Limite V2-S : accélération mesurée uniquement sur un micro-test 0,208 s de vidéo; pas d'amélioration validée du temps/qualité d'une vidéo commerciale de 3 s et pas de changement de réglages de production. Conserver Wan I2V, SmartMotion et les données; aucun stash touché; aucun modèle installé/modifié.
 - Candidat prioritaire à tester ensuite : Self-Forcing T2V 1.3B adapté ComfyUI avec vérification explicite du cadre commercial; le téléchargement éventuel demandera autorisation préalable. Arrêt après cette étape, aucun autre chantier engagé.
+
+## V2-T — diagnostic ciblé Wan T2V et garde de benchmark (2026-11-10)
+
+### État observé et décision de ne pas lancer un rendu complet
+
+- HEAD de départ `23083ce`, branche `nextgen/claude-code`; arbre propre. Le stash V2-Q `stash@{0}: preserve-v2q-before-v2r` a été vérifié et n'a pas été touché. Aucun modèle, installation, édition installée, base ou application utilisateur n'a été modifié; aucune application n'a été fermée.
+- ComfyUI 0.37.2 était joignable, sa file était vide, CUDA/PyTorch et les trois fichiers Wan T2V/UMT5/VAE présents. Mais la RTX 3060 était déjà très chargée sans job ComfyUI : trois échantillons à 2 s d'intervalle ont relevé **48 %, 53 % et 64 % d'utilisation GPU**, **5 213–5 231 MiB VRAM utilisée** sur 12 288 MiB. Les processus CUDA/WDDM visibles comprenaient ComfyUI et plusieurs applications de jeu/graphique (dont Windrose et Rocket League); rien n'a été arrêté.
+- ComfyUI signalait environ **7 918 MiB de VRAM libres** (12 288 MiB totaux; 8,30 GB décimaux); RAM physique rapportée 34,25 GB, dont 9,89 GB libres (9 430 MiB), soit environ 22,0 GB utilisés. Ce sont des instantanés système et non des mesures attribuées à Wan. VRAM réservée/partagée par WDDM et les applications concurrentes varie dans le temps.
+- La tentative V2-R précédente constitue le meilleur indicateur réaliste existant : à 832×480, 73 images, 30 étapes demandées, seulement 4 étapes visibles en environ 176 s. Extrapolation linéaire indicative : ~44 s/étape, donc environ **22 min pour 30 étapes**, hors éventuelle différence de coût des étapes initiales, VAE, écriture et chargement. Ce n'est pas une prédiction précise, mais excède nettement le seuil de 10 min. Les petits tests 256×256/5 images ne prédisent pas ce coût.
+- J'ai donc **volontairement arrêté avant toute nouvelle génération**. Un rendu complet sous charge concurrente risquerait d'être encore plus lent, consommerait le GPU d'une application utilisateur et ne donnerait pas une comparaison propre. Pas de MP4 T2V V2-T : fluidité, qualité et fidélité visuelle ne sont pas évaluables ici.
+
+### Causes / limites du diagnostic
+
+- **Contention calcul GPU : confirmée** par l'utilisation de 48–64 % alors que la file ComfyUI était vide. Les précédents essais V2-S avaient aussi monté à 89–100 % pendant l'inférence. Elle est le facteur observé le plus évident, sans mesure disponible pour attribuer une fraction précise du retard à chaque programme.
+- **Dénoyautage / attention : probablement la partie coûteuse**, mais chronométrage complet 832×480 non obtenu. Le compteur WebSocket d'une sonde précédente indiquait un événement sampler vers 14,5 s pour un essai à 1 étape qui n'a pas fini son workflow dans le délai; cela indique un coût d'inférence élevé, pas une mesure exploitable de 30 étapes.
+- **Chargement modèle, encodeur, VAE et encodage MP4 :** non isolés sur un clip complet. Il n'existe pas de mesure qui permette d'affirmer qu'un transfert RAM↔VRAM ou l'offload CPU est la cause principale. Les chiffres RAM système ne prouvent pas une pagination ou un transfert; aucune RAM/pagefile ne s'ajoute à la VRAM.
+- **Comfy Kitchen INT8 :** le backend `ModelAttentionBackend` est présent dans ComfyUI et sa compatibilité structurelle Wan T2V est démontrée par le micro-test V2-S (256×256, 5 images, un pas), où l'attention INT8 était ~22,2 % plus rapide en temps total. Cela ne valide ni gain ni qualité à 832×480/73 images. Le gain historique V2-I de 35,9 % concernait un autre workflow I2V; il n'est pas transposable.
+- Amélioration de sûreté apportée au benchmark `benchmark_wan_t2v_attention.py` : prévol ComfyUI déjà vide + trois mesures `nvidia-smi` espacées de 2 s; tout échantillon au-dessus de 15 % GPU (ou télémetrie manquante) fait refuser le benchmark avant génération. Le prévol réel de cette session refuse correctement à 64 %. Le seuil est un garde de test conservateur, pas une limite de production.
+
+### Candidats plus rapides et décision
+
+- **Reward Forcing T2V 1.3B** rapporte 4 étapes et 23,1 fps dans la fiche du projet, mais ses exigences publiées sont Linux, NVIDIA avec au moins 24 GB VRAM et 64 GB RAM recommandés; le dépôt demande aussi FlashAttention. Cela disqualifie la RTX 3060 12 GB / Windows / 32 GB comme voie immédiate, et les fps de la fiche ne sont pas une mesure sur ce PC. Le code du dépôt est Apache-2.0; le droit commercial attaché à chaque checkpoint dérivé doit encore être vérifié séparément avant tout déploiement.
+- Les variantes Self-Forcing / LightX2V à peu d'étapes sont des pistes de recherche, pas des modèles validés dans ComfyUI natif ici. Les dépôts consultés documentent des scripts/pipelines propres et certains checkpoints `.pt`; intégration, mémoire 12 GB, licence exacte du poids et qualité ne sont pas établies. **Aucun téléchargement** ni changement de dépendance n'a été effectué.
+- Aucun réglage de production n'a été réduit (résolution, images, FPS, étapes, CFG) et INT8 n'a pas été activé par défaut : sans comparaison complète, cela pourrait diminuer la qualité ou simplement masquer le coût.
+
+### Français, validation et livraison
+
+- Le workflow Wan conserve et transmet le prompt français brut sans extension ni traduction automatique. Le prompt de référence de V2-S peut être décomposé sans ajout : « chien noir » (sujet/couleur), « saute par-dessus la petite barrière rouge » (action/objet/couleur), « de gauche à droite » (direction), « puis s'assoit devant la barrière » (chronologie/position), « plan fixe » (caméra), « sans autre animal » (interdiction). La traduction littérale déjà documentée n'a pas été envoyée au modèle : aucune comparaison Français/anglais ni aucune fidélité sémantique n'est démontrée dans cette session.
+- Tests ciblés : **10 réussis** (`test_video_v2s_benchmark.py`, `test_video_v2r.py`), incluant le refus en cas de charge GPU et de mesures insuffisantes. Aucun benchmark GPU supplémentaire n'a été lancé; aucune vidéo artificielle ou SmartMotion n'a été substituée au T2V.
+- Wan I2V, SmartMotion, modèles, données et stash V2-Q conservés. Conclusion honnête : **pas de MP4 T2V complet dans V2-T**; refaire le benchmark seulement quand l'utilisateur aura libéré le GPU, sans fermer ses applications. L'objectif de quelques minutes et la qualité professionnelle restent non démontrés.
+
+Sources consultées :
+- Wan 2.1 T2V 1.3B, paramètres 832×480 et guidance recommandée : https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B
+- Reward Forcing T2V 1.3B, étapes, vitesse publiée et prérequis : https://huggingface.co/JaydenLu666/Reward-Forcing-T2V-1.3B
+- Code et licence Reward Forcing : https://github.com/JaydenLyh/Reward-Forcing
+- Self-Forcing quantifié NVFP4 (matériel Blackwell requis, donc pas RTX 3060) : https://huggingface.co/lightx2v/Self-Forcing-NVFP4
+- Distillation LightX2V Wan 14B (pas de support ComfyUI référencé dans le dépôt consulté) : https://huggingface.co/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill-Lightx2v

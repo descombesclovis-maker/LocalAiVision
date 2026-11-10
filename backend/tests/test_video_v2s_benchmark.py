@@ -1,6 +1,6 @@
 """Model-free contract tests for the bounded V2-S ComfyUI probe."""
 
-from tools.benchmark_wan_t2v_attention import PROMPT, workflow
+from tools.benchmark_wan_t2v_attention import PROMPT, require_idle_gpu, workflow
 
 
 def test_probe_is_tiny_and_keeps_french_prompt_and_fixed_schedule():
@@ -22,3 +22,40 @@ def test_probe_int8_uses_comfy_core_attention_patch_only_when_selected():
     assert int8["4"]["inputs"]["model"] == ["12", 0]
     for node_id in ("1", "2", "3", "5", "6", "7", "9", "8", "20", "21"):
         assert baseline[node_id] == int8[node_id]
+
+
+def test_probe_refuses_to_compete_with_existing_gpu_load():
+    samples = [
+        {"gpu_util_pct": 8},
+        {"gpu_util_pct": 12},
+        {"gpu_util_pct": 61},
+    ]
+    try:
+        require_idle_gpu(samples)
+    except RuntimeError as exc:
+        assert "GPU busy" in str(exc)
+        assert "61%" in str(exc)
+    else:
+        raise AssertionError("busy GPU must not start a benchmark")
+
+
+def test_probe_requires_repeated_successful_gpu_telemetry():
+    try:
+        require_idle_gpu([{"gpu_util_pct": 2}, {"gpu_sample_error": "missing nvidia-smi"}])
+    except RuntimeError as exc:
+        assert "three GPU samples" in str(exc)
+    else:
+        raise AssertionError("incomplete preflight must refuse benchmark")
+
+    try:
+        require_idle_gpu([
+            {"gpu_util_pct": 2},
+            {"gpu_util_pct": 3},
+            {"gpu_sample_error": "failed"},
+        ])
+    except RuntimeError as exc:
+        assert "telemetry unavailable" in str(exc)
+    else:
+        raise AssertionError("missing telemetry must refuse benchmark")
+
+    require_idle_gpu([{"gpu_util_pct": 4}, {"gpu_util_pct": 8}, {"gpu_util_pct": 12}])
