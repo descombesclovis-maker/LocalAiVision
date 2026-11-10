@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import tempfile
 import time
 from functools import lru_cache
@@ -18,7 +19,7 @@ from lib.db import db
 from lib.llm import friendly_error, generate_image
 from lib.pipeline import spawn
 from lib.store import create_media, finish_media, media_url, new_id, now_iso, read_bytes
-from models.schemas import Activity, Brand, BrandCreate, HuggingFaceTokenRequest, HuggingFaceTokenStatus, HuggingFaceVideoStatus, ImageRequest, Media, SmartMotionRequest, UploadRequest, VideoModel, VideoRequest
+from models.schemas import Activity, AdComposeRequest, Brand, BrandCreate, HuggingFaceTokenRequest, HuggingFaceTokenStatus, HuggingFaceVideoStatus, ImageRequest, Media, SmartMotionRequest, UploadRequest, VideoModel, VideoRequest
 from lib import hf_video, secure_secret
 
 router = APIRouter()
@@ -62,7 +63,7 @@ async def list_media(kind: str = "", source: str = ""):
 async def video_models():
     paid = [{"key": k, **{f: v[f] for f in ("label", "tagline", "durations", "aspects", "audio")}} for k, v in fal.VIDEO_MODELS.items()]
     smartmotion = {"key": "smartmotion", "label": "SmartMotion · local 2.5D", "tagline": "Animation de caméra à partir d'une image fixe; ne génère pas de mouvement d'objet.", "durations": ["5", "10", "15", "20", "30"], "aspects": ["1:1", "16:9"], "audio": False}
-    cloud = {"key": "hf_ltx", "label": "Cloud gratuit · Hugging Face ZeroGPU / LTX Video", "tagline": "Inférence distante sur GPU ZeroGPU; quota partagé, disponibilité et qualité variables.", "durations": ["2"], "aspects": ["1:1"], "audio": False}
+    cloud = {"key": "hf_ltx", "label": "Cloud gratuit · LTX Video", "tagline": "Calcul distant; quota partagé limité, disponibilité et qualité variables.", "durations": ["2"], "aspects": ["1:1"], "audio": False}
     return [cloud, {"key": "comfy", **COMFY_VIDEO}, smartmotion, *paid]
 
 
@@ -104,6 +105,21 @@ def _smartmotion_runtime():
     return local_runtime()
 
 
+@lru_cache(maxsize=1)
+def _ad_video_runtime() -> Path:
+    """Find an already-installed media runtime without requiring SmartMotion weights or GPU availability."""
+    from lib.smartmotion import runtime_candidates
+    probe = "import importlib.util,sys; req=['av','PIL','numpy']; sys.exit(0 if all(importlib.util.find_spec(x) for x in req) else 1)"
+    for interpreter in runtime_candidates():
+        try:
+            result = subprocess.run([str(interpreter), "-c", probe], capture_output=True, timeout=10)
+            if result.returncode == 0:
+                return interpreter
+        except (OSError, subprocess.SubprocessError):
+            continue
+    raise RuntimeError("Export requires an existing Python runtime with PyAV, Pillow, and NumPy; no packages were installed")
+
+
 @router.get("/media/models/smartmotion")
 async def smartmotion_status():
     try:
@@ -114,6 +130,7 @@ async def smartmotion_status():
 
 
 _SMARTMOTION_PROCS: dict[str, asyncio.subprocess.Process] = {}
+_AD_COMPOSE_PROCS: dict[str, asyncio.subprocess.Process] = {}
 
 
 def _smartmotion_progress_label(event: dict) -> str:
@@ -204,6 +221,100 @@ async def create_smartmotion(body: SmartMotionRequest):
     m = await create_media("video", "smartmotion", body.prompt, "SmartMotion · local 2.5D", aspect_ratio="source" if body.output_size == "source" else body.output_size, duration=f"{body.seconds}s")
     spawn(_run_smartmotion(m["id"], body, image_bytes, python, depth_model))
     return _out(m)
+
+
+async def _run_ad_compose(mid: str, clips: list[tuple[str, bytes]], overlay: bytes, python: Path, title: str) -> None:
+    proc = None
+    try:
+        async with gpu_queue.slot(mid, "video", "Montage publicitaire H.264", title, "media"):
+            await db.media.update_one({"id": mid}, {"$set": {"status": "running", "progress_label": "Préparation du montage publicitaire…", "updated_at": now_iso()}})
+            with tempfile.TemporaryDirectory(prefix="localaistudio-ad-") as temp:
+                root = Path(temp)
+                clip_paths = []
+                for index, (clip_id, data) in enumerate(clips, 1):
+                    path = root / f"plan-{index:02d}.mp4"
+                    path.write_bytes(data)
+                    clip_paths.append(path)
+                overlay_path = root / "overlay.png"
+                overlay_path.write_bytes(overlay)
+                output = root / "advertisement.mp4"
+                command = [str(python), "-m", "lib.ad_video", "--clips", *[str(p) for p in clip_paths], "--overlay", str(overlay_path), "--output", str(output), "--fps", "24"]
+                env = os.environ.copy()
+                env.update({"PYTHONIOENCODING": "utf-8", "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"})
+                proc = await asyncio.create_subprocess_exec(*command, cwd=str(Path(__file__).resolve().parents[1]), env=env,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+                _AD_COMPOSE_PROCS[mid] = proc
+                last_output = ""
+                while True:
+                    line = await proc.stdout.readline()
+                    if not line:
+                        break
+                    text = line.decode("utf-8", errors="replace").strip()
+                    last_output = text[-800:]
+                    try:
+                        event = json.loads(text)
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("event") == "progress":
+                        done, total = int(event["frames_done"]), max(1, int(event["frames_total"]))
+                        if event.get("phase") == "verification":
+                            label = f"Montage publicitaire · vérification intégrale du MP4 ({done} images)"
+                        else:
+                            percent = min(99, round(done * 100 / total))
+                            label = f"Montage publicitaire · assemblage {done}/{total} images ({percent}%)"
+                        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
+                returncode = await proc.wait()
+                current = await db.media.find_one({"id": mid}, {"_id": 0, "status": 1})
+                if current and current.get("status") == "cancelled":
+                    return
+                if returncode != 0 or not output.is_file():
+                    raise RuntimeError(f"Assemblage publicitaire impossible ({returncode}): {last_output or 'sortie absente'}")
+                report_path = output.with_suffix(".json")
+                report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else {"codec": "h264_nvenc"}
+                await finish_media(mid, output.read_bytes(), "video/mp4")
+                duration = f"{report.get('duration_seconds', 0)}s"
+                aspect = f"{report.get('width', 0)}:{report.get('height', 0)}"
+                await db.media.update_one({"id": mid}, {"$set": {"generation_metrics": report, "duration": duration, "aspect_ratio": aspect, "progress_label": "Publicité terminée · MP4 vérifié", "updated_at": now_iso()}})
+    except asyncio.CancelledError:
+        proc = _AD_COMPOSE_PROCS.get(mid)
+        if proc and proc.returncode is None:
+            proc.kill()
+        raise
+    except Exception as exc:
+        log.warning("ad compose %s: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec du montage publicitaire", "updated_at": now_iso()}})
+    finally:
+        _AD_COMPOSE_PROCS.pop(mid, None)
+
+
+@router.post("/media/ads/compose", response_model=Media)
+async def compose_ad(body: AdComposeRequest):
+    match = re.match(r"^data:image/png;base64,([A-Za-z0-9+/=]+)$", body.overlay_data_url, re.S)
+    if not match:
+        raise HTTPException(400, "Le calque publicitaire doit être un PNG transparent")
+    try:
+        overlay = base64.b64decode(match.group(1), validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise HTTPException(400, "Calque PNG invalide") from exc
+    if not overlay or len(overlay) > 12 * 1024 * 1024:
+        raise HTTPException(413, "Le calque dépasse la limite de 12 Mo")
+    clips: list[tuple[str, bytes]] = []
+    for clip_id in dict.fromkeys(body.clip_media_ids):
+        doc = await db.media.find_one({"id": clip_id, "kind": "video", "status": "done"})
+        if not doc or not doc.get("gridfs_id"):
+            raise HTTPException(400, f"Le plan vidéo {clip_id} est introuvable ou non terminé")
+        clips.append((clip_id, await read_bytes(doc["gridfs_id"])))
+    if not clips or len(clips) > 8:
+        raise HTTPException(400, "Sélectionnez entre 1 et 8 plans vidéo terminés")
+    try:
+        python = await asyncio.to_thread(_ad_video_runtime)
+    except Exception as exc:
+        raise HTTPException(503, f"L'encodeur local est indisponible : {str(exc)[:200]}") from exc
+    label = body.title.strip() or "Publicité"
+    media = await create_media("video", "ad", label, "Montage publicitaire local · H.264", aspect_ratio="multi-plan" if len(clips) > 1 else None)
+    spawn(_run_ad_compose(media["id"], clips, overlay, python, label))
+    return _out(media)
+
 
 
 @router.get("/media/{mid}", response_model=Media)
@@ -373,9 +484,9 @@ async def _run_hf_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] | N
     async def progress(label: str) -> None:
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
     try:
-        await progress("Hugging Face ZeroGPU · vérification de l'API…")
-        async with gpu_queue.slot(mid, "video", "Hugging Face ZeroGPU", body.prompt, "media"):
-            await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Hugging Face ZeroGPU · préparation…", "updated_at": now_iso()}})
+        await progress("Cloud vidéo · vérification du service distant…")
+        async with gpu_queue.slot(mid, "video", "Cloud vidéo", body.prompt, "media"):
+            await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Cloud vidéo · préparation…", "updated_at": now_iso()}})
             data, report = await hf_video.generate(body.prompt, body.mode, int(body.duration), body.aspect_ratio, ref, progress)
         current = await db.media.find_one({"id": mid}, {"_id": 0, "status": 1})
         if current and current.get("status") != "cancelled":
@@ -387,7 +498,7 @@ async def _run_hf_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] | N
         raise
     except Exception as exc:
         log.warning("Hugging Face video %s: %s", mid, exc)
-        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec Hugging Face ZeroGPU", "updated_at": now_iso()}})
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec du service cloud vidéo", "updated_at": now_iso()}})
     finally:
         _HF_VIDEO_TASKS.pop(mid, None)
 
@@ -428,6 +539,9 @@ async def create_video(body: VideoRequest):
         m = await create_media("video", "video", body.prompt, "local-comfyui", aspect_ratio=body.aspect_ratio, duration=f"{body.duration}s")
         spawn(_run_comfy_video(m["id"], body, ref))
         return _out(m)
+    if body.model in fal.VIDEO_MODELS and not body.paid_cost_acknowledged:
+        estimate = fal.estimated_cost_usd(body.model, body.duration)
+        raise HTTPException(402, f"Confirmation requise : estimation publique fal.ai {estimate:.2f} USD pour cette durée. Les tarifs réellement débités par le fournisseur/proxy peuvent varier; aucun appel n'a été soumis. Confirmez le coût dans l'interface pour continuer.")
     image_url = None
     if body.mode == "image":
         ref, mime = await _ref_b64(body.ref_media_id)
@@ -454,7 +568,7 @@ async def cancel_media(mid: str):
     if d["status"] not in ("pending", "running"):
         raise HTTPException(400, "Cette génération n'est plus en cours")
     await gpu_queue.cancel(mid)
-    smartmotion_proc = _SMARTMOTION_PROCS.get(mid)
+    smartmotion_proc = _SMARTMOTION_PROCS.get(mid) or _AD_COMPOSE_PROCS.get(mid)
     if smartmotion_proc and smartmotion_proc.returncode is None:
         smartmotion_proc.terminate()
     if d.get("comfy"):

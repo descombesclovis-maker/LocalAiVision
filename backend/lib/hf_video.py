@@ -142,7 +142,7 @@ async def generate(
         event_id = response.json().get("event_id")
         if not event_id:
             raise HfVideoError("L'API Gradio n'a pas retourné d'identifiant de génération.")
-        await on_progress("Hugging Face ZeroGPU · requête soumise; attente du GPU distant…")
+        await on_progress("Cloud vidéo · requête soumise; attente du serveur distant…")
         events: list[str] = []
         async with client.stream("GET", f"{BASE_URL}/gradio_api/call{endpoint}/{quote(event_id)}", headers={"Accept": "text/event-stream"}) as stream:
             stream.raise_for_status()
@@ -154,18 +154,18 @@ async def generate(
                     line = await asyncio.wait_for(asyncio.shield(pending_line), timeout=15)
                 except asyncio.TimeoutError:
                     elapsed = int(time.monotonic() - started)
-                    await on_progress(f"Hugging Face ZeroGPU · flux distant en attente depuis {elapsed}s; position de file non exposée par le Space…")
+                    await on_progress(f"Cloud vidéo · attente du serveur depuis {elapsed}s; position de file non exposée…")
                     continue
                 except StopAsyncIteration:
                     break
                 if line.startswith("event:"):
                     current_event = line[6:].strip()
                     if current_event == "complete":
-                        await on_progress("Hugging Face ZeroGPU · génération terminée; récupération du MP4…")
+                        await on_progress("Cloud vidéo · génération terminée; récupération du MP4…")
                     elif current_event == "error":
-                        await on_progress("Hugging Face ZeroGPU · traitement distant en échec")
+                        await on_progress("Cloud vidéo · traitement distant en échec")
                     elif current_event not in ("heartbeat", "generating"):
-                        await on_progress(f"Hugging Face ZeroGPU · état distant : {current_event[:60]}")
+                        await on_progress(f"Cloud vidéo · état distant : {current_event[:60]}")
                 elif line.startswith("data:"):
                     events.append(line[5:].strip())
                     if current_event == "error":

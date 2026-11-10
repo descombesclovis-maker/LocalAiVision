@@ -7,9 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useHuggingFaceVideoStatus, useSmartMotionStatus, useVideoModels } from "@/lib/hooks";
-import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 import { useComfy, useImageModels, useVideoEngineStatus } from "@/lib/companyHooks";
-import type { ImageRequest, Media, VideoRequest } from "@/lib/types";
+import type { ImageRequest, Media, SmartMotionRequest, VideoRequest } from "@/lib/types";
 import { mediaFileUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +60,10 @@ function RefPicker({ value, onChange, testid }: { value: string | null; onChange
   );
 }
 
+function userVisibleProviderText(value: string) {
+  return value.replace(/ZeroGPU/gi, "calcul distant");
+}
+
 function MediaTile({ m, onCancel }: { m: Media; onCancel?: () => void }) {
   const busy = m.status === "pending" || m.status === "running";
   const perf = m.generation_metrics as { timing_seconds?: { comfy_total?: number }; gpu_memory_mib?: { peak_used?: number }; total_wall_seconds_including_depth?: number; vram_peak_sampled_mib?: number } | null | undefined;
@@ -74,7 +78,7 @@ function MediaTile({ m, onCancel }: { m: Media; onCancel?: () => void }) {
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_50%_40%,rgba(6,182,212,0.25),transparent_60%)] p-4 text-center">
             {busy ? <Loader2 className="size-7 animate-spin text-cyan-300" /> : <Ban className="size-7 text-red-300" />}
-            <p className="text-xs text-slate-300" data-testid={`media-progress-${m.id}`}>{busy ? m.progress_label || "En cours…" : m.error || "Échec"}</p>
+            <p className="text-xs text-slate-300" data-testid={`media-progress-${m.id}`}>{busy ? userVisibleProviderText(m.progress_label || "En cours…") : userVisibleProviderText(m.error || "Échec")}</p>
             {busy && <div className="h-1 w-3/4 overflow-hidden rounded-full bg-white/10"><div className="shimmer-bar h-full w-full bg-cyan-400/40" /></div>}
             {busy && onCancel && <FxButton size="sm" tone="ghost" data-testid={`media-cancel-${m.id}`} onClick={onCancel}><Ban className="size-3.5" /> Annuler</FxButton>}
           </div>
@@ -83,7 +87,7 @@ function MediaTile({ m, onCancel }: { m: Media; onCancel?: () => void }) {
       <div className="flex items-center gap-2 p-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs text-slate-200">{m.prompt}</p>
-          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">{m.model}{m.duration ? ` · ${m.duration}` : ""}{m.aspect_ratio ? ` · ${m.aspect_ratio}` : ""}</p>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">{userVisibleProviderText(m.model)}{m.duration ? ` · ${m.duration}` : ""}{m.aspect_ratio ? ` · ${m.aspect_ratio}` : ""}</p>
           {perf && <p data-testid={`video-metrics-${m.id}`} className="mt-1 text-[10px] text-slate-400">{perfSeconds != null ? `${Number(perfSeconds).toFixed(1)} s` : "durée inconnue"}{perfVram != null ? ` · VRAM pic ${(perfVram / 1024).toFixed(1)} Gio` : ""}</p>}
         </div>
         {m.url && <a href={m.url} download data-testid={`media-download-${m.id}`} className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-white" aria-label="Télécharger"><Download className="size-3.5" /></a>}
@@ -194,9 +198,6 @@ const SMARTMOTION_MOVE_LABEL: Record<"push_in" | "pan_left" | "pan_right" | "til
 export function VideoStudio() {
   const { data: models } = useVideoModels();
   const { data: hfStatus } = useHuggingFaceVideoStatus();
-  const [hfToken, setHfToken] = useState("");
-  const [hfTokenConfigured, setHfTokenConfigured] = useState(false);
-  const [hfTokenBusy, setHfTokenBusy] = useState(false);
   const { data: comfyCfg } = useComfy();
   const { data: engineStatus } = useVideoEngineStatus();
   const { data: smartMotionStatus } = useSmartMotionStatus();
@@ -212,26 +213,12 @@ export function VideoStudio() {
   const [smartMotionSize, setSmartMotionSize] = useState<"source" | "1280x720" | "1920x1080">("source");
   const [presetInitialized, setPresetInitialized] = useState(false);
   const cfg = models?.find((m) => m.key === model);
-  useEffect(() => {
-    apiGet<{ configured: boolean }>("/settings/huggingface-token").then((s) => setHfTokenConfigured(s.configured)).catch(() => undefined);
-  }, []);
-  const saveHfToken = async () => {
-    setHfTokenBusy(true);
-    try {
-      const result = await apiPut<{ configured: boolean }>("/settings/huggingface-token", { token: hfToken });
-      setHfTokenConfigured(result.configured); setHfToken(""); toast.success("Jeton chiffré par DPAPI Windows");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Impossible d'enregistrer le jeton"); }
-    finally { setHfTokenBusy(false); }
-  };
-  const removeHfToken = async () => {
-    setHfTokenBusy(true);
-    try { await apiDelete("/settings/huggingface-token"); setHfTokenConfigured(false); toast.success("Jeton supprimé"); }
-    catch { toast.error("Impossible de supprimer le jeton"); }
-    finally { setHfTokenBusy(false); }
-  };
   const chosenPreset = engineStatus?.presets.find((p) => p.key === comfyPreset);
   const needsImage = model === "smartmotion" || (model === "comfy" && comfyPreset === "wan21_fun_camera");
   const t2vOnly = model === "hf_ltx" || (model === "comfy" && comfyPreset === "wan21_t2v");
+  const paidModel = model === "veo" || model === "kling" || model === "minimax";
+  const paidUnitCost = model === "veo" ? 0.15 : model === "kling" ? 0.07 : 0.045;
+  const paidEstimatedCost = paidModel ? (Number.parseFloat(duration.replace(/s$/i, "")) * paidUnitCost).toFixed(2) : "0.00";
   const comfyUnavailable = model === "comfy" && (!chosenPreset || chosenPreset.installed !== true);
   const smartMotionUnavailable = model === "smartmotion" && smartMotionStatus?.available !== true;
   const cloudUnavailable = model === "hf_ltx" && hfStatus?.available !== true;
@@ -264,22 +251,14 @@ export function VideoStudio() {
     <div className="grid gap-6 lg:grid-cols-[440px_1fr]">
       <div className="glass-vision space-y-5 rounded-3xl p-5">
         <div className="grid gap-3">
-          {(models ?? []).filter((m) => ["hf_ltx", "comfy", "smartmotion"].includes(m.key)).map((m) => (
-            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key as VideoRequest["model"] | "smartmotion")} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.label} tagline={m.key === "comfy" ? "Local · Wan génératif via ComfyUI · T2V et I2V selon le modèle installé" : m.tagline} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
+          {(models ?? []).map((m) => (
+            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key as VideoRequest["model"] | "smartmotion")} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.key === "hf_ltx" ? "Cloud vidéo · LTX (gratuit, limité)" : m.label} tagline={m.key === "comfy" ? "Local · Wan génératif via ComfyUI · T2V et I2V selon le modèle installé" : m.key === "hf_ltx" ? "Calcul sur serveur distant · quota quotidien limité · T2V uniquement validé" : userVisibleProviderText(m.tagline)} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
           ))}
         </div>
         {model === "hf_ltx" && (
-          <div className="space-y-3 rounded-2xl border border-cyan-300/20 bg-cyan-500/[0.04] p-3" data-testid="hf-ltx-status">
-            <p className="text-sm font-medium text-cyan-100">{hfStatus?.available ? "● Hugging Face ZeroGPU disponible" : "○ Disponibilité cloud inconnue"}</p>
-            <p className="text-xs text-slate-300">{hfStatus?.hardware ?? "Vérification de l’API Gradio…"} · {hfStatus?.model ?? "LTX Video"}</p>
-            <p className="text-xs text-amber-200">{hfStatus?.free_quota ?? "Quota gratuit partagé, restant non consultable."} Aucun jeton n’est envoyé : pas de facturation possible via ce connecteur.</p>
-            <ul className="list-disc space-y-1 pl-4 text-[11px] text-slate-400">{(hfStatus?.limitations ?? ["Qualité, quota et disponibilité non garantis."]).map((x) => <li key={x}>{x}</li>)}</ul>
-            <details className="rounded-xl border border-white/10 p-2">
-              <summary className="cursor-pointer text-xs text-slate-300">Jeton Hugging Face (stockage sécurisé Windows)</summary>
-              <p className="mt-2 text-[11px] text-slate-400">{hfTokenConfigured ? "Jeton enregistré chiffré via DPAPI Windows." : "Optionnel. Le Space public fonctionne sans jeton."} Il n’est volontairement pas utilisé pour les appels ZeroGPU gratuits afin d’empêcher l’emploi de crédits payants.</p>
-              <div className="mt-2 flex gap-2"><Input data-testid="hf-token-input" type="password" autoComplete="off" value={hfToken} onChange={(e) => setHfToken(e.target.value)} placeholder="hf_…" className="border-white/10 bg-black/30" />
-                {hfTokenConfigured ? <FxButton tone="ghost" disabled={hfTokenBusy} onClick={removeHfToken}>Supprimer</FxButton> : <FxButton tone="ghost" disabled={hfTokenBusy || hfToken.length < 20} onClick={saveHfToken}>{hfTokenBusy ? "…" : "Enregistrer"}</FxButton>}</div>
-            </details>
+          <div className="space-y-2 text-xs text-slate-300" data-testid="hf-ltx-status">
+            <p>Génération sur serveur distant, pas sur votre PC. Modèle : {hfStatus?.model ?? "LTX Video 0.9.8"}. {hfStatus?.available ? "Le service répond actuellement." : "Le service est actuellement indisponible; aucune requête ne sera envoyée."}</p>
+            <p className="text-amber-200">Quota limité et restant non consultable; seul le T2V 2 s, 256×256 a été validé avec ce connecteur. Qualité et disponibilité variables.</p>
           </div>
         )}
         {model === "comfy" && (
@@ -347,16 +326,18 @@ export function VideoStudio() {
         ) : model === "comfy" ? (
           <p data-testid="video-local-note" className="flex items-center gap-1.5 text-xs text-emerald-200/80"><Sparkles className="size-3.5" /> Local · rendu sur votre GPU via ComfyUI (plusieurs minutes possibles, sans son).</p>
         ) : model === "hf_ltx" ? (
-          <p data-testid="video-cloud-note" className="flex items-center gap-1.5 text-xs text-cyan-200/90"><Sparkles className="size-3.5" /> Calcul GPU distant (ce n’est pas local). Le prompt français est envoyé au fournisseur; son code ajoute des indications anglaises de vitesse. Quota restant inconnu; durée/max qualité non garanties.</p>
-        ) : (
-          <p className="flex items-center gap-1.5 text-xs text-amber-200/80"><Volume2 className="size-3.5" /> Moteur payant de secours : la vidéo coûte nettement plus qu'une photo sur le solde de la clé universelle.</p>
-        )}
+          <p data-testid="video-cloud-note" className="flex items-center gap-1.5 text-xs text-cyan-200/90"><Sparkles className="size-3.5" /> Calcul vidéo sur serveur distant (ce n’est pas local). Le prompt français est envoyé au fournisseur; son code ajoute des indications anglaises de vitesse. Quota restant non consultable; seul un clip de 2 s / 256×256 est validé.</p>
+        ) : paidModel ? (
+          <p className="flex items-center gap-1.5 text-xs text-amber-200/80"><Volume2 className="size-3.5" /> Moteur payant facultatif · estimation actuelle : {paidEstimatedCost} USD pour ce clip. Une confirmation explicite du coût sera demandée avant tout appel; aucun coût n'est testé automatiquement.</p>
+        ) : null}
         <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={(model !== "smartmotion" && prompt.trim().length < 3) || video.isPending || smartmotion.isPending || (mode === "image" && !ref) || comfyUnavailable || smartMotionUnavailable || cloudUnavailable} onClick={() => {
           if (model === "smartmotion") {
             if (!ref) return;
             smartmotion.mutate({ prompt: `SmartMotion · ${SMARTMOTION_MOVE_LABEL[smartMotionMove]}`, ref_media_id: ref, seconds: Number(duration), fps: 24, output_size: smartMotionSize, motion: smartMotionMove }, { onSuccess: () => toast.success("SmartMotion lancé localement — progression visible dans la bibliothèque") });
           } else {
-            video.mutate({ prompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? comfyPreset : null, camera_pose: model === "comfy" ? cameraPose : "Static" }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") });
+            const paidCostAcknowledged = paidModel && window.confirm(`Génération payante via ${cfg?.label ?? model}. Estimation actuelle : ${paidEstimatedCost} USD pour ${duration} s. Le tarif réel du fournisseur/proxy peut varier. Aucun appel ne sera effectué si vous annulez. Confirmez-vous explicitement ce coût ?`);
+            if (paidModel && !paidCostAcknowledged) return;
+            video.mutate({ prompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? comfyPreset : null, camera_pose: model === "comfy" ? cameraPose : "Static", paid_cost_acknowledged: paidModel ? paidCostAcknowledged : false }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") });
           }
         }}>
           <Film className="size-4" /> {model === "smartmotion" ? "Animer l'image" : "Générer la vidéo"}
@@ -396,146 +377,242 @@ function loadImg(src: string) {
 
 export function AdWorkshop() {
   const { data: imgs } = useMedia("image");
+  const { data: videos } = useMedia("video");
   const { data: brands } = useBrands();
   const { data: projects } = useProjects("", "");
-  const { upload } = useMediaActions();
+  const { data: comfyCfg } = useComfy();
+  const { data: imageModels } = useImageModels();
+  const { data: videoStatus } = useVideoEngineStatus();
+  const { data: smStatus } = useSmartMotionStatus();
+  const { upload, image, smartmotion, video, cancel } = useMediaActions();
   const [base, setBase] = useState<string | null>(null);
+  const [generated, setGenerated] = useState<string | null>(null);
   const [fmt, setFmt] = useState<Fmt>("1:1");
   const [brandId, setBrandId] = useState("");
-  const [title, setTitle] = useState("L'art du goût");
-  const [sub, setSub] = useState("Menu dégustation · réservez votre table");
-  const [cta, setCta] = useState("Réserver");
-  const [accent, setAccent] = useState("#06B6D4");
+  const [photoPrompt, setPhotoPrompt] = useState("");
+  const [adKind, setAdKind] = useState("Produit");
+  const [imagePreset, setImagePreset] = useState<"flux-dev" | "flux-schnell" | "sdxl">("sdxl");
+  const [videoEngine, setVideoEngine] = useState<"smartmotion" | "wan" | "wan-t2v">("smartmotion");
+  const [videoPreset, setVideoPreset] = useState<"wan22" | "wan21_fun_camera" | "ltxv">("wan21_fun_camera");
+  const [t2vPreset, setT2vPreset] = useState<"wan22" | "wan21_t2v" | "ltxv" | "wan21_fun_camera">("wan21_t2v");
+  const [duration, setDuration] = useState(5);
+  const [wanDuration, setWanDuration] = useState("3");
+  const [cameraMotion, setCameraMotion] = useState<SmartMotionRequest["motion"]>("push_in");
+  const [title, setTitle] = useState("Une expérience inoubliable");
+  const [sub, setSub] = useState("Découvrez notre sélection, imaginée pour vous.");
+  const [cta, setCta] = useState("Découvrir");
+  const [accent, setAccent] = useState("#d5a85b");
   const [pos, setPos] = useState<"bas" | "haut" | "centre">("bas");
-  const [saved, setSaved] = useState<Media | null>(null);
+  const [posterId, setPosterId] = useState<string | null>(null);
+  const [selectedClips, setSelectedClips] = useState<string[]>([]);
+  const [exportId, setExportId] = useState<string | null>(null);
   const [siteOpen, setSiteOpen] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const overlayCanvas = useRef<HTMLCanvasElement>(null);
   const brand = brands?.find((b) => b.id === brandId);
-  const choices = useMemo(() => (imgs ?? []).filter((m) => m.status === "done" && m.source !== "ad").slice(0, 24), [imgs]);
+  const choices = useMemo(() => (imgs ?? []).filter((m) => m.status === "done").slice(0, 36), [imgs]);
+  const completeClips = useMemo(() => (videos ?? []).filter((m) => m.status === "done" && m.kind === "video"), [videos]);
+  const baseMedia = imgs?.find((m) => m.id === base);
+  const adMedia = useMemo(() => {
+    const ids = [...(generated ? [generated] : []), ...selectedClips, ...(exportId ? [exportId] : [])];
+    const all = [...(imgs ?? []), ...(videos ?? [])];
+    return [...new Set(ids)].map((id) => all.find((m) => m.id === id)).filter((m): m is Media => !!m);
+  }, [generated, selectedClips, exportId, imgs, videos]);
+  const availablePhotoModels = imageModels?.filter((m) => m.installed === true) ?? [];
 
   useEffect(() => { if (brand?.colors[0]) setAccent(brand.colors[0]); }, [brand]);
+  useEffect(() => {
+    if (comfyCfg?.image_preset) setImagePreset(comfyCfg.image_preset);
+  }, [comfyCfg?.image_preset]);
+  useEffect(() => {
+    const preferred = imageModels?.find((m) => m.key === comfyCfg?.image_preset && m.installed === true) ?? imageModels?.find((m) => m.installed === true);
+    if (preferred) setImagePreset(preferred.key as typeof imagePreset);
+  }, [imageModels, comfyCfg?.image_preset]);
+  useEffect(() => {
+    if (videoStatus?.presets.some((p) => p.key === videoPreset && p.installed === true)) return;
+    const installed = videoStatus?.presets.find((p) => p.key === "wan21_fun_camera" && p.installed === true);
+    if (installed) setVideoPreset("wan21_fun_camera");
+  }, [videoStatus, videoPreset]);
+  useEffect(() => {
+    if (videoStatus?.presets.some((p) => p.key === t2vPreset && p.installed === true)) return;
+    const installed = videoStatus?.presets.find((p) => p.key === "wan21_t2v" && p.installed === true)
+      ?? videoStatus?.presets.find((p) => p.key === "wan22" && p.installed === true)
+      ?? videoStatus?.presets.find((p) => p.key === "ltxv" && p.installed === true);
+    if (installed) setT2vPreset(installed.key as typeof t2vPreset);
+  }, [videoStatus, t2vPreset]);
 
   useEffect(() => {
     let alive = true;
+    setCanvasReady(false);
     (async () => {
       const c = canvas.current;
-      if (!c) return;
+      const layer = overlayCanvas.current;
+      if (!c || !layer) return;
       const [W, H] = FORMATS[fmt];
-      c.width = W; c.height = H;
-      const ctx = c.getContext("2d")!;
-      ctx.fillStyle = "#0b0d14"; ctx.fillRect(0, 0, W, H);
+      c.width = W; c.height = H; layer.width = W; layer.height = H;
+      const ctx = c.getContext("2d");
+      const overlayCtx = layer.getContext("2d");
+      if (!ctx || !overlayCtx) return;
+      ctx.fillStyle = "#101219"; ctx.fillRect(0, 0, W, H);
+      if (base && baseMedia?.status !== "done") return;
       if (base) {
         const im = await loadImg(mediaFileUrl(base)).catch(() => null);
-        if (!alive || !im) return;
-        const s = Math.max(W / im.width, H / im.height);
-        ctx.drawImage(im, (W - im.width * s) / 2, (H - im.height * s) / 2, im.width * s, im.height * s);
+        if (!alive) return;
+        if (im) {
+          const scale = Math.max(W / im.width, H / im.height);
+          ctx.drawImage(im, (W - im.width * scale) / 2, (H - im.height * scale) / 2, im.width * scale, im.height * scale);
+        }
       }
-      const g = pos === "haut" ? ctx.createLinearGradient(0, 0, 0, H * 0.6) : ctx.createLinearGradient(0, H, 0, H * 0.35);
-      g.addColorStop(0, "rgba(0,0,0,0.78)"); g.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = pos === "centre" ? "rgba(0,0,0,0.42)" : g; ctx.fillRect(0, 0, W, H);
+      overlayCtx.clearRect(0, 0, W, H);
       const pad = W * 0.07;
-      const ts = Math.round(W * (fmt === "16:9" ? 0.052 : 0.082));
-      const y0 = pos === "haut" ? pad + ts * 1.6 : pos === "centre" ? H / 2 - ts * 0.4 : H - pad - ts * 2.6;
-      ctx.textAlign = pos === "centre" ? "center" : "left";
+      for (const target of [ctx, overlayCtx]) {
+        if (pos !== "centre") {
+          const gradient = pos === "haut" ? target.createLinearGradient(0, 0, 0, H * 0.62) : target.createLinearGradient(0, H, 0, H * 0.52);
+          gradient.addColorStop(0, pos === "haut" ? "rgba(0,0,0,0.78)" : "rgba(0,0,0,0.82)");
+          gradient.addColorStop(1, "rgba(0,0,0,0)");
+          target.fillStyle = gradient; target.fillRect(0, 0, W, H);
+        } else {
+          target.fillStyle = "rgba(0,0,0,0.40)"; target.fillRect(W * 0.06, H * 0.34, W * 0.88, H * 0.32);
+        }
+      }
+      const ts = Math.round(W * (fmt === "16:9" ? 0.052 : 0.075));
+      const y0 = pos === "haut" ? pad + ts * 1.5 : pos === "centre" ? H / 2 - ts * 0.62 : H - pad - ts * 2.8;
       const x = pos === "centre" ? W / 2 : pad;
-      ctx.fillStyle = "#fff"; ctx.font = `600 ${ts}px 'Sora Variable', sans-serif`;
-      ctx.fillText(title, x, y0, W - pad * 2);
-      ctx.fillStyle = "rgba(255,255,255,0.82)"; ctx.font = `400 ${Math.round(ts * 0.42)}px 'DM Sans Variable', sans-serif`;
-      ctx.fillText(sub, x, y0 + ts * 0.75, W - pad * 2);
-      const bh = ts * 0.95;
-      ctx.font = `600 ${Math.round(ts * 0.4)}px 'DM Sans Variable', sans-serif`;
-      const bw = ctx.measureText(cta).width + bh * 1.2;
-      const bx = pos === "centre" ? W / 2 - bw / 2 : pad;
-      const by = y0 + ts * 1.15;
-      ctx.fillStyle = accent; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, bh / 2); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(cta, bx + bw / 2, by + bh / 2 + 1); ctx.textBaseline = "alphabetic";
+      const align = pos === "centre" ? "center" : "left";
+      const paintText = (target: CanvasRenderingContext2D) => {
+        target.textAlign = align; target.textBaseline = "alphabetic";
+        target.fillStyle = "#fff"; target.font = `700 ${ts}px 'Sora Variable', sans-serif`;
+        target.shadowColor = "rgba(0,0,0,.3)"; target.shadowBlur = ts * 0.08;
+        target.fillText(title, x, y0, W - pad * 2);
+        target.shadowBlur = 0;
+        target.fillStyle = "rgba(255,255,255,.90)"; target.font = `400 ${Math.round(ts * 0.43)}px 'DM Sans Variable', sans-serif`;
+        target.fillText(sub, x, y0 + ts * 0.75, W - pad * 2);
+        const bh = ts * 0.92;
+        target.font = `700 ${Math.round(ts * 0.38)}px 'DM Sans Variable', sans-serif`;
+        const bw = Math.min(W - pad * 2, target.measureText(cta).width + bh * 1.4);
+        const bx = pos === "centre" ? W / 2 - bw / 2 : pad;
+        const by = y0 + ts * 1.18;
+        target.fillStyle = accent; target.beginPath(); target.roundRect(bx, by, bw, bh, bh / 2); target.fill();
+        target.fillStyle = "#101219"; target.textAlign = "center"; target.textBaseline = "middle";
+        target.fillText(cta, bx + bw / 2, by + bh / 2, bw - bh * 0.4);
+        target.textBaseline = "alphabetic"; target.shadowBlur = 0;
+      };
+      paintText(ctx); paintText(overlayCtx);
       if (brand?.logo_media_id) {
         const logo = await loadImg(mediaFileUrl(brand.logo_media_id)).catch(() => null);
         if (alive && logo) {
-          const lh = W * 0.09; const lw = (logo.width / logo.height) * lh;
+          const lh = W * 0.09; const lw = Math.min(W * 0.28, logo.width / logo.height * lh);
+          const lx = W - pad - lw;
           const ly = pos === "haut" ? H - pad - lh : pad;
-          ctx.drawImage(logo, W - pad - lw, ly, lw, lh);
+          // A translucent brand plate preserves contrast over both bright and dark source footage.
+          // It is included in the transparent overlay too, so the exported MP4 matches the preview.
+          for (const target of [ctx, overlayCtx]) {
+            const bx = lx - pad * 0.22; const by = ly - pad * 0.16;
+            const bw = lw + pad * 0.44; const bh = lh + pad * 0.32;
+            target.fillStyle = "rgba(9,14,20,.76)";
+            target.beginPath(); target.roundRect(bx, by, bw, bh, Math.min(bh * 0.22, pad * 0.18)); target.fill();
+            target.strokeStyle = "rgba(213,168,91,.48)"; target.lineWidth = Math.max(1, W * 0.0015);
+            target.stroke();
+            target.drawImage(logo, lx, ly, lw, lh);
+          }
         }
       } else if (brand) {
-        ctx.fillStyle = "#fff"; ctx.textAlign = "right"; ctx.font = `600 ${Math.round(ts * 0.38)}px 'Sora Variable', sans-serif`;
-        ctx.fillText(brand.name, W - pad, pos === "haut" ? H - pad : pad + ts * 0.4);
+        for (const target of [ctx, overlayCtx]) {
+          target.fillStyle = "#fff"; target.textAlign = "right"; target.font = `700 ${Math.round(ts * 0.38)}px 'Sora Variable', sans-serif`;
+          target.fillText(brand.name, W - pad, pos === "haut" ? H - pad : pad + ts * 0.4, W * 0.35);
+        }
       }
-    })();
+      if (alive) setCanvasReady(true);
+    })().catch(() => { if (alive) setCanvasReady(false); });
     return () => { alive = false; };
-  }, [base, fmt, title, sub, cta, accent, pos, brand]);
+  }, [base, baseMedia?.status, fmt, title, sub, cta, accent, pos, brand]);
 
-  const save = () => {
+  const changeFormat = (next: Fmt) => {
+    if (next !== fmt && base) {
+      setBase(null); setGenerated(null); setPosterId(null); setSelectedClips([]);
+      toast.info("Format modifié : choisissez une nouvelle référence ou générez une photo dans ce format.");
+    }
+    setFmt(next);
+  };
+  const generatePhoto = () => {
+    const selectedRef = base && !generated ? base : null;
+    const brandContext = brand ? ` Identité de marque : ${brand.name}${brand.slogan ? `, slogan « ${brand.slogan} »` : ""}.` : "";
+    const fullPrompt = `Photographie publicitaire ${adKind.toLowerCase()}. ${photoPrompt.trim()}${brandContext} Composition professionnelle, sans texte ni logo intégré dans l'image.`;
+    image.mutate({ prompt: fullPrompt, model: "comfy", aspect_ratio: fmt, ref_media_id: selectedRef, comfy_preset: imagePreset }, {
+      onSuccess: (m) => { setBase(m.id); setGenerated(m.id); setPosterId(null); toast.success("Photo publicitaire envoyée à ComfyUI"); },
+    });
+  };
+  const savePoster = () => {
     const url = canvas.current?.toDataURL("image/png");
-    if (!url) return;
-    upload.mutate({ data_url: url, source: "ad", prompt: `Publicité ${fmt} · ${title}` }, { onSuccess: (m) => { setSaved(m); toast.success("Visuel publicitaire enregistré"); } });
+    if (!url || !base || !canvasReady) return;
+    upload.mutate({ data_url: url, source: "ad", prompt: `Affiche publicitaire ${fmt} · ${title}` }, { onSuccess: (m) => { setPosterId(m.id); toast.success("Affiche enregistrée dans la bibliothèque"); } });
+  };
+  const animateAd = () => {
+    if (videoEngine !== "wan-t2v" && !base) return;
+    const onSuccess = (m: Media) => {
+      setSelectedClips((prev) => prev.includes(m.id) ? prev : [...prev, m.id]);
+      toast.success("Plan publicitaire prêt · sélectionné pour le montage");
+    };
+    if (videoEngine === "smartmotion") {
+      if (!base || !smStatus?.available) return;
+      smartmotion.mutate({ prompt: `Publicité ${adKind.toLowerCase()} · ${title}`, ref_media_id: base, seconds: duration, fps: 24, output_size: "source", motion: cameraMotion }, { onSuccess });
+      return;
+    }
+    if (videoEngine === "wan-t2v") {
+      video.mutate({ prompt: photoPrompt.trim(), model: "comfy", mode: "text", duration: wanDuration, aspect_ratio: fmt, ref_media_id: null, comfy_preset: t2vPreset, camera_pose: "Static" }, { onSuccess });
+      return;
+    }
+    if (!base) return;
+    video.mutate({ prompt: photoPrompt.trim(), model: "comfy", mode: "image", duration: wanDuration, aspect_ratio: fmt, ref_media_id: base, comfy_preset: videoPreset, camera_pose: "Static" }, { onSuccess });
+  };
+  const composeAd = async () => {
+    const overlay = overlayCanvas.current?.toDataURL("image/png");
+    if (!overlay || !selectedClips.length) return;
+    try {
+      const output = await apiPost<Media>("/media/ads/compose", { clip_media_ids: selectedClips, overlay_data_url: overlay, title: title || "Publicité locale" });
+      setExportId(output.id);
+      toast.success("Assemblage local lancé · progression dans la bibliothèque");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Impossible de lancer l'export MP4");
+    }
   };
   const addToSite = async (pid: string) => {
-    if (!saved) return;
+    if (!posterId) return;
     try {
-      await apiPost(`/projects/${pid}/chat`, { message: `Intègre ce visuel publicitaire (${fmt}) dans le site, dans une section promotionnelle soignée, avec un lien vers l'appel à l'action « ${cta} ».`, page: "index.html", selection: null, media_ids: [saved.id] });
-      toast.success("Visuel envoyé au site — intégration en cours");
-      setSiteOpen(false);
-    } catch {
-      toast.error("Ce site est occupé ou indisponible");
-    }
+      await apiPost(`/projects/${pid}/chat`, { message: `Intègre ce visuel publicitaire (${fmt}) dans le site, avec le titre « ${title} » et l'appel à l'action « ${cta} ».`, page: "index.html", selection: null, media_ids: [posterId] });
+      toast.success("Visuel envoyé au site — intégration en cours"); setSiteOpen(false);
+    } catch { toast.error("Ce site est occupé ou indisponible"); }
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
-      <div className="glass-vision space-y-4 rounded-3xl p-5">
-        <div>
-          <Label className="mb-2 block text-xs text-slate-400">Image de base</Label>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {choices.map((m) => (
-              <button key={m.id} type="button" data-testid={`ad-base-${m.id}`} onClick={() => setBase(m.id)} className={cn("size-16 shrink-0 overflow-hidden rounded-xl border-2 transition-[border-color,transform] hover:scale-105", base === m.id ? "border-cyan-300" : "border-transparent")}>
-                <img src={m.url!} alt="" className="size-full object-cover" />
-              </button>
-            ))}
-            {!choices.length && <p className="text-xs text-slate-500">Générez d'abord une photo.</p>}
+    <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]" data-testid="ad-workshop">
+      <section className="glass-vision space-y-5 rounded-3xl p-5">
+        <header><p className="text-[10px] uppercase tracking-[.24em] text-amber-200">Studio de campagne</p><h2 className="mt-1 font-heading text-xl font-semibold">Du concept au spot</h2><p className="mt-1 text-xs text-slate-400">Photo locale → mouvement caméra → habillage graphique stable → MP4.</p></header>
+        <div className="space-y-2"><Label htmlFor="ad-kind">Type de publicité</Label><select id="ad-kind" data-testid="ad-kind" value={adKind} onChange={(e) => setAdKind(e.target.value)} className={field}><option>Produit</option><option>Entreprise</option><option>Service</option><option>Réseaux sociaux</option><option>Campagne promotionnelle</option><option>Présentation de produit</option></select></div>
+        <div className="space-y-2"><Label htmlFor="ad-prompt">Votre idée en français</Label><textarea id="ad-prompt" data-testid="ad-prompt" value={photoPrompt} onChange={(e) => setPhotoPrompt(e.target.value)} rows={4} placeholder="Ex. Un flacon de parfum bleu cobalt posé sur du marbre blanc, lumière dorée du soir, composition élégante et minimaliste…" className={cn(field, "resize-y")} /></div>
+        <div className="space-y-2"><Label className="text-xs text-slate-400">Référence visuelle (facultatif)</Label><div className="flex gap-2 overflow-x-auto pb-1">{choices.slice(0, 18).map((m) => <button key={m.id} type="button" data-testid={`ad-reference-${m.id}`} onClick={() => { setBase(m.id); setGenerated(null); setPosterId(null); }} className={cn("size-14 shrink-0 overflow-hidden rounded-xl border-2", base === m.id ? "border-amber-300" : "border-transparent")}><img src={m.url!} alt={m.prompt} className="size-full object-cover" /></button>)}</div></div>
+        <div className="space-y-2"><Label htmlFor="ad-format">Format de campagne</Label><div className="flex gap-2">{(Object.keys(FORMATS) as Fmt[]).map((f) => <Chip key={f} testid={`ad-format-${f}`} active={fmt === f} onClick={() => changeFormat(f)}>{f}</Chip>)}</div></div>
+        <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="ad-brand">Identité de marque</Label><select id="ad-brand" data-testid="ad-brand" value={brandId} onChange={(e) => setBrandId(e.target.value)} className={field}><option value="">Sans marque</option>{brands?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div><div className="space-y-2"><Label htmlFor="ad-image-model">Moteur photo local</Label><select id="ad-image-model" data-testid="ad-image-model" value={imagePreset} onChange={(e) => setImagePreset(e.target.value as typeof imagePreset)} className={field}>{(imageModels ?? []).map((m) => <option key={m.key} value={m.key} disabled={m.installed !== true}>{m.label} · {m.installed === true ? "installé" : m.installed === false ? "absent" : "inconnu"}</option>)}</select></div></div>
+        <FxButton tone="vision" data-testid="ad-generate-photo" disabled={photoPrompt.trim().length < 3 || image.isPending || !availablePhotoModels.some((m) => m.key === imagePreset)} onClick={generatePhoto}><ImagePlus className="size-4" />{image.isPending ? "Photo en cours…" : "Générer la photo publicitaire"}</FxButton>
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-3"><div className="space-y-2"><Label htmlFor="ad-video-engine">Animation</Label><select id="ad-video-engine" data-testid="ad-video-engine" value={videoEngine} onChange={(e) => setVideoEngine(e.target.value as typeof videoEngine)} className={field}><option value="smartmotion" disabled={!base}>SmartMotion · caméra 2.5D (local)</option><option value="wan" disabled={!base || !videoStatus?.presets.some((p) => p.key === "wan21_fun_camera" && p.installed === true)}>Wan Fun Camera · génération I2V</option><option value="wan-t2v" disabled={!videoStatus?.presets.some((p) => (p.key === "wan21_t2v" || p.key === "wan22" || p.key === "ltxv") && p.installed === true)}>Wan · génération T2V</option></select></div>
+          {videoEngine === "wan" ? <div className="space-y-2"><Label htmlFor="ad-wan-preset">Modèle vidéo réel</Label><select id="ad-wan-preset" data-testid="ad-wan-preset" value={videoPreset} onChange={(e) => setVideoPreset(e.target.value as typeof videoPreset)} className={field}>{(videoStatus?.presets ?? []).filter((p) => p.key === "wan21_fun_camera" || p.key === "wan22" || p.key === "ltxv").map((p) => <option key={p.key} value={p.key} disabled={p.installed !== true}>{p.label} · {p.installed === true ? "installé" : "absent"}</option>)}</select><div className="mt-2 space-y-2"><Label htmlFor="ad-wan-duration">Durée du plan Wan</Label><select id="ad-wan-duration" data-testid="ad-wan-duration" value={wanDuration} onChange={(e) => setWanDuration(e.target.value)} className={field}><option value="3">3 secondes</option><option value="5">5 secondes</option></select></div><p className="text-[11px] text-amber-200">Wan génère le mouvement des pixels; les textes/logo sont appliqués ensuite et restent nets. Cette génération est lente.</p></div> : videoEngine === "wan-t2v" ? <div className="space-y-2"><Label htmlFor="ad-t2v-preset">Modèle T2V</Label><select id="ad-t2v-preset" data-testid="ad-t2v-preset" value={t2vPreset} onChange={(e) => setT2vPreset(e.target.value as typeof t2vPreset)} className={field}>{(videoStatus?.presets ?? []).filter((p) => p.key === "wan21_t2v" || p.key === "wan22" || p.key === "ltxv").map((p) => <option key={p.key} value={p.key} disabled={p.installed !== true}>{p.label} · {p.installed === true ? "installé" : "absent"}</option>)}</select><div className="space-y-2"><Label htmlFor="ad-wan-duration">Durée du plan</Label><select id="ad-wan-duration" data-testid="ad-wan-duration" value={wanDuration} onChange={(e) => setWanDuration(e.target.value)} className={field}><option value="3">3 secondes</option><option value="5">5 secondes</option></select></div><p className="text-[11px] text-amber-200">Texte → vidéo génératif. Le prompt français est transmis tel quel. Le titre, logo et CTA sont composités après génération.</p></div> : <><div className="space-y-2"><Label htmlFor="ad-duration">Durée SmartMotion</Label><select id="ad-duration" data-testid="ad-duration" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className={field}>{[5, 10, 15, 20, 30].map((d) => <option key={d} value={d}>{d} secondes</option>)}</select></div><div className="space-y-2"><Label htmlFor="ad-motion">Mouvement caméra</Label><select id="ad-motion" data-testid="ad-motion" value={cameraMotion} onChange={(e) => setCameraMotion(e.target.value as typeof cameraMotion)} className={field}><option value="push_in">Travelling avant doux</option><option value="pan_left">Panoramique gauche</option><option value="pan_right">Panoramique droite</option><option value="tilt_up">Inclinaison haut</option><option value="tilt_down">Inclinaison bas</option><option value="orbit_subtle">Arc latéral subtil</option><option value="static">Caméra fixe</option></select></div><p className="text-[11px] text-slate-400">SmartMotion déplace la caméra uniquement. Aucun mouvement d'objet n'est généré.</p></>}
+          <FxButton tone="ghost" data-testid="ad-generate-video" disabled={smartmotion.isPending || video.isPending || (videoEngine === "smartmotion" && (smStatus?.available !== true || !base)) || (videoEngine === "wan" && !base) || (videoEngine === "wan-t2v" && (photoPrompt.trim().length < 3 || !videoStatus?.presets.some((p) => p.key === t2vPreset && p.installed === true)))} onClick={animateAd}><Film className="size-4" />{smartmotion.isPending || video.isPending ? "Plan en cours…" : videoEngine === "smartmotion" ? "Créer un plan animé" : videoEngine === "wan-t2v" ? "Générer le clip publicitaire T2V" : "Générer un plan Wan"}</FxButton>
+        </div>
+      </section>
+      <section className="space-y-5">
+        <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-[#090b10] p-4"><motion.canvas key={fmt} initial={{ opacity: 0 }} animate={{ opacity: 1 }} ref={canvas} data-testid="ad-canvas" className="max-h-[72dvh] max-w-full rounded-xl shadow-[0_24px_90px_-28px_rgba(213,168,91,.38)]" /></div>
+          <div className="glass-vision space-y-3 rounded-3xl p-5"><p className="text-[10px] uppercase tracking-[.2em] text-slate-400">Habillage graphique · aperçu en direct</p><Input data-testid="ad-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre commercial" className="border-white/10 bg-black/30" /><Input data-testid="ad-subtitle" value={sub} onChange={(e) => setSub(e.target.value)} placeholder="Promesse / sous-titre" className="border-white/10 bg-black/30" /><div className="flex gap-2"><Input data-testid="ad-cta" value={cta} onChange={(e) => setCta(e.target.value)} placeholder="Appel à l'action" className="border-white/10 bg-black/30" /><input data-testid="ad-accent" type="color" value={accent} onChange={(e) => setAccent(e.target.value)} aria-label="Couleur accent" className="h-10 w-12 rounded-lg border border-white/10 bg-transparent" /></div><div className="flex gap-2">{(["haut", "centre", "bas"] as const).map((p) => <Chip key={p} testid={`ad-pos-${p}`} active={pos === p} onClick={() => setPos(p)}>{p}</Chip>)}</div><p className="text-xs text-slate-400">Le calque typographique est ajouté après le mouvement vidéo pour préserver la lisibilité.</p>
+            <div className="flex flex-wrap gap-2"><FxButton tone="vision" data-testid="ad-save-poster" disabled={!base || !canvasReady || upload.isPending} onClick={savePoster}><Megaphone className="size-4" />Enregistrer l'affiche PNG</FxButton>{posterId && <a href={mediaFileUrl(posterId)} download data-testid="ad-download-poster" className="fx-btn ghost"><Download className="size-4" />PNG</a>}<FxButton tone="ghost" data-testid="ad-add-to-site" disabled={!posterId} onClick={() => setSiteOpen(true)}><Globe2 className="size-4" />Ajouter au site</FxButton></div>
           </div>
         </div>
-        <div className="flex gap-2">{(Object.keys(FORMATS) as Fmt[]).map((f) => <Chip key={f} testid={`ad-format-${f}`} active={fmt === f} onClick={() => setFmt(f)}>{f}</Chip>)}</div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-slate-400">Marque (logo réel)</Label>
-          <select data-testid="ad-brand" value={brandId} onChange={(e) => setBrandId(e.target.value)} className={cn(field, "p-2.5")}>
-            <option value="">Sans marque</option>
-            {brands?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </div>
-        <Input data-testid="ad-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre" className="border-white/10 bg-black/30" />
-        <Input data-testid="ad-subtitle" value={sub} onChange={(e) => setSub(e.target.value)} placeholder="Sous-titre" className="border-white/10 bg-black/30" />
-        <div className="flex gap-2">
-          <Input data-testid="ad-cta" value={cta} onChange={(e) => setCta(e.target.value)} placeholder="Appel à l'action" className="border-white/10 bg-black/30" />
-          <input data-testid="ad-accent" type="color" value={accent} onChange={(e) => setAccent(e.target.value)} className="h-9 w-12 cursor-pointer rounded-md border border-white/10 bg-transparent" aria-label="Couleur" />
-        </div>
-        <div className="flex gap-2">{(["haut", "centre", "bas"] as const).map((p) => <Chip key={p} testid={`ad-pos-${p}`} active={pos === p} onClick={() => setPos(p)}>{p}</Chip>)}</div>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <FxButton tone="vision" data-testid="ad-save" disabled={upload.isPending} onClick={save}><Megaphone className="size-4" /> Enregistrer</FxButton>
-          <FxButton tone="ghost" data-testid="ad-add-to-site" disabled={!saved} onClick={() => setSiteOpen(true)}><Globe2 className="size-4" /> Ajouter à un site</FxButton>
-          {saved?.url && <a href={saved.url} download className="fx-btn ghost" data-testid="ad-download"><span className="fx-shine" /><span className="relative z-10 inline-flex items-center gap-2"><Download className="size-4" /> PNG</span></a>}
-        </div>
-      </div>
-      <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-black/40 p-6">
-        <motion.canvas key={fmt} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} ref={canvas} data-testid="ad-canvas" className="max-h-[70dvh] max-w-full rounded-xl shadow-[0_30px_100px_-30px_rgba(6,182,212,0.7)]" />
-      </div>
-      <Dialog open={siteOpen} onOpenChange={setSiteOpen}>
-        <DialogContent className="border-cyan-400/25 bg-panel/95 backdrop-blur-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Ajouter à un site</DialogTitle>
-            <DialogDescription>Le moteur intégrera ce visuel dans une section promotionnelle, de façon ciblée.</DialogDescription>
-          </DialogHeader>
-          <div className="max-h-80 space-y-2 overflow-y-auto">
-            {projects?.filter((p) => p.status === "ready").map((p) => (
-              <button key={p.id} type="button" data-testid={`ad-site-${p.id}`} onClick={() => addToSite(p.id)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 p-3 text-left transition-colors hover:border-cyan-300/60 hover:bg-cyan-500/10">
-                {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="size-10 rounded-lg object-cover" /> : <Wand2 className="size-5" />}
-                <span className="text-sm">{p.name}</span>
-              </button>
-            ))}
-            {!projects?.some((p) => p.status === "ready") && <p className="text-sm text-slate-400">Aucun site prêt pour le moment.</p>}
-          </div>
-        </DialogContent>
-      </Dialog>
+        <div className="glass-vision space-y-3 rounded-2xl p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-heading font-semibold">Montage vidéo</h3><p className="text-xs text-slate-400">Sélectionnez 1 à 8 plans terminés. Coupe franche, texte/logo net au-dessus du mouvement.</p></div><FxButton tone="vision" data-testid="ad-export-mp4" disabled={!selectedClips.length || selectedClips.some((id) => !completeClips.some((m) => m.id === id)) || !canvasReady} onClick={composeAd}><Download className="size-4" />Exporter le MP4 publicitaire</FxButton></div>
+          <div className="flex flex-wrap gap-2">{completeClips.slice(0, 20).map((m) => <button key={m.id} type="button" data-testid={`ad-clip-${m.id}`} aria-pressed={selectedClips.includes(m.id)} onClick={() => setSelectedClips((prev) => prev.includes(m.id) ? prev.filter((id) => id !== m.id) : prev.length < 8 ? [...prev, m.id] : prev)} className={cn("rounded-xl border px-3 py-2 text-left text-xs", selectedClips.includes(m.id) ? "border-amber-300 bg-amber-300/10 text-white" : "border-white/10 text-slate-400")}>{m.prompt.slice(0, 48)} · {m.duration || "vidéo"}</button>)}{!completeClips.length && <p className="text-xs text-slate-500">Le plan généré apparaîtra ici lorsqu'il sera terminé.</p>}</div>{exportId && <p className="text-xs text-cyan-200" data-testid="ad-export-status">Export demandé · média {exportId} suivi dans la bibliothèque.</p>}</div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="ad-media-results"><AnimatePresence>{adMedia.map((m) => <MediaTile key={m.id} m={m} onCancel={() => cancel.mutate(m.id)} />)}</AnimatePresence>{!adMedia.length && <p className="text-xs text-slate-500">Les rendus de cette campagne apparaîtront ici.</p>}</div>
+      </section>
+      <canvas ref={overlayCanvas} className="hidden" aria-hidden="true" />
+      <Dialog open={siteOpen} onOpenChange={setSiteOpen}><DialogContent className="border-cyan-400/25 bg-panel/95 backdrop-blur-2xl"><DialogHeader><DialogTitle className="font-heading">Ajouter l'affiche à un site</DialogTitle><DialogDescription>L'affiche PNG est intégrée à la section promotionnelle.</DialogDescription></DialogHeader><div className="max-h-80 space-y-2 overflow-y-auto">{projects?.filter((p) => p.status === "ready").map((p) => <button key={p.id} type="button" data-testid={`ad-site-${p.id}`} onClick={() => addToSite(p.id)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 p-3 text-left hover:border-cyan-300/60">{p.thumbnail_url && <img src={p.thumbnail_url} alt="" className="size-10 rounded-lg object-cover" />}<span className="text-sm">{p.name}</span></button>)}{!projects?.some((p) => p.status === "ready") && <p className="text-sm text-slate-400">Aucun site prêt pour le moment.</p>}</div></DialogContent></Dialog>
     </div>
   );
 }

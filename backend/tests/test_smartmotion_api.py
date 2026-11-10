@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from lib import hf_video
 from lib.smartmotion import camera_state
 from models.schemas import SmartMotionRequest, VideoRequest
 from routers import media
@@ -43,7 +44,9 @@ def test_video_model_listing_exposes_cloud_and_keeps_local_and_smartmotion_disti
     assert smartmotion["durations"] == ["5", "10", "15", "20", "30"]
     assert "objet" in smartmotion["tagline"]
     assert cloud["durations"] == ["2"] and cloud["aspects"] == ["1:1"]
-    assert "Hugging Face" in cloud["label"] and "ZeroGPU" in cloud["tagline"]
+    assert "gratuit" in cloud["label"].lower() and "distant" in cloud["tagline"].lower()
+    assert "ZeroGPU" not in cloud["label"] + cloud["tagline"]
+    assert "ZeroGPU" in hf_video.MODEL_LABEL
     assert local["label"] == "LocalAi Video Engine — Gratuit" and "Wan 2.1" in local["tagline"]
 
 
@@ -92,3 +95,17 @@ def test_smartmotion_create_fails_closed_without_existing_local_runtime(monkeypa
         asyncio.run(media.create_smartmotion(body))
     assert exc.value.status_code == 503
     assert "runtime not installed" in exc.value.detail
+
+
+def test_paid_video_is_rejected_before_provider_submission_without_explicit_ack(monkeypatch):
+    def must_not_submit(*_args, **_kwargs):
+        raise AssertionError("paid provider submission must not be reached")
+
+    monkeypatch.setattr(media.fal, "build_payload", must_not_submit)
+    monkeypatch.setattr(media, "create_media", must_not_submit)
+    body = VideoRequest(prompt="Publicité cinématique", model="veo", mode="text", duration="4s", aspect_ratio="16:9")
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(media.create_video(body))
+    assert exc.value.status_code == 402
+    assert "aucun appel n'a été soumis" in exc.value.detail
+    assert media.fal.estimated_cost_usd("veo", "4s") == 0.6

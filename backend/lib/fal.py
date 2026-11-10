@@ -19,6 +19,7 @@ VIDEO_MODELS: dict[str, dict[str, Any]] = {
         "t2v": "fal-ai/veo3.1/fast",
         "i2v": "fal-ai/veo3.1/fast/image-to-video",
         "durations": ["4s", "6s", "8s"],
+        "estimated_usd_per_second": 0.15,
         "aspects": ["16:9", "9:16"],
         "audio": True,
     },
@@ -28,6 +29,7 @@ VIDEO_MODELS: dict[str, dict[str, Any]] = {
         "t2v": "fal-ai/kling-video/v2.5-turbo/pro/text-to-video",
         "i2v": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
         "durations": ["5", "10"],
+        "estimated_usd_per_second": 0.07,
         "aspects": ["16:9", "9:16", "1:1"],
         "audio": False,
     },
@@ -37,6 +39,7 @@ VIDEO_MODELS: dict[str, dict[str, Any]] = {
         "t2v": "fal-ai/minimax/hailuo-02/standard/text-to-video",
         "i2v": "fal-ai/minimax/hailuo-02/standard/image-to-video",
         "durations": ["6", "10"],
+        "estimated_usd_per_second": 0.045,
         "aspects": ["16:9"],
         "audio": False,
     },
@@ -74,6 +77,16 @@ def _trusted(url: str) -> str:
     if c.scheme != q.scheme or c.netloc != q.netloc or c.username or c.password or c.fragment or not c.path.startswith(q.path.rstrip("/") + "/"):
         raise FalError("URL de file non fiable renvoyée par le proxy")
     return url
+
+
+def estimated_cost_usd(model: str, duration: str) -> float:
+    """Published fal.ai per-second estimate; the integration proxy may apply other rates."""
+    if model not in VIDEO_MODELS:
+        raise FalError(f"Aucun tarif vidéo connu pour {model}")
+    cfg = VIDEO_MODELS[model]
+    selected = duration if duration in cfg["durations"] else cfg["durations"][0]
+    seconds = float(selected.removesuffix("s"))
+    return round(seconds * float(cfg["estimated_usd_per_second"]) + 1e-9, 2)
 
 
 def build_payload(model: str, mode: str, prompt: str, duration: str, aspect: str, image_url: str | None) -> tuple[str, dict]:

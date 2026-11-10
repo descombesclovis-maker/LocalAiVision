@@ -1362,3 +1362,36 @@ Sources primaires consultées (runtime/params relevés le 2026-11-10) :
 - Prix Gemini/Veo : https://ai.google.dev/gemini-api/docs/pricing
 
 Arrêt V2-W : un seul test réel effectué. LTX-2.3 est recommandé comme candidat pour un futur essai contrôlé uniquement si un rendu supplémentaire est explicitement autorisé; ne pas annoncer le moteur comme qualité professionnelle ni activer des capacités non testées.
+
+## V2-X — finalisation du travail local existant (2026-11-10)
+
+### Préservation et état initial
+
+- Départ vérifié : `nextgen/claude-code`, HEAD `aaa611c`, distant identique. Changements locaux conservés sans reset ni réapplication intégrale de stash; `stash@{0}: preserve-v2q-before-v2r` est toujours présent. Édition `NextGen-Avant-Fusion` et bases existantes non touchées. Le dossier utilisateur non suivi `frontend/.emergent/` a été laissé intact et exclu du commit.
+- L'atelier Publicité restauré, les parcours T2V/I2V et SmartMotion/Wan locaux, les modèles payants (Veo/Kling/MiniMax) et leurs confirmations explicites restent présents. Le libellé local demeure « LocalAi Video Engine — Gratuit ». L'API refuse une demande payante sans accusé; test ajouté vérifiant qu'elle est bloquée avant toute soumission fournisseur. Aucun appel payant exécuté.
+
+### Corrections et validation réelle publicité
+
+- Correction du preset par défaut T2V dans l'atelier : le type TypeScript est désormais restreint à `wan21_t2v` effectivement supporté; le sélecteur I2V reste séparé.
+- Le montage encode réellement en `libx264` (H.264 CPU), et non NVENC. Les libellés et l'attente de file ont été corrigés pour ne plus revendiquer NVENC.
+- Build `frontend`: `yarn build` (`tsc -b && vite build`) réussi. Avertissement Vite existant sur le chunk JS >500 kB; aucune erreur TS.
+- Tests backend ciblés réexécutés : `test_smartmotion_api.py`, `test_hf_video.py`, `test_ad_video.py` : **12 passed, 1 skipped**. Le test d'assemblage PyAV est sauté dans le venv backend du dépôt parce que NumPy/PyAV ne sont pas installés. Ensemble élargi incluant `test_prompt_bench.py` exécuté avant le dernier test de garde payante : **39 passed, 1 skipped**; le test supplémentaire de garde payante a ensuite passé dans le groupe ciblé.
+- Runtime de l'édition actuellement lancée identifié : `AppData/Local/LocalAiStudio-Editions/NextGen-Avant-Fusion/backend/.venv/Scripts/python.exe`; `pip check` propre, FastAPI/Motor/Pillow présents mais NumPy/PyAV absents. Ce runtime et les environnements existants n'ont pas été modifiés. `_ad_video_runtime()` a choisi le Python ComfyUI déjà installé, qui possède NumPy 2.5.2, PyAV 18.1.0, Pillow 12.3.0, `libx264` et `h264_nvenc`; aucune dépendance installée.
+- Test Chrome sur ports isolés 3022/8022 et Mongo `localaistudio_v2x_validation` (aucune base existante) : Studio média et atelier chargés, références, presets, choix de plans et enregistrement PNG depuis la toile de l'interface validés. La toile publicitaire PNG créée par Chrome a ensuite été passée à l'endpoint réel avec deux MP4 réels déjà présents (Wan V2-U et LTX-2.3 V2-W). Export récupéré dans `backend/bench_runs/v2x/chrome_ad_export.mp4` (gitignored) : H.264, 1920×1080, 24 fps, 146/146 images décodées, 6,083 s, deux segments à coupe franche, overlay PNG composité sur chaque frame, audio omis. Soumission API HTTP 200, statut final `done`, téléchargement HTTP 200, résultat visible dans l'atelier/bibliothèque Chrome. Aucune génération vidéo ou image IA n'a été relancée.
+- Le serveur de test et Vite utilisent uniquement le port et la base isolés; ils sont arrêtés après validation. L'export est une composition déterministe, pas une transition continue ni une génération de mouvement.
+
+### Audit Space distant — non déployé
+
+- Authentification HF confirmée par `HfApi.whoami()` (compte personnel Free, `isPro=false`, `canPay=false`, aucune organisation, zéro Space existant); la liste de Spaces du compte fonctionne. Les informations disponibles par l'API ne montrent pas l'éligibilité ZeroGPU (vérification e-mail/ancienneté) ni les permissions d'écriture du jeton. Aucun Space LocalAiStudio n'a été créé ou annoncé comme déployé; aucun modèle n'a été téléchargé localement et aucun appel vidéo distant supplémentaire n'a été lancé.
+- Candidat commercialement le plus clair trouvé : `Efficient-Large-Model/SANA-Video_2.0_5B_720p_4step`, licence Apache-2.0, checkpoint 17,871,905,340 octets + contrôleur LoRA 587,418,315 octets. Le Space public auteur `Efficient-Large-Model/sana-video2-5b-720p-demo` est `RUNNING`, Gradio, runtime demandé `zero-a10g`; il expose `/generate`, T2V seulement, 4 étapes, 1280×736, profils 5/8 s. Le Space déclare ne pas utiliser de LoRA de modèle distincte pour remplacer le checkpoint, mais applique un contrôleur RL fourni séparément.
+- Décision : SANA 4-step est le meilleur candidat Apache-2.0 à évaluer, mais son API n'a pas été soumise à un nouveau rendu V2-X; vitesse réelle et fidélité française ne sont donc pas validées sur un Space contrôlé par nous. La preview citée n'offre pas I2V; le checkpoint SANA plein modèle annoncé T2V/TI2V fait 17,871,929,677 octets et utilise 50 étapes, sans test de coût/temps/qualité dans notre contexte. Il serait incorrect de déployer une promesse T2V+I2V fiable à partir de la preview T2V seule.
+- LTX-2.3 reste le meilleur rendu distant déjà observé (V2-W : 768×512, 73 frames, ~29,1 s) mais le modèle a la LTX-2 Community License, conditions commerciales notamment autour du seuil 10 M$; il ne remplace pas un choix Apache-2.0 sans validation juridique et qualité d'action imparfaite. SANA, LTX et d'autres candidats n'ont pas été comparés dans un protocole contrôlé équivalent ici.
+- Reste nécessaire avant création : un jeton HF ayant droit d'écriture sur un Space, et confirmation par HF du droit ZeroGPU gratuit pour ce compte (ou accord explicite pour payer; aucun paiement n'est autorisé dans cette mission). Puis implémenter et valider les deux modes T2V/I2V, la licence applicable et un vrai rendu API; ne pas activer le connecteur produit avant cette validation. Une authentification de lecture seule n'est pas une autorisation de publication.
+
+### Clôture
+
+- Aucun changement visuel/refonte effectué dans ce dernier passage; modèles payants restent facultatifs avec confirmation, service cloud décrit comme distant et limites visibles, SmartMotion/Wan préservés.
+- Stash V2-Q toujours préservé. Les sorties temporaires `backend/bench_runs/` restent exclues de Git. Tous les résultats ci-dessus sont réels; les limites non validées sont signalées comme telles.
+- Sources consultées pour le candidat SANA : https://huggingface.co/docs/hub/en/spaces-zerogpu ; https://huggingface.co/Efficient-Large-Model/SANA-Video_2.0_5B_720p_4step ; https://huggingface.co/spaces/Efficient-Large-Model/sana-video2-5b-720p-demo ; https://github.com/NVlabs/Sana.
+
+Arrêt V2-X : fonctionnalités locales validées et sauvegardables; Space propriétaire distant non déployé, validation de sa permission et intégration I2V restant en suspens.

@@ -154,6 +154,7 @@ class VideoRequest(BaseModel):
     duration: str = ""
     aspect_ratio: str = "16:9"
     ref_media_id: Optional[str] = None
+    paid_cost_acknowledged: bool = False
     camera_pose: Literal["Static", "Pan Up", "Pan Down", "Pan Left", "Pan Right", "Zoom In", "Zoom Out", "Anti Clockwise (ACW)", "ClockWise (CW)"] = "Static"
     comfy_preset: Optional[Literal["wan22", "wan21_t2v", "wan21_fun_camera", "ltxv"]] = None
 
@@ -165,6 +166,12 @@ class SmartMotionRequest(BaseModel):
     fps: Literal[24] = 24
     output_size: Literal["source", "1280x720", "1920x1080"] = "source"
     motion: Literal["push_in", "pan_left", "pan_right", "tilt_up", "tilt_down", "orbit_subtle", "static"] = "push_in"
+
+
+class AdComposeRequest(BaseModel):
+    clip_media_ids: list[str] = Field(min_length=1, max_length=8)
+    overlay_data_url: str = Field(min_length=32, max_length=16_000_000)
+    title: str = Field(default="Publicité", max_length=160)
 
 
 class UploadRequest(BaseModel):
