@@ -999,3 +999,31 @@ Wan 1.3B est la seule option vidéo qualifiée sur ce poste. LTX-Video 2B distil
 - Prochaine étape recommandée : campagnes courtes contrôlées et distinctes `Static`, trajectoire bornée et keyframes sur au moins plusieurs seeds, puis sujets à hue différente; décider si un détecteur vision local plus générique est justifié avant de rendre LongForm accessible dans l'interface.
 
 Fin de V2-K : arrêter ici; ne pas étendre à 30 s et ne pas activer Comfy Kitchen par défaut.
+
+## V2-L — Extension LongForm à 9 puis 12 secondes
+
+### Implémentation ciblée
+- `backend/lib/video_longform.py` accepte maintenant `--target-seconds 6|9|12` (défaut inchangé à 6 s), planifie 2/3/4 segments Wan de 73 images, suit les graines successives et assemble dynamiquement tous les segments.
+- Reprise/extension sûre : un run terminé peut passer de 9 à 12 s uniquement si les paramètres de génération hors durée sont identiques et si les vidéos/images de fin de tous les segments précédents passent la vérification SHA-256. La reprise ajoute le segment manquant, sans recalculer les anciens. Un changement de prompt, image, caméra, seed, modèle ou réglages est refusé.
+- `backend/scripts/longform_assemble_av.py` assemble N segments, vérifie le nombre d'images exact et enregistre chaque raccord dans l'ordre. Le contact sheet couvre toutes les frames/segments; les écarts RGB sont descriptifs, pas des scores perceptuels.
+- Aucun changement aux routes, workflows ou presets de production, au modèle, au backend d'attention, ni aux paramètres Wan. PyTorch reste utilisé. Aucun téléchargement.
+
+### Rendus réels et ressources
+- ComfyUI existant, Wan 2.1 Fun Camera I2V, RTX 3060 12 Gio, 832×480, 24 fps, 73 frames par segment, 20 steps, CFG 6, `uni_pc`/`simple`, graines 753934134–137. La source est l'image SDXL existante; le prompt demande de conserver le bouchon attaché comme dans l'image (contrairement au prompt historique contradictoire). Ollama n'avait aucun modèle chargé; aucune file ComfyUI concurrente.
+- **9 s** : 3 segments, sortie H.264 `longform-9s.mp4`, exactement 216 frames / 9,000 s. Temps ComfyUI : **450,323 + 1 124,562 + 606,688 = 2 181,573 s (~36 min 22 s)**. Segment 2 a pris 1 067,609 s d'échantillonnage observé; le pic système mesuré était **11 517 / 12 288 MiB VRAM** et **31 067 / 32 665 MiB RAM** (RAM disponible minimale 1 598 MiB).
+- **Extension à 12 s** : la reprise a validé les trois segments existants et n'a rendu que le segment 4 (seed 753934137, pose Static), **429,188 s**. Sortie H.264 `longform-12s.mp4`, exactement 288 frames / 12,000 s. Temps cumulé des quatre segments **2 610,761 s (~43 min 31 s)**. Segment 4 : pic 10 042 MiB VRAM, pic RAM 19 353 MiB; le maximum observé sur l'ensemble du run demeure celui du segment 2. Le premier segment a été récupéré de l'historique ComfyUI après interruption du client; son temps de 450,323 s est confirmé, mais son pic VRAM/RAM n'a pas été collecté de bout en bout.
+- Rapport d'assemblage 12 s : 73 frames par source, 3 images partagées supprimées, 288 frames finales, 832×480, 24 fps; mesures des raccords RGB MAE : **4,530 / 1,696 / 1,566** (échelle 0–255). Ces valeurs sont descriptives uniquement.
+
+### Vérification de l'ensemble des images et qualité observée
+- Les **216 frames** du rendu 9 s puis les **288 frames** de la sortie 12 s ont été décodées. L'ancre chromatique bleue du flacon est retrouvée dans **216/216** et **288/288** frames respectivement (contrôle couleur, non sémantique).
+- Sur 12 s, le centre suivi varie de x=0,413 à 0,800; début x=0,510, fin x=0,558. Le flacon reste entièrement à l'intérieur des zones sûres détectées. Les poses consignées sont `Pan Left` → correction `Pan Right` → `Static` → `Static`; les transitions de centre adjacentes aux trois raccords sont environ 0,004, 0,004 et 0,000 largeur de frame. L'image de référence initiale reste utilisée pour CLIP Vision et l'image de fin du segment précédent amorce chaque nouveau segment.
+- Examen visuel du contact sheet complet : bouteille bleu cobalt, bouchon attaché, marbre et éclairage restent globalement cohérents. Le mouvement est modéré : correction de panoramique puis cadrage presque statique pendant les deux derniers segments. L'étiquette reste illisible; légères variations de reflets/textures restent visibles. Ce cas unique ne valide ni toutes les scènes ni une qualité commerciale constante.
+- L'extension à 12 s est jugée acceptable pour vérifier la continuité et le cadrage sur cette référence, pas comme démonstration d'un mouvement cinématographique professionnel.
+
+### Validation, limites et artefacts
+- Tests ciblés `tests/test_video_longform.py` + `tests/test_video_v2h.py` : **31 réussis**. Compilation Python, `git diff --check` et assemblage smoke de trois clips existants en 9,000 s (216 frames, 2 métriques de raccord) réussis. Suite backend complète non relancée.
+- Les temps varient fortement entre segments; le segment 2 a approché la limite RAM et VRAM. À la moyenne de 12 s, une extrapolation linéaire vers 30 s serait d'environ **109 minutes**, mais cette projection est incertaine et la pression mémoire peut causer ralentissements/échec. **Aucune génération 30 s n'a été lancée ni validée.**
+- Les créations sont locales, ignorées par Git : `backend/bench_runs/v2l/longform_9s_20261110/` contient les deux MP4, manifeste de reprise, mesures, rapport et galerie `index.html`; `continuity-contact.jpg` montre les 288 frames échantillonnées. Aucun ancien média, modèle, installation ou base utilisateur n'a été modifié.
+- Recommandation : avant tout palier supérieur, améliorer/valider le mouvement continu (Pan Left suivi de Pan Right corrige le cadre mais inverse le mouvement à un raccord) et surveiller l'utilisation RAM; effectuer ensuite plusieurs seeds/sujets. Ne pas promettre 30 s sur la base d'un seul run.
+
+Fin de V2-L : arrêter ici; ne pas commencer V2-M.

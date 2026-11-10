@@ -179,6 +179,10 @@ def total_unique_frames(target_seconds: int, segment_seconds: int = SEGMENT_SECO
     return sum(s.unique_frames for s in plan_segments(target_seconds, segment_seconds))
 
 
+def _supported_target_seconds(target_seconds: int) -> bool:
+    return target_seconds in (6, 9, 12)
+
+
 def config_fingerprint(config: dict[str, Any]) -> str:
     data = json.dumps(config, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
@@ -214,6 +218,39 @@ def segment_is_resumable(manifest: dict[str, Any], index: int, folder: Path) -> 
         and sha256_file(video) == row.get("video_sha256")
         and sha256_file(end_frame) == row.get("end_frame_sha256")
     )
+
+
+def extend_completed_manifest(
+    manifest: dict[str, Any], new_config: dict[str, Any], folder: Path,
+) -> bool:
+    """Allow only a strictly longer run with identical generation settings and verified old segments."""
+    old = manifest.get("config", {})
+    old_seconds = old.get("target_seconds")
+    new_seconds = new_config.get("target_seconds")
+    if not isinstance(old_seconds, int) or not isinstance(new_seconds, int) or new_seconds <= old_seconds:
+        return False
+    old_core = {k: v for k, v in old.items() if k not in ("target_seconds", "segment_count")}
+    new_core = {k: v for k, v in new_config.items() if k not in ("target_seconds", "segment_count")}
+    if old_core != new_core:
+        return False
+    old_specs = plan_segments(old_seconds, 3, old.get("base_seed", 753934134))
+    if len(manifest.get("segments", [])) != len(old_specs):
+        return False
+    if not all(segment_is_resumable(manifest, spec.index, folder) for spec in old_specs):
+        return False
+    all_specs = plan_segments(new_seconds, 3, new_config.get("base_seed", 753934134))
+    if len(all_specs) <= len(old_specs):
+        return False
+    manifest["segments"].extend({
+        "index": spec.index, "status": "pending", "start_frame": spec.start_frame,
+        "frame_count": spec.frame_count, "unique_frames": spec.unique_frames, "seed": spec.seed,
+    } for spec in all_specs[len(old_specs):])
+    manifest["config"] = new_config
+    manifest["config_sha256"] = config_fingerprint(new_config)
+    manifest["status"] = "running"
+    manifest["extension_from_seconds"] = old_seconds
+    manifest.pop("assembly", None)
+    return True
 
 
 def build_wan_workflow(
@@ -481,6 +518,9 @@ async def _verify_models(
 
 async def run_prototype(args: argparse.Namespace) -> Path:
     base = args.comfy_url.rstrip("/")
+    target_seconds = int(getattr(args, "target_seconds", 6))
+    if not _supported_target_seconds(target_seconds):
+        raise ValueError("LongForm prototype currently supports 6, 9 or 12 seconds")
     out = Path(args.output_dir).resolve()
     manifest_path = out / "manifest.json"
     initial = Path(args.input_image).resolve()
@@ -506,12 +546,13 @@ async def run_prototype(args: argparse.Namespace) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     environment = await _verify_models(base, args.attention_backend,
                                        (args.camera_pose, *tuple(args.camera_keyframes), "Static", "Pan Right"))
-    specs = plan_segments(6, 3, args.seed)
+    specs = plan_segments(target_seconds, 3, args.seed)
     config = {
         "model": "wan21_fun_camera", "prompt": args.prompt, "camera_pose": args.camera_pose,
         "camera_strategy": args.camera_strategy, "camera_keyframes": list(args.camera_keyframes),
         "attention_backend": args.attention_backend, "subject_guard": args.subject_guard,
         "subject_roi": list(roi), "subject_hue": anchor_hue,
+        "target_seconds": target_seconds, "segment_count": len(specs),
         "width": 832, "height": 480, "fps": FPS, "segment_seconds": 3, "frames_per_segment": FRAMES_PER_SEGMENT,
         "steps": 20, "cfg": 6.0, "sampler": "uni_pc", "scheduler": "simple", "base_seed": args.seed,
         "initial_image_sha256": sha256_file(initial), "overlap_frames": 1,
@@ -520,7 +561,9 @@ async def run_prototype(args: argparse.Namespace) -> Path:
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest.get("config_sha256") != fingerprint:
-            raise ValueError("Resume refused: prompt, source image, camera policy, attention backend or parameters differ from the saved manifest")
+            if not extend_completed_manifest(manifest, config, out):
+                raise ValueError("Resume refused: config differs, or a longer target is not compatible with all verified completed segments")
+            save_manifest(manifest_path, manifest)
     else:
         manifest = {"schema": 2, "created_utc": datetime.now(timezone.utc).isoformat(), "status": "running",
                     "environment_preflight": environment, "config": config, "config_sha256": fingerprint, "segments": [
@@ -586,8 +629,9 @@ async def run_prototype(args: argparse.Namespace) -> Path:
                 manifest["stopped_before_segment"] = spec.index + 1
                 save_manifest(manifest_path, manifest)
                 raise RuntimeError(f"Subject framing guard stopped before segment {spec.index + 1}: {risk}")
-    assembled = out / "longform-6s.mp4"
-    if not assembled.exists() or not manifest.get("assembly") or not segment_is_resumable(manifest, 1, out) or not segment_is_resumable(manifest, 2, out):
+    assembled = out / f"longform-{target_seconds}s.mp4"
+    all_segments_resumable = all(segment_is_resumable(manifest, spec.index, out) for spec in specs)
+    if not assembled.exists() or not manifest.get("assembly") or not all_segments_resumable:
         manifest["status"] = "assembling"
         save_manifest(manifest_path, manifest)
         comfy_python = Path(args.comfy_python).resolve()
@@ -597,10 +641,11 @@ async def run_prototype(args: argparse.Namespace) -> Path:
             raise FileNotFoundError(f"ComfyUI Python (with PyAV) not found: {comfy_python}")
         worker = Path(__file__).resolve().parents[1] / "scripts" / "longform_assemble_av.py"
         report_path = out / "assembly-report.json"
+        target_frames = target_seconds * FPS
+        segment_paths = [str(out / f"segment-{spec.index:02d}.mp4") for spec in specs]
         try:
-            subprocess.run([str(comfy_python), str(worker), str(assembled), str(report_path), "144",
-                            str(out / "segment-01.mp4"), str(out / "segment-02.mp4")], check=True,
-                           capture_output=True, text=True, timeout=600)
+            subprocess.run([str(comfy_python), str(worker), str(assembled), str(report_path), str(target_frames),
+                            *segment_paths], check=True, capture_output=True, text=True, timeout=600)
             manifest["assembly"] = {"file": assembled.name, "sha256": sha256_file(assembled),
                                      "report": json.loads(report_path.read_text(encoding="utf-8"))}
         except Exception as exc:
@@ -609,8 +654,8 @@ async def run_prototype(args: argparse.Namespace) -> Path:
             save_manifest(manifest_path, manifest)
             raise
     manifest["status"] = "done"
-    manifest["total_unique_frames"] = total_unique_frames(6, 3)
-    manifest["note"] = "Experimental two-segment continuity; strategy, persistent visual anchor and framing guard are recorded per run."
+    manifest["total_unique_frames"] = total_unique_frames(target_seconds, 3)
+    manifest["note"] = f"Experimental {len(specs)}-segment LongForm continuity; strategy, persistent visual anchor and framing guard are recorded per run."
     save_manifest(manifest_path, manifest)
     _write_gallery(out, manifest)
     return out
@@ -626,13 +671,16 @@ async def _upload_local_image(client: httpx.AsyncClient, base: str, path: Path) 
 
 def _write_gallery(folder: Path, manifest: dict[str, Any]) -> None:
     rows = []
-    combined = folder / "longform-6s.mp4"
-    if combined.is_file():
-        rows.append(f'<section><h2>Assembled 6-second preview</h2><video controls src="{combined.name}"></video></section>')
+    combined_name = (manifest.get("assembly") or {}).get("file")
+    combined = folder / combined_name if combined_name else None
+    if combined and combined.is_file():
+        title = combined.stem.replace("longform-", "").replace("s", "-second")
+        rows.append(f'<section><h2>Assembled {title} preview</h2><video controls src="{combined.name}"></video></section>')
     for row in manifest["segments"]:
         if row.get("status") == "done":
             rows.append(f'<section><h2>Segment {row["index"]}</h2><video controls src="{row["video"]}"></video><img src="{row["end_frame"]}" alt="End frame"></section>')
-    html = "<!doctype html><meta charset=utf-8><title>LongForm continuity experiment</title><style>body{font:16px system-ui;background:#111;color:#eee}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem}video,img{width:100%}section{background:#222;padding:1rem}</style><h1>LongForm · Two-segment continuity experiment</h1><main>" + "".join(rows) + "</main>"
+    target = manifest.get("config", {}).get("target_seconds", 6)
+    html = f"<!doctype html><meta charset=utf-8><title>LongForm continuity experiment</title><style>body{{font:16px system-ui;background:#111;color:#eee}}main{{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem}}video,img{{width:100%}}section{{background:#222;padding:1rem}}</style><h1>LongForm · {target}-second continuity experiment</h1><main>" + "".join(rows) + "</main>"
     (folder / "index.html").write_text(html, encoding="utf-8")
 
 
@@ -656,13 +704,15 @@ def _parse_roi(value: str) -> tuple[float, float, float, float]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Experimental resumable Wan LongForm continuity prototype (2 x 3s only)")
+    parser = argparse.ArgumentParser(description="Experimental resumable Wan LongForm continuity prototype (6/9/12s in 3s segments)")
     parser.add_argument("--comfy-url", default="http://127.0.0.1:8188")
     parser.add_argument("--input-image", required=True, help="Local SDXL/keyframe image; uploaded into ComfyUI input")
     parser.add_argument("--output-dir", required=True, help="New local run directory; existing directory only with --resume")
     parser.add_argument("--comfy-python", default=_default_comfy_python(), help="Existing ComfyUI Python used only for local PyAV assembly")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=753934134)
+    parser.add_argument("--target-seconds", type=int, choices=(6, 9, 12), default=6,
+                        help="Total duration; each Wan segment is 3 seconds")
     parser.add_argument("--camera-pose", default="Pan Left", help="Requested starting pose for legacy/bounded strategies")
     parser.add_argument("--camera-strategy", choices=CAMERA_STRATEGIES, default="legacy",
                         help="legacy repeats pose; neutral uses Static; bounded corrects observed lateral drift; keyframe uses explicit per-segment poses and a persistent reference")

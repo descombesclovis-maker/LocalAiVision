@@ -28,7 +28,7 @@ def main() -> None:
     counts: list[int] = []
     samples: dict[tuple[int, int], Image.Image] = {}
     previous_last = None
-    boundary_mae = None
+    boundary_maes: list[float] = []
     within_diffs: list[float] = []
     out_index = 0
     try:
@@ -43,9 +43,9 @@ def main() -> None:
                     samples[(seg_i, local_i)] = Image.fromarray(arr).resize((160, 90))
                     if prev is not None:
                         within_diffs.append(float(np.abs(arr.astype(np.int16) - prev.astype(np.int16)).mean()))
-                    if seg_i == 1 and local_i == 1 and previous_last is not None:
-                        boundary_mae = float(np.abs(arr.astype(np.int16) - previous_last.astype(np.int16)).mean())
-                    if seg_i == 0:
+                    if seg_i > 0 and local_i == 1 and previous_last is not None:
+                        boundary_maes.append(float(np.abs(arr.astype(np.int16) - previous_last.astype(np.int16)).mean()))
+                    if local_i == count - 1:
                         previous_last = arr.copy()
                     prev = arr
                     if seg_i > 0 and local_i == 0:
@@ -89,9 +89,10 @@ def main() -> None:
         "duration_seconds": decoded / rate,
         "width": width,
         "height": height,
-        "boundary_mae_rgb_0_255": boundary_mae,
+        "boundary_mae_rgb_0_255": boundary_maes[0] if boundary_maes else None,
+        "boundary_maes_rgb_0_255": boundary_maes,
         "mean_intra_segment_adjacent_frame_mae_rgb_0_255": float(np.mean(within_diffs)) if within_diffs else None,
-        "note": "Pixel differences are descriptive only; not perceptual quality scores.",
+        "note": "Boundary pixel differences are listed in segment order; pixel differences are descriptive only, not perceptual quality scores.",
     }
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))

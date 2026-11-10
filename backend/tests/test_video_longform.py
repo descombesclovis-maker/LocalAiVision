@@ -9,11 +9,13 @@ from lib.video_longform import (
     plan_segments,
     save_manifest,
     segment_is_resumable,
+    extend_completed_manifest,
     _record_vram_sample,
     total_unique_frames,
     CAMERA_STRATEGIES,
     SubjectObservation,
     camera_pose_for_segment,
+    _write_gallery,
     estimate_subject_hue,
     observe_subject,
     framing_risk,
@@ -36,6 +38,43 @@ def test_plan_rejects_unaligned_duration_and_non_wan_segment_lengths():
         plan_segments(30, 4)
 
 
+def test_longform_plans_three_and_four_segments_with_continuous_frame_stride():
+    nine = plan_segments(9, 3, 100)
+    twelve = plan_segments(12, 3, 100)
+    assert len(nine) == 3 and [s.start_frame for s in nine] == [0, 72, 144]
+    assert len(twelve) == 4 and [s.start_frame for s in twelve] == [0, 72, 144, 216]
+    assert [s.seed for s in twelve] == [100, 101, 102, 103]
+    assert [s.unique_frames for s in twelve] == [73, 72, 72, 72]
+    assert total_unique_frames(9, 3) == 217
+    assert total_unique_frames(12, 3) == 289
+
+
+def test_longform_target_duration_is_whitelisted_without_changing_default():
+    from lib.video_longform import _supported_target_seconds
+
+    assert _supported_target_seconds(6)
+    assert _supported_target_seconds(9)
+    assert _supported_target_seconds(12)
+    assert not _supported_target_seconds(30)
+
+
+def test_gallery_uses_duration_and_all_segment_outputs(tmp_path: Path):
+    (tmp_path / "longform-9s.mp4").write_bytes(b"video")
+    (tmp_path / "segment-01.mp4").write_bytes(b"s1")
+    (tmp_path / "segment-02.mp4").write_bytes(b"s2")
+    (tmp_path / "segment-03.mp4").write_bytes(b"s3")
+    manifest = {
+        "config": {"target_seconds": 9},
+        "assembly": {"file": "longform-9s.mp4"},
+        "segments": [{"index": i, "status": "done", "video": f"segment-{i:02d}.mp4", "end_frame": f"end-{i}.png"} for i in range(1, 4)],
+    }
+    _write_gallery(tmp_path, manifest)
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "9-second continuity experiment" in html
+    assert "longform-9s.mp4" in html
+    assert html.count("<h2>Segment") == 3
+
+
 def test_config_fingerprint_is_stable_and_sensitive_to_config():
     assert config_fingerprint({"seed": 7, "prompt": "x"}) == config_fingerprint({"prompt": "x", "seed": 7})
     assert config_fingerprint({"seed": 7}) != config_fingerprint({"seed": 8})
@@ -53,6 +92,28 @@ def test_resume_requires_success_and_matching_file_hashes(tmp_path: Path):
     assert not segment_is_resumable(manifest, 1, tmp_path)
     manifest["segments"][0]["status"] = "running"
     assert not segment_is_resumable(manifest, 1, tmp_path)
+
+
+def test_completed_run_can_extend_only_with_identical_settings_and_verified_segments(tmp_path: Path):
+    from lib.video_longform import sha256_file
+
+    rows = []
+    for i in range(1, 4):
+        video, frame = tmp_path / f"segment-{i:02d}.mp4", tmp_path / f"segment-{i:02d}-end.png"
+        video.write_bytes(f"video{i}".encode())
+        frame.write_bytes(f"frame{i}".encode())
+        rows.append({"index": i, "status": "done", "video": video.name, "end_frame": frame.name,
+                     "video_sha256": sha256_file(video), "end_frame_sha256": sha256_file(frame)})
+    old = {"model": "wan", "target_seconds": 9, "segment_count": 3, "base_seed": 50, "prompt": "same"}
+    manifest = {"config": old, "segments": rows, "assembly": {"file": "old.mp4"}}
+    new = {**old, "target_seconds": 12, "segment_count": 4}
+    assert extend_completed_manifest(manifest, new, tmp_path)
+    assert [r["status"] for r in manifest["segments"]] == ["done", "done", "done", "pending"]
+    assert manifest["extension_from_seconds"] == 9
+    assert "assembly" not in manifest
+
+    manifest = {"config": old, "segments": rows.copy()}
+    assert not extend_completed_manifest(manifest, {**new, "prompt": "changed"}, tmp_path)
 
 
 def test_vram_sampler_handles_initial_none_and_tracks_peak():
