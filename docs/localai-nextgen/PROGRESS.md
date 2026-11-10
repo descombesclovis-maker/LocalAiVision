@@ -1148,3 +1148,30 @@ Artefacts ignorés par Git : `backend/bench_runs/v2o/product/render/` et `backen
 - Aucun modèle/paquet téléchargé, aucun abonnement/service payant, aucun changement de configuration Windows/pagefile, aucune autre édition, base ou workflow précédent modifié. Presets antérieurs conservés.
 - Sources : https://arxiv.org/abs/2311.17982 (VBench), https://arxiv.org/abs/2503.21755 (VBench-2.0), https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf (modèle de profondeur Apache-2.0 déjà présent).
 - Livraison V2-O : 530 tests backend réussis, 24 ciblés SmartMotion/vidéo réussis, `py_compile`, `git diff --check`, TypeScript et `yarn build` réussis (avertissement existant de bundle >500 kB). Deux rendus locaux réels terminés et examinés visuellement. Les MP4/manifests restent ignorés par Git. Code et présent rapport livrés dans le commit V2-O suivant.
+
+## V2-P — parcours SmartMotion dans Chrome (validé en instance isolée)
+
+### Correction UI et progression
+
+- SmartMotion n'exige plus de texte : le champ de prompt est remplacé par une explication, le bouton ne dépend plus de la longueur du prompt, et l'API reçoit seulement un libellé descriptif de la trajectoire sélectionnée. La référence reste obligatoire. Les autres moteurs vidéo conservent leur prompt obligatoire.
+- Le rendu émet maintenant une phase explicite « vérification complète du MP4 » après la dernière frame. L'UI n'affiche plus 100 % du rendu pendant le décodage/contrôle du conteneur.
+- Une annulation de subprocess confirmée par l'API n'est plus reclassée comme échec générique par le worker. Aucun changement au workflow Wan ou aux moteurs existants.
+
+### Parcours réel depuis Chrome
+
+Application testée sur Vite `127.0.0.1:3002` / backend `127.0.0.1:8012`, avec session dédiée et base Mongo isolée `las_v2p_test_20261110`. Aucune édition installée ni base existante n'a été utilisée. Une image SDXL déjà présente a été copiée en tant que média de référence dans cette base de test.
+
+- SmartMotion : sélection de l'image, caméra, durée, résolution, sans prompt; bouton activable; `POST /api/media/smartmotion` a créé les tâches. Un rendu source 5 s est terminé en 12,6 s; résultat `done` visible dans la liste et disponible au téléchargement. Un autre essai 5 s a terminé en 12,1 s pendant une tentative de clic d'annulation. Un essai annulé séparément a été confirmé `cancelled` (`POST /api/media/{id}/cancel` = 200); aucun statut d'erreur n'a remplacé l'annulation.
+- Long rendu UI : 30 s, 1920×1080, 24 fps, push-in, sans prompt. Statut final `done`, carte résultat et lien de téléchargement présents. Téléchargement du fichier MP4 depuis l'endpoint = HTTP 200, 7 210 412 octets.
+- Manifeste attaché au média : 720 frames entièrement décodées, durée 30,000 s, H.264 NVENC, zéro frame consécutive identique. Source 1024² recadrée au centre (crop 1024×576) puis agrandie à 1920×1080 (upscale indiqué, pas de déformation).
+- Durée du moteur incluant profondeur, rendu et vérification : **51,404 s**; rendu/encodage 13,577 s; vérification/décodage complet 30,230 s. Temps UI jusqu'au résultat observé ≈51 s (l'horloge de navigateur n'est pas instrumentée à la milliseconde).
+- VRAM globale échantillonnée : base 3 676 MiB, pic 4 020/12 288 MiB. RAM système : base 20 556 MiB, pic 20 845/32 665 MiB. Mesures globales échantillonnées, non isolées au processus; des pics très brefs peuvent manquer.
+- Wan : dans Chrome, le preset Wan 2.1 Fun Camera était annoncé installé, sélectionnable et imposait I2V; la commande caméra était affichée et la génération restait bloquée tant que les champs obligatoires manquaient. Pas de nouveau rendu Wan coûteux : workflow/preset et modes I2V restent couverts par `test_video_v2h.py` et inchangés.
+
+### Validation et limites
+
+- Tests ciblés SmartMotion + API + régressions Wan : **26 réussis**. `py_compile` et `git diff --check` propres. `frontend/yarn build` (TypeScript + Vite) réussi; avertissement préexistant sur le bundle JS (>500 kB). Console navigateur sans erreur lors du test.
+- Le navigateur a montré la carte vidéo et son lien de téléchargement; l'endpoint MP4 a été téléchargé et le manifeste confirme le décodage intégral. La lecture manuelle avec commandes de transport vidéo n'a pas pu être observée séparément avec l'outil browser; le composant rend le `<video controls>` existant.
+- Artefacts locaux ignorés par Git : `backend/bench_runs/v2p/smartmotion_30s_ui.mp4`. Les résultats de test et la base dédiée restent locaux; aucune base ou création antérieure n'a été modifiée ou supprimée. Aucun modèle/paquet téléchargé.
+- SmartMotion reste une animation caméra 2.5D : pas de mouvement réel des objets/personnages; upscale du carré vers le paysage recadre le haut/bas; mesures mémoire système indicatives. Aucun nouveau rendu Wan n'a été lancé.
+- Livraison V2-P : commit Git distinct après tests; dépôt cible `nextgen/claude-code`.

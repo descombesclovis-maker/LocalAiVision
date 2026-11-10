@@ -122,6 +122,14 @@ async def test_gpu_sampler_handles_initial_none_peak_and_records_peak(monkeypatc
     assert live["vram_total_mib"] == 12288
 
 
+def test_video_studio_smartmotion_needs_no_prompt_but_still_requires_reference():
+    src = Path(__file__).parents[2].joinpath("frontend/src/components/vision.tsx").read_text(encoding="utf-8")
+    assert '{model === "smartmotion" ? (' in src and 'data-testid="smartmotion-no-prompt-required"' in src
+    assert '(model !== "smartmotion" && prompt.trim().length < 3)' in src
+    assert 'prompt: `SmartMotion · ${SMARTMOTION_MOVE_LABEL[smartMotionMove]}`' in src
+    assert '(mode === "image" && !ref)' in src
+
+
 def test_video_studio_sends_selected_preset_camera_and_enforces_i2v():
     src = Path(__file__).parents[2].joinpath("frontend/src/components/vision.tsx").read_text(encoding="utf-8")
     assert 'comfy_preset: model === "comfy" ? comfyPreset : null' in src

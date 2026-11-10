@@ -186,6 +186,11 @@ function EmptyState({ icon: Icon, text }: { icon: typeof ImagePlus; text: string
   );
 }
 
+const SMARTMOTION_MOVE_LABEL: Record<"push_in" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit_subtle" | "static", string> = {
+  push_in: "travelling avant doux", pan_left: "panoramique gauche", pan_right: "panoramique droite",
+  tilt_up: "inclinaison haut", tilt_down: "inclinaison bas", orbit_subtle: "arc latéral subtil", static: "caméra fixe",
+};
+
 export function VideoStudio() {
   const { data: models } = useVideoModels();
   const { data: comfyCfg } = useComfy();
@@ -279,7 +284,13 @@ export function VideoStudio() {
             {smartMotionStatus?.available === false && <p role="status" className="text-xs text-amber-200">SmartMotion indisponible : {smartMotionStatus.reason}</p>}
           </div>
         )}
-        <textarea data-testid="video-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} placeholder="Ex. Travelling lent autour d'une table dressée, vapeur, lumière de bougie, ambiance gastronomique…" className={cn(field, "resize-none")} />
+        {model === "smartmotion" ? (
+          <p data-testid="smartmotion-no-prompt-required" className="rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
+            Aucun prompt requis : SmartMotion applique uniquement le mouvement caméra sélectionné à l'image de départ.
+          </p>
+        ) : (
+          <textarea data-testid="video-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} placeholder="Ex. Travelling lent autour d'une table dressée, vapeur, lumière de bougie, ambiance gastronomique…" className={cn(field, "resize-none")} />
+        )}
         <div className="space-y-2">
           <p className="text-xs text-slate-400">{model === "smartmotion" ? "Durée SmartMotion (maximum 30 s)" : "Durée acceptée par ce modèle"}</p>
           <div className="flex flex-wrap gap-2">{cfg?.durations.map((d) => <Chip key={d} testid={`video-duration-${d}`} active={duration === d} onClick={() => setDuration(d)}>{d.replace("s", "")} s</Chip>)}</div>
@@ -298,10 +309,10 @@ export function VideoStudio() {
         ) : (
           <p className="flex items-center gap-1.5 text-xs text-amber-200/80"><Volume2 className="size-3.5" /> Moteur payant de secours : la vidéo coûte nettement plus qu'une photo sur le solde de la clé universelle.</p>
         )}
-        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={prompt.trim().length < 3 || video.isPending || smartmotion.isPending || (mode === "image" && !ref) || comfyUnavailable || smartMotionUnavailable} onClick={() => {
+        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={(model !== "smartmotion" && prompt.trim().length < 3) || video.isPending || smartmotion.isPending || (mode === "image" && !ref) || comfyUnavailable || smartMotionUnavailable} onClick={() => {
           if (model === "smartmotion") {
             if (!ref) return;
-            smartmotion.mutate({ prompt, ref_media_id: ref, seconds: Number(duration), fps: 24, output_size: smartMotionSize, motion: smartMotionMove }, { onSuccess: () => toast.success("SmartMotion lancé localement — progression visible dans la bibliothèque") });
+            smartmotion.mutate({ prompt: `SmartMotion · ${SMARTMOTION_MOVE_LABEL[smartMotionMove]}`, ref_media_id: ref, seconds: Number(duration), fps: 24, output_size: smartMotionSize, motion: smartMotionMove }, { onSuccess: () => toast.success("SmartMotion lancé localement — progression visible dans la bibliothèque") });
           } else {
             video.mutate({ prompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? comfyPreset : null, camera_pose: model === "comfy" ? cameraPose : "Static" }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") });
           }

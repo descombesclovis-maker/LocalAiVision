@@ -82,6 +82,14 @@ async def smartmotion_status():
 _SMARTMOTION_PROCS: dict[str, asyncio.subprocess.Process] = {}
 
 
+def _smartmotion_progress_label(event: dict) -> str:
+    if event.get("phase") == "verification":
+        return "SmartMotion · vérification complète du MP4…"
+    done, total = int(event["frames_done"]), int(event["frames_total"])
+    pct = min(100, round(done * 100 / max(total, 1)))
+    return f"SmartMotion · rendu {done}/{total} images ({pct}%)"
+
+
 async def _run_smartmotion(mid: str, body: SmartMotionRequest, image_bytes: bytes, python: Path, depth_model: Path) -> None:
     try:
         async with gpu_queue.slot(mid, "video", "SmartMotion", body.prompt, "media"):
@@ -119,11 +127,13 @@ async def _run_smartmotion(mid: str, body: SmartMotionRequest, image_bytes: byte
                     except json.JSONDecodeError:
                         continue
                     if event.get("event") == "progress":
-                        done, total = int(event["frames_done"]), int(event["frames_total"])
-                        pct = min(100, round(done * 100 / max(total, 1)))
-                        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": f"SmartMotion · rendu {done}/{total} images ({pct}%)", "updated_at": now_iso()}})
+                        label = _smartmotion_progress_label(event)
+                        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
                 returncode = await proc.wait()
                 if returncode != 0:
+                    current = await db.media.find_one({"id": mid}, {"_id": 0, "status": 1})
+                    if current and current.get("status") == "cancelled":
+                        return
                     raise RuntimeError(f"SmartMotion a échoué ({returncode}): {last_output or 'aucun détail fourni'}")
                 video = output / "smartmotion.mp4"
                 manifest_path = output / "manifest.json"

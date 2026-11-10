@@ -11,6 +11,11 @@ from models.schemas import SmartMotionRequest
 from routers import media
 
 
+def test_smartmotion_progress_distinguishes_rendering_from_full_mp4_verification():
+    assert media._smartmotion_progress_label({"frames_done": 60, "frames_total": 120}) == "SmartMotion · rendu 60/120 images (50%)"
+    assert media._smartmotion_progress_label({"phase": "verification", "frames_done": 120, "frames_total": 120}) == "SmartMotion · vérification complète du MP4…"
+
+
 def test_camera_profiles_are_bounded_and_explicit():
     for motion in ("push_in", "pan_left", "pan_right", "tilt_up", "tilt_down", "orbit_subtle", "static"):
         states = [camera_state(i, 120, 1920, 1080, motion) for i in range(120)]

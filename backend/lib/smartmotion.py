@@ -297,6 +297,9 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
     finally:
         encode.close()
     render_seconds = time.perf_counter() - render_started
+    # Tell the UI that frame rendering is done and container verification is now running.
+    if on_progress:
+        on_progress(frames, frames, phase="verification")
     # Verify the produced MP4 decodes completely and has intended cadence.
     verify_started = time.perf_counter()
     probe = av.open(str(mp4))
@@ -385,8 +388,8 @@ def main() -> None:
     parser.add_argument("--motion", choices=CAMERA_MOVES, default="push_in")
     args = parser.parse_args()
     output_size = parse_output_size(args.output_size) if args.output_size else None
-    def report_progress(done: int, total: int) -> None:
-        print(json.dumps({"event": "progress", "frames_done": done, "frames_total": total}), flush=True)
+    def report_progress(done: int, total: int, *, phase: str = "render") -> None:
+        print(json.dumps({"event": "progress", "phase": phase, "frames_done": done, "frames_total": total}), flush=True)
     path = render(args.input, args.output_dir, args.depth_model, fps=args.fps, seconds=args.seconds, output_size=output_size, motion=args.motion, on_progress=report_progress)
     print(json.dumps({"event": "done", "video": str(path), "gallery": str(path.parent/"index.html"), "manifest": str(path.parent/"manifest.json")}), flush=True)
 
