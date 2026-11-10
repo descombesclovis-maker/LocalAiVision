@@ -20,7 +20,7 @@ export default function Vision() {
       <section className="mx-auto max-w-[1440px] px-4 pb-24 pt-12 md:px-6">
         <p className="eyebrow text-cyan-300">LocalAiVision · Studio médias</p>
         <h1 className="mt-3 text-4xl font-semibold md:text-6xl"><span className="text-gradient-vision">Images, vidéos,</span> publicités.</h1>
-        <p className="mt-3 max-w-xl text-slate-400">Rendu gratuit sur votre GPU via ComfyUI par défaut (moteurs payants en secours). Chaque génération continue même si vous changez d'écran.</p>
+        <p className="mt-3 max-w-xl text-slate-400">Choisissez le Cloud gratuit Hugging Face (GPU distant, quota limité) ou le Local ComfyUI/Wan (hors ligne). SmartMotion reste séparé; aucun rendu cloud n’est présenté comme local.</p>
         <div className="mt-8 flex gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03] p-1.5 md:inline-flex">
           {TABS.map(({ k, l, I }) => (
             <button key={k} type="button" data-testid={`vision-tab-${k}`} onClick={() => setTab(k)} className="relative shrink-0 rounded-xl px-4 py-2.5 text-sm">

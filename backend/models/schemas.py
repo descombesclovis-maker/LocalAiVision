@@ -149,7 +149,7 @@ class ImageRequest(BaseModel):
 
 class VideoRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=2500)
-    model: Literal["comfy", "veo", "kling", "minimax"] = "comfy"
+    model: Literal["comfy", "hf_ltx", "veo", "kling", "minimax"] = "comfy"
     mode: Literal["text", "image"] = "text"
     duration: str = ""
     aspect_ratio: str = "16:9"
@@ -180,6 +180,31 @@ class VideoModel(BaseModel):
     durations: list[str]
     aspects: list[str]
     audio: bool
+
+
+class HuggingFaceTokenRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=512)
+
+
+class HuggingFaceTokenStatus(BaseModel):
+    configured: bool
+    storage: str
+    note: str
+
+
+class HuggingFaceVideoStatus(BaseModel):
+    available: bool
+    space: str
+    model: str
+    hardware: str
+    t2v: bool
+    i2v: bool
+    free_quota: str
+    quota_remaining: Optional[int] = None
+    durations_seconds: list[int]
+    limitations: list[str]
+    auth_configured: bool = False
+    detail: str
 
 
 class ActivityItem(BaseModel):

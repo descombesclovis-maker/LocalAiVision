@@ -18,7 +18,8 @@ from lib.db import db
 from lib.llm import friendly_error, generate_image
 from lib.pipeline import spawn
 from lib.store import create_media, finish_media, media_url, new_id, now_iso, read_bytes
-from models.schemas import Activity, Brand, BrandCreate, ImageRequest, Media, SmartMotionRequest, UploadRequest, VideoModel, VideoRequest
+from models.schemas import Activity, Brand, BrandCreate, HuggingFaceTokenRequest, HuggingFaceTokenStatus, HuggingFaceVideoStatus, ImageRequest, Media, SmartMotionRequest, UploadRequest, VideoModel, VideoRequest
+from lib import hf_video, secure_secret
 
 router = APIRouter()
 log = logging.getLogger("media")
@@ -61,7 +62,40 @@ async def list_media(kind: str = "", source: str = ""):
 async def video_models():
     paid = [{"key": k, **{f: v[f] for f in ("label", "tagline", "durations", "aspects", "audio")}} for k, v in fal.VIDEO_MODELS.items()]
     smartmotion = {"key": "smartmotion", "label": "SmartMotion · local 2.5D", "tagline": "Animation de caméra à partir d'une image fixe; ne génère pas de mouvement d'objet.", "durations": ["5", "10", "15", "20", "30"], "aspects": ["1:1", "16:9"], "audio": False}
-    return [{"key": "comfy", **COMFY_VIDEO}, smartmotion, *paid]
+    cloud = {"key": "hf_ltx", "label": "Cloud gratuit · Hugging Face ZeroGPU / LTX Video", "tagline": "Inférence distante sur GPU ZeroGPU; quota partagé, disponibilité et qualité variables.", "durations": ["2"], "aspects": ["1:1"], "audio": False}
+    return [cloud, {"key": "comfy", **COMFY_VIDEO}, smartmotion, *paid]
+
+
+@router.get("/media/models/hf-ltx", response_model=HuggingFaceVideoStatus)
+async def hf_ltx_status():
+    result = await hf_video.status()
+    result["auth_configured"] = bool(await db.settings.find_one({"id": "hf_api_token"}, {"_id": 0, "ciphertext": 1}))
+    return result
+
+
+@router.get("/settings/huggingface-token", response_model=HuggingFaceTokenStatus)
+async def get_hf_token_status():
+    configured = bool(await db.settings.find_one({"id": "hf_api_token"}, {"_id": 0, "ciphertext": 1}))
+    return {"configured": configured, "storage": "Windows DPAPI · compte Windows courant", "note": "Le jeton n'est pas envoyé au Space public ZeroGPU afin d'éviter toute consommation de crédits ou facturation hors quota gratuit. Il est conservé chiffré pour les appels privés futurs."}
+
+
+@router.put("/settings/huggingface-token", response_model=HuggingFaceTokenStatus)
+async def save_hf_token(body: HuggingFaceTokenRequest):
+    token = body.token.strip()
+    if not token.startswith("hf_") or len(token) < 20:
+        raise HTTPException(400, "Jeton Hugging Face invalide (format hf_ attendu).")
+    try:
+        ciphertext = secure_secret.encrypt_secret(token)
+    except Exception as exc:
+        raise HTTPException(503, f"Stockage sécurisé indisponible : {str(exc)[:160]}") from exc
+    await db.settings.update_one({"id": "hf_api_token"}, {"$set": {"ciphertext": ciphertext}}, upsert=True)
+    return await get_hf_token_status()
+
+
+@router.delete("/settings/huggingface-token", response_model=HuggingFaceTokenStatus)
+async def delete_hf_token():
+    await db.settings.delete_one({"id": "hf_api_token"})
+    return await get_hf_token_status()
 
 
 @lru_cache(maxsize=1)
@@ -332,8 +366,50 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec", "updated_at": now_iso()}})
 
 
+_HF_VIDEO_TASKS: dict[str, asyncio.Task] = {}
+
+
+async def _run_hf_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] | None) -> None:
+    async def progress(label: str) -> None:
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
+    try:
+        await progress("Hugging Face ZeroGPU · vérification de l'API…")
+        async with gpu_queue.slot(mid, "video", "Hugging Face ZeroGPU", body.prompt, "media"):
+            await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Hugging Face ZeroGPU · préparation…", "updated_at": now_iso()}})
+            data, report = await hf_video.generate(body.prompt, body.mode, int(body.duration), body.aspect_ratio, ref, progress)
+        current = await db.media.find_one({"id": mid}, {"_id": 0, "status": 1})
+        if current and current.get("status") != "cancelled":
+            await finish_media(mid, data, "video/mp4")
+            await db.media.update_one({"id": mid}, {"$set": {"generation_metrics": report, "progress_label": "Cloud gratuit · MP4 distant vérifié", "updated_at": now_iso()}})
+    except gpu_queue.JobCancelled:
+        pass
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        log.warning("Hugging Face video %s: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec Hugging Face ZeroGPU", "updated_at": now_iso()}})
+    finally:
+        _HF_VIDEO_TASKS.pop(mid, None)
+
+
 @router.post("/media/videos", response_model=Media)
 async def create_video(body: VideoRequest):
+    if body.model == "hf_ltx":
+        status = await hf_video.status()
+        if not status["available"]:
+            raise HTTPException(503, "Cloud gratuit Hugging Face indisponible : " + status["detail"])
+        if body.duration != "2":
+            raise HTTPException(400, "Cloud LTX : seul le réglage 2 s / 256×256 a été validé par un MP4 réel. Les autres durées/résolutions restent expérimentales.")
+        if body.aspect_ratio != "1:1":
+            raise HTTPException(400, "Cloud LTX : seul le format carré 1:1 a été validé.")
+        if body.mode != "text":
+            raise HTTPException(400, "Le Space expose un endpoint I2V, mais aucun rendu I2V n'a été validé; seul le T2V est activé.")
+        ref = None
+        label = hf_video.MODEL_LABEL
+        media = await create_media("video", "hf-zerogpu", body.prompt, label, aspect_ratio=body.aspect_ratio, duration=f"{body.duration}s")
+        task = asyncio.create_task(_run_hf_video(media["id"], body, ref))
+        _HF_VIDEO_TASKS[media["id"]] = task
+        return _out(media)
     if body.model == "comfy":
         if body.comfy_preset == "wan21_fun_camera" and body.mode != "image":
             raise HTTPException(400, "Wan 2.1 Fun Camera nécessite une image de départ (Image → vidéo).")

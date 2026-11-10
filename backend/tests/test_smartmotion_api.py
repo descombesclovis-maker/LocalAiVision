@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from lib.smartmotion import camera_state
-from models.schemas import SmartMotionRequest
+from models.schemas import SmartMotionRequest, VideoRequest
 from routers import media
 
 
@@ -35,11 +35,27 @@ def test_smartmotion_request_limits_duration_fps_resolution_and_motion():
             SmartMotionRequest(prompt="Local camera move", ref_media_id="img-1", **kwargs)
 
 
-def test_video_model_listing_exposes_smartmotion_as_distinct_camera_only_mode():
+def test_video_model_listing_exposes_cloud_and_keeps_local_and_smartmotion_distinct():
     models = asyncio.run(media.video_models())
     smartmotion = next(model for model in models if model["key"] == "smartmotion")
+    cloud = next(model for model in models if model["key"] == "hf_ltx")
+    local = next(model for model in models if model["key"] == "comfy")
     assert smartmotion["durations"] == ["5", "10", "15", "20", "30"]
     assert "objet" in smartmotion["tagline"]
+    assert cloud["durations"] == ["2"] and cloud["aspects"] == ["1:1"]
+    assert "Hugging Face" in cloud["label"] and "ZeroGPU" in cloud["tagline"]
+    assert local["label"] == "LocalAi Video Engine — Gratuit" and "Wan 2.1" in local["tagline"]
+
+
+def test_hf_cloud_i2v_is_rejected_until_real_video_is_validated(monkeypatch):
+    async def available():
+        return {"available": True}
+    monkeypatch.setattr(media.hf_video, "status", available)
+    body = VideoRequest(prompt="Animer cette image", model="hf_ltx", mode="image", duration="2", aspect_ratio="1:1")
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(media.create_video(body))
+    assert exc.value.status_code == 400
+    assert "aucun rendu I2V" in exc.value.detail
 
 
 def test_smartmotion_create_uses_local_reference_and_never_overwrites(monkeypatch):

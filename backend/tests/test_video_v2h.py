@@ -136,6 +136,6 @@ def test_video_studio_sends_selected_preset_camera_and_enforces_i2v():
     assert 'camera_pose: model === "comfy" ? cameraPose : "Static"' in src
     assert 'model === "smartmotion" || (model === "comfy" && comfyPreset === "wan21_fun_camera")' in src
     assert 'const smartMotionUnavailable = model === "smartmotion"' in src
-    assert '|| comfyUnavailable || smartMotionUnavailable}' in src
+    assert '|| comfyUnavailable || smartMotionUnavailable || cloudUnavailable}' in src
     assert 'video-comfy-preset' in src and 'video-camera-pose' in src
     assert 'const [duration, setDuration] = useState("3")' in src

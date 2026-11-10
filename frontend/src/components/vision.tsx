@@ -6,8 +6,8 @@ import { FxButton } from "@/components/FxButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useSmartMotionStatus, useVideoModels } from "@/lib/hooks";
-import { apiPost } from "@/lib/api";
+import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useHuggingFaceVideoStatus, useSmartMotionStatus, useVideoModels } from "@/lib/hooks";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { useComfy, useImageModels, useVideoEngineStatus } from "@/lib/companyHooks";
 import type { ImageRequest, Media, VideoRequest } from "@/lib/types";
 import { mediaFileUrl } from "@/lib/types";
@@ -193,10 +193,14 @@ const SMARTMOTION_MOVE_LABEL: Record<"push_in" | "pan_left" | "pan_right" | "til
 
 export function VideoStudio() {
   const { data: models } = useVideoModels();
+  const { data: hfStatus } = useHuggingFaceVideoStatus();
+  const [hfToken, setHfToken] = useState("");
+  const [hfTokenConfigured, setHfTokenConfigured] = useState(false);
+  const [hfTokenBusy, setHfTokenBusy] = useState(false);
   const { data: comfyCfg } = useComfy();
   const { data: engineStatus } = useVideoEngineStatus();
   const { data: smartMotionStatus } = useSmartMotionStatus();
-  const [model, setModel] = useState<VideoRequest["model"] | "smartmotion">("comfy");
+  const [model, setModel] = useState<VideoRequest["model"] | "smartmotion">("hf_ltx");
   const [mode, setMode] = useState<VideoRequest["mode"]>("text");
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState("3");
@@ -208,11 +212,29 @@ export function VideoStudio() {
   const [smartMotionSize, setSmartMotionSize] = useState<"source" | "1280x720" | "1920x1080">("source");
   const [presetInitialized, setPresetInitialized] = useState(false);
   const cfg = models?.find((m) => m.key === model);
+  useEffect(() => {
+    apiGet<{ configured: boolean }>("/settings/huggingface-token").then((s) => setHfTokenConfigured(s.configured)).catch(() => undefined);
+  }, []);
+  const saveHfToken = async () => {
+    setHfTokenBusy(true);
+    try {
+      const result = await apiPut<{ configured: boolean }>("/settings/huggingface-token", { token: hfToken });
+      setHfTokenConfigured(result.configured); setHfToken(""); toast.success("Jeton chiffré par DPAPI Windows");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Impossible d'enregistrer le jeton"); }
+    finally { setHfTokenBusy(false); }
+  };
+  const removeHfToken = async () => {
+    setHfTokenBusy(true);
+    try { await apiDelete("/settings/huggingface-token"); setHfTokenConfigured(false); toast.success("Jeton supprimé"); }
+    catch { toast.error("Impossible de supprimer le jeton"); }
+    finally { setHfTokenBusy(false); }
+  };
   const chosenPreset = engineStatus?.presets.find((p) => p.key === comfyPreset);
   const needsImage = model === "smartmotion" || (model === "comfy" && comfyPreset === "wan21_fun_camera");
-  const t2vOnly = model === "comfy" && comfyPreset === "wan21_t2v";
+  const t2vOnly = model === "hf_ltx" || (model === "comfy" && comfyPreset === "wan21_t2v");
   const comfyUnavailable = model === "comfy" && (!chosenPreset || chosenPreset.installed !== true);
   const smartMotionUnavailable = model === "smartmotion" && smartMotionStatus?.available !== true;
+  const cloudUnavailable = model === "hf_ltx" && hfStatus?.available !== true;
   const { data } = useMedia("video");
   const { video, smartmotion, cancel } = useMediaActions();
   useEffect(() => {
@@ -242,10 +264,24 @@ export function VideoStudio() {
     <div className="grid gap-6 lg:grid-cols-[440px_1fr]">
       <div className="glass-vision space-y-5 rounded-3xl p-5">
         <div className="grid gap-3">
-          {(models ?? []).map((m) => (
-            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key)} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.label} tagline={m.key === "comfy" ? "Wan génératif local · T2V et I2V selon le modèle installé" : m.tagline} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
+          {(models ?? []).filter((m) => ["hf_ltx", "comfy", "smartmotion"].includes(m.key)).map((m) => (
+            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key as VideoRequest["model"] | "smartmotion")} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.label} tagline={m.key === "comfy" ? "Local · Wan génératif via ComfyUI · T2V et I2V selon le modèle installé" : m.tagline} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
           ))}
         </div>
+        {model === "hf_ltx" && (
+          <div className="space-y-3 rounded-2xl border border-cyan-300/20 bg-cyan-500/[0.04] p-3" data-testid="hf-ltx-status">
+            <p className="text-sm font-medium text-cyan-100">{hfStatus?.available ? "● Hugging Face ZeroGPU disponible" : "○ Disponibilité cloud inconnue"}</p>
+            <p className="text-xs text-slate-300">{hfStatus?.hardware ?? "Vérification de l’API Gradio…"} · {hfStatus?.model ?? "LTX Video"}</p>
+            <p className="text-xs text-amber-200">{hfStatus?.free_quota ?? "Quota gratuit partagé, restant non consultable."} Aucun jeton n’est envoyé : pas de facturation possible via ce connecteur.</p>
+            <ul className="list-disc space-y-1 pl-4 text-[11px] text-slate-400">{(hfStatus?.limitations ?? ["Qualité, quota et disponibilité non garantis."]).map((x) => <li key={x}>{x}</li>)}</ul>
+            <details className="rounded-xl border border-white/10 p-2">
+              <summary className="cursor-pointer text-xs text-slate-300">Jeton Hugging Face (stockage sécurisé Windows)</summary>
+              <p className="mt-2 text-[11px] text-slate-400">{hfTokenConfigured ? "Jeton enregistré chiffré via DPAPI Windows." : "Optionnel. Le Space public fonctionne sans jeton."} Il n’est volontairement pas utilisé pour les appels ZeroGPU gratuits afin d’empêcher l’emploi de crédits payants.</p>
+              <div className="mt-2 flex gap-2"><Input data-testid="hf-token-input" type="password" autoComplete="off" value={hfToken} onChange={(e) => setHfToken(e.target.value)} placeholder="hf_…" className="border-white/10 bg-black/30" />
+                {hfTokenConfigured ? <FxButton tone="ghost" disabled={hfTokenBusy} onClick={removeHfToken}>Supprimer</FxButton> : <FxButton tone="ghost" disabled={hfTokenBusy || hfToken.length < 20} onClick={saveHfToken}>{hfTokenBusy ? "…" : "Enregistrer"}</FxButton>}</div>
+            </details>
+          </div>
+        )}
         {model === "comfy" && (
           <div className="space-y-3 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
             <Label htmlFor="video-comfy-preset">Modèle vidéo ComfyUI</Label>
@@ -309,11 +345,13 @@ export function VideoStudio() {
         {model === "smartmotion" ? (
           <p data-testid="smartmotion-local-note" className="flex items-center gap-1.5 text-xs text-emerald-200/80"><Sparkles className="size-3.5" /> Traitement local · caméra 2.5D uniquement · 24 FPS · aucun modèle vidéo génératif.</p>
         ) : model === "comfy" ? (
-          <p data-testid="video-local-note" className="flex items-center gap-1.5 text-xs text-emerald-200/80"><Sparkles className="size-3.5" /> Gratuit : rendu sur votre GPU via ComfyUI (plusieurs minutes possibles, sans son).</p>
+          <p data-testid="video-local-note" className="flex items-center gap-1.5 text-xs text-emerald-200/80"><Sparkles className="size-3.5" /> Local · rendu sur votre GPU via ComfyUI (plusieurs minutes possibles, sans son).</p>
+        ) : model === "hf_ltx" ? (
+          <p data-testid="video-cloud-note" className="flex items-center gap-1.5 text-xs text-cyan-200/90"><Sparkles className="size-3.5" /> Calcul GPU distant (ce n’est pas local). Le prompt français est envoyé au fournisseur; son code ajoute des indications anglaises de vitesse. Quota restant inconnu; durée/max qualité non garanties.</p>
         ) : (
           <p className="flex items-center gap-1.5 text-xs text-amber-200/80"><Volume2 className="size-3.5" /> Moteur payant de secours : la vidéo coûte nettement plus qu'une photo sur le solde de la clé universelle.</p>
         )}
-        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={(model !== "smartmotion" && prompt.trim().length < 3) || video.isPending || smartmotion.isPending || (mode === "image" && !ref) || comfyUnavailable || smartMotionUnavailable} onClick={() => {
+        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={(model !== "smartmotion" && prompt.trim().length < 3) || video.isPending || smartmotion.isPending || (mode === "image" && !ref) || comfyUnavailable || smartMotionUnavailable || cloudUnavailable} onClick={() => {
           if (model === "smartmotion") {
             if (!ref) return;
             smartmotion.mutate({ prompt: `SmartMotion · ${SMARTMOTION_MOVE_LABEL[smartMotionMove]}`, ref_media_id: ref, seconds: Number(duration), fps: 24, output_size: smartMotionSize, motion: smartMotionMove }, { onSuccess: () => toast.success("SmartMotion lancé localement — progression visible dans la bibliothèque") });

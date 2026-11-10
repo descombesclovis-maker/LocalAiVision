@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
 import type {
   Activity, Brand, BrandCreate, ChatRequest, ImageRequest, Media, Project, ProjectCreate, ProjectSummary,
-  SmartMotionRequest, SmartMotionStatus, UploadRequest, Version, VideoModel, VideoRequest,
+  HuggingFaceVideoStatus, SmartMotionRequest, SmartMotionStatus, UploadRequest, Version, VideoModel, VideoRequest,
 } from "@/lib/types";
 
 export function errMsg(e: unknown): string {
@@ -51,6 +51,9 @@ export const useVideoModels = () =>
 
 export const useSmartMotionStatus = () =>
   useQuery({ queryKey: ["smartmotion-status"], queryFn: () => apiGet<SmartMotionStatus>("/media/models/smartmotion"), staleTime: 60_000 });
+
+export const useHuggingFaceVideoStatus = () =>
+  useQuery({ queryKey: ["hf-ltx-status"], queryFn: () => apiGet<HuggingFaceVideoStatus>("/media/models/hf-ltx"), staleTime: 60_000, retry: false });
 
 function useInvalidate() {
   const qc = useQueryClient();
