@@ -469,7 +469,7 @@ class TestCustomWorkflow:
 
         captured = {}
 
-        async def _mock_run(wf, video, progress=None, on_queued=None, s=None):
+        async def _mock_run(wf, video, progress=None, on_queued=None, s=None, **kwargs):
             captured["wf"] = wf
             return b"fake-image-data", "image/png"
 
@@ -644,7 +644,7 @@ class TestBackwardCompatibility:
         async def _mock_get_settings():
             return s
 
-        async def _mock_run(wf, video, progress=None, on_queued=None, s=None):
+        async def _mock_run(wf, video, progress=None, on_queued=None, s=None, **kwargs):
             # Verify the workflow uses correct checkpoint
             for node in wf.values():
                 if node.get("class_type") == "CheckpointLoaderSimple":
@@ -670,7 +670,7 @@ class TestBackwardCompatibility:
         async def _mock_get_settings():
             return s
 
-        async def _mock_run(wf, video, progress=None, on_queued=None, s=None):
+        async def _mock_run(wf, video, progress=None, on_queued=None, s=None, **kwargs):
             assert video is True
             # Wan22 workflow should use UNETLoader
             for node in wf.values():
@@ -704,7 +704,7 @@ class TestBackwardCompatibility:
             captured["uploaded"] = True
             return "uploaded_image.png"
 
-        async def _mock_run(wf, video, progress=None, on_queued=None, s=None):
+        async def _mock_run(wf, video, progress=None, on_queued=None, s=None, **kwargs):
             # Verify the image reference was injected into the workflow
             assert "10" in wf, "LoadImage node must be present for I2V"
             return fake_mp4, "video/mp4"

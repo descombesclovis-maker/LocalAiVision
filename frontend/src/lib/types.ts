@@ -60,11 +60,12 @@ export interface Media {
   duration: string | null;
   project_id: string | null;
   error: string | null;
+  generation_metrics?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
 export interface ImageRequest { comfy_preset?: string | null; prompt: string; model: "comfy" | "nano-banana" | "nano-banana-pro"; aspect_ratio: "1:1" | "16:9" | "9:16" | "4:5"; ref_media_id: string | null }
-export interface VideoRequest { prompt: string; model: "comfy" | "veo" | "kling" | "minimax"; mode: "text" | "image"; duration: string; aspect_ratio: string; ref_media_id: string | null }
+export interface VideoRequest { prompt: string; model: "comfy" | "veo" | "kling" | "minimax"; mode: "text" | "image"; duration: string; aspect_ratio: string; ref_media_id: string | null; comfy_preset?: "wan22" | "wan21_fun_camera" | "ltxv" | null; camera_pose?: string }
 export interface UploadRequest { data_url: string; source: "upload" | "ad" | "logo"; prompt: string }
 export interface VideoModel { key: "comfy" | "veo" | "kling" | "minimax"; label: string; tagline: string; durations: string[]; aspects: string[]; audio: boolean }
 export interface ActivityItem { id: string; kind: "site" | "image" | "video"; name: string; status: string; label: string }

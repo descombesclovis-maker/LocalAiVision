@@ -184,6 +184,9 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
     async def queued(prompt_id: str) -> None:
         await db.media.update_one({"id": mid}, {"$set": {"comfy": prompt_id, "progress_label": "Envoyé à ComfyUI"}})
 
+    async def metrics(report: dict) -> None:
+        await db.media.update_one({"id": mid}, {"$set": {"generation_metrics": report, "updated_at": now_iso()}})
+
     await db.media.update_one({"id": mid}, {"$set": {"progress_label": "En file d'attente GPU", "updated_at": now_iso()}})
     try:
         # V1-C: verify_ready is called once here (in media.py) before the GPU slot.
@@ -195,7 +198,7 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
         await comfy.verify_ready(s, video=True)
         async with gpu_queue.slot(mid, "video", "ComfyUI", body.prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "updated_at": now_iso()}})
-            data, mime = await comfy.generate_video(body.prompt, body.duration, body.aspect_ratio, ref, progress, queued, camera_pose=body.camera_pose, preset=body.comfy_preset)
+            data, mime = await comfy.generate_video(body.prompt, body.duration, body.aspect_ratio, ref, progress, queued, camera_pose=body.camera_pose, preset=body.comfy_preset, on_metrics=metrics)
         d = await db.media.find_one({"id": mid})
         if d and d["status"] != "cancelled":
             await finish_media(mid, data, mime)
@@ -218,6 +221,8 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
 @router.post("/media/videos", response_model=Media)
 async def create_video(body: VideoRequest):
     if body.model == "comfy":
+        if body.comfy_preset == "wan21_fun_camera" and body.mode != "image":
+            raise HTTPException(400, "Wan 2.1 Fun Camera nécessite une image de départ (Image → vidéo).")
         if body.duration not in COMFY_VIDEO["durations"]:
             body.duration = "3"
         if body.aspect_ratio not in COMFY_VIDEO["aspects"]:

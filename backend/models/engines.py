@@ -7,7 +7,7 @@ class ComfySettings(BaseModel):
     base_url: str = Field(min_length=8, max_length=300)
     image_preset: Literal["flux-dev", "flux-schnell", "sdxl"] = "flux-dev"
     image_checkpoint: str = Field(min_length=1, max_length=300)
-    video_preset: Literal["wan22", "ltxv"] = "wan22"
+    video_preset: Literal["wan22", "wan21_fun_camera", "ltxv"] = "wan22"
     video_model: str = Field(min_length=1, max_length=300)
     video_text_encoder: str = Field(min_length=1, max_length=300)
     video_vae: str = ""

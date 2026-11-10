@@ -50,6 +50,7 @@ async def test_image_only_requests_checkpoint(monkeypatch, preset):
 
 @pytest.mark.parametrize("preset,expected", [
     ("wan22", ["UNETLoader", "CLIPLoader", "VAELoader"]),
+    ("wan21_fun_camera", ["UNETLoader", "CLIPLoader", "VAELoader", "CLIPVisionLoader"]),
     ("ltxv", ["CheckpointLoaderSimple", "CLIPLoader"]),
 ])
 async def test_video_uses_its_own_model_pool_without_photo_or_unused_vae(monkeypatch, preset, expected):
@@ -58,13 +59,15 @@ async def test_video_uses_its_own_model_pool_without_photo_or_unused_vae(monkeyp
     # A stale VAE setting must not make LTX depend on an external VAE.
     s["video_vae"] = "unused.safetensors" if preset == "ltxv" else s["video_vae"]
     loaders = {
-        "UNETLoader" if preset == "wan22" else "CheckpointLoaderSimple": {
-            "unet_name" if preset == "wan22" else "ckpt_name": [s["video_model"]]
+        "UNETLoader" if preset in comfy.UNET_BASED_VIDEO_PRESETS else "CheckpointLoaderSimple": {
+            "unet_name" if preset in comfy.UNET_BASED_VIDEO_PRESETS else "ckpt_name": [s["video_model"]]
         },
         "CLIPLoader": {"clip_name": [s["video_text_encoder"]]},
     }
-    if preset == "wan22":
+    if preset in comfy.UNET_BASED_VIDEO_PRESETS:
         loaders["VAELoader"] = {"vae_name": [s["video_vae"]]}
+    if preset == "wan21_fun_camera":
+        loaders["CLIPVisionLoader"] = {"clip_name": ["clip_vision_h.safetensors"]}
     calls = mock_comfy(monkeypatch, loaders)
     await comfy.verify_ready(s, video=True)
     assert calls == ["/system_stats"] + [f"/object_info/{node}" for node in expected]

@@ -48,6 +48,12 @@ async def image_models():
     return await comfy.image_model_status(await comfy.get_settings())
 
 
+@router.get("/settings/comfyui/video-models")
+async def video_models():
+    """Installed state of video presets and camera controls discovered from ComfyUI."""
+    return await comfy.video_model_status(await comfy.get_settings())
+
+
 @router.get("/settings/comfyui/presets", response_model=EnginePresets)
 async def presets():
     return {

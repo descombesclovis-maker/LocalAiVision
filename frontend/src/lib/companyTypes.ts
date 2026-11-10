@@ -51,7 +51,7 @@ export interface ComfySettings {
   base_url: string;
   image_preset: "flux-dev" | "flux-schnell" | "sdxl";
   image_checkpoint: string;
-  video_preset: "wan22" | "ltxv";
+  video_preset: "wan22" | "wan21_fun_camera" | "ltxv";
   video_model: string;
   video_text_encoder: string;
   video_vae: string;
@@ -61,6 +61,8 @@ export interface ComfySettings {
 export interface ComfyTest { ok: boolean; message: string; gpu: string; checkpoints: string[]; diffusion_models: string[]; text_encoders: string[] }
 export interface EnginePreset { key: string; label: string; files: Record<string, string> }
 export interface EnginePresets { image: EnginePreset[]; video: EnginePreset[] }
+export interface VideoPresetStatus { key: "wan22" | "wan21_fun_camera" | "ltxv"; label: string; model: string; files: string[]; installed: boolean | null }
+export interface VideoEngineStatus { presets: VideoPresetStatus[]; camera_poses: string[] }
 export interface WebCheckItem { siret: string; name: string; city: string; lat: number; lng: number }
 export interface WebCheckRequest { items: WebCheckItem[] }
 export interface WebStatus { siret: string; status: "pending" | "found" | "none"; url: string | null; source: string }

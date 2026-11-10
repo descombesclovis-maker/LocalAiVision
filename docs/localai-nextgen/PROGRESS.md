@@ -838,3 +838,39 @@ Première génération vidéo locale réelle sur RTX 3060 12 Go via l'API authen
 - `backend/tests/test_comfy_v1d.py` — 3 nouveaux tests V2-G
 - `docs/localai-nextgen/PROGRESS.md` — cette section
 
+## V2-H — intégration vidéo, mesures et validation Chrome (réalisé)
+
+### Correctifs
+- Interface vidéo : sélection du preset ComfyUI avec état réel installé/absent, commandes caméra, transmission de `comfy_preset` et `camera_pose`; Wan Fun Camera force I2V et requiert une référence.
+- Durée : la durée initiale de l'UI est maintenant 3 s, évitant le défaut où la valeur initiale vide était remplacée par le dernier choix (5 s). Le backend mappe explicitement 3 s → 73 frames et 5 s → 121 frames; les valeurs inconnues sont refusées au lieu d'être silencieusement interprétées comme 3 s.
+- Pic VRAM : le sampler `nvidia-smi` accepte maintenant `vram_peak_mib=None` (première mesure initialise le pic au lieu d'évaluer `max(int, None)`). Tests de régression ajoutés.
+- Diagnostic vidéo persisté dans le média : temps total, intervalle de débruitage, moyenne par étape, nœud d'encodage, VRAM de base/pic et contexte (modèle, seed, résolution, FPS, frames, sampler, CFG/steps). Le WebSocket a un repli par horloge murale lorsque des événements de démarrage sont manqués.
+
+### Validation réelle — une seule génération après correction
+
+- Chrome réel, profil temporaire, application sur `127.0.0.1:3003` avec backend et base Mongo de test `localaistudio_v2h_test` (pas les bases utilisateur).
+- Le POST UI a transmis exactement `duration="3"`, `comfy_preset="wan21_fun_camera"`, `camera_pose="Pan Left"`, `mode="image"`; le workflow ComfyUI confirme 73 frames et 20 étapes.
+- Progression WebSocket visible jusqu'à 20/20. Média `done`, vidéo lue dans l'élément HTML et téléchargement vérifié.
+- Résultat local ignoré par Git : `backend/bench_runs/v2h/ui_pan_left_3s.mp4` (255 613 octets); planche de toutes les frames : `backend/bench_runs/v2h/ui_pan_left_all_frames.jpg`.
+- Décodage exhaustif des 73 frames : H.264, 832×480, 24 fps, durée 3,0417 s.
+- Mesures enregistrées sur le média : ComfyUI 461,359 s; échantillonnage 423,953 s, 20 étapes observées (~22,313 s par intervalle); nœud SaveVideo 1,454 s. La première étape apparaît ~15 s après la soumission dans l'UI; le chargement du modèle n'est pas isolé des autres préparatifs.
+- VRAM système : base 3 562 MiB, pic 10 344 MiB / 12 288 MiB, delta 6 782 MiB. Un échantillonnage indépendant a observé le même pic.
+- Examen visuel de toute la séquence : flacon reconnaissable et stable, sans artefact majeur évident; le déplacement « Pan Left » reste faible/subtil et l'étiquette/textures fluctuent légèrement. Le mouvement n'est pas encore professionnellement convaincant. Les différences inter-images calculées sont descriptives, pas une métrique de qualité.
+
+### Tests et limites
+- Suite complète backend finale : 501 réussis, 0 échec (5 avertissements de dépréciation de dépendances); TypeScript (`tsc --noEmit -p tsconfig.app.json`) réussi; `git diff --check` propre.
+- Un premier essai UI a généré 121 frames (5 s) alors que le testeur voulait 3 s; interrompu. Le rendu suivant à 73 frames a terminé, mais l'ancienne version du sampler a ensuite remonté `'>' not supported between NoneType and int`; correctif couvert et génération de contrôle réussie.
+- La génération de contrôle a utilisé `localaistudio_v2h_test`; aucune base utilisateur, création existante ou aucun modèle n'a été modifié dans cette validation.
+- Les mesures de chargement et pré/post-sampling restent partielles si le WebSocket manque des événements; la VRAM est globale, échantillonnée toutes les ~0,75 s, pas par processus.
+- Aucun moteur ni paramètre d'inférence par défaut n'a été remplacé. Pas de V2-I.
+
+### Fichiers V2-H
+
+- `backend/lib/comfy.py`, `backend/models/engines.py`, `backend/models/schemas.py`
+- `backend/routers/engines.py`, `backend/routers/media.py`
+- `backend/tests/test_video_v2h.py`, ajustements de compatibilité dans `backend/tests/test_comfy_reliability.py` et `backend/tests/test_comfy_v1d.py`
+- `frontend/src/components/vision.tsx`, `frontend/src/lib/companyHooks.ts`, `frontend/src/lib/companyTypes.ts`, `frontend/src/lib/types.ts`
+- `docs/localai-nextgen/PROGRESS.md`
+
+Validation V2-H committée sur `nextgen/claude-code` après les tests finaux.
+

@@ -4,7 +4,7 @@ import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg } from "@/lib/hooks";
 import type { ProjectSummary } from "@/lib/types";
 import type {
-  ComfySettings, ComfyTest, EnginePresets, ImageModelStatus, CompanyDetail, CompanyOverview, CompanyPoint, CompanySiteRequest, GeoResult, LocalEngine, LocalEngineTest, Sector, QueueState, WebCheckItem, WebStatus, Diagnostic, KitInfo,
+  ComfySettings, ComfyTest, EnginePresets, ImageModelStatus, VideoEngineStatus, CompanyDetail, CompanyOverview, CompanyPoint, CompanySiteRequest, GeoResult, LocalEngine, LocalEngineTest, Sector, QueueState, WebCheckItem, WebStatus, Diagnostic, KitInfo,
 } from "@/lib/companyTypes";
 
 export const useSectors = () =>
@@ -78,6 +78,8 @@ export function useTestLocalEngine() {
 export const useComfy = () => useQuery({ queryKey: ["comfy"], queryFn: () => apiGet<ComfySettings>("/settings/comfyui") });
 export const useComfyPresets = () =>
   useQuery({ queryKey: ["comfy-presets"], queryFn: () => apiGet<EnginePresets>("/settings/comfyui/presets"), staleTime: Infinity });
+export const useVideoEngineStatus = () =>
+  useQuery({ queryKey: ["comfy-video-models"], queryFn: () => apiGet<VideoEngineStatus>("/settings/comfyui/video-models"), staleTime: 30_000 });
 export const useComfyStatus = (cfg: ComfySettings | undefined) =>
   useQuery({ queryKey: ["comfy-status", cfg], queryFn: () => apiPost<ComfyTest>("/settings/comfyui/test", cfg), enabled: !!cfg, staleTime: 30 * 1000 });
 export function useSaveComfy() {

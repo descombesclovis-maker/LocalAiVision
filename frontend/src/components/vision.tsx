@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useVideoModels } from "@/lib/hooks";
 import { apiPost } from "@/lib/api";
-import { useComfy, useImageModels } from "@/lib/companyHooks";
+import { useComfy, useImageModels, useVideoEngineStatus } from "@/lib/companyHooks";
 import type { ImageRequest, Media, VideoRequest } from "@/lib/types";
 import { mediaFileUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ function RefPicker({ value, onChange, testid }: { value: string | null; onChange
 
 function MediaTile({ m, onCancel }: { m: Media; onCancel?: () => void }) {
   const busy = m.status === "pending" || m.status === "running";
+  const perf = m.generation_metrics as { timing_seconds?: { comfy_total?: number }; gpu_memory_mib?: { peak_used?: number } } | null | undefined;
   const { remove } = useMediaActions();
   return (
     <motion.div layout initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-panel" data-testid={`media-tile-${m.id}`}>
@@ -81,6 +82,7 @@ function MediaTile({ m, onCancel }: { m: Media; onCancel?: () => void }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs text-slate-200">{m.prompt}</p>
           <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">{m.model}{m.duration ? ` · ${m.duration}` : ""}{m.aspect_ratio ? ` · ${m.aspect_ratio}` : ""}</p>
+          {perf && <p data-testid={`video-metrics-${m.id}`} className="mt-1 text-[10px] text-slate-400">{perf.timing_seconds?.comfy_total != null ? `${perf.timing_seconds.comfy_total}s` : "durée inconnue"}{perf.gpu_memory_mib?.peak_used != null ? ` · VRAM pic ${(perf.gpu_memory_mib.peak_used / 1024).toFixed(1)} Gio` : ""}</p>}
         </div>
         {m.url && <a href={m.url} download data-testid={`media-download-${m.id}`} className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-white" aria-label="Télécharger"><Download className="size-3.5" /></a>}
         {!busy && <button type="button" data-testid={`media-delete-${m.id}`} onClick={() => remove.mutate(m.id)} className="rounded-md p-1.5 text-slate-400 hover:bg-red-500/10 hover:text-red-300" aria-label="Supprimer"><Trash2 className="size-3.5" /></button>}
@@ -184,21 +186,43 @@ function EmptyState({ icon: Icon, text }: { icon: typeof ImagePlus; text: string
 
 export function VideoStudio() {
   const { data: models } = useVideoModels();
+  const { data: comfyCfg } = useComfy();
+  const { data: engineStatus } = useVideoEngineStatus();
   const [model, setModel] = useState<VideoRequest["model"]>("comfy");
   const [mode, setMode] = useState<VideoRequest["mode"]>("text");
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState("");
+  const [duration, setDuration] = useState("3");
   const [aspect, setAspect] = useState("16:9");
   const [ref, setRef] = useState<string | null>(null);
+  const [comfyPreset, setComfyPreset] = useState<NonNullable<VideoRequest["comfy_preset"]>>("wan22");
+  const [cameraPose, setCameraPose] = useState("Static");
+  const [presetInitialized, setPresetInitialized] = useState(false);
   const cfg = models?.find((m) => m.key === model);
+  const chosenPreset = engineStatus?.presets.find((p) => p.key === comfyPreset);
+  const needsImage = model === "comfy" && comfyPreset === "wan21_fun_camera";
+  const comfyUnavailable = model === "comfy" && (!chosenPreset || chosenPreset.installed !== true);
   const { data } = useMedia("video");
   const { video, cancel } = useMediaActions();
+  useEffect(() => {
+    if (comfyCfg && !presetInitialized) {
+      setComfyPreset(comfyCfg.video_preset);
+      setPresetInitialized(true);
+    }
+  }, [comfyCfg, presetInitialized]);
+  useEffect(() => {
+    if (needsImage) setMode("image");
+  }, [needsImage]);
   useEffect(() => {
     if (!cfg) return;
     if (!cfg.durations.includes(duration)) setDuration(cfg.durations[cfg.durations.length - 1]);
     if (!cfg.aspects.includes(aspect)) setAspect(cfg.aspects[0]);
   }, [cfg, duration, aspect]);
   const showAspect = cfg && !(mode === "image" && model !== "veo" && model !== "comfy") && cfg.aspects.length > 1;
+  const cameraOptions = engineStatus?.camera_poses ?? [];
+  const pickPreset = (value: NonNullable<VideoRequest["comfy_preset"]>) => {
+    setComfyPreset(value);
+    if (value === "wan21_fun_camera") setMode("image");
+  };
   return (
     <div className="grid gap-6 lg:grid-cols-[440px_1fr]">
       <div className="glass-vision space-y-5 rounded-3xl p-5">
@@ -207,11 +231,32 @@ export function VideoStudio() {
             <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key)} title={m.label} tagline={m.tagline} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
           ))}
         </div>
-        <div className="flex gap-2">
-          <Chip testid="video-mode-text" active={mode === "text"} onClick={() => setMode("text")}>Texte → vidéo</Chip>
-          <Chip testid="video-mode-image" active={mode === "image"} onClick={() => setMode("image")}>Image → vidéo</Chip>
-        </div>
-        {mode === "image" && <RefPicker value={ref} onChange={setRef} testid="video-ref" />}
+        {model === "comfy" && (
+          <div className="space-y-3 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
+            <Label htmlFor="video-comfy-preset">Modèle vidéo ComfyUI</Label>
+            <select id="video-comfy-preset" data-testid="video-comfy-preset" value={comfyPreset} onChange={(e) => pickPreset(e.target.value as NonNullable<VideoRequest["comfy_preset"]>)} className={field}>
+              {(engineStatus?.presets ?? []).map((p) => <option key={p.key} value={p.key} disabled={p.installed !== true}>{p.label} · {p.installed === true ? "installé" : p.installed === false ? "non installé" : "état inconnu"}</option>)}
+            </select>
+            {chosenPreset?.installed !== true && <p role="status" className="text-xs text-amber-200">{chosenPreset?.installed === false ? `Composants absents : ${chosenPreset.files.join(", ")}` : "ComfyUI n'a pas confirmé les modèles installés."}</p>}
+          </div>
+        )}
+        {needsImage ? (
+          <div className="space-y-2"><p className="text-xs text-slate-300">Wan Fun Camera est un modèle Image → vidéo uniquement. Choisissez une image de départ.</p><RefPicker value={ref} onChange={setRef} testid="video-ref" /></div>
+        ) : (
+          <div className="flex gap-2">
+            <Chip testid="video-mode-text" active={mode === "text"} onClick={() => setMode("text")}>Texte → vidéo</Chip>
+            <Chip testid="video-mode-image" active={mode === "image"} onClick={() => setMode("image")}>Image → vidéo</Chip>
+          </div>
+        )}
+        {mode === "image" && !needsImage && <RefPicker value={ref} onChange={setRef} testid="video-ref" />}
+        {needsImage && cameraOptions.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="video-camera-pose">Mouvement de caméra</Label>
+            <select id="video-camera-pose" data-testid="video-camera-pose" value={cameraPose} onChange={(e) => setCameraPose(e.target.value)} className={field}>
+              {cameraOptions.map((pose) => <option key={pose} value={pose}>{pose === "Pan Up" ? "Tilt vers le haut · Pan Up" : pose === "Pan Down" ? "Tilt vers le bas · Pan Down" : pose === "ClockWise (CW)" ? "Rotation horaire" : pose === "Anti Clockwise (ACW)" ? "Rotation antihoraire" : pose}</option>)}
+            </select>
+          </div>
+        )}
         <textarea data-testid="video-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} placeholder="Ex. Travelling lent autour d'une table dressée, vapeur, lumière de bougie, ambiance gastronomique…" className={cn(field, "resize-none")} />
         <div className="space-y-2">
           <p className="text-xs text-slate-400">Durée acceptée par ce modèle</p>
@@ -225,11 +270,11 @@ export function VideoStudio() {
         )}
         {cfg && !showAspect && <p className="text-xs text-slate-500">Format : {mode === "image" ? "celui de l'image de départ" : cfg.aspects[0]} (imposé par le modèle)</p>}
         {model === "comfy" ? (
-          <p data-testid="video-local-note" className="flex items-center gap-1.5 text-xs text-emerald-200/80"><Sparkles className="size-3.5" /> Gratuit : rendu sur votre GPU via ComfyUI (compter plusieurs minutes, sans son).</p>
+          <p data-testid="video-local-note" className="flex items-center gap-1.5 text-xs text-emerald-200/80"><Sparkles className="size-3.5" /> Gratuit : rendu sur votre GPU via ComfyUI (plusieurs minutes possibles, sans son).</p>
         ) : (
           <p className="flex items-center gap-1.5 text-xs text-amber-200/80"><Volume2 className="size-3.5" /> Moteur payant de secours : la vidéo coûte nettement plus qu'une photo sur le solde de la clé universelle.</p>
         )}
-        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={prompt.trim().length < 3 || video.isPending || (mode === "image" && !ref)} onClick={() => video.mutate({ prompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") })}>
+        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-video-btn" disabled={prompt.trim().length < 3 || video.isPending || (mode === "image" && !ref) || comfyUnavailable} onClick={() => video.mutate({ prompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? comfyPreset : null, camera_pose: model === "comfy" ? cameraPose : "Static" }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") })}>
           <Film className="size-4" /> Générer la vidéo
         </FxButton>
       </div>

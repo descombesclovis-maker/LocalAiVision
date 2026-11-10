@@ -136,6 +136,7 @@ class Media(BaseModel):
     error: Optional[str] = None
     created_at: str
     updated_at: str
+    generation_metrics: Optional[dict] = None
 
 
 class ImageRequest(BaseModel):
@@ -153,7 +154,7 @@ class VideoRequest(BaseModel):
     duration: str = ""
     aspect_ratio: str = "16:9"
     ref_media_id: Optional[str] = None
-    camera_pose: str = "Static"
+    camera_pose: Literal["Static", "Pan Up", "Pan Down", "Pan Left", "Pan Right", "Zoom In", "Zoom Out", "Anti Clockwise (ACW)", "ClockWise (CW)"] = "Static"
     comfy_preset: Optional[Literal["wan22", "wan21_fun_camera", "ltxv"]] = None
 
 

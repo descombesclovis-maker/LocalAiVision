@@ -45,9 +45,111 @@ DEFAULTS = {
 IMAGE_SIZES = {"1:1": (1024, 1024), "16:9": (1344, 768), "9:16": (768, 1344), "4:5": (896, 1120)}
 VIDEO_SIZES = {"16:9": (832, 480), "9:16": (480, 832), "1:1": (640, 640)}
 VIDEO_LENGTHS = {"3": 73, "5": 121}  # 24 fps, valid for both Wan (4n+1) and LTX (8n+1)
+WAN_CAMERA_POSES = ("Static", "Pan Up", "Pan Down", "Pan Left", "Pan Right", "Zoom In", "Zoom Out", "Anti Clockwise (ACW)", "ClockWise (CW)")
 NEGATIVE = "blurry, low quality, deformed, watermark, text, logo, jpeg artifacts, oversaturated"
 
 Progress = Optional[Callable[[str], Awaitable[None]]]
+MetricsCallback = Optional[Callable[[dict[str, Any]], Awaitable[None]]]
+
+
+async def _gpu_memory_sampler(live: dict[str, Any], stop: asyncio.Event) -> None:
+    """Best-effort global GPU memory sampling via nvidia-smi; values are not process-specific."""
+    while not stop.is_set():
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+            )
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=4)
+            line = out.decode("ascii", errors="ignore").splitlines()[0]
+            used, total = (int(v.strip().split()[0]) for v in line.split(",", 1))
+            if live.get("vram_baseline_mib") is None:
+                live["vram_baseline_mib"] = used
+            previous_peak = live.get("vram_peak_mib")
+            live["vram_peak_mib"] = used if previous_peak is None else max(used, previous_peak)
+            live["vram_total_mib"] = total
+        except (FileNotFoundError, IndexError, ValueError, OSError, asyncio.TimeoutError):
+            if live.get("vram_peak_mib") is None:
+                live["vram_unavailable"] = True
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=0.75)
+        except asyncio.TimeoutError:
+            pass
+
+
+def _record_video_ws_event(msg: Any, pid: str, live: dict[str, Any], workflow: dict, now: float) -> None:
+    if not isinstance(msg, dict) or not isinstance(msg.get("data"), dict):
+        return
+    data = msg["data"]
+    if data.get("prompt_id", pid) != pid:
+        return
+    node_classes = {str(k): n.get("class_type") for k, n in workflow.items() if isinstance(n, dict)}
+    event = msg.get("type")
+    if event == "execution_start":
+        live.setdefault("execution_started", now)
+    elif event == "progress":
+        value, maximum = data.get("value"), data.get("max")
+        if isinstance(value, int) and isinstance(maximum, int) and maximum > 0:
+            live.setdefault("first_step_at", now)
+            live["last_step_at"] = now
+            live["first_step_value"] = live.get("first_step_value", value)
+            live["last_step_value"] = value
+            live["step_total"] = maximum
+    elif event == "executing":
+        node = str(data.get("node") or "")
+        if node_classes.get(node) == "SaveVideo":
+            live["video_encode_started"] = now
+    elif event == "executed":
+        node = str(data.get("node") or "")
+        kind = node_classes.get(node)
+        if kind in ("KSampler", "SamplerCustom"):
+            live["sampler_finished"] = now
+        if kind == "SaveVideo":
+            live["video_encode_finished"] = now
+    elif event == "execution_success":
+        live["execution_finished"] = now
+
+
+def _video_frame_count(duration: str) -> int:
+    """Map the UI/API duration to the exact frame count required by each video latent workflow."""
+    value = str(duration).strip().lower()
+    if value.endswith("s"):
+        value = value[:-1].strip()
+    if value not in VIDEO_LENGTHS:
+        raise WorkflowError(f"Durée vidéo non prise en charge : {duration}. Choisissez 3 ou 5 secondes.")
+    return VIDEO_LENGTHS[value]
+
+
+def _video_metrics(live: dict[str, Any], started: float, finished: float, context: dict[str, Any]) -> dict[str, Any]:
+    def span(a: str, b: str) -> Optional[float]:
+        return round(max(0.0, live[b] - live[a]), 3) if a in live and b in live else None
+
+    first_value, last_value = live.get("first_step_value"), live.get("last_step_value")
+    steps = (last_value - first_value + 1) if isinstance(first_value, int) and isinstance(last_value, int) else None
+    sampling = span("first_step_at", "last_step_at")
+    baseline, peak = live.get("vram_baseline_mib"), live.get("vram_peak_mib")
+    return {
+        **context,
+        "timing_seconds": {
+            "comfy_total": round(finished - started, 3),
+            "execution_total": span("execution_started", "execution_finished"),
+            "setup_before_first_step_includes_model_loading": span("execution_started", "first_step_at"),
+            "sampling_interval": sampling,
+            "steps_observed": steps,
+            "mean_seconds_per_observed_step": round(sampling / max(steps - 1, 1), 3) if sampling is not None and steps else None,
+            "post_sampler_before_encode": span("sampler_finished", "video_encode_started"),
+            "post_last_step_before_encode_includes_decode": span("last_step_at", "video_encode_started"),
+            "video_encode_node": span("video_encode_started", "video_encode_finished"),
+        },
+        "gpu_memory_mib": {
+            "sampling_scope": "whole GPU; nvidia-smi",
+            "baseline_used": baseline,
+            "peak_used": peak,
+            "peak_delta": max(0, peak - baseline) if peak is not None and baseline is not None else None,
+            "total": live.get("vram_total_mib"),
+        },
+        "measurement_note": "ComfyUI websocket timings; pre-step setup includes model loading and other nodes. GPU VRAM is system-wide, sampled every ~0.75s.",
+    }
 
 
 class ComfyError(RuntimeError):
@@ -225,6 +327,10 @@ def _model_requirements(s: dict, video: bool) -> ModelRequirements:
         # Wan 2.2 and Wan 2.1 Fun Camera use an external VAE.
         if s["video_preset"] in UNET_BASED_VIDEO_PRESETS:
             workflow["3"] = {"class_type": "VAELoader", "inputs": {"vae_name": s.get("video_vae", "")}}
+        if s["video_preset"] == "wan21_fun_camera":
+            # This I2V graph also requires the vision encoder; checking only UNET/UMT5/VAE
+            # lets preflight pass and then fail after occupying the GPU queue.
+            workflow["4"] = {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "clip_vision_h.safetensors"}}
     required: ModelRequirements = {}
     for node in workflow.values():
         loader = node["class_type"]
@@ -387,6 +493,8 @@ def _video_workflow(s: dict, prompt: str, w: int, h: int, length: int, seed: int
             wf["7"]["inputs"]["start_image"] = ["10", 0]
         return wf
     if preset == "wan21_fun_camera":
+        if camera_pose not in WAN_CAMERA_POSES:
+            raise WorkflowError(f"Pose caméra non prise en charge par Wan Fun Camera : {camera_pose}")
         if not image:
             raise WorkflowError(
                 "Wan 2.1 Fun Camera est un modèle Image-to-Video : une image de départ est requise. "
@@ -505,25 +613,29 @@ async def image_model_status(s: dict) -> list[dict]:
     ]
 
 
-async def video_model_status(s: dict) -> list[dict]:
-    """Installed state of each video preset: True/False, or None when ComfyUI cannot list its models."""
+async def video_model_status(s: dict) -> dict:
+    """Verified install status for each preset, including secondary encoders such as CLIP Vision."""
+    presets = []
     try:
         async with _client(10) as c:
-            unets = await _choices(c, s["base_url"], "UNETLoader", "unet_name", {})
-            ckpts = await _choices(c, s["base_url"], "CheckpointLoaderSimple", "ckpt_name", {})
-            clips = await _choices(c, s["base_url"], "CLIPLoader", "clip_name", {})
+            for key, value in VIDEO_PRESETS.items():
+                selected = video_settings({**s, "custom_video_workflow": ""}, key)
+                required = _model_requirements(selected, video=True)
+                lists = await _model_lists(c, selected["base_url"], required)
+                unavailable = _lists_unavailable(lists, True, selected)
+                missing = _missing_files(selected, lists, True)
+                installed = None if unavailable else not missing
+                files = list(dict.fromkeys(f for _, _, names in required.values() for f in names))
+                presets.append({"key": key, "label": value["label"], "model": value["model"], "files": files, "installed": installed})
+            camera_info = await c.get(f"{s['base_url'].rstrip('/')}/object_info/WanCameraEmbedding")
+            camera_info.raise_for_status()
+            camera_input = camera_info.json()["WanCameraEmbedding"]["input"]["required"]["camera_pose"]
+            camera_poses = camera_input[1].get("options", []) if len(camera_input) > 1 and isinstance(camera_input[1], dict) else []
     except Exception:  # noqa: BLE001 — status is informative, it must never break the page
-        unets = ckpts = clips = None
-    have = list(dict.fromkeys((unets or []) + (ckpts or []) + (clips or [])))
-    return [
-        {
-            "key": key,
-            "label": v["label"],
-            "model": v["model"],
-            "installed": None if have is None else v["model"] in have,
-        }
-        for key, v in VIDEO_PRESETS.items()
-    ]
+        if not presets:
+            presets = [{"key": key, "label": value["label"], "model": value["model"], "files": [], "installed": None} for key, value in VIDEO_PRESETS.items()]
+        camera_poses = []
+    return {"presets": presets, "camera_poses": camera_poses}
 
 
 def progress_from_ws(msg: Any, pid: str, elapsed: int) -> Optional[str]:
@@ -539,7 +651,7 @@ def progress_from_ws(msg: Any, pid: str, elapsed: int) -> Optional[str]:
     return f"Rendu local sur votre GPU · étape {value}/{total} · {elapsed}s"
 
 
-async def _ws_progress(base: str, client_id: str, pid: str, progress: Progress, started: float, live: dict) -> None:
+async def _ws_progress(base: str, client_id: str, pid: str, progress: Progress, started: float, live: dict, workflow: Optional[dict] = None) -> None:
     """Stream ComfyUI step progress. Best effort: any failure leaves the elapsed-time labels in charge."""
     try:
         import websockets  # optional at runtime; only needed for step labels
@@ -550,10 +662,12 @@ async def _ws_progress(base: str, client_id: str, pid: str, progress: Progress, 
     try:
         async with websockets.connect(url, max_size=None, open_timeout=5) as ws:
             async for raw in ws:
-                if isinstance(raw, bytes) or progress is None:
+                if isinstance(raw, bytes):
                     continue  # binary frames are preview images
-                label = progress_from_ws(json.loads(raw), pid, int(time.monotonic() - started))
-                if label:
+                msg = json.loads(raw)
+                _record_video_ws_event(msg, pid, live, workflow or {}, time.monotonic())
+                label = progress_from_ws(msg, pid, int(time.monotonic() - started))
+                if label and progress:
                     live["steps"] = True
                     await progress(label)
     except asyncio.CancelledError:
@@ -564,14 +678,18 @@ async def _ws_progress(base: str, client_id: str, pid: str, progress: Progress, 
 
 async def run(
     workflow: dict, video: bool, progress: Progress = None, on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
-    s: Optional[dict] = None,
+    s: Optional[dict] = None, on_metrics: MetricsCallback = None, metrics_context: Optional[dict[str, Any]] = None,
 ) -> tuple[bytes, str]:
     s = s or await get_settings()
     base = s["base_url"]
     started = time.monotonic()
     client_id = uuid.uuid4().hex  # unique per render: ComfyUI routes this client's websocket events
     ws_task: Optional[asyncio.Task] = None
-    live: dict = {"steps": False}
+    gpu_task: Optional[asyncio.Task] = None
+    gpu_stop = asyncio.Event()
+    live: dict[str, Any] = {"steps": False, "vram_peak_mib": None}
+    if video:
+        gpu_task = asyncio.create_task(_gpu_memory_sampler(live, gpu_stop))
     try:
         async with _client(60) as c:
             r = await c.post(f"{base}/prompt", json={"prompt": workflow, "client_id": client_id})
@@ -593,7 +711,7 @@ async def run(
             pid = r.json()["prompt_id"]
             if on_queued:
                 await on_queued(pid)
-            ws_task = asyncio.create_task(_ws_progress(base, client_id, pid, progress, started, live))
+            ws_task = asyncio.create_task(_ws_progress(base, client_id, pid, progress, started, live, workflow))
             limit = 3600 if video else 900
             while time.monotonic() - started < limit:
                 await asyncio.sleep(2)
@@ -620,6 +738,23 @@ async def run(
                 fr = await c.get(f"{base}/view", params={"filename": f["filename"], "subfolder": f.get("subfolder", ""), "type": f.get("type", "output")})
                 fr.raise_for_status()
                 mime = fr.headers.get("content-type", "video/mp4" if video else "image/png").split(";")[0]
+                if video:
+                    gpu_stop.set()
+                    if gpu_task:
+                        await gpu_task
+                    metrics_finished = time.monotonic()
+                    # WebSocket listeners may connect after ComfyUI has emitted execution_start
+                    # (or miss its final event). Keep HTTP wall time usable and label the setup
+                    # interval honestly instead of persisting null for an otherwise observed run.
+                    live.setdefault("execution_started", started)
+                    live.setdefault("execution_finished", metrics_finished)
+                    report = _video_metrics(live, started, metrics_finished, metrics_context or {})
+                    _log.info("video_generation_metrics %s", json.dumps(report, ensure_ascii=False, sort_keys=True))
+                    if on_metrics:
+                        try:
+                            await on_metrics(report)
+                        except Exception as exc:  # metrics must never turn a successful render into a failure
+                            _log.warning("Could not persist video metrics: %s", exc)
                 return fr.content, mime
             raise GenerationError(
                 "Délai de rendu local dépassé — la carte graphique est peut-être trop lente ou a manqué de VRAM. "
@@ -628,8 +763,14 @@ async def run(
     except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
         raise ComfyUnreachable(unreachable(s)) from exc
     finally:
+        gpu_stop.set()
         if ws_task is not None:
             ws_task.cancel()
+        if gpu_task is not None and not gpu_task.done():
+            try:
+                await gpu_task
+            except asyncio.CancelledError:
+                pass
 
 
 async def generate_image(
@@ -679,6 +820,7 @@ async def generate_video(
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
     camera_pose: str = "Static",
     preset: Optional[str] = None,
+    on_metrics: MetricsCallback = None,
 ) -> tuple[bytes, str]:
     """Generate a video via ComfyUI.
 
@@ -689,7 +831,7 @@ async def generate_video(
     """
     s = video_settings(await get_settings(), preset)
     w, h = VIDEO_SIZES.get(aspect, VIDEO_SIZES["16:9"])
-    length = VIDEO_LENGTHS.get(duration, 73)
+    length = _video_frame_count(duration)
     seed = random.randint(1, 2**31)
     image = None
     if ref:
@@ -702,7 +844,15 @@ async def generate_video(
         wf = _fill(json.loads(s["custom_video_workflow"]), {"PROMPT": prompt, "NEGATIVE": NEGATIVE, "WIDTH": w, "HEIGHT": h, "SEED": seed, "LENGTH": length, "IMAGE": image or ""})
     else:
         wf = _video_workflow(s, prompt, w, h, length, seed, image, camera_pose=camera_pose)
-    return await run(wf, True, progress, on_queued, s=s)
+    sampler = next((n.get("inputs", {}) for n in wf.values() if n.get("class_type") in ("KSampler", "SamplerCustom")), {})
+    metrics_context = {
+        "preset": s["video_preset"], "camera_pose": camera_pose, "seed": seed,
+        "width": w, "height": h, "frames": length, "fps": 24,
+        "sampler": sampler.get("sampler_name", "custom"), "steps": sampler.get("steps"),
+        "cfg": sampler.get("cfg"), "comfy_model": s.get("video_model"),
+        "i2v": bool(image),
+    }
+    return await run(wf, True, progress, on_queued, s=s, on_metrics=on_metrics, metrics_context=metrics_context)
 
 
 async def cancel(prompt_id: str) -> None:
