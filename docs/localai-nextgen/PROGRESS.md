@@ -1395,3 +1395,33 @@ Arrêt V2-W : un seul test réel effectué. LTX-2.3 est recommandé comme candid
 - Sources consultées pour le candidat SANA : https://huggingface.co/docs/hub/en/spaces-zerogpu ; https://huggingface.co/Efficient-Large-Model/SANA-Video_2.0_5B_720p_4step ; https://huggingface.co/spaces/Efficient-Large-Model/sana-video2-5b-720p-demo ; https://github.com/NVlabs/Sana.
 
 Arrêt V2-X : fonctionnalités locales validées et sauvegardables; Space propriétaire distant non déployé, validation de sa permission et intégration I2V restant en suspens.
+
+
+## V2-Y — Space ZeroGPU personnel et diagnostic GPU distant (2026-11-10)
+
+### Autorisations et facturation
+
+- Authentification HF existante vérifiée sans exposer le jeton : compte personnel `clocltrrh`, Free, aucune organisation. Création du Space puis upload réussis : droit d'écriture effectif confirmé. Un seul Space est listé après création.
+- API officielle ZeroGPU : quota Free de 300 s/jour. Avant contrôle : 300 s disponibles; après deux diagnostics minimalistes (premier déploiement puis re-déploiement) : ~296,0 s restantes, `overquota_used=0`. `canPay=false`, aucun paiement, crédit ou matériel facturé utilisé. L'éligibilité gratuite est confirmée par l'attribution effective du GPU. HF documente au plus 2 Spaces ZeroGPU personnels Free.
+- ZeroGPU documente `large` par défaut à 48 Go (quota ×1) et `xlarge` 96 Go (quota ×2). Le Space demande `zero-a10g`; le code utilise `large` par défaut et permet explicitement `LAS_GPU_SIZE=xlarge`, non activé.
+
+### Déploiement et vérifications réelles
+
+- Créé dans l'espace personnel, privé : https://huggingface.co/spaces/clocltrrh/LocalAiStudio-VideoEngine . Runtime officiel vérifié `RUNNING`, SDK Gradio, matériel demandé `zero-a10g`. Sources versionnées : `spaces/LocalAiStudio-VideoEngine/`; déploiement reproductible : `scripts/deploy_video_engine_space.py`. Le script utilise le login HF, n'imprime pas le jeton et ne le stocke pas dans le dépôt.
+- `GET /gradio_api/info` a exposé `/engine_status` et `/gpu_check`. Le statut rapporte honnêtement `generation_ready=false`, aucune tâche T2V/I2V activée. Appel authentifié `/gpu_check` via la vraie API Gradio + SSE : GPU distant `NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb`, 48 512 MiB VRAM, Torch 2.13.0+cu130, CUDA 13.0; allocation de 32 MiB et kernel CUDA matmul réussi (checksum 256). Aucun modèle vidéo chargé. Appel ~3,64 s. Aucun rendu vidéo lancé; aucune inférence locale n'a été demandée.
+- Tests locaux : `spaces/LocalAiStudio-VideoEngine/tests` **4 pass**; `py_compile` et `git diff --check` réussis.
+
+### Modèles évalués et blocage
+
+- Candidat initial : SANA-Video 2.0 5B 4-step, Apache-2.0 annoncé, 4.47B paramètres, sortie 720p, 4 étapes; la version distillée est explicitement T2V-only (pas I2V). Dépendance de l'application officielle : `google/gemma-2-2b-it`. Vérification d'accès de ce compte : HTTP 403. Le propriétaire doit accepter les termes/demander l'accès au dépôt Gemma avant de tenter le téléchargement; ensuite n'ajouter, si nécessaire, qu'un accès read/fine-grained au modèle autorisé, jamais de droit Billing. Aucun poids chargé ni téléchargé sur le PC ou le Space.
+- SANA 5B base annonce T2V/TI2V, Apache-2.0, mais même dépendance gated et recette 50 étapes; non testée.
+- Wan2.2 TI2V 5B : fiche officielle Apache-2.0, T2V+I2V, 720p/24fps, minimum annoncé 24 Go avec CPU offload; candidat plausible à 48 Go, sans test ZeroGPU/temps/qualité. Wan2.1 T2V 1.3B : fiche annonce 8,19 Go et recommande 480p; plafond qualité inférieur.
+- LTX-2.3 : fiche Diffusers 19B paramètres, résultats distants antérieurs prometteurs, mais licence LTX-2 communautaire conditionnelle (notamment seuil de revenus et restrictions); compatibilité 48 Go non établie, pas sélectionné. Aucun modèle simultané; aucun modèle installé.
+- Aucun MP4 T2V ou I2V produit dans V2-Y. Il serait incorrect d'annoncer une génération prête : dépendance gated refusée, et aucun modèle ne tourne dans le Space.
+
+### Interface / clôture
+
+- Aucun fichier frontend modifié. « LocalAi Video Engine — Gratuit », atelier Publicité, SmartMotion, Wan et modèles payants de secours préservés; aucun appel payant. Aucune mention ZeroGPU ajoutée dans l'interface.
+- Sources officielles : https://huggingface.co/docs/hub/spaces-zerogpu ; https://huggingface.co/docs/huggingface_hub/en/guides/manage-spaces ; https://huggingface.co/docs/hub/security-tokens ; https://huggingface.co/Efficient-Large-Model/SANA-Video_2.0_5B_720p_4step ; https://huggingface.co/google/gemma-2-2b-it ; https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B ; https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B ; https://huggingface.co/Efficient-Large-Model/LTX-2.3-Diffusers .
+
+Arrêt V2-Y : infrastructure distante gratuite personnelle vérifiée et opérationnelle pour diagnostics GPU; génération vidéo non activée jusqu'à résolution de l'accès Gemma et validation d'un vrai rendu.
