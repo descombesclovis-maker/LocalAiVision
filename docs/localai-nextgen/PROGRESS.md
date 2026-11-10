@@ -749,3 +749,92 @@ Optimisations proposées (non testées) :
 
 Tests : 104 tests comfy/kit passés. Aucune génération vidéo lancée (pas de workflow WAN 2.1 validé, pas de téléchargement de modèle).
 
+## V2-G — Première vidéo locale réelle (réalisé)
+
+Commit : `2890de6` sur `nextgen/claude-code`. Poussé et confirmé.
+
+### Objectif
+
+Première génération vidéo locale réelle sur RTX 3060 12 Go via l'API authentifiée de LocalAiVision, avec le modèle Wan 2.1 Fun Camera 1.3B (Image-to-Video avec contrôle de caméra).
+
+### Corrections apportées
+
+**`backend/lib/comfy.py`** :
+- `_video_workflow()` : les presets inconnus sont refusés explicitement, jamais routés vers la branche LTX par défaut
+- Nouvelle branche `wan21_fun_camera` : `UNETLoader` + `CLIPLoader` + `VAELoader` + `ModelSamplingSD3` + `CLIPVisionLoader` + `CLIPVisionEncode` + `WanCameraEmbedding` + `WanCameraImageToVideo` + `KSampler` + `VAEDecode` + `CreateVideo` + `SaveVideo`
+- Wan 2.1 Fun Camera est Image-to-Video uniquement : refuse sans image de référence (`ref_media_id` obligatoire)
+- `video_settings(s, preset)` applique le preset avant `verify_ready()` pour que les bons modèles soient vérifiés
+- `video_model_status()` retourne l'état d'installation de chaque preset vidéo
+
+**`backend/models/schemas.py`** :
+- `VideoRequest` : nouveaux champs `camera_pose` (Literal) et `comfy_preset` (Literal, valeurs inconnues rejetées)
+
+**`backend/routers/media.py`** :
+- `create_video()` applique `comfy.video_settings(s, body.comfy_preset)` avant `verify_ready(s, video=True)`
+- `POST /api/media/videos` accepte `camera_pose` et `comfy_preset`
+
+**`backend/tests/test_comfy_v1d.py`** :
+- Test : preset non supporté refusé
+- Test : I2V sans image de référence refusé
+- Test : construction complète du workflow Wan 2.1 Fun Camera I2V (tous les nœuds, connexions, modèles)
+
+### Première génération vidéo — résultat réel
+
+**Requête API** (via `POST /api/media/videos`, authentifié) :
+- Prompt : « un flacon bleu sur marbre, bouchon doré à droite »
+- Modèle : `comfy`, mode `image`, durée `3s`, ratio `16:9`
+- Pose caméra : `Zoom In`
+- Preset : `wan21_fun_camera`
+- Image de référence : photo SDXL générée précédemment (flacon bleu, bouchon doré, marbre)
+
+**Résultat** :
+- Média créé : `4e4f076d-d699-4484-aba5-238dd87c8c71`, statut `done`
+- Fichier : `backend/bench_runs/video_wan21_api/video_00001_.mp4`
+- Taille : 360 834 octets (~352 Ko)
+- Format : h264 MP4, 832×480, 24 fps, 73 frames, durée 3,04 s
+- Temps de génération : ~412 s (6 min 52 s), dont ~400 s pour les 20 étapes de dénoisage
+- Progression WebSocket : « étape 1/20 … 20/20 » en direct
+
+**Évaluation visuelle (4 frames extraites)** :
+- Frame 1 (0 s) : flacon bleu avec bouchon doré sur marbre — conforme à l'image de référence
+- Frame 2 (0,13 s) : début du zoom avant
+- Frame 3 (0,25 s) : zoom en cours, flacon plus grand
+- Frame 4 (0,38 s) : zoom poursuivi, cadrage serré sur le flacon
+
+**Qualité** :
+- Identité de l'image de référence préservée (flacon bleu, bouchon doré, marbre)
+- Mouvement de caméra (zoom avant) fluide et cohérent
+- Pas d'artefact majeur visible sur les 4 frames examinées
+- La couleur dorée du bouchon est respectée
+
+### Limitations
+
+- Temps de génération élevé (~412 s pour 3 s de vidéo à 832×480, 20 étapes) : le modèle 1.3B est lent sur RTX 3060 12 Go
+- VRAM non mesurée pendant cette exécution (pas de relevé nvidia-smi durant le rendu)
+- Un seul sujet, une seule seed, une seule pose caméra (Zoom In)
+- Aucune métrique objective de qualité ou de stabilité temporelle
+- Le preset `wan22` (Wan 2.2 TI2V 5B) et `ltxv` (LTX-Video 2B) restent non installés : seul `wan21_fun_camera` est utilisable
+- Le preset par défaut reste `wan22` (inchangé) : l'utilisateur doit choisir `wan21_fun_camera` explicitement
+
+### Recommandations
+
+1. Mesurer la VRAM pendant une génération vidéo (nvidia-smi en parallèle)
+2. Tester d'autres poses caméra (Pan Left/Right, Tilt Up/Down, Rotate)
+3. Tester avec plusieurs seeds pour évaluer la stabilité
+4. Envisager FLUX Dev pour une meilleure fidélité photo (fichier absent, téléchargement à autoriser)
+5. Tester la composition régionale (`ConditioningSetArea`) pour le contrôle spatial sans téléchargement
+
+### Tests
+
+- 487 tests backend passés (dont 104 comfy/kit, 16 V2-E WebSocket, nouveaux tests V2-G)
+- `tsc` sans erreur
+- Aucun test GPU vidéo supplémentaire lancé (la génération réelle via l'API sert de validation)
+
+### Fichiers modifiés
+
+- `backend/lib/comfy.py` — branche wan21_fun_camera, refus des presets inconnus, `video_settings`, `video_model_status`
+- `backend/models/schemas.py` — `camera_pose` et `comfy_preset` dans `VideoRequest`
+- `backend/routers/media.py` — application du preset avant vérification, acceptation des nouveaux champs
+- `backend/tests/test_comfy_v1d.py` — 3 nouveaux tests V2-G
+- `docs/localai-nextgen/PROGRESS.md` — cette section
+
