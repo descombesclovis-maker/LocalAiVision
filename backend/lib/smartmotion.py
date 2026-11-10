@@ -113,6 +113,8 @@ def _load_depth(image: Any, model_dir: Path, device: str) -> tuple[Any, dict[str
     depth = ((depth - lo) / (hi - lo).clamp_min(1e-6)).clamp(0, 1)
     # Mild smoothing suppresses prediction noise without removing strong depth boundaries.
     depth = torch.nn.functional.avg_pool2d(torch.nn.functional.pad(depth[None, None], (1,1,1,1), mode="replicate"), 3, stride=1)[0, 0]
+    if device.startswith("cuda"):
+        torch.cuda.synchronize(device)
     elapsed = time.perf_counter()
     depth_info = {"model": str(model_dir), "model_sha256": _sha256(model_dir / "model.safetensors"),
                   "load_seconds": round(loaded-start, 3), "inference_seconds": round(elapsed-loaded, 3),
@@ -125,7 +127,33 @@ def _load_depth(image: Any, model_dir: Path, device: str) -> tuple[Any, dict[str
     return depth, depth_info
 
 
-def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *, fps: int = FPS, seconds: int = 5) -> Path:
+def parse_output_size(value: str) -> tuple[int, int]:
+    """Parse WIDTHxHEIGHT; output sizing is explicit so an upscale/crop is never hidden."""
+    try:
+        width, height = (int(part) for part in value.lower().split("x", 1))
+    except (ValueError, TypeError) as exc:
+        raise ValueError("output size must be WIDTHxHEIGHT, e.g. 1920x1080") from exc
+    if width < 16 or height < 16 or width > 7680 or height > 4320:
+        raise ValueError("output dimensions must be between 16x16 and 7680x4320")
+    return width, height
+
+
+def center_crop_box(source_width: int, source_height: int, target_width: int, target_height: int) -> tuple[int, int, int, int]:
+    """Largest centered source crop matching target aspect; never distorts image geometry."""
+    if min(source_width, source_height, target_width, target_height) <= 0:
+        raise ValueError("source and target dimensions must be positive")
+    source_aspect = source_width / source_height
+    target_aspect = target_width / target_height
+    if source_aspect > target_aspect:
+        crop_width = max(1, round(source_height * target_aspect))
+        left = (source_width - crop_width) // 2
+        return left, 0, left + crop_width, source_height
+    crop_height = max(1, round(source_width / target_aspect))
+    top = (source_height - crop_height) // 2
+    return 0, top, source_width, top + crop_height
+
+
+def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *, fps: int = FPS, seconds: int = 5, output_size: tuple[int, int] | None = None) -> Path:
     generation_started = time.perf_counter()
     if seconds < 1 or fps < 1:
         raise ValueError("seconds and fps must be positive")
@@ -146,9 +174,22 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
     if device == "cpu":
         raise RuntimeError("SmartMotion prototype requires the available NVIDIA CUDA GPU for depth and reprojection")
     source = Image.open(input_image).convert("RGB")
-    # Preserve source aspect and resolution. No hidden 1080p upscale or frame interpolation.
-    width, height = source.size
+    source_width, source_height = source.size
     depth, depth_metrics = _load_depth(source, model_dir, device)
+    transform = {"source_width": source_width, "source_height": source_height, "output_width": source_width, "output_height": source_height,
+                 "operation": "none (native source dimensions)", "crop_box": [0, 0, source_width, source_height], "upscaled": False}
+    if output_size is not None:
+        width, height = output_size
+        left, top, right, bottom = center_crop_box(source_width, source_height, width, height)
+        crop_box = (left, top, right, bottom)
+        source = source.crop(crop_box).resize((width, height), Image.Resampling.LANCZOS)
+        depth = torch.nn.functional.interpolate(depth[None, None, top:bottom, left:right], size=(height, width), mode="bicubic", align_corners=False)[0, 0]
+        transform = {"source_width": source_width, "source_height": source_height, "output_width": width, "output_height": height,
+                    "operation": "center crop to target aspect, then Lanczos upscale" if width > right-left or height > bottom-top else "center crop to target aspect, then resize",
+                    "crop_box": [left, top, right, bottom], "upscaled": width > right-left or height > bottom-top,
+                    "source_crop_width": right-left, "source_crop_height": bottom-top}
+    else:
+        width, height = source.size
     depth_preview = (depth.detach().cpu().numpy() * 255).astype(np.uint8)
     Image.fromarray(depth_preview, mode="L").save(output_dir / "depth-relative.png")
 
@@ -202,9 +243,47 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
     verify_started = time.perf_counter()
     probe = av.open(str(mp4))
     video = next(s for s in probe.streams if s.type == "video")
-    decoded = sum(1 for _ in probe.decode(video=0))
+    decoded = 0
+    identical_adjacent = 0
+    frame_deltas: list[float] = []
+    previous = None
+    samples = []
+    for index, video_frame in enumerate(probe.decode(video=0)):
+        frame_rgb = video_frame.to_ndarray(format="rgb24")
+        decoded += 1
+        if previous is not None:
+            if np.array_equal(previous, frame_rgb):
+                identical_adjacent += 1
+            frame_deltas.append(float(np.abs(frame_rgb.astype(np.int16) - previous.astype(np.int16)).mean()))
+        if index % fps == 0:
+            thumbnail = Image.fromarray(frame_rgb).convert("RGB")
+            thumbnail.thumbnail((300, 180), Image.Resampling.LANCZOS)
+            samples.append((index, thumbnail.copy()))
+        previous = frame_rgb
     duration = float(video.duration * video.time_base) if video.duration is not None else None
     probe.close()
+    # Contact sheet samples every second; all frames above were decoded and measured, not just these samples.
+    columns, tile_w, tile_h = 5, 320, 220
+    rows = max(1, math.ceil(len(samples) / columns))
+    sheet = Image.new("RGB", (columns * tile_w, rows * tile_h), (20, 20, 20))
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(sheet)
+    for sample_index, (frame_index, thumbnail) in enumerate(samples):
+        x, y = (sample_index % columns) * tile_w, (sample_index // columns) * tile_h
+        sheet.paste(thumbnail, (x + (tile_w-thumbnail.width)//2, y + 4))
+        draw.text((x + 8, y + 188), f"frame {frame_index} / {frame_index / fps:.1f}s", fill="white")
+    sheet.save(output_dir / "contact-sheet.jpg", quality=88)
+    frame_visual_metrics = {
+        "decoded_frames": decoded,
+        "sampled_contact_sheet_frames": len(samples),
+        "contact_sheet_interval_seconds": 1,
+        "consecutive_identical_frames": identical_adjacent,
+        "mean_adjacent_frame_mae_0_255": round(float(np.mean(frame_deltas)), 4) if frame_deltas else 0.0,
+        "min_adjacent_frame_mae_0_255": round(float(np.min(frame_deltas)), 4) if frame_deltas else 0.0,
+        "max_adjacent_frame_mae_0_255": round(float(np.max(frame_deltas)), 4) if frame_deltas else 0.0,
+        "note": "All encoded frames were decoded and compared to the previous frame. MAE is a simple motion/change indicator, not a perceptual quality metric."
+    }
+    (output_dir / "visual_metrics.json").write_text(json.dumps(frame_visual_metrics, indent=2), encoding="utf-8")
     verify_seconds = time.perf_counter() - verify_started
     total_seconds = time.perf_counter() - generation_started
     if decoded != frames:
@@ -213,6 +292,7 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
         "schema": 1, "mode": "SmartMotion 2.5D camera-only prototype", "created_utc": datetime.now(timezone.utc).isoformat(),
         "input": str(input_image), "input_sha256": _sha256(input_image), "output": mp4.name,
         "width": width, "height": height, "fps": fps, "seconds_requested": seconds, "frames_decoded": decoded, "duration_seconds": duration,
+        "source_transform": transform, "visual_metrics": frame_visual_metrics,
         "codec": "h264_nvenc", "encoder_options": encoder_options, "nvenc_verified": True,
         "depth": depth_metrics, "render_and_encode_seconds": round(render_seconds, 3),
         "container_verification_seconds": round(verify_seconds, 3), "total_wall_seconds_including_depth": round(total_seconds, 3),
@@ -229,6 +309,7 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
     html_doc = ("<!doctype html><meta charset=utf-8><title>SmartMotion prototype</title>"
                 "<style>body{font:16px system-ui;background:#111;color:#eee;max-width:1100px;margin:2rem auto}video,img{width:100%}section{margin:1.5rem 0}</style>"
                 "<h1>SmartMotion · local 2.5D still animation</h1><video controls src='smartmotion.mp4'></video>"
+                "<section><h2>Full-sequence review (one frame per second; all frames decoded)</h2><img src='contact-sheet.jpg'></section>"
                 "<section><h2>Estimated relative depth (not metric depth)</h2><img src='depth-relative.png'></section>"
                 f"<pre>{html.escape(json.dumps(manifest,ensure_ascii=False,indent=2))}</pre>")
     (output_dir / "index.html").write_text(html_doc, encoding="utf-8")
@@ -242,8 +323,10 @@ def main() -> None:
     parser.add_argument("--depth-model", type=Path, default=None, help="Existing local Depth Anything V2 Small snapshot; no download is attempted")
     parser.add_argument("--seconds", type=int, default=5)
     parser.add_argument("--fps", type=int, default=FPS)
+    parser.add_argument("--output-size", type=str, default=None, help="Explicit WIDTHxHEIGHT output; center-crops to aspect then resizes without stretching (upscale is recorded)")
     args = parser.parse_args()
-    path = render(args.input, args.output_dir, args.depth_model, fps=args.fps, seconds=args.seconds)
+    output_size = parse_output_size(args.output_size) if args.output_size else None
+    path = render(args.input, args.output_dir, args.depth_model, fps=args.fps, seconds=args.seconds, output_size=output_size)
     print(json.dumps({"status":"done","video":str(path),"gallery":str(path.parent/"index.html"),"manifest":str(path.parent/"manifest.json")},indent=2))
 
 

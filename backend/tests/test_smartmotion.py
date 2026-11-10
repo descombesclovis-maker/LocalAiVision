@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from lib.smartmotion import camera_state, discover_local_depth_model, recommend_mode
+from lib.smartmotion import camera_state, center_crop_box, discover_local_depth_model, parse_output_size, recommend_mode
 
 
 def test_smartmotion_only_recommended_for_still_camera_motion():
@@ -27,6 +27,23 @@ def test_camera_path_is_smooth_bounded_and_ends_at_seven_percent_push_in():
     assert max(abs(s["pan_x"]) for s in states) < 18
     assert max(abs(s["pan_y"]) for s in states) < 5
     assert max(abs(states[i+1]["pan_x"] - states[i]["pan_x"]) for i in range(119)) < 1
+
+
+def test_output_size_is_explicit_and_bounded():
+    assert parse_output_size("1920x1080") == (1920, 1080)
+    for invalid in ("1920", "0x1080", "8000x1080", "abcx1080"):
+        with pytest.raises(ValueError):
+            parse_output_size(invalid)
+
+
+def test_center_crop_matches_target_aspect_without_distortion():
+    # A square product source is center-cropped vertically for 16:9; no axis is stretched.
+    box = center_crop_box(1024, 1024, 1920, 1080)
+    left, top, right, bottom = box
+    assert box == (0, 224, 1024, 800)
+    assert (right-left)/(bottom-top) == pytest.approx(1920/1080, abs=0.002)
+    # A landscape source loses only horizontal margins for a square output.
+    assert center_crop_box(1920, 1080, 1, 1) == (420, 0, 1500, 1080)
 
 
 def test_local_depth_discovery_never_accepts_partial_or_wrong_snapshot(tmp_path: Path):

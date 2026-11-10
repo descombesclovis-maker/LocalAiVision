@@ -1062,3 +1062,42 @@ Fin de V2-L : arrêter ici; ne pas commencer V2-M.
 - Aucun téléchargement, changement de modèle, workflow/paramètre par défaut, installation existante, base de données, route ou interface de production. Les deux sorties expérimentales restent locales et ignorées par Git.
 - Commande reproductible depuis `backend/` avec l'interpréteur ComfyUI existant : `& "$env:LOCALAPPDATA\Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI\.venv\Scripts\python.exe" -m lib.smartmotion --input bench_runs/app_flow/349182bf-8fa3-4598-ae62-27865428ea89.png --output-dir bench_runs/v2m/my_smartmotion_5s --seconds 5 --fps 24` (le modèle est trouvé dans le cache local; sinon arrêt sans téléchargement).
 - Fin V2-M : prototype SmartMotion 5 s démontré; pas d'intégration UI, de FastVideo valide, de génération dynamique d'objets, ni de validation réelle 30 s/1080p. Prochaine validation appropriée : mesurer un 30 s à la définition source en V2-N, puis tester une vraie sortie 1080p et des scènes plus difficiles avant de revendiquer l'objectif commercial.
+
+
+## V2-N — Validation SmartMotion 30 s / 1080p
+
+### Correctifs ciblés
+- `backend/lib/smartmotion.py` accepte maintenant une taille explicite `WIDTHxHEIGHT`. Le redimensionnement est refusé implicitement comme comportement par défaut : sans option, le rendu garde la résolution native.
+- Si le ratio cible diffère, le prototype applique un recadrage central sans étirement, puis indique explicitement dans `manifest.json` le rectangle source, la résolution source/sortie et tout upscale. Pour la photo carrée 1024x1024, le mode 1920x1080 utilise le crop `(0,224,1024,800)` (1024x576), puis un upscale Lanczos 1,875x; ce n'est pas un détail natif 1080p.
+- La revue vidéo décode toutes les frames, compte les répétitions exactes adjacentes, mesure la différence pixel moyenne adjacente et génère une planche à une image/seconde. Le chronomètre de profondeur synchronise CUDA avant d'arrêter la mesure afin d'inclure les opérations GPU asynchrones.
+- Tests de parsing/limites de sortie et de calcul de crop ajouté; paramètres caméra et NVENC inchangés.
+
+### Deux rendus réels sur RTX 3060 12 Go
+Entrée commune : photo SDXL locale `app_flow/349182bf-8fa3-4598-ae62-27865428ea89.png` (1024x1024), Depth Anything V2 Small déjà en cache local. Génération camera-only SmartMotion, H.264 `h264_nvenc` preset p5/VBR/CQ19, 24 fps. Le GPU ComfyUI était actif mais sa file était vide; mesures nvidia-smi et RAM sont globales système, pas isolées du processus.
+
+| Sortie | Images/durée vérifiées | Durée murale SmartMotion | Rendu + encodage | Décodage/revue complète | VRAM globale pic observé | RAM système pic observé |
+|---|---:|---:|---:|---:|---:|---:|
+| Native 1024x1024 | 720 / 30,000 s | **30,566 s** | 7,921 s | 14,850 s | 3 644 / 12 288 MiB | 19 959 / 32 665 MiB |
+| 1920x1080 | 720 / 30,000 s | **44,276 s** | 12,473 s | 24,361 s | 3 812 / 12 288 MiB | 20 043 / 32 665 MiB |
+
+Le temps mur inclut chargement des bibliothèques appelé dans `render`, chargement/inférence de profondeur (respectivement ~0,35/0,42 s; 0,35/0,43 s), rendu, encodage, décodage de vérification et génération de galerie/mesures. Il démarre à l'entrée de `render()` et n'inclut pas le lancement initial de l'interpréteur Python avant l'appel. L'objectif <60 s est donc atteint par la chaîne de rendu mesurée dans les deux modes; la marge 1080p est ~15,7 s. Ces temps ne sont pas une garantie sur d'autres PC ou sous contention GPU.
+
+- Les deux fichiers sont réellement 24 fps H.264 NVENC, durée 30 s. Les 720 frames de chaque fichier ont été décodées, aucune paire consécutive n'est identique; les planches couvrent 0–29 s à pas d'une seconde.
+- MAE moyenne entre frames adjacentes : 0,126/255 en 1024 et 0,162/255 en 1080; c'est un indicateur de variation, pas un score perceptuel.
+- Un masque cobalt heuristique retrouve une zone produit dans 720/720 frames. Son centroïde horizontal normalisé varie de 0,5034–0,5200 (1024) et 0,5089–0,5235 (1080). Le frame 0 décodé reste proche du crop/upscale de référence (MAE 1,46/255 et 1,42/255); l'écart au frame final (16,80/255 et 18,11/255) est cohérent avec le mouvement/zoom et la compression, pas une mesure de fidélité sémantique.
+
+### Créations locales (ignorées par Git)
+- 1024 natif : `backend/bench_runs/v2n/smartmotion_30s_1024/smartmotion.mp4`; galerie `index.html`; planche `contact-sheet.jpg`; mesures `manifest.json`, `visual_metrics.json`, `quality_analysis.json`.
+- 1080 : `backend/bench_runs/v2n/smartmotion_30s_1080p/smartmotion.mp4`; mêmes fichiers d'inspection.
+- La planche échantillonne une frame par seconde; le manifeste confirme aussi la lecture complète des 720 images. Les MP4 restent locaux et ne sont pas versionnés.
+
+### Qualité et limites (examen de l'ensemble)
+- Le produit bleu, les proportions principales, les couleurs et le décor restent visuellement cohérents sur les 30 s. Le mouvement est fluide, borné et sans répétition adjacente; il s'agit d'un lent push-in 7 % avec un arc latéral très léger, et non de mouvements complexes ou variés au sens cinématographique. Il peut paraître presque statique à un spectateur.
+- La sortie 1080 respecte le ratio par crop (aucun étirement), mais retire les bandes haute/basse de la source carrée puis agrandit 1,875x. La bouteille reste visible sur la planche; le rendu n'ajoute aucun détail au-delà de l'image SDXL et son texte illisible reste illisible.
+- Les déformations légères des bords de verre/étiquette, reflets, zone de profondeur et pixels de bord réfléchis héritent de la reprojection 2.5D; l'upscale ne les corrige pas. Aucun masque sémantique, optical-flow, nouvelle géométrie ou mouvement d'objet n'est généré. Ce n'est pas une vidéo générative et le résultat n'est pas équivalent à une animation commerciale tournée/rendue en 3D.
+- Les métriques de mouvement sont descriptives, et le masque cobalt est heuristique. Aucun jugement humain aveugle ni métrique perceptuelle n'a été réalisé. La qualité n'est validée que pour cette image produit.
+
+### Tests et livraison
+- `tests/test_smartmotion.py` : **6 réussis**; compile Python ComfyUI et `git diff --check` vérifiés.
+- Aucun modèle ou paquet téléchargé, aucune configuration d'installation, base utilisateur, workflow de production ou modèle existant modifié. Les deux vidéos et les analyses restent ignorées par Git.
+- Fin V2-N : un vrai MP4 30 s/24 fps a été validé à la résolution source (1024x1024) et un second à 1920x1080, chacun sous 60 s dans cette session. L'objectif concerne exclusivement SmartMotion camera-only sur cette image; il ne signifie pas 30 s de vidéo générative, une qualité native 1080p, ni une promesse générale de qualité professionnelle.
