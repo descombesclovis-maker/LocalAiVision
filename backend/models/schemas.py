@@ -158,6 +158,15 @@ class VideoRequest(BaseModel):
     comfy_preset: Optional[Literal["wan22", "wan21_fun_camera", "ltxv"]] = None
 
 
+class SmartMotionRequest(BaseModel):
+    prompt: str = Field(min_length=3, max_length=2000)
+    ref_media_id: str = Field(min_length=1, max_length=80)
+    seconds: int = Field(default=5, ge=5, le=30)
+    fps: Literal[24] = 24
+    output_size: Literal["source", "1280x720", "1920x1080"] = "source"
+    motion: Literal["push_in", "pan_left", "pan_right", "tilt_up", "tilt_down", "orbit_subtle", "static"] = "push_in"
+
+
 class UploadRequest(BaseModel):
     data_url: str
     source: Literal["upload", "ad", "logo"] = "upload"

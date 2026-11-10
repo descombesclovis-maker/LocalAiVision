@@ -1,8 +1,13 @@
 import asyncio
 import base64
+import json
 import logging
+import os
 import re
+import tempfile
 import time
+from functools import lru_cache
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -13,7 +18,7 @@ from lib.db import db
 from lib.llm import friendly_error, generate_image
 from lib.pipeline import spawn
 from lib.store import create_media, finish_media, media_url, new_id, now_iso, read_bytes
-from models.schemas import Activity, Brand, BrandCreate, ImageRequest, Media, UploadRequest, VideoModel, VideoRequest
+from models.schemas import Activity, Brand, BrandCreate, ImageRequest, Media, SmartMotionRequest, UploadRequest, VideoModel, VideoRequest
 
 router = APIRouter()
 log = logging.getLogger("media")
@@ -55,7 +60,106 @@ async def list_media(kind: str = "", source: str = ""):
 @router.get("/media/models/video", response_model=list[VideoModel])
 async def video_models():
     paid = [{"key": k, **{f: v[f] for f in ("label", "tagline", "durations", "aspects", "audio")}} for k, v in fal.VIDEO_MODELS.items()]
-    return [{"key": "comfy", **COMFY_VIDEO}, *paid]
+    smartmotion = {"key": "smartmotion", "label": "SmartMotion · local 2.5D", "tagline": "Animation de caméra à partir d'une image fixe; ne génère pas de mouvement d'objet.", "durations": ["5", "10", "15", "20", "30"], "aspects": ["1:1", "16:9"], "audio": False}
+    return [{"key": "comfy", **COMFY_VIDEO}, smartmotion, *paid]
+
+
+@lru_cache(maxsize=1)
+def _smartmotion_runtime():
+    from lib.smartmotion import local_runtime
+    return local_runtime()
+
+
+@router.get("/media/models/smartmotion")
+async def smartmotion_status():
+    try:
+        python, depth = await asyncio.to_thread(_smartmotion_runtime)
+        return {"available": True, "reason": "Runtime local et modèle de profondeur déjà installés", "depth_model": depth.name}
+    except Exception as exc:
+        return {"available": False, "reason": str(exc)[:240]}
+
+
+_SMARTMOTION_PROCS: dict[str, asyncio.subprocess.Process] = {}
+
+
+async def _run_smartmotion(mid: str, body: SmartMotionRequest, image_bytes: bytes, python: Path, depth_model: Path) -> None:
+    try:
+        async with gpu_queue.slot(mid, "video", "SmartMotion", body.prompt, "media"):
+            await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "SmartMotion · chargement local…", "updated_at": now_iso()}})
+            with tempfile.TemporaryDirectory(prefix="localaistudio-smartmotion-") as temp:
+                root = Path(temp)
+                source = root / "reference.png"
+                output = root / "output"
+                source.write_bytes(image_bytes)
+                output.mkdir()
+                command = [str(python), "-m", "lib.smartmotion", "--input", str(source), "--output-dir", str(output),
+                           "--depth-model", str(depth_model), "--seconds", str(body.seconds), "--fps", str(body.fps), "--motion", body.motion]
+                if body.output_size != "source":
+                    command.extend(["--output-size", body.output_size])
+                env = os.environ.copy()
+                env.update({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "PYTHONIOENCODING": "utf-8"})
+                proc = await asyncio.create_subprocess_exec(*command, cwd=str(Path(__file__).resolve().parents[1]), env=env,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+                _SMARTMOTION_PROCS[mid] = proc
+                deadline = asyncio.get_running_loop().time() + 900
+                last_output = ""
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        proc.kill()
+                        await proc.wait()
+                        raise TimeoutError("SmartMotion a dépassé le délai local de 15 minutes")
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=remaining)
+                    if not line:
+                        break
+                    text = line.decode("utf-8", errors="replace").strip()
+                    last_output = text[-1000:]
+                    try:
+                        event = json.loads(text)
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("event") == "progress":
+                        done, total = int(event["frames_done"]), int(event["frames_total"])
+                        pct = min(100, round(done * 100 / max(total, 1)))
+                        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": f"SmartMotion · rendu {done}/{total} images ({pct}%)", "updated_at": now_iso()}})
+                returncode = await proc.wait()
+                if returncode != 0:
+                    raise RuntimeError(f"SmartMotion a échoué ({returncode}): {last_output or 'aucun détail fourni'}")
+                video = output / "smartmotion.mp4"
+                manifest_path = output / "manifest.json"
+                if not video.is_file() or not manifest_path.is_file():
+                    raise RuntimeError("SmartMotion n'a pas produit la vidéo et son manifeste")
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                data = video.read_bytes()
+                doc = await db.media.find_one({"id": mid})
+                if doc and doc.get("status") != "cancelled":
+                    await finish_media(mid, data, "video/mp4")
+                    await db.media.update_one({"id": mid}, {"$set": {"generation_metrics": manifest, "progress_label": "SmartMotion terminé · MP4 vérifié", "updated_at": now_iso()}})
+    except asyncio.CancelledError:
+        proc = _SMARTMOTION_PROCS.get(mid)
+        if proc and proc.returncode is None:
+            proc.kill()
+        raise
+    except Exception as exc:
+        log.warning("SmartMotion %s: %s", mid, exc)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec SmartMotion", "updated_at": now_iso()}})
+    finally:
+        _SMARTMOTION_PROCS.pop(mid, None)
+
+
+@router.post("/media/smartmotion", response_model=Media)
+async def create_smartmotion(body: SmartMotionRequest):
+    try:
+        python, depth_model = await asyncio.to_thread(_smartmotion_runtime)
+    except Exception as exc:
+        raise HTTPException(503, f"SmartMotion indisponible : {str(exc)[:220]}") from exc
+    ref, mime = await _ref_b64(body.ref_media_id)
+    if not ref:
+        raise HTTPException(400, "SmartMotion nécessite une image de départ")
+    image_bytes = base64.b64decode(ref)
+    m = await create_media("video", "smartmotion", body.prompt, "SmartMotion · local 2.5D", aspect_ratio="source" if body.output_size == "source" else body.output_size, duration=f"{body.seconds}s")
+    spawn(_run_smartmotion(m["id"], body, image_bytes, python, depth_model))
+    return _out(m)
 
 
 @router.get("/media/{mid}", response_model=Media)
@@ -262,6 +366,9 @@ async def cancel_media(mid: str):
     if d["status"] not in ("pending", "running"):
         raise HTTPException(400, "Cette génération n'est plus en cours")
     await gpu_queue.cancel(mid)
+    smartmotion_proc = _SMARTMOTION_PROCS.get(mid)
+    if smartmotion_proc and smartmotion_proc.returncode is None:
+        smartmotion_proc.terminate()
     if d.get("comfy"):
         try:
             await comfy.cancel(d["comfy"])

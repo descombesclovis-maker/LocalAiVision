@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
 import type {
   Activity, Brand, BrandCreate, ChatRequest, ImageRequest, Media, Project, ProjectCreate, ProjectSummary,
-  UploadRequest, Version, VideoModel, VideoRequest,
+  SmartMotionRequest, SmartMotionStatus, UploadRequest, Version, VideoModel, VideoRequest,
 } from "@/lib/types";
 
 export function errMsg(e: unknown): string {
@@ -48,6 +48,9 @@ export const useMedia = (kind = "") =>
 
 export const useVideoModels = () =>
   useQuery({ queryKey: ["video-models"], queryFn: () => apiGet<VideoModel[]>("/media/models/video"), staleTime: Infinity });
+
+export const useSmartMotionStatus = () =>
+  useQuery({ queryKey: ["smartmotion-status"], queryFn: () => apiGet<SmartMotionStatus>("/media/models/smartmotion"), staleTime: 60_000 });
 
 function useInvalidate() {
   const qc = useQueryClient();
@@ -98,6 +101,7 @@ export function useMediaActions() {
   return {
     image: useMutation({ mutationFn: (b: ImageRequest) => apiPost<Media>("/media/images", b), onSuccess: ok, onError }),
     video: useMutation({ mutationFn: (b: VideoRequest) => apiPost<Media>("/media/videos", b), onSuccess: ok, onError }),
+    smartmotion: useMutation({ mutationFn: (b: SmartMotionRequest) => apiPost<Media>("/media/smartmotion", b), onSuccess: ok, onError }),
     upload: useMutation({ mutationFn: (b: UploadRequest) => apiPost<Media>("/media/upload", b), onSuccess: ok, onError }),
     cancel: useMutation({ mutationFn: (id: string) => apiPost<Media>(`/media/${id}/cancel`), onSuccess: () => { ok(); toast("Génération annulée"); }, onError }),
     remove: useMutation({ mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/media/${id}`), onSuccess: ok, onError }),

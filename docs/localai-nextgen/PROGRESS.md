@@ -1101,3 +1101,50 @@ Le temps mur inclut chargement des bibliothèques appelé dans `render`, chargem
 - `tests/test_smartmotion.py` : **6 réussis**; compile Python ComfyUI et `git diff --check` vérifiés.
 - Aucun modèle ou paquet téléchargé, aucune configuration d'installation, base utilisateur, workflow de production ou modèle existant modifié. Les deux vidéos et les analyses restent ignorées par Git.
 - Fin V2-N : un vrai MP4 30 s/24 fps a été validé à la résolution source (1024x1024) et un second à 1920x1080, chacun sous 60 s dans cette session. L'objectif concerne exclusivement SmartMotion camera-only sur cette image; il ne signifie pas 30 s de vidéo générative, une qualité native 1080p, ni une promesse générale de qualité professionnelle.
+
+## V2-O — mémoire, moteur vidéo et intégration SmartMotion (réalisé, portée qualifiée)
+
+### Mission 1 — ressources mémoire gratuites : inventaire vérifié
+
+Mesures de cette machine pendant V2-O : RAM physique Windows 31,90 Gio, dont 13,51 Gio disponibles au relevé; fichier d'échange `C:\pagefile.sys` de 4 337 Mio réservé, usage courant 75 Mio. ComfyUI 0.37.2 expose une RTX 3060 avec 12 288 Mio VRAM; un relevé ComfyUI à file vide indiquait 10 853 Mio libres. Ce sont des mesures à différents instants, non une garantie de disponibilité simultanée. Dans les deux rendus V2-O, les pics échantillonnés globaux étaient 3 714/12 288 et 3 701/12 288 Mio VRAM, et 20 140/32 665 et 20 148/32 665 Mio de RAM utilisée. L'échantillonnage est système et peut manquer des pointes; il ne mesure pas l'allocation propre au backend.
+
+- RAM physique = mémoire réelle partagée par Windows et les programmes. Le pagefile SSD est de la mémoire virtuelle de secours : il permet de dépasser le commit physique au prix d'accès disque bien plus lents; il n'augmente ni la RAM physique ni la VRAM et ne rend pas viable un modèle qui manque de mémoire GPU.
+- VRAM = mémoire locale de la carte graphique; seule une meilleure efficacité/offload de l'application ou une autre carte change la capacité GPU directement accessible. SmartMotion infère la profondeur sur CUDA puis libère explicitement le modèle avant de rendre/encoder les frames; le modèle Depth Anything V2 Small alloue ~209 Mio CUDA au pic observé sur la scène produit 1024². Cela évite de garder ses poids pendant le rendu, mais ne crée pas de mémoire.
+- Mémoire distante / calcul déporté gratuit : aucun endpoint gratuit, sans carte bancaire et fiable n'a été intégré ou utilisé. Un PC personnel supplémentaire peut traiter une tâche distribuée si le logiciel et le réseau sont configurés, mais cela fournit une ressource distante, pas de la VRAM locale; réseau, sécurité, disponibilité et orchestration sont à la charge de l'utilisateur. Aucune machine secondaire n'a été supposée.
+- Quantification : aucune conversion ni installation faite. Le moteur Comfy Kitchen INT8 testé précédemment avait accéléré un test vidéo V2-I (résultat indicatif, seed non comparable) mais n'a pas été qualifié comme réduction mémoire de SmartMotion et reste désactivé par défaut. La profondeur reste en précision standard. Aucun changement de pagefile n'a été appliqué.
+- Conclusion utile et gratuite appliquée : réutiliser le runtime ComfyUI/PyTorch et le modèle Depth Anything déjà installés, lancer hors ligne, vérifier CUDA/local files avant d'accepter une tâche, libérer le modèle de profondeur avant le rendu. Aucun paquet ou poids téléchargé. Le détecteur runtime confirme réellement PyTorch CUDA + Transformers + PyAV + Pillow; sinon l'API refuse explicitement SmartMotion en 503.
+
+### Mission 2 — capacités 2026 et améliorations effectivement livrées
+
+Sources consultées le 2026-11-10 : VBench (qualité image, cohérence sujet/arrière-plan, scintillement, fluidité, sémantique) et VBench-2.0 (fidélité intrinsèque/physique); ces suites évaluent de la vidéo générée et ne permettent pas d'assimiler un déplacement caméra 2.5D à un modèle génératif. SmartMotion ne prétend donc pas rivaliser avec les meilleurs générateurs 2026.
+
+- SmartMotion conserve Depth Anything V2 Small déjà en cache, avec inférence locale hors ligne. Il propose maintenant 7 trajectoires image-space bornées (push-in, pan G/D, tilt haut/bas, arc subtil pseudo-3D, fixe); ce ne sont ni des poses 3D résolues ni un suivi sémantique. Les détails/couleurs de la source restent visibles parce que l'image est reprojetée, mais le texte illisible de la source reste illisible.
+- Le masque d'objet précis, segmentation vidéo, correction sémantique de déformations et inpainting des régions révélées ne sont pas implémentés. Aucun poids SAM/SAM2 ou nouveau modèle n'a été téléchargé; aucune reconstruction ne peut être affirmée. Le padding miroir existant peut montrer des bords réfléchis. Intégrer une segmentation généralisable et une reconstruction temporelle fiable nécessite un modèle + validation plus lourde, absents des ressources installées et hors achat/téléchargement autorisé.
+- Mouvement réel : le preset local Wan 2.1 Fun Camera 1.3B (I2V) et son workflow génératif existant restent le chemin ComfyUI distinct; il n'est pas remplacé par SmartMotion et continue à nécessiter ses poids et ComfyUI. SmartMotion ne fait pas marcher des personnages/objets. Aucun nouveau checkpoint téléchargé. Le preset peut échouer si ses dépendances ComfyUI ne sont pas installées.
+
+### Mission 3 — intégration UI/API
+
+- Nouveau choix `SmartMotion · local 2.5D` dans le sélecteur vidéo, indépendant de ComfyUI/Wan et des autres moteurs conservés. API `GET /api/media/models/smartmotion` annonce disponibilité/référence de profondeur; `POST /api/media/smartmotion` accepte une image existante, durée 5/10/15/20/30 s, 24 fps, taille source/720p/1080p et trajectoire caméra. La durée est plafonnée à 30 s, aucune sortie >1080p exposée dans l'UI.
+- Tâche intégrée à la file GPU, états running/done/error/cancel, progrès réel toutes les secondes pendant la boucle de rendu, MP4 sauvegardé dans la bibliothèque, lecture/téléchargement via les cartes média existantes. Les métadonnées persistées incluent durée murale, images décodées, trajectoire, résolution et relevés système RAM/VRAM.
+- Le message UI avertit explicitement que le prompt n'est pas interprété en mode SmartMotion; la consigne effective se limite au mouvement caméra choisi. Pour demander une action/mouvement d'objet, utiliser l'option générative locale et son modèle vidéo.
+
+### Validation V2-O — deux scènes, reproductible
+
+Deux rendus réels exécutés avec le runtime ComfyUI existant, RTX 3060, NVENC, 24 fps, Depth Anything V2 Small en cache; toutes les frames ont été décodées. Scène 1 : photo produit SDXL (1024²), push-in, sortie native. Scène 2 : paysage géométrique de test créé localement (1024x576), arc subtil, recadrage/agrandissement explicite 1280x720. Ce deuxième test valide une autre composition, mais **n'est pas une photo naturelle**.
+
+| Scène | Sortie | Temps mur total (modèle/profondeur + rendu + vérification) | Rendu/encodage | RAM utilisée pic système | VRAM utilisée pic système | Décodage | MAE adjacente moyenne |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Produit, push-in | 1024x1024, 5 s, 120 frames | 12,248 s | 1,506 s | 20 140/32 665 Mio | 3 714/12 288 Mio | 120/120, 0 identique | 0,636/255 |
+| Paysage synthétique, arc | 1280x720, 5 s, 120 frames | 11,252 s | 1,420 s | 20 148/32 665 Mio | 3 701/12 288 Mio | 120/120, 0 identique | 0,275/255 |
+
+La MAE mesure un changement simple, pas une qualité perceptuelle : la scène synthétique a un mouvement moindre et des formes simples. Examen visuel des cinq frames par seconde : le produit reste centré et le paysage demeure stable, mais l'arc reste subtil; pas de mouvement d'objet. Aucun benchmark perceptuel automatisé complet ni test comparatif à paramètres/scènes égaux avec modèle 2026 exécuté localement; fidélité d'instructions non mesurable puisque le prompt est explicitement ignoré.
+
+Artefacts ignorés par Git : `backend/bench_runs/v2o/product/render/` et `backend/bench_runs/v2o/synthetic_landscape/render/` (MP4, planches, profondeur, manifeste); source synthétique dans `.../synthetic_landscape/source.png`. La vidéo initiale d'essai n'a pas été modifiée.
+
+### Tests et limites
+
+- `backend/tests/test_smartmotion.py` + `test_smartmotion_api.py` : **11 réussis**; `py_compile`, typecheck et `yarn build` réussis. À l'instant du build, le backend répond au statut SmartMotion `available: true` grâce au runtime local détecté. Le parcours complet API+Mongo+UI n'a pas été cliqué en navigateur dans V2-O; la persistance tâche est couverte par tests mockés, et la génération directe du moteur a été réellement exécutée deux fois.
+- Limites restantes : segmentation et inpainting absents; profondeur monoculaire relative (pas métrique); pas de vrais mouvements d'objets/acteurs; pas d'interprétation prompt SmartMotion; 1080p issu d'un crop/upscale si l'image source est plus petite; performances variables sous contention; les deux scènes V2-O sont courtes, une seule est une photo; aucune équivalence aux générateurs de pointe démontrée.
+- Aucun modèle/paquet téléchargé, aucun abonnement/service payant, aucun changement de configuration Windows/pagefile, aucune autre édition, base ou workflow précédent modifié. Presets antérieurs conservés.
+- Sources : https://arxiv.org/abs/2311.17982 (VBench), https://arxiv.org/abs/2503.21755 (VBench-2.0), https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf (modèle de profondeur Apache-2.0 déjà présent).
+- Livraison V2-O : 530 tests backend réussis, 24 ciblés SmartMotion/vidéo réussis, `py_compile`, `git diff --check`, TypeScript et `yarn build` réussis (avertissement existant de bundle >500 kB). Deux rendus locaux réels terminés et examinés visuellement. Les MP4/manifests restent ignorés par Git. Code et présent rapport livrés dans le commit V2-O suivant.

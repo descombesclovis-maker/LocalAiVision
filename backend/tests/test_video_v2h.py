@@ -126,7 +126,8 @@ def test_video_studio_sends_selected_preset_camera_and_enforces_i2v():
     src = Path(__file__).parents[2].joinpath("frontend/src/components/vision.tsx").read_text(encoding="utf-8")
     assert 'comfy_preset: model === "comfy" ? comfyPreset : null' in src
     assert 'camera_pose: model === "comfy" ? cameraPose : "Static"' in src
-    assert 'const needsImage = model === "comfy" && comfyPreset === "wan21_fun_camera"' in src
-    assert '|| comfyUnavailable}' in src
+    assert 'model === "smartmotion" || (model === "comfy" && comfyPreset === "wan21_fun_camera")' in src
+    assert 'const smartMotionUnavailable = model === "smartmotion"' in src
+    assert '|| comfyUnavailable || smartMotionUnavailable}' in src
     assert 'video-comfy-preset' in src and 'video-camera-pose' in src
     assert 'const [duration, setDuration] = useState("3")' in src

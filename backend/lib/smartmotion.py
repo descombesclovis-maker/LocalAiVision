@@ -51,21 +51,75 @@ def smoothstep(value: float) -> float:
     return value * value * (3.0 - 2.0 * value)
 
 
-def camera_state(frame_index: int, frame_count: int, width: int, height: int) -> dict[str, float]:
-    """A gentle 5s product-ad move: 7% push-in plus bounded lateral/vertical drift."""
+CAMERA_MOVES = ("push_in", "pan_left", "pan_right", "tilt_up", "tilt_down", "orbit_subtle", "static")
+
+
+def camera_state(frame_index: int, frame_count: int, width: int, height: int, motion: str = "push_in") -> dict[str, float]:
+    """Bounded 2.5D camera path. These are image-space moves, not true 3D camera solves."""
     if frame_count < 2 or not 0 <= frame_index < frame_count:
         raise ValueError("frame index must be within a sequence of at least two frames")
+    if motion not in CAMERA_MOVES:
+        raise ValueError(f"unsupported SmartMotion camera move: {motion}")
     t = frame_index / (frame_count - 1)
     e = smoothstep(t)
-    # A subtle, bounded arc avoids a linear cumulative pan and leaves crop margin for reprojection.
     arc = math.sin(math.pi * e)
-    return {
-        "t": t,
-        "zoom": 1.0 + 0.07 * e,
-        "pan_x": width * (0.012 * e + 0.004 * arc),
-        "pan_y": -height * 0.004 * arc,
-        "parallax": width * 0.008 * e,
-    }
+    if motion == "static":
+        return {"t": t, "zoom": 1.0, "pan_x": 0.0, "pan_y": 0.0, "parallax": 0.0}
+    if motion == "push_in":
+        # Keep the validated V2-N motion envelope: gentle zoom and shallow depth parallax.
+        return {"t": t, "zoom": 1.0 + 0.07 * e, "pan_x": width * (0.012 * e + 0.004 * arc),
+                "pan_y": -height * 0.004 * arc, "parallax": width * 0.008 * e}
+    if motion in ("pan_left", "pan_right"):
+        sign = 1.0 if motion == "pan_left" else -1.0
+        return {"t": t, "zoom": 1.025, "pan_x": sign * width * 0.018 * (e - 0.5),
+                "pan_y": 0.0, "parallax": sign * width * 0.002 * (e - 0.5)}
+    if motion in ("tilt_up", "tilt_down"):
+        sign = 1.0 if motion == "tilt_up" else -1.0
+        return {"t": t, "zoom": 1.025, "pan_x": 0.0, "pan_y": sign * height * 0.018 * (e - 0.5),
+                "parallax": 0.0}
+    return {"t": t, "zoom": 1.0 + 0.025 * e, "pan_x": width * 0.008 * math.sin(2 * math.pi * e),
+            "pan_y": -height * 0.006 * arc, "parallax": width * 0.004 * math.sin(2 * math.pi * e)}
+
+
+def runtime_candidates() -> list[Path]:
+    """Candidate local interpreters with the already-installed renderer dependencies; no install/network."""
+    candidates: list[Path] = []
+    for key in ("LAS_SMARTMOTION_PYTHON", "COMFYUI_PYTHON"):
+        if os.environ.get(key):
+            candidates.append(Path(os.environ[key]).expanduser())
+    local = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    candidates.extend([
+        local / "Comfy-Desktop" / "ComfyUI-Installs" / "ComfyUI" / "ComfyUI" / ".venv" / "Scripts" / "python.exe",
+        local / "Comfy-Desktop" / "ComfyUI-Installs" / "ComfyUI" / "ComfyUI" / ".venv" / "bin" / "python",
+    ])
+    seen: set[str] = set()
+    return [p for p in candidates if p.is_file() and not (str(p.resolve()).casefold() in seen or seen.add(str(p.resolve()).casefold()))]
+
+
+def discover_local_video_runtime() -> Path | None:
+    """Find ComfyUI's local server without starting/reconfiguring it; no network service or install."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:8188/system_stats", timeout=2) as response:
+            if response.status != 200:
+                return None
+    except Exception:
+        return None
+    return Path("http://127.0.0.1:8188")
+
+
+def local_runtime() -> tuple[Path, Path]:
+    """Return an installed Python runtime and cached depth model, or fail closed without downloading."""
+    model_dir = discover_local_depth_model()
+    probe = "import importlib.util,sys; req=['torch','transformers','av','PIL']; missing=[x for x in req if importlib.util.find_spec(x) is None]; import torch; sys.exit(1 if missing or not torch.cuda.is_available() else 0)"
+    for interpreter in runtime_candidates():
+        try:
+            check = subprocess.run([str(interpreter), "-c", probe], capture_output=True, timeout=15)
+            if check.returncode == 0:
+                return interpreter, model_dir
+        except (OSError, subprocess.SubprocessError):
+            continue
+    raise RuntimeError("SmartMotion needs an existing local Python runtime with torch, transformers, PyAV and Pillow; no packages were installed")
 
 
 def _sha256(path: Path) -> str:
@@ -153,10 +207,12 @@ def center_crop_box(source_width: int, source_height: int, target_width: int, ta
     return 0, top, source_width, top + crop_height
 
 
-def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *, fps: int = FPS, seconds: int = 5, output_size: tuple[int, int] | None = None) -> Path:
+def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *, fps: int = FPS, seconds: int = 5, output_size: tuple[int, int] | None = None, motion: str = "push_in", on_progress=None) -> Path:
     generation_started = time.perf_counter()
-    if seconds < 1 or fps < 1:
-        raise ValueError("seconds and fps must be positive")
+    if seconds < 1 or seconds > 30 or fps < 1 or fps > 60:
+        raise ValueError("seconds must be 1–30 and fps 1–60")
+    if motion not in CAMERA_MOVES:
+        raise ValueError(f"unsupported SmartMotion camera move: {motion}")
     if not input_image.is_file():
         raise FileNotFoundError(input_image)
     if output_dir.exists() and any(output_dir.iterdir()):
@@ -213,7 +269,7 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
     stream.options = dict(encoder_options)
     try:
         for index in range(frames):
-            state = camera_state(index, frames, width, height)
+            state = camera_state(index, frames, width, height, motion)
             # Inverse warp: zoom and camera translation are smooth; depth changes translation by <0.8% width.
             sx = (xx-cx)/state["zoom"] + cx - state["pan_x"] - rel_depth * state["parallax"]
             sy = (yy-cy)/state["zoom"] + cy - state["pan_y"]
@@ -234,6 +290,8 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
                     vram_peak = max(vram_peak or 0, snap["vram_used_mib"])
                 if snap.get("ram_used_mib") is not None:
                     ram_peak = max(ram_peak or 0, snap["ram_used_mib"])
+            if on_progress and ((index + 1) % fps == 0 or index + 1 == frames):
+                on_progress(index + 1, frames)
         for packet in stream.encode():
             encode.mux(packet)
     finally:
@@ -293,7 +351,7 @@ def render(input_image: Path, output_dir: Path, model_dir: Path | None = None, *
         "input": str(input_image), "input_sha256": _sha256(input_image), "output": mp4.name,
         "width": width, "height": height, "fps": fps, "seconds_requested": seconds, "frames_decoded": decoded, "duration_seconds": duration,
         "source_transform": transform, "visual_metrics": frame_visual_metrics,
-        "codec": "h264_nvenc", "encoder_options": encoder_options, "nvenc_verified": True,
+        "camera_motion": motion, "prompt_interpreted": False, "codec": "h264_nvenc", "encoder_options": encoder_options, "nvenc_verified": True,
         "depth": depth_metrics, "render_and_encode_seconds": round(render_seconds, 3),
         "container_verification_seconds": round(verify_seconds, 3), "total_wall_seconds_including_depth": round(total_seconds, 3),
         "output_fps": round(decoded / max(render_seconds, 1e-9), 3), "first_frame_seconds": round(first_frame_seconds or 0, 3),
@@ -324,10 +382,13 @@ def main() -> None:
     parser.add_argument("--seconds", type=int, default=5)
     parser.add_argument("--fps", type=int, default=FPS)
     parser.add_argument("--output-size", type=str, default=None, help="Explicit WIDTHxHEIGHT output; center-crops to aspect then resizes without stretching (upscale is recorded)")
+    parser.add_argument("--motion", choices=CAMERA_MOVES, default="push_in")
     args = parser.parse_args()
     output_size = parse_output_size(args.output_size) if args.output_size else None
-    path = render(args.input, args.output_dir, args.depth_model, fps=args.fps, seconds=args.seconds, output_size=output_size)
-    print(json.dumps({"status":"done","video":str(path),"gallery":str(path.parent/"index.html"),"manifest":str(path.parent/"manifest.json")},indent=2))
+    def report_progress(done: int, total: int) -> None:
+        print(json.dumps({"event": "progress", "frames_done": done, "frames_total": total}), flush=True)
+    path = render(args.input, args.output_dir, args.depth_model, fps=args.fps, seconds=args.seconds, output_size=output_size, motion=args.motion, on_progress=report_progress)
+    print(json.dumps({"event": "done", "video": str(path), "gallery": str(path.parent/"index.html"), "manifest": str(path.parent/"manifest.json")}), flush=True)
 
 
 if __name__ == "__main__":
