@@ -915,3 +915,53 @@ La comparaison visuelle et le temps ComfyUI start→success sont appariés sur l
 
 Fin de V2-I : arrêter ici, ne pas activer le backend expérimental par défaut sans validation multi-seed.
 
+## V2-J — LongForm local, prototype de continuité sur deux segments
+
+### But et garde-fous
+- Prototype hors production : `backend/lib/video_longform.py`, assemblage local par PyAV `backend/scripts/longform_assemble_av.py`, tests `backend/tests/test_video_longform.py`. **Aucune route, valeur par défaut, workflow de génération existant, modèle ou installation ComfyUI n'a été changé.** Aucun téléchargement, achat ou arrêt de service utilisateur.
+- Prototype réel : deux rendus WAN 2.1 Fun Camera I2V de 3 s, segment 2 amorcé par la dernière image décodée du segment 1, reprise par segments via manifeste JSON atomique + empreintes SHA-256. Assemblage local supprime une image au raccord et vérifie la cadence/durée; galerie autonome.
+- La reprise refuse un manifeste si le prompt, l'image source, le modèle ou les paramètres diffèrent. Run local/gitignored : `backend/bench_runs/v2j/continuity_two_segment_20261110/` (manifest, deux MP4, deux images de fin, MP4 assemblé, planche contact, rapport). Galerie vérifiée dans le navigateur local.
+
+### Ressources et capacité observées
+- Windows x64, 32,65 GiB RAM physique; ComfyUI 0.37.2 / PyTorch 2.12.1+cu130 / Python 3.13.12, RTX 3060 12 Gio. ComfyUI rapportait avant le rendu 15,85 GB RAM libre (~14,78 GiB) et 9,28 GB VRAM libre (~8,64 GiB); nvidia-smi au repos environ 3,3 GiB occupés. Ollama sans modèle chargé; file ComfyUI vide avant l'essai.
+- Les quatre poids Wan requis étaient présents d'après `object_info` : `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors`, `umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `wan_2.1_vae.safetensors`, `clip_vision_h.safetensors`. Pas de rendu LTX effectué (workflow/RAM/VRAM non qualifiés).
+- RAM utilisée observée : segment 1, 17 524 MiB au départ / 19 378 MiB pic (13 287 MiB libres minimum); segment 2, 18 080 / 19 160 MiB (13 505 MiB libres minimum). Pas d'épuisement RAM sur le modèle 1,3B; ces chiffres ne prédisent pas la charge d'un modèle plus grand.
+- VRAM : le collecteur intégré avait un bug (`max(int, None)`), laissant ses pics `null`. Un moniteur nvidia-smi séparé, ~1 Hz, lancé alors que le segment 2 tournait déjà, a observé jusqu'à **8 074 / 12 288 MiB** pendant le reste de ce segment. C'est un pic observé, pas le pic absolu des deux rendus. Le collecteur est corrigé et couvert par un test pour les essais ultérieurs.
+
+### Rendu vérifié
+| Segment | ComfyUI start→success | setup→premier pas | échantillonnage observé | encodage | RAM pic |
+|---|---:|---:|---:|---:|---:|
+| 1, seed 753934134 | 426,750 s | 22,859 s | 385,016 s / 20 steps | 1,344 s | 19 378 MiB |
+| 2, seed 753934135 | 424,453 s | 9,328 s | 396,156 s / 20 steps | 1,344 s | 19 160 MiB |
+
+- MP4 assemblé : H.264, 832×480, 24 fps, **144 images décodées = 6,000 s**, sources de 73 images chacune, une image de raccord retirée, fichier ~665 Ko. PyAV/FFmpeg était déjà présent dans le Python ComfyUI; rien n'a été installé. GPU time total environ 14 min 11 s, hors prévol/fichier.
+- Projection non garantie : dix segments × ~425 s = ~71 minutes de calcul pour 30 s. Wan impose 73 images (4n+1) par segment de 3 s; dix segments avec neuf images de frontière partagées produisent 721 candidates, rognées à 720 pour une sortie exactement 30,000 s à 24 fps.
+
+### Qualité et verdict du test de continuité
+- Flacon bleu/cobalt, silhouette, décor marbre et lumière restent visuellement cohérents entre segments. Raccord après retrait d'une image : MAE RGB 5,76/255, contre 4,37/255 moyenne entre images internes adjacentes; statistiques descriptives uniquement, pas des scores perceptuels. Planche de toutes les images : `continuity-contact.jpg`.
+- **Défaut bloquant avant extension** : répéter `Pan Left` dans le segment suivant cumule le mouvement; le flacon est fortement rogné puis presque hors cadre à la fin du segment 2. Le capuchon initial reste fixé au flacon (il l'est déjà dans l'image source); le texte d'étiquette est illisible.
+- **Décision : ne pas lancer 30 s avec cette stratégie.** D'abord tester une politique de pose par segment (trajectoire absolue/pose neutre ou plan-clés avec contrôle de mouvement), puis plusieurs seeds; conserver la reprise par segment et vérifier cadrage, vitesse et stabilité au raccord. Aucun résultat de perfection n'est revendiqué.
+
+### Offload, Dynamic VRAM, Block Swap, VAE Tiling, quantification
+- Capacités réellement interrogées sur le ComfyUI installé : `main.py --help` expose `--enable/disable-dynamic-vram`, `--async-offload`, `--fast-disk`, `--cpu-vae`, `--lowvram/--novram`, réserve VRAM et options de cache. Le processus utilise le démarrage Desktop standard, sans `--disable-dynamic-vram`; modèle manuel non imposé. L'offload CPU/asynchrone peut réduire la VRAM mais augmente les transferts PCIe et sollicite la RAM; ce n'est pas un gain gratuit.
+- `object_info` (968 types de nœuds) confirme `VAEDecodeTiled` disponible, avec `tile_size`, `overlap`, `temporal_size`, `temporal_overlap`. Il peut baisser le pic VAE spatial/temporel, mais ne réduit pas les poids Transformer ni le coût dominant du sampler; risque de coutures possible. Pas testé ici : le workflow a conservé `VAEDecode` standard.
+- Block swap : l'unique `wanBlockSwap` dans `object_info` est explicitement marqué **deprecated no-op** (« intercept ... unstable and make it no-op »), il ne swap donc pas les blocs. Le nœud d'extension `WanVideoBlockSwap` n'est pas installé. Ne pas confondre le no-op avec une optimisation valide; vérifier maintenance/compatibilité et autorisation avant d'installer un custom node. Le catalogue a des nœuds `LTXVAddLatentGuide`, mais compatibilité du modèle LTX-2.3 local non prouvée.
+- Quantification FP8/INT8/GGUF peut réduire les poids/VRAM au prix potentiel de fidélité ou compatibilité. Le checkpoint LTX-2.3 FP8 installé pèse ~27,14 Go; la RAM libre mesurée (~14,78 GiB) est inférieure à sa taille. Un chargement entier en RAM CPU n'est pas prudent; mmap/block-swap ne sont pas validés et peuvent ralentir fortement.
+- La distillation en 8 steps n'amoindrit pas la taille des poids : le LTX-2.3 distilled reste un modèle 22B; potentiellement moins de calcul, pas un « modèle 2B ».
+
+### Modèles et licences
+| Modèle | Statut local | Profil RTX 3060 12 Gio | Licence à contrôler |
+|---|---|---|---|
+| Wan 2.1 Fun Camera 1.3B bf16 | Installé; I2V testé | Seul chemin vidéo prouvé sans nouveau modèle; ~7 min/3 s; ~8 GiB observés partiellement; cadrage/mouvement à améliorer | La fiche du checkpoint Fun Camera cite Apache-2.0; vérifier chaque fichier associé et usage visé |
+| LTX-2.3 22B dev FP8 | Checkpoint local ~27,14 Go; pas de rendu V2-J | Potentiel qualité/polyvalence mais poids trop grands pour 12 Gio; workflow natif LTX-2.3, offload et vitesse non validés, RAM libre < taille fichier | LTX-2 Community License : entités ≥10 M$ de revenus annuels doivent obtenir une licence commerciale payante; examiner les restrictions d'usage |
+| LTX-2.3 22B distilled / distilled 1.1 | Non inventoriés localement | 8 steps réduisent le calcul, pas l'empreinte mémoire 22B; offload requis | Même licence LTX-2 |
+| LTX-Video v0.9.8 2B distilled (FP8 possible) | Absent localement | Candidat léger plausible pour 12 Gio, compromis qualité possible; workflow, poids et performance à vérifier avant toute acquisition | Ancienne Open Weights License 0.X; pas Apache, lire les termes de la version exacte |
+| Wan 2.2 TI2V 5B / LTX-Video 2B 0.9.5 | Absents; aucun téléchargement | Candidats de comparaison ultérieure seulement | Vérifier la licence du checkpoint exact avant usage commercial |
+
+Wan 1.3B est la seule option vidéo qualifiée sur ce poste. LTX-Video 2B distilled pourrait être un compromis pertinent, mais modèle, poids, workflow et licence locale restent à vérifier; aucun téléchargement n'a été fait. Pour usage commercial, examiner séparément checkpoint, encodeur, VAE, LoRA et droits de redistribution.
+
+### Validation et état final
+- `tests/test_video_longform.py` : plan 3/5 s et calcul 30 s, reprise par hashes, workflow strict, manifeste atomique, mesure VRAM. Tests ciblés `test_video_longform.py`, `test_video_v2h.py`, `test_comfy_v1d.py` : **54 réussis**; suite backend complète : **509 réussis**; compilation Python réussie. Deux avertissements Starlette/httpx préexistants et avertissements de configuration pytest-asyncio; aucun échec.
+- Sources officielles consultées : [ComfyUI CLI flags/offload/dynamic VRAM](https://docs.comfy.org/development/comfyui-server/startup-flags); [fiche Wan 2.1 Fun Camera et licence Apache-2.0](https://huggingface.co/alibaba-pai/Wan2.1-Fun-V1.1-1.3B-Control-Camera); [LTX-2.3 model card](https://huggingface.co/Lightricks/LTX-2.3) et [licence LTX-2 (version datée)](https://huggingface.co/Lightricks/LTX-2.3/blob/3c6a4e66e5d0a684231950b9c74dd4ded7b6fadc/LICENSE); [repo officiel LTX-Video/distilled 2B](https://github.com/Lightricks/ltx-video); [LTX-Video Open Weights License 0.X](https://huggingface.co/Lightricks/LTX-Video-0.9.8-13B-distilled/blob/main/LTX-Video-Open-Weights-License-0.X.txt).
+- Run local ignoré Git : `backend/bench_runs/v2j/continuity_two_segment_20261110/index.html`; ComfyUI actif, file vide après le test. Aucun autre changement à l'installation.
+- Fin V2-J : **arrêt après prototype 6 s**. Ne pas télécharger de poids, activer LongForm dans l'UI ni promettre 30 s avant validation multi-seed du cadrage/mouvement.
