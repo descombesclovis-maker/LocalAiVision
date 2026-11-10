@@ -1,110 +1,118 @@
-# Builds a SEPARATE, corrected LocalAiStudio edition next to the installed one. Never overwrites the installed edition.
-#
-#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-parallel-edition.ps1
-#
-# - Copies only git-tracked files of this repository (no .env, .api_key, .boot_token, bench_runs, venv...).
-# - Writes backend\.env once (existing user files in the target are never overwritten).
-# - Python: copies an existing complete venv read-only (-CopyVenvFrom), then syncs requirements.txt.
-# - Frontend: links the existing node_modules read-only (-CopyNodeModulesFrom), else runs yarn install.
-# - Own launcher (start-localaistudio-v2e.bat) on loopback and on ports distinct from the installed edition.
-
+# Create a NEW, independent Windows edition from the reviewed source manifest.
+# Never updates an existing edition, reads its environments, downloads models, or migrates data.
+# Prerequisites: Windows x64, Python 3.11 x64, Node >=20.19 / >=22.12, npm; MongoDB for first launch.
+# Example: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-parallel-edition.ps1
 param(
-    [string]$Target = "$env:LOCALAPPDATA\LocalAiStudio-Editions\NextGen-V2E",
-    [string]$DbName = "localaistudio_nextgen_original",
-    [int]$BackendPort = 8011,
-    [int]$FrontendPort = 3011,
-    [string]$CopyVenvFrom = "$env:LOCALAPPDATA\LocalAiStudio-Editions\NextGen-Avant-Fusion\backend\.venv",
-    [string]$CopyNodeModulesFrom = "$env:LOCALAPPDATA\LocalAiStudio-Editions\NextGen-Avant-Fusion\frontend\node_modules"
+    [string]$Target = "$env:LOCALAPPDATA\LocalAiStudio-Editions\NextGen-V2F",
+    [int]$BackendPort = 8012,
+    [int]$FrontendPort = 3012
 )
 
 $ErrorActionPreference = "Stop"
 $Src = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $Target = [IO.Path]::GetFullPath($Target)
-$Installed = [IO.Path]::GetFullPath("$env:LOCALAPPDATA\LocalAiStudio-Editions\NextGen-Avant-Fusion")
-
-if ($Target.TrimEnd('\') -ieq $Installed.TrimEnd('\') -or $Target.TrimEnd('\') -ieq $Src.TrimEnd('\')) {
-    throw "Refus : la cible doit etre distincte de l'edition installee et du depot."
-}
-New-Item -ItemType Directory -Force -Path $Target | Out-Null
-Write-Host "== Cible : $Target"
-
-# 1. Tracked files only
-$files = git -C $Src ls-files
-$copied = 0
-foreach ($f in $files) {
-    $from = Join-Path $Src $f
-    if (-not (Test-Path -LiteralPath $from -PathType Leaf)) { continue }
-    $to = Join-Path $Target $f
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null
-    Copy-Item -LiteralPath $from -Destination $to -Force
-    $copied++
-}
-Write-Host "== Fichiers suivis copies : $copied"
-
-# 2. Backend configuration (created once, then preserved)
-$envFile = Join-Path $Target "backend\.env"
-if (-not (Test-Path $envFile)) {
-    @(
-        "MONGO_URL=mongodb://127.0.0.1:27017",
-        "DB_NAME=$DbName",
-        "CORS_ORIGINS=http://127.0.0.1:$FrontendPort,http://localhost:$FrontendPort",
-        "APP_TZ=Europe/Paris"
-    ) | Set-Content -Encoding ASCII -Path $envFile
-    Write-Host "== backend\.env cree (DB_NAME=$DbName, CORS limite a la cible)"
-} else {
-    Write-Host "== backend\.env existant conserve"
+if ($BackendPort -lt 1 -or $BackendPort -gt 65535 -or $FrontendPort -lt 1 -or $FrontendPort -gt 65535 -or $BackendPort -eq $FrontendPort) {
+    throw "Ports invalides ou identiques."
 }
 
-# 3. Python environment
+function Invoke-Checked([string]$Program, [string[]]$ArgumentList) {
+    & $Program @ArgumentList
+    if ($LASTEXITCODE -ne 0) { throw "Echec de $Program (code $LASTEXITCODE). Le dossier partiel est conserve." }
+}
+
+$pyLauncher = (Get-Command py.exe -ErrorAction Stop).Source
+$node = (Get-Command node.exe -ErrorAction Stop).Source
+$npm = (Get-Command npm.cmd -ErrorAction Stop).Source
+Invoke-Checked $pyLauncher @("-3.11", "-c", "import sys,struct; assert sys.version_info[:2] == (3,11) and struct.calcsize('P') == 8")
+$nodeText = (& $node --version).Trim()
+if ($LASTEXITCODE -ne 0) { throw "Impossible de lire la version de Node.js." }
+$version = [Version]($nodeText.TrimStart('v'))
+$nodeOK = ($version.Major -eq 20 -and $version.Minor -ge 19) -or ($version.Major -eq 22 -and $version.Minor -ge 12) -or ($version.Major -ge 23)
+if (-not $nodeOK) { throw "Node.js 20.19+ ou 22.12+ requis (actuel : $nodeText)." }
+
+Write-Host "== Cible neuve : $Target"
+# materialize_kit refuses existing targets, links/junctions and source/edition overlap.
+Invoke-Checked $pyLauncher @("-3.11", (Join-Path $Src "scripts\materialize_kit.py"), $Src, $Target)
+
+Write-Host "== Creation d'un environnement Python propre"
+Invoke-Checked $pyLauncher @("-3.11", "-m", "venv", (Join-Path $Target "backend\.venv"))
 $py = Join-Path $Target "backend\.venv\Scripts\python.exe"
-if (-not (Test-Path $py)) {
-    if (Test-Path "$CopyVenvFrom\Scripts\python.exe") {
-        Write-Host "== Copie (lecture seule de la source) du venv existant"
-        robocopy $CopyVenvFrom (Join-Path $Target "backend\.venv") /E /NFL /NDL /NJH /NJS /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "robocopy a echoue ($LASTEXITCODE)" }
-    } else {
-        py -3.11 -m venv (Join-Path $Target "backend\.venv")
-    }
-}
-Write-Host "== Synchronisation de backend\requirements.txt"
-& $py -m pip install -q -r (Join-Path $Target "backend\requirements.txt")
-if ($LASTEXITCODE -ne 0) { throw "pip install a echoue ($LASTEXITCODE)" }
+Invoke-Checked $py @("-m", "pip", "install", "--require-hashes", "--only-binary=:all:", "-r", (Join-Path $Target "requirements-windows-py311.lock"))
+Invoke-Checked $py @("-m", "pip", "check")
 
-# 4. Frontend dependencies
-$nm = Join-Path $Target "frontend\node_modules"
-if (-not (Test-Path $nm)) {
-    if (Test-Path $CopyNodeModulesFrom) {
-        New-Item -ItemType Junction -Path $nm -Target $CopyNodeModulesFrom | Out-Null
-        Write-Host "== node_modules : jonction vers l'existant (pas de telechargement)"
-    } else {
-        Push-Location (Join-Path $Target "frontend")
-        try { yarn install --frozen-lockfile } finally { Pop-Location }
-    }
-}
+Write-Host "== Yarn local verrouille et installation frontend propre"
+Push-Location (Join-Path $Target "installer\tooling")
+try { Invoke-Checked $npm @("ci", "--ignore-scripts", "--no-audit", "--no-fund") } finally { Pop-Location }
+$yarn = Join-Path $Target "installer\tooling\node_modules\yarn\bin\yarn.js"
+if (-not (Test-Path -LiteralPath $yarn -PathType Leaf)) { throw "Yarn local absent." }
+$env:DISABLE_VISUAL_EDITS = "true"
+$env:DISABLE_EMERGENT_OVERLAY = "true"
+$env:DISABLE_HOT_RELOAD = "true"
+$env:LAS_VITE_EXPOSE = $null
+Push-Location (Join-Path $Target "frontend")
+try {
+    Invoke-Checked $node @($yarn, "install", "--frozen-lockfile", "--non-interactive")
+    Invoke-Checked $node @($yarn, "build")
+} finally { Pop-Location }
 
-# 5. Own launcher: loopback only, distinct ports, explicit API target for Vite
-$launcher = Join-Path $Target "start-localaistudio-v2e.bat"
+# A random name is claimed only on first launch after checking that it does not exist.
+$nonce = (& $py -c "import secrets; print(secrets.token_hex(10))").Trim()
+if ($LASTEXITCODE -ne 0 -or $nonce -notmatch '^[0-9a-f]{20}$') { throw "Impossible de creer l'identifiant de l'edition." }
+$dbName = "las_v2f_$nonce"
+$cookie = "las_session_v2f_$nonce"
+$origins = "http://127.0.0.1:$FrontendPort,http://localhost:$FrontendPort"
+@(
+    "MONGO_URL=mongodb://127.0.0.1:27017",
+    "DB_NAME=$dbName",
+    "CORS_ORIGINS=$origins",
+    "APP_TZ=Europe/Paris"
+) | Set-Content -Encoding ASCII -Path (Join-Path $Target "backend\.env")
+
+# Launch never starts or changes shared Ollama/ComfyUI/MongoDB services.
+$launcher = Join-Path $Target "start-localaistudio-v2f.bat"
 @"
 @echo off
-title LocalAiStudio NextGen V2-E
-cd /d %~dp0
-echo == LocalAiStudio NextGen V2-E : demarrage (backend $BackendPort, interface $FrontendPort) ==
+setlocal
+title LocalAiStudio NextGen V2-F
+cd /d "%~dp0"
+echo == LocalAiStudio V2-F : backend $BackendPort, interface $FrontendPort ==
+set "MONGO_URL=mongodb://127.0.0.1:27017"
+set "DB_NAME=$dbName"
+set "CORS_ORIGINS=$origins"
+set "LAS_SESSION_COOKIE=$cookie"
+set "LAS_API_TARGET=http://127.0.0.1:$BackendPort"
+set "LAS_VITE_EXPOSE="
+set "DISABLE_VISUAL_EDITS=true"
+set "DISABLE_EMERGENT_OVERLAY=true"
+set "DISABLE_HOT_RELOAD=true"
+backend\.venv\Scripts\python.exe -c "import socket,sys; s=[socket.socket() for _ in sys.argv[1:]]; [x.bind(('127.0.0.1',int(p))) for x,p in zip(s,sys.argv[1:])]" $BackendPort $FrontendPort >nul 2>&1
+if errorlevel 1 (echo Ports deja utilises. Aucune instance demarree. & exit /b 1)
+backend\.venv\Scripts\python.exe scripts\check_new_db.py backend\.database-owner
+if errorlevel 1 (echo Demarrez MongoDB et verifiez la configuration. Aucune base utilisateur ne sera adoptee. & exit /b 1)
+set "LAS_BOOT_TOKEN="
 for /f "delims=" %%t in ('backend\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"') do set LAS_BOOT_TOKEN=%%t
-net start MongoDB >nul 2>&1
-set DISABLE_VISUAL_EDITS=true
-set DISABLE_EMERGENT_OVERLAY=true
-set DISABLE_HOT_RELOAD=true
-set LAS_API_TARGET=http://127.0.0.1:$BackendPort
-set LAS_SESSION_COOKIE=las_session_v2e
-start "LAS V2-E backend" /min cmd /k "cd backend && .venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port $BackendPort"
-start "LAS V2-E interface" /min cmd /k "cd frontend && yarn dev --host 127.0.0.1 --port $FrontendPort --strictPort"
-timeout /t 8 >nul
-start http://127.0.0.1:$FrontendPort/
-echo Interface : http://127.0.0.1:$FrontendPort  (fermez les fenetres pour arreter)
+if not defined LAS_BOOT_TOKEN (echo Generation du jeton impossible. & exit /b 1)
+start "LAS V2-F backend" /min cmd /k "cd backend && .venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port $BackendPort"
+start "LAS V2-F interface" /min cmd /k "cd frontend && node ..\installer\tooling\node_modules\yarn\bin\yarn.js dev --host 127.0.0.1 --port $FrontendPort --strictPort"
+backend\.venv\Scripts\python.exe scripts\wait_for_server.py $BackendPort $FrontendPort
+if errorlevel 1 (echo Demarrage incomplet : verifiez les deux fenetres de service. & exit /b 1)
+if not "%LAS_SKIP_BROWSER%"=="1" start "" "http://127.0.0.1:$FrontendPort/"
+echo Interface : http://127.0.0.1:$FrontendPort. Lancez Ollama et ComfyUI separement.
 "@ | Set-Content -Encoding ASCII -Path $launcher
 
-# 6. Release marker
-$rev = (git -C $Src rev-parse --short HEAD).Trim()
-Set-Content -Encoding ASCII -Path (Join-Path $Target ".localai-edition-release") -Value "NextGen-V2E $rev $(Get-Date -Format s)"
-Write-Host "== Build termine : $Target (commit $rev)"
-Write-Host "== Lancer : $launcher"
+$revision = "kit-sans-git"
+$dirty = $null
+if ((Get-Command git.exe -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $Src ".git"))) {
+    $revision = (& git.exe -C $Src rev-parse HEAD).Trim()
+    $dirty = [bool](@(& git.exe -C $Src status --porcelain).Count)
+}
+@{
+    source = $revision; working_tree_dirty = $dirty; python = "3.11 x64"; node = $nodeText
+    runtime_sha256 = (Get-FileHash (Join-Path $Target "requirements-windows-py311.lock") -Algorithm SHA256).Hash
+    frontend_sha256 = (Get-FileHash (Join-Path $Target "frontend\yarn.lock") -Algorithm SHA256).Hash
+    yarn_tool_sha256 = (Get-FileHash (Join-Path $Target "installer\tooling\package-lock.json") -Algorithm SHA256).Hash
+    created_at = (Get-Date).ToString("o")
+} | ConvertTo-Json | Set-Content -Encoding UTF8 -Path (Join-Path $Target ".localai-edition-release.json")
+Write-Host "== Termine : $Target"
+Write-Host "== Base nouvelle : $dbName (aucune migration)"
+Write-Host "== Lanceur : $launcher"

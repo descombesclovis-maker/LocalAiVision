@@ -5,14 +5,16 @@ Configuration visée : Windows 10/11, NVIDIA RTX 3060 12 Go, 32 Go de RAM consei
 
 ---
 
-## 1. Installation automatique (environ 20 min, une seule fois)
+## 1. Installation isolée V2-F
 
-1. Décompressez `LocalAiStudio-kit-windows.zip`, par exemple dans `C:\LocalAiStudio`.
-2. Faites un clic droit sur `install.ps1` → **Exécuter avec PowerShell**.
-   Si Windows bloque le script, ouvrez PowerShell dans le dossier et lancez :
-   `powershell -ExecutionPolicy Bypass -File .\install.ps1`
-3. Le script installe, via `winget` : Python 3.11, Node.js LTS, MongoDB Community, Ollama et Git.
-   Il installe ensuite les dépendances (backend et interface) et télécharge le modèle de texte `qwen2.5-coder:14b`.
+Prérequis : Windows x64, Python 3.11 x64 avec le lanceur `py`, Node.js 20.19+ ou 22.12+ avec npm, et MongoDB accessible sur `127.0.0.1:27017`. Ollama et ComfyUI sont des services séparés. Une connexion est nécessaire pour les dépendances Python/npm ; **aucun modèle IA n'est téléchargé par cet installateur**.
+
+1. Décompressez `LocalAiStudio-kit-windows.zip` dans un nouveau dossier.
+2. Double-cliquez sur `install-v2f.bat`, ou lancez `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-parallel-edition.ps1`.
+3. L'application est créée dans `%LOCALAPPDATA%\LocalAiStudio-Editions\NextGen-V2F` avec ses propres environnements Python et frontend. Une cible existante est refusée, jamais écrasée. Ports par défaut : 8012 et 3012.
+4. Une **nouvelle base vide** reçoit un nom aléatoire ; au premier lancement, l'application refuse ce nom s'il existe déjà. Aucun projet ni média n'est migré. Pour récupérer une base existante, décidez d'abord d'une sauvegarde vérifiée et d'une procédure explicitement autorisée.
+
+Le script utilise les versions et empreintes verrouillées pour Python 3.11 x64, Yarn 1.22.22 et `frontend/yarn.lock`. Il ne copie pas les environnements, les modèles ou les secrets d'une autre édition. Pour une cible ou des ports différents, passez `-Target`, `-BackendPort` et `-FrontendPort` au script PowerShell.
 
 ## 2. ComfyUI (photos et vidéos)
 
@@ -33,8 +35,7 @@ Configuration visée : Windows 10/11, NVIDIA RTX 3060 12 Go, 32 Go de RAM consei
 
 ## 3. Démarrage au quotidien
 
-Double-cliquez sur le raccourci **LocalAiStudio** du Bureau (créé par install.ps1) ou sur **`start-localaistudio.bat`**. Il démarre MongoDB, Ollama, le backend (port 8001) et l'interface (port 3000), puis ouvre http://localhost:3000.
-Lancez ComfyUI à côté pour les photos et les vidéos.
+Dans le dossier de la nouvelle édition, double-cliquez sur **`start-localaistudio-v2f.bat`**. Il ouvre le backend sur `127.0.0.1:8012` et l'interface sur `127.0.0.1:3012`, après vérification de MongoDB. Lancez Ollama et ComfyUI séparément : le lanceur ne modifie pas leurs services ni leurs modèles. Si les ports sont occupés, il s'arrête sans lancer de seconde instance.
 
 ## 4. Réglages dans l'application
 
@@ -55,11 +56,9 @@ Onglet **Moteurs** :
 
 Les moteurs payants (Claude, Nano Banana, Veo, Kling) restent disponibles en secours si vous ajoutez `EMERGENT_LLM_KEY` dans `backend\.env`.
 
-## Installateur en un clic (recommandé)
+## Installateur Windows historique (.exe)
 
-Dans l'application : **Moteurs → Installateur Windows (.exe)**. Double-cliquez sur `Installer-LocalAiStudio.exe` : il télécharge et installe Python, Node.js, MongoDB, Ollama, ComfyUI Desktop et les modèles IA (barre de progression pour chaque fichier), installe les dépendances, puis crée le raccourci **LocalAiStudio** sur le Bureau. Les éléments déjà présents sont conservés. Windows SmartScreen peut afficher « Éditeur inconnu » : cliquez sur **Informations complémentaires → Exécuter quand même** (l'installateur n'est pas signé).
-
-Pour recompiler l'installateur vous-même : `installer\build-installer.bat` (Inno Setup, gratuit) ou `makensis installer\LocalAiStudio.nsi` (NSIS).
+Les anciens scripts Inno Setup et NSIS restent des sources historiques : **ils n'ont pas été compilés ni validés pour V2-F** et peuvent proposer des téléchargements de modèles. Ne distribuez pas leur `.exe` comme une version V2-F. Utilisez l'installation isolée décrite en section 1 ; un `.exe` signé et testé sur Windows vierge reste à préparer.
 
 ## Diagnostic
 

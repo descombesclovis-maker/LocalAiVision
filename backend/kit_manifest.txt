@@ -102,6 +102,7 @@ frontend/tsconfig.node.json
 frontend/vite.config.ts
 frontend/yarn.lock
 install.ps1
+install-v2f.bat
 installer/LocalAiStudio.iss
 installer/LocalAiStudio.nsi
 installer/build-installer.bat
@@ -113,5 +114,8 @@ requirements-local.txt
 requirements-windows-py311.lock
 scripts/backup_db.py
 scripts/build-parallel-edition.ps1
+scripts/check_new_db.py
+scripts/materialize_kit.py
+scripts/wait_for_server.py
 start-localaistudio.bat
 tunnel-preview.bat
