@@ -30,7 +30,7 @@ def _out(d: dict) -> dict:
     return d
 
 
-COMFY_VIDEO = {"label": "Local · ComfyUI", "tagline": "Gratuit, sur votre GPU (Wan 2.2 / LTX-Video)", "durations": ["3", "5"], "aspects": ["16:9", "9:16", "1:1"], "audio": False}
+COMFY_VIDEO = {"label": "LocalAi Video Engine — Gratuit", "tagline": "Wan 2.1 génératif local · T2V et I2V selon le modèle installé", "durations": ["3", "5", "6", "9", "12", "20", "30"], "aspects": ["16:9", "9:16", "1:1"], "audio": False}
 
 
 async def _ref_b64(mid: str | None) -> tuple[str | None, str | None]:
@@ -338,9 +338,11 @@ async def create_video(body: VideoRequest):
         if body.comfy_preset == "wan21_fun_camera" and body.mode != "image":
             raise HTTPException(400, "Wan 2.1 Fun Camera nécessite une image de départ (Image → vidéo).")
         if body.duration not in COMFY_VIDEO["durations"]:
-            body.duration = "3"
+            raise HTTPException(400, f"Durée non prise en charge : {body.duration}. Choisissez parmi {', '.join(COMFY_VIDEO['durations'])} s.")
         if body.aspect_ratio not in COMFY_VIDEO["aspects"]:
-            body.aspect_ratio = "16:9"
+            raise HTTPException(400, f"Format non pris en charge : {body.aspect_ratio}. Choisissez parmi {', '.join(COMFY_VIDEO['aspects'])}.")
+        if body.comfy_preset == "wan21_t2v" and body.mode != "text":
+            raise HTTPException(400, "Wan 2.1 T2V 1.3B est T2V uniquement. Pour I2V, sélectionnez Wan 2.1 Fun Camera.")
         ref = None
         if body.mode == "image":
             b64, mime = await _ref_b64(body.ref_media_id)

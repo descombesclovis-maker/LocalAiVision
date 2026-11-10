@@ -155,7 +155,7 @@ class VideoRequest(BaseModel):
     aspect_ratio: str = "16:9"
     ref_media_id: Optional[str] = None
     camera_pose: Literal["Static", "Pan Up", "Pan Down", "Pan Left", "Pan Right", "Zoom In", "Zoom Out", "Anti Clockwise (ACW)", "ClockWise (CW)"] = "Static"
-    comfy_preset: Optional[Literal["wan22", "wan21_fun_camera", "ltxv"]] = None
+    comfy_preset: Optional[Literal["wan22", "wan21_t2v", "wan21_fun_camera", "ltxv"]] = None
 
 
 class SmartMotionRequest(BaseModel):

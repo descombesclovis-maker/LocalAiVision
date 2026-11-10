@@ -1175,3 +1175,27 @@ Application testée sur Vite `127.0.0.1:3002` / backend `127.0.0.1:8012`, avec s
 - Artefacts locaux ignorés par Git : `backend/bench_runs/v2p/smartmotion_30s_ui.mp4`. Les résultats de test et la base dédiée restent locaux; aucune base ou création antérieure n'a été modifiée ou supprimée. Aucun modèle/paquet téléchargé.
 - SmartMotion reste une animation caméra 2.5D : pas de mouvement réel des objets/personnages; upscale du carré vers le paysage recadre le haut/bas; mesures mémoire système indicatives. Aucun nouveau rendu Wan n'a été lancé.
 - Livraison V2-P : commit Git distinct après tests; dépôt cible `nextgen/claude-code`.
+
+## V2-R — Premier moteur génératif Wan T2V (2026-11-10)
+
+### Préservation et modèle local
+
+- Départ vérifié : branche `nextgen/claude-code`, HEAD `f11cfb6`, arbre de travail propre. Les changements V2-Q restent intacts dans `stash@{0}: preserve-v2q-before-v2r`; aucune édition installée n'a été modifiée.
+- Avant téléchargement, vérifié dans l'instance ComfyUI existante que `umt5_xxl_fp8_e4m3fn_scaled.safetensors` et `wan_2.1_vae.safetensors` étaient présents. Seul le checkpoint autorisé a été installé dans `ComfyUI-Shared/models/diffusion_models/wan2.1_t2v_1.3B_fp16.safetensors`.
+- Intégrité du checkpoint confirmée par le SHA-256 attendu du dépôt officiel Comfy-Org : `be531024cd9018cb5b48c40cfbb6a6191645b1c792eb8bf4f8c1c6e10f924dc5`. Aucun autre modèle téléchargé, remplacé ou supprimé.
+
+### Implémentation
+
+- Ajout de Wan 2.1 T2V 1.3B FP16 au catalogue, pré-vérification réelle des 3 composants, sélection depuis le studio et statut installé/non installé. Le nouveau preset local devient le choix par défaut si le réglage enregistré est absent/non disponible. Fun Camera reste le preset I2V distinct; sa route de workflow existante est conservée.
+- La pastille moteur local affiche « LocalAi Video Engine — Gratuit ». Les demandes T2V en français arrivent inchangées à `CLIPTextEncode` avec chargeurs UNET/UMT5/VAE locaux; une image n'est pas silencieusement routée vers un modèle T2V.
+- Les durées exactes disponibles dans le studio sont 3/5/6/9/12/20/30 s à 24 fps (73/121/145/217/289/481/721 frames). Une durée ou un format invalide est refusé, plus raccourci silencieusement. SmartMotion reste un outil 2.5D secondaire.
+
+### Validation exécutée et limites observées
+
+- Statut ComfyUI réel : T2V `installed=true`; UMT5 et VAE Wan 2.1 présents; preset Wan Fun Camera I2V installé. Le workflow I2V existant est couvert par un test de contrat, et ses générations réelles antérieures sont documentées en V2-G/V2-H.
+- L'instance isolée dédiée à V2-R utilisait les ports 8024/3024, la base Mongo `las_v2r_20261110` et un cookie distinct; aucune base existante n'a été utilisée. Chrome a chargé le studio, affiché le preset Wan réellement installé et envoyé une description française via POST; la file ComfyUI a confirmé le workflow Wan T2V, les poids exacts et les 30 étapes, en résolution 832×480, 24 fps, 73 frames prévues.
+- **Le rendu n'a pas été mené à terme** : après environ 176 s, ComfyUI n'avait avancé que jusqu'à 4/30 étapes. Il y avait déjà une charge concurrente importante sur la RTX 3060 (jeu Windrose actif; VRAM totale observée jusqu'à environ 10,1/12 GiB). Pour ne pas maintenir un calcul GPU potentiellement très long, la requête a été annulée par l'interface. Aucun MP4 fini n'a donc été obtenu; qualité visuelle, fidélité du mouvement, durée totale et conservation I2V ne sont pas validées par un nouveau rendu V2-R. La progression réelle, le POST, l'annulation et la file ont été vérifiés; console Chrome sans erreur.
+- Échantillonnage global système pendant la tentative (non isolé au processus) : VRAM observée au maximum ~10 106/12 288 MiB; RAM physique utilisée ~24 000/32 665 MiB, minimum libre ~8 700 MiB. Ce sont des mesures de cette session avec applications concurrentes; elles ne prédisent pas la mémoire nécessaire à un rendu long.
+- Aucun résultat ne soutient l'objectif de 30 s en moins de 5 min : même le premier essai 3 s a été interrompu, et les durées 6–30 s n'ont pas été rendues. Les durées sont des options de génération, pas une promesse de compatibilité mémoire/temps. Pas de réduction silencieuse des pas/résolution/FPS et pas d'autre téléchargement.
+- `frontend/yarn build` (TypeScript/Vite) réussi. Tests ciblés : 102 réussis. Suite backend complète : 538 réussis, un échec seulement sur un test préexistant qui importe Pillow absent de l'environnement; l'exclusion de ce test donne une suite verte. SmartMotion et code publicité/photo n'ont pas été étendus.
+- Livraison V2-R : moteur T2V intégré et test réel d'envoi commencé, mais validation MP4/qualité non achevée sur cette machine sous charge GPU. Une prochaine validation générative doit être refaite sans autre charge GPU si un MP4 complet et une évaluation visuelle sont exigés.

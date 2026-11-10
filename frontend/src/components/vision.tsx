@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils";
 
 const field = "w-full rounded-xl border border-white/10 bg-black/30 p-3.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-cyan-400/60 focus:shadow-[0_0_0_3px_rgba(6,182,212,0.15)] placeholder:text-slate-500";
 
-function Chip({ active, onClick, children, testid }: { active: boolean; onClick: () => void; children: React.ReactNode; testid: string }) {
+function Chip({ active, onClick, children, testid, disabled = false }: { active: boolean; onClick: () => void; children: React.ReactNode; testid: string; disabled?: boolean }) {
   return (
-    <button type="button" data-testid={testid} onClick={onClick} className={cn("rounded-full border px-3.5 py-1.5 text-xs font-medium transition-[border-color,background-color,color,box-shadow] duration-200", active ? "border-cyan-300/70 bg-cyan-500/20 text-white shadow-[0_0_18px_-4px_rgba(6,182,212,0.9)]" : "border-white/10 text-slate-400 hover:border-white/25 hover:text-white")}>
+    <button type="button" data-testid={testid} disabled={disabled} onClick={onClick} className={cn("rounded-full border px-3.5 py-1.5 text-xs font-medium transition-[border-color,background-color,color,box-shadow] duration-200", active ? "border-cyan-300/70 bg-cyan-500/20 text-white shadow-[0_0_18px_-4px_rgba(6,182,212,0.9)]" : "border-white/10 text-slate-400 hover:border-white/25 hover:text-white", disabled && "cursor-not-allowed opacity-40 hover:border-white/10 hover:text-slate-400")}>
       {children}
     </button>
   );
@@ -202,7 +202,7 @@ export function VideoStudio() {
   const [duration, setDuration] = useState("3");
   const [aspect, setAspect] = useState("16:9");
   const [ref, setRef] = useState<string | null>(null);
-  const [comfyPreset, setComfyPreset] = useState<NonNullable<VideoRequest["comfy_preset"]>>("wan22");
+  const [comfyPreset, setComfyPreset] = useState<NonNullable<VideoRequest["comfy_preset"]>>("wan21_t2v");
   const [cameraPose, setCameraPose] = useState("Static");
   const [smartMotionMove, setSmartMotionMove] = useState<"push_in" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit_subtle" | "static">("push_in");
   const [smartMotionSize, setSmartMotionSize] = useState<"source" | "1280x720" | "1920x1080">("source");
@@ -210,16 +210,19 @@ export function VideoStudio() {
   const cfg = models?.find((m) => m.key === model);
   const chosenPreset = engineStatus?.presets.find((p) => p.key === comfyPreset);
   const needsImage = model === "smartmotion" || (model === "comfy" && comfyPreset === "wan21_fun_camera");
+  const t2vOnly = model === "comfy" && comfyPreset === "wan21_t2v";
   const comfyUnavailable = model === "comfy" && (!chosenPreset || chosenPreset.installed !== true);
   const smartMotionUnavailable = model === "smartmotion" && smartMotionStatus?.available !== true;
   const { data } = useMedia("video");
   const { video, smartmotion, cancel } = useMediaActions();
   useEffect(() => {
-    if (comfyCfg && !presetInitialized) {
-      setComfyPreset(comfyCfg.video_preset);
+    if (comfyCfg && engineStatus && !presetInitialized) {
+      const saved = engineStatus.presets.find((p) => p.key === comfyCfg.video_preset && p.installed === true)?.key;
+      const firstInstalled = engineStatus.presets.find((p) => p.installed === true)?.key;
+      setComfyPreset(saved ?? firstInstalled ?? comfyCfg.video_preset);
       setPresetInitialized(true);
     }
-  }, [comfyCfg, presetInitialized]);
+  }, [comfyCfg, engineStatus, presetInitialized]);
   useEffect(() => {
     if (needsImage) setMode("image");
   }, [needsImage]);
@@ -233,13 +236,14 @@ export function VideoStudio() {
   const pickPreset = (value: NonNullable<VideoRequest["comfy_preset"]>) => {
     setComfyPreset(value);
     if (value === "wan21_fun_camera") setMode("image");
+    if (value === "wan21_t2v") setMode("text");
   };
   return (
     <div className="grid gap-6 lg:grid-cols-[440px_1fr]">
       <div className="glass-vision space-y-5 rounded-3xl p-5">
         <div className="grid gap-3">
           {(models ?? []).map((m) => (
-            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key)} title={m.label} tagline={m.tagline} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
+            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key)} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.label} tagline={m.key === "comfy" ? "Wan génératif local · T2V et I2V selon le modèle installé" : m.tagline} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
           ))}
         </div>
         {model === "comfy" && (
@@ -256,7 +260,7 @@ export function VideoStudio() {
         ) : (
           <div className="flex gap-2">
             <Chip testid="video-mode-text" active={mode === "text"} onClick={() => setMode("text")}>Texte → vidéo</Chip>
-            <Chip testid="video-mode-image" active={mode === "image"} onClick={() => setMode("image")}>Image → vidéo</Chip>
+            <Chip testid="video-mode-image" active={mode === "image"} disabled={t2vOnly} onClick={() => setMode("image")}>Image → vidéo</Chip>
           </div>
         )}
         {mode === "image" && !needsImage && <RefPicker value={ref} onChange={setRef} testid="video-ref" />}

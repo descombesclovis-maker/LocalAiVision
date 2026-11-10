@@ -50,6 +50,7 @@ async def test_image_only_requests_checkpoint(monkeypatch, preset):
 
 @pytest.mark.parametrize("preset,expected", [
     ("wan22", ["UNETLoader", "CLIPLoader", "VAELoader"]),
+    ("wan21_t2v", ["UNETLoader", "CLIPLoader", "VAELoader"]),
     ("wan21_fun_camera", ["UNETLoader", "CLIPLoader", "VAELoader", "CLIPVisionLoader"]),
     ("ltxv", ["CheckpointLoaderSimple", "CLIPLoader"]),
 ])

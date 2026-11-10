@@ -43,8 +43,8 @@ export default function Engines() {
       status: ollamaStatus, open: () => setOllamaOpen(true),
     },
     {
-      key: "comfy", icon: ImageIcon, tone: "vision" as const, title: "ComfyUI · photos, pubs & vidéos", sub: comfy ? `${comfy.image_preset} · ${comfy.video_preset} · ${comfy.base_url}` : "",
-      text: "Photos FLUX/SDXL, retouches image→image, visuels de site et de pub, vidéos Wan 2.2 / LTX. Remplace Nano Banana, Veo et Kling.",
+      key: "comfy", icon: ImageIcon, tone: "vision" as const, title: "LocalAi Video Engine — Gratuit", sub: comfy ? `${comfy.video_preset} · ${comfy.base_url}` : "",
+      text: "Moteur vidéo génératif local via ComfyUI : T2V et I2V selon les modèles réellement installés. SmartMotion reste un outil secondaire d'animation 2.5D.",
       status: comfyStatus, open: () => setComfyOpen(true),
     },
   ];

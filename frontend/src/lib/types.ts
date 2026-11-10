@@ -65,7 +65,7 @@ export interface Media {
   updated_at: string;
 }
 export interface ImageRequest { comfy_preset?: string | null; prompt: string; model: "comfy" | "nano-banana" | "nano-banana-pro"; aspect_ratio: "1:1" | "16:9" | "9:16" | "4:5"; ref_media_id: string | null }
-export interface VideoRequest { prompt: string; model: "comfy" | "veo" | "kling" | "minimax"; mode: "text" | "image"; duration: string; aspect_ratio: string; ref_media_id: string | null; comfy_preset?: "wan22" | "wan21_fun_camera" | "ltxv" | null; camera_pose?: string }
+export interface VideoRequest { prompt: string; model: "comfy" | "veo" | "kling" | "minimax"; mode: "text" | "image"; duration: string; aspect_ratio: string; ref_media_id: string | null; comfy_preset?: "wan22" | "wan21_t2v" | "wan21_fun_camera" | "ltxv" | null; camera_pose?: string }
 export interface UploadRequest { data_url: string; source: "upload" | "ad" | "logo"; prompt: string }
 export interface VideoModel { key: "comfy" | "smartmotion" | "veo" | "kling" | "minimax"; label: string; tagline: string; durations: string[]; aspects: string[]; audio: boolean }
 export interface SmartMotionRequest { prompt: string; ref_media_id: string; seconds: number; fps: 24; output_size: "source" | "1280x720" | "1920x1080"; motion: "push_in" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit_subtle" | "static" }

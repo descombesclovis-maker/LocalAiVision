@@ -24,27 +24,29 @@ IMAGE_PRESETS = {
     "sdxl": {"label": "SDXL", "checkpoint": "sd_xl_base_1.0.safetensors"},
 }
 # Presets vidéo basés sur UNETLoader (modèle dans diffusion_models/, pas CheckpointLoaderSimple).
-UNET_BASED_VIDEO_PRESETS = {"wan22", "wan21_fun_camera"}
+UNET_BASED_VIDEO_PRESETS = {"wan22", "wan21_t2v", "wan21_fun_camera"}
 
 VIDEO_PRESETS = {
     "wan22": {"label": "Wan 2.2 TI2V 5B", "model": "wan2.2_ti2v_5B_fp16.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "vae": "wan2.2_vae.safetensors"},
-    "wan21_fun_camera": {"label": "Wan 2.1 Fun Camera 1.3B (RTX 3060 12 Go)", "model": "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "vae": "wan_2.1_vae.safetensors"},
+    "wan21_t2v": {"label": "Wan 2.1 T2V 1.3B FP16 · RTX 3060", "model": "wan2.1_t2v_1.3B_fp16.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "vae": "wan_2.1_vae.safetensors"},
+    "wan21_fun_camera": {"label": "Wan 2.1 Fun Camera 1.3B · I2V", "model": "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors", "text_encoder": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "vae": "wan_2.1_vae.safetensors"},
     "ltxv": {"label": "LTX-Video 2B", "model": "ltx-video-2b-v0.9.5.safetensors", "text_encoder": "t5xxl_fp16.safetensors", "vae": ""},
 }
 DEFAULTS = {
     "base_url": "http://127.0.0.1:8188",
     "image_preset": "flux-dev",
     "image_checkpoint": IMAGE_PRESETS["flux-dev"]["checkpoint"],
-    "video_preset": "wan22",
-    "video_model": VIDEO_PRESETS["wan22"]["model"],
-    "video_text_encoder": VIDEO_PRESETS["wan22"]["text_encoder"],
-    "video_vae": VIDEO_PRESETS["wan22"]["vae"],
+    "video_preset": "wan21_t2v",
+    "video_model": VIDEO_PRESETS["wan21_t2v"]["model"],
+    "video_text_encoder": VIDEO_PRESETS["wan21_t2v"]["text_encoder"],
+    "video_vae": VIDEO_PRESETS["wan21_t2v"]["vae"],
     "custom_image_workflow": "",
     "custom_video_workflow": "",
 }
 IMAGE_SIZES = {"1:1": (1024, 1024), "16:9": (1344, 768), "9:16": (768, 1344), "4:5": (896, 1120)}
 VIDEO_SIZES = {"16:9": (832, 480), "9:16": (480, 832), "1:1": (640, 640)}
-VIDEO_LENGTHS = {"3": 73, "5": 121}  # 24 fps, valid for both Wan (4n+1) and LTX (8n+1)
+VIDEO_DURATIONS = ("3", "5", "6", "9", "12", "20", "30")
+VIDEO_LENGTHS = {seconds: int(seconds) * 24 + 1 for seconds in VIDEO_DURATIONS}  # exact 24 fps; valid Wan 4n+1 / LTX 8n+1
 WAN_CAMERA_POSES = ("Static", "Pan Up", "Pan Down", "Pan Left", "Pan Right", "Zoom In", "Zoom Out", "Anti Clockwise (ACW)", "ClockWise (CW)")
 NEGATIVE = "blurry, low quality, deformed, watermark, text, logo, jpeg artifacts, oversaturated"
 
@@ -116,7 +118,7 @@ def _video_frame_count(duration: str) -> int:
     if value.endswith("s"):
         value = value[:-1].strip()
     if value not in VIDEO_LENGTHS:
-        raise WorkflowError(f"Durée vidéo non prise en charge : {duration}. Choisissez 3 ou 5 secondes.")
+        raise WorkflowError(f"Durée vidéo non prise en charge : {duration}. Choisissez parmi {', '.join(VIDEO_DURATIONS)} secondes.")
     return VIDEO_LENGTHS[value]
 
 
@@ -492,6 +494,28 @@ def _video_workflow(s: dict, prompt: str, w: int, h: int, length: int, seed: int
             wf["10"] = {"class_type": "LoadImage", "inputs": {"image": image}}
             wf["7"]["inputs"]["start_image"] = ["10", 0]
         return wf
+    if preset == "wan21_t2v":
+        if image:
+            raise WorkflowError(
+                "Wan 2.1 T2V 1.3B est un modèle Texte → vidéo. "
+                "Pour Image → vidéo, choisissez Wan 2.1 Fun Camera et fournissez une image de départ."
+            )
+        return {
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": s["video_model"], "weight_dtype": "default"}},
+            "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": s["video_text_encoder"], "type": "wan", "device": "default"}},
+            "3": {"class_type": "VAELoader", "inputs": {"vae_name": s["video_vae"]}},
+            "4": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["1", 0], "shift": 8.0}},
+            "5": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["2", 0]}},
+            "7": {"class_type": "WanImageToVideo", "inputs": {
+                "positive": ["5", 0], "negative": ["6", 0], "vae": ["3", 0],
+                "width": w, "height": h, "length": length, "batch_size": 1}},
+            "9": {"class_type": "KSampler", "inputs": {
+                "model": ["4", 0], "positive": ["7", 0], "negative": ["7", 1], "latent_image": ["7", 2], "seed": seed,
+                "steps": 30, "cfg": 6.0, "sampler_name": "uni_pc", "scheduler": "simple", "denoise": 1.0}},
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["9", 0], "vae": ["3", 0]}},
+            **save,
+        }
     if preset == "wan21_fun_camera":
         if camera_pose not in WAN_CAMERA_POSES:
             raise WorkflowError(f"Pose caméra non prise en charge par Wan Fun Camera : {camera_pose}")

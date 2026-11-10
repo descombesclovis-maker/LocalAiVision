@@ -380,7 +380,8 @@ class TestGenerationParamsPreserved:
 
     def test_video_workflow_wan22_params_unchanged(self):
         from lib import comfy
-        s = {**comfy.DEFAULTS}
+        s = {**comfy.DEFAULTS, "video_preset": "wan22"}
+        s.update({"video_" + k: v for k, v in comfy.VIDEO_PRESETS["wan22"].items() if k != "label"})
         wf = comfy._video_workflow(s, "test", 832, 480, 73, 1, None)
         ks = wf["9"]["inputs"]
         assert ks["steps"] == 30
@@ -407,8 +408,8 @@ class TestGenerationParamsPreserved:
         from lib import comfy
         assert comfy.DEFAULTS["image_preset"] == "flux-dev"
         assert comfy.DEFAULTS["image_checkpoint"] == "flux1-dev-fp8.safetensors"
-        assert comfy.DEFAULTS["video_preset"] == "wan22"
-        assert comfy.DEFAULTS["video_model"] == "wan2.2_ti2v_5B_fp16.safetensors"
+        assert comfy.DEFAULTS["video_preset"] == "wan21_t2v"
+        assert comfy.DEFAULTS["video_model"] == "wan2.1_t2v_1.3B_fp16.safetensors"
 
     def test_no_model_deletion(self):
         """The code must not delete model files — verify no file-deletion calls related to models."""
@@ -691,7 +692,8 @@ class TestBackwardCompatibility:
         SIMULATION: uses mocked HTTP — does not represent real GPU generation."""
         from lib import comfy
 
-        s = {**comfy.DEFAULTS}
+        s = {**comfy.DEFAULTS, "video_preset": "wan21_fun_camera"}
+        s.update({"video_" + k: v for k, v in comfy.VIDEO_PRESETS["wan21_fun_camera"].items() if k != "label"})
         fake_mp4 = b"\x00\x00\x00\x18ftyp" + b"\x00" * 20
         fake_image = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
 
