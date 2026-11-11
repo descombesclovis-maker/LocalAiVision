@@ -425,8 +425,7 @@ async def create_image(body: ImageRequest):
         raise HTTPException(422, "Ce LoRA est compatible uniquement avec SDXL.")
     if body.model == "comfy":
         full = comfy_photo_prompt(body.prompt)
-        if body.lora_name == "jewelry-sdxl-v1.safetensors":
-            full = "hiresjewels_style, " + full
+        full = comfy.prepare_lora_prompt(full, body.lora_name)
     else:
         full = f"{body.prompt}. Aspect ratio {body.aspect_ratio}. High-end, detailed, no watermark."
         if ref:

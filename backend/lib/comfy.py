@@ -432,8 +432,11 @@ async def verify_ready(s: dict, video: bool = False) -> None:
 def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Optional[str], lora_name: Optional[str] = None, lora_strength: float = 0.8) -> dict:
     flux = s["image_preset"].startswith("flux")
     schnell = s["image_preset"] == "flux-schnell"
-    if lora_name and (s["image_preset"] != "sdxl" or lora_name != "jewelry-sdxl-v1.safetensors"):
-        raise WorkflowError("Ce LoRA est vérifié uniquement pour le preset SDXL; aucun autre modèle ne sera substitué.")
+    if lora_name and (s["image_preset"] != "sdxl" or lora_name not in {item["filename"] for item in LORA_CATALOG}):
+        raise WorkflowError("Ce LoRA est vérifié uniquement pour le preset SDXL et les fichiers du catalogue; aucun autre modèle ne sera substitué.")
+    if lora_name and any(item["filename"] == lora_name and item.get("media_type") != "image" for item in LORA_CATALOG):
+        raise WorkflowError("Ce LoRA n'est pas un adaptateur image compatible avec ce workflow.")
+    lora_node = "12" if image else "10"
     wf: dict[str, Any] = {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": s["image_checkpoint"]}},
         "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
@@ -442,10 +445,10 @@ def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Opti
         "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "LocalAiStudio", "images": ["8", 0]}},
     }
     if lora_name:
-        wf["10"] = {"class_type": "LoraLoader", "inputs": {"model": ["1", 0], "clip": ["1", 1], "lora_name": lora_name, "strength_model": lora_strength, "strength_clip": lora_strength}}
-        model_ref = ["10", 0]
-        wf["2"]["inputs"]["clip"] = ["10", 1]
-        wf["3"]["inputs"]["clip"] = ["10", 1]
+        wf[lora_node] = {"class_type": "LoraLoader", "inputs": {"model": ["1", 0], "clip": ["1", 1], "lora_name": lora_name, "strength_model": lora_strength, "strength_clip": lora_strength}}
+        model_ref = [lora_node, 0]
+        wf["2"]["inputs"]["clip"] = [lora_node, 1]
+        wf["3"]["inputs"]["clip"] = [lora_node, 1]
     else:
         model_ref = ["1", 0]
     positive: list = ["2", 0]
@@ -628,19 +631,51 @@ def image_settings(s: dict, preset: Optional[str]) -> dict:
     return {**s, "image_preset": preset, "image_checkpoint": IMAGE_PRESETS[preset]["checkpoint"]}
 
 
-LORA_CATALOG = [{
-    "id": "sdxl-jewelry-product-photo", "name": "HiResJewels · photographie de bijoux",
-    "filename": "jewelry-sdxl-v1.safetensors", "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
-    "engine": "ComfyUI SDXL 1.0 · image uniquement", "category": "Publicité produit / luxe / bijoux",
-    "description": "Style de packshot macro joaillerie, reflets métalliques et éclairage studio. Non destiné aux personnages ou à la vidéo.",
-    "strength": 0.8, "trigger": "hiresjewels_style", "resolution": "1024×1024",
-    # The author/model card does not grant a separate license for its example image.
-    # Do not embed or redistribute that asset in this commercial application.
-    "preview_url": None,
-    "source_url": "https://huggingface.co/marioortegat/jewelry-product-photography-sdxl-lora",
-    "license": "CreativeML OpenRAIL-M (métadonnées HF); pas de licence commerciale dédiée du fichier explicitement fournie. Vérifier les conditions d'usage et de redistribution avant commercialisation.",
-    "restrictions": "Base SDXL; texte/gravures difficiles; biais platine/or rose. Qualité non certifiée par un test indépendant.",
-}]
+LORA_CATALOG = [
+    {
+        "id": "sdxl-jewelry-product-photo", "name": "HiResJewels · photographie de bijoux",
+        "filename": "jewelry-sdxl-v1.safetensors", "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
+        "engine": "ComfyUI SDXL 1.0 · image uniquement", "category": "Publicité produit / luxe / bijoux",
+        "universes": ["vision-marketing", "advertising"], "media_type": "image",
+        "description": "Style de packshot macro joaillerie, reflets métalliques et éclairage studio. Non destiné aux personnages ou à la vidéo.",
+        "strength": 0.8, "trigger": "hiresjewels_style", "resolution": "1024×1024",
+        "preview_url": None, "comparison_preview_url": None, "comparison_status": "not_generated",
+        "source_url": "https://huggingface.co/marioortegat/jewelry-product-photography-sdxl-lora",
+        "license": "CreativeML OpenRAIL-M (métadonnées HF); pas de licence commerciale dédiée du fichier explicitement fournie. Vérifier les conditions d'usage et de redistribution avant commercialisation.",
+        "restrictions": "Base SDXL; texte/gravures difficiles; biais platine/or rose. Qualité non certifiée par un test indépendant.",
+    },
+    {
+        "id": "sdxl-product-photo-prdct", "name": "Product Photography · SDXL (sneakers)",
+        "filename": "sdxl-product-photography-shoaibism.safetensors", "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
+        "engine": "ComfyUI SDXL 1.0 · image uniquement", "category": "Photographie de produits / publicité produit",
+        "universes": ["vision-marketing", "advertising"], "media_type": "image",
+        "description": "LoRA entraîné sur 20 photos studio de sneakers; effet hors chaussures non vérifié. Mot déclencheur PRDCT.",
+        "strength": 1.0, "trigger": "PRDCT", "resolution": "1024×1024",
+        "preview_url": None, "comparison_preview_url": None, "comparison_status": "not_generated",
+        "source_url": "https://huggingface.co/Shoaibism/sdxl-product-photography-lora",
+        "source_revision": "304e968eceee596bff14e7f0979868169dac5c08",
+        "file_size_bytes": 93065304,
+        "file_sha256": "772797c56b396c60e246e3329609c091ba88ea764a7709f31dfce5461da180ba",
+        "license": "Apache-2.0 déclarée dans les métadonnées de la fiche HF; aucun fichier LICENSE séparé dans le dépôt. Le poids n'est pas redistribué avec LocalAiStudio.",
+        "restrictions": "Paramètres source: 25 étapes, CFG 7.5, 1024×1024; force LoRA 1.0 comme point de départ Diffusers, non validée visuellement ici. Entraînement sneakers seulement; pas de preuve de qualité pour les autres produits.",
+    },
+]
+LORA_BY_FILENAME = {item["filename"]: item for item in LORA_CATALOG}
+
+# Taxonomy intentionally records only current catalog categories. Future categories stay empty
+# until a real, licensed, model-compatible LoRA is verified.
+LORA_CATALOG_UNIVERSES = {
+    "vision-marketing": ["Photographie de produits", "Luxe", "Architecture", "Immobilier", "Gastronomie", "Hôtellerie", "Automobile", "Mode", "Cosmétique", "Visuels pour sites web", "Headers de sites web", "Photographie professionnelle"],
+    "advertising": ["Publicités produits", "Campagnes de luxe", "Publicités avec personnages", "Mannequins", "Portraits commerciaux", "Présentateurs", "Automobile", "Beauté", "Réseaux sociaux", "Publicités cinématographiques"],
+}
+
+
+def prepare_lora_prompt(prompt: str, filename: Optional[str]) -> str:
+    item = LORA_BY_FILENAME.get(filename or "")
+    trigger = item.get("trigger", "") if item else ""
+    if not trigger or re.search(rf"(?<!\w){re.escape(trigger)}(?!\w)", prompt, flags=re.IGNORECASE):
+        return prompt
+    return f"{trigger}, {prompt}"
 
 async def lora_catalog_status(s: Optional[dict] = None) -> list[dict]:
     s = s or await get_settings()
