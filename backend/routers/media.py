@@ -20,7 +20,7 @@ from lib.llm import friendly_error, generate_image
 from lib.pipeline import spawn
 from lib.store import create_media, finish_media, media_url, new_id, now_iso, read_bytes
 from models.schemas import Activity, AdComposeRequest, Brand, BrandCreate, HuggingFaceTokenRequest, HuggingFaceTokenStatus, HuggingFaceVideoStatus, ImageRequest, Media, SmartMotionRequest, UploadRequest, VideoModel, VideoRequest
-from lib import hf_video, secure_secret
+from lib import hf_video, hf_sana, secure_secret
 
 router = APIRouter()
 log = logging.getLogger("media")
@@ -71,6 +71,26 @@ async def video_models():
 async def hf_ltx_status():
     result = await hf_video.status()
     result["auth_configured"] = bool(await db.settings.find_one({"id": "hf_api_token"}, {"_id": 0, "ciphertext": 1}))
+    return result
+
+
+async def _saved_hf_token() -> str:
+    """Read and DPAPI-decrypt the server-side HF credential; never log or return it."""
+    saved = await db.settings.find_one({"id": "hf_api_token"}, {"_id": 0, "ciphertext": 1})
+    if not saved or not saved.get("ciphertext"):
+        return ""
+    try:
+        return secure_secret.decrypt_secret(saved["ciphertext"])
+    except Exception as exc:
+        log.warning("Stored Hugging Face credential could not be decrypted (%s)", type(exc).__name__)
+        return ""
+
+
+@router.get("/media/models/private-sana")
+async def private_sana_status():
+    token = await _saved_hf_token()
+    result = await hf_sana.status(token)
+    result["credential_configured"] = bool(token)
     return result
 
 
@@ -478,6 +498,30 @@ async def _run_comfy_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] 
 
 
 _HF_VIDEO_TASKS: dict[str, asyncio.Task] = {}
+_SANA_CLOUD_TASKS: dict[str, asyncio.Task] = {}
+_SANA_CLOUD_LOCK = asyncio.Lock()
+
+
+async def _run_sana_video(mid: str, prompt: str, seconds: str, token: str) -> None:
+    async def progress(label: str) -> None:
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
+    try:
+        await progress("SANA distant · attente du service…")
+        # This cloud task deliberately does not enter gpu_queue: no local GPU is used.
+        async with _SANA_CLOUD_LOCK:
+            await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "SANA distant · requête envoyée…", "updated_at": now_iso()}})
+            data, report = await hf_sana.generate(prompt, seconds, token, progress)
+        current = await db.media.find_one({"id": mid}, {"_id": 0, "status": 1})
+        if current and current.get("status") != "cancelled":
+            await finish_media(mid, data, "video/mp4")
+            await db.media.update_one({"id": mid}, {"$set": {"generation_metrics": report, "progress_label": "SANA distant · MP4 vérifié", "updated_at": now_iso()}})
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        log.warning("Private SANA Space request failed (%s)", type(exc).__name__)
+        await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": str(exc)[:400], "progress_label": "Échec du moteur vidéo distant", "updated_at": now_iso()}})
+    finally:
+        _SANA_CLOUD_TASKS.pop(mid, None)
 
 
 async def _run_hf_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] | None) -> None:
@@ -505,6 +549,23 @@ async def _run_hf_video(mid: str, body: VideoRequest, ref: tuple[bytes, str] | N
 
 @router.post("/media/videos", response_model=Media)
 async def create_video(body: VideoRequest):
+    if body.model == "hf_sana":
+        if body.mode != "text":
+            raise HTTPException(400, "SANA 4-step prend en charge uniquement le texte → vidéo; aucun repli I2V n'est effectué.")
+        if body.duration not in ("5", "8"):
+            raise HTTPException(400, "SANA distant prend uniquement en charge les profils validés de 5 ou 8 secondes.")
+        if body.aspect_ratio != "16:9":
+            raise HTTPException(400, "SANA distant utilise son profil validé 1280×736, proche de 16:9.")
+        token = await _saved_hf_token()
+        if not token:
+            raise HTTPException(503, "Enregistrez un jeton Hugging Face privé dans les réglages sécurisés pour accéder au Space.")
+        remote = await hf_sana.status(token)
+        if not remote.get("available"):
+            raise HTTPException(503, "Moteur SANA distant indisponible : " + str(remote.get("reason", "statut non disponible"))[:240])
+        media = await create_media("video", "hf-private-space", body.prompt, hf_sana.MODEL, aspect_ratio="16:9", duration=f"{body.duration}s")
+        task = asyncio.create_task(_run_sana_video(media["id"], body.prompt, body.duration, token))
+        _SANA_CLOUD_TASKS[media["id"]] = task
+        return _out(media)
     if body.model == "hf_ltx":
         status = await hf_video.status()
         if not status["available"]:
@@ -568,6 +629,9 @@ async def cancel_media(mid: str):
     if d["status"] not in ("pending", "running"):
         raise HTTPException(400, "Cette génération n'est plus en cours")
     await gpu_queue.cancel(mid)
+    sana_task = _SANA_CLOUD_TASKS.get(mid)
+    if sana_task and not sana_task.done():
+        sana_task.cancel()  # Stops local polling; the remote Space may continue its already-started GPU job.
     smartmotion_proc = _SMARTMOTION_PROCS.get(mid) or _AD_COMPOSE_PROCS.get(mid)
     if smartmotion_proc and smartmotion_proc.returncode is None:
         smartmotion_proc.terminate()

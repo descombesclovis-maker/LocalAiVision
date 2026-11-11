@@ -149,7 +149,7 @@ class ImageRequest(BaseModel):
 
 class VideoRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=2500)
-    model: Literal["comfy", "hf_ltx", "veo", "kling", "minimax"] = "comfy"
+    model: Literal["comfy", "hf_ltx", "hf_sana", "veo", "kling", "minimax"] = "comfy"
     mode: Literal["text", "image"] = "text"
     duration: str = ""
     aspect_ratio: str = "16:9"
