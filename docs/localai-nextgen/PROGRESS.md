@@ -1453,3 +1453,27 @@ Arrêt V2-Y : infrastructure distante gratuite personnelle vérifiée et opérat
 Sources primaires : https://huggingface.co/spaces/Efficient-Large-Model/sana-video2-5b-720p-demo ; https://huggingface.co/Efficient-Large-Model/SANA-Video_2.0_5B_720p_4step ; https://huggingface.co/google/gemma-2-2b-it ; https://huggingface.co/Efficient-Large-Model/LTX-2.3-Diffusers ; https://huggingface.co/docs/hub/spaces-zerogpu ; https://huggingface.co/docs/hub/security-tokens .
 
 Arrêt V2-Z : moteur T2V distant préparé et Space déployé, mais premier rendu non obtenu. Ne pas connecter ce Space à l'interface ou annoncer I2V tant que secret+stockage ne passent pas et que T2V/I2V ne sont pas réellement validés.
+
+
+## V2-AA — reprise du chargement SANA (2026-11-10)
+
+### Vérifications réelles
+
+- Dépôt `nextgen/claude-code` local et distant au début de la reprise : `b21bea218a3f36e1c95ad7e552fa6ea0cb81eedb`. Aucun changement suivi non committé. Stash `preserve-v2q-before-v2r` présent et non modifié; `frontend/.emergent/` non suivi, préservé.
+- Identité HF confirmée sans exposer de jeton : compte personnel `clocltrrh`. `model_info(..., token=True)` réussit pour `google/gemma-2-2b-it` (`gated=manual`), ainsi que les deux dépôts publics SANA et VAE : l'accès utilisateur aux artefacts est maintenant autorisé.
+- Le Space privé `clocltrrh/LocalAiStudio-VideoEngine` existe et le runtime est `RUNNING` (révision Space `488f3c65e771054b0601b20b359b14c434a609ec`). Toutefois `get_space_secrets` retourne une liste vide : `HF_TOKEN` **n'est pas configuré**, malgré l'indication qu'il aurait été ajouté. L'API Gradio authentifiée `/engine_status` confirme `generation_ready=false`, `selected_model=null`, `supported_generation_tasks=[]`, `reason=Add a fine-grained, read-only HF_TOKEN ...` et modèle `blocked_secret`.
+- `/storage_status`, appelé en lecture seule, confirme 2,057.56 GiB libres contre 23.43 GiB d'artefacts requis et seuil de sécurité 30 GiB. Aucun poids n'a été téléchargé et aucun appel GPU n'a été fait durant cette reprise; quota GPU consommé par cette session : 0 s. Aucun MP4, chargement, mesure d'inférence ou évaluation visuelle ne peut donc être revendiqué.
+
+### Cause et action requise
+
+Le blocage n'est plus l'acceptation des conditions Gemma : l'identité HF connectée peut lire les métadonnées de Gemma. Le secret du Space manque réellement. Je n'ai pas copié le jeton OAuth local (potentiellement plus puissant) dans le Space et n'ai pas créé de credential plus large. Action : dans les Settings → Secrets du Space, ajouter un secret `HF_TOKEN` contenant un jeton fine-grained, lecture seule, restreint à `google/gemma-2-2b-it`, puis redémarrer le Space. Ne jamais poster le jeton dans le chat ou le dépôt. Au démarrage, le code SANA existant lancera les téléchargements distants nécessaires; le précontrôle actuel autorise le chargement puisque l'espace libre dépasse le seuil.
+
+### Tests et portée
+
+- `python -m pytest spaces/LocalAiStudio-VideoEngine/tests/test_engine_registry.py spaces/LocalAiStudio-VideoEngine/tests/test_storage_preflight.py -q` : **8 passed**, un avertissement de dépréciation tiers pytest.
+- Aucun fichier d'application ou d'interface modifié; aucune modification des modèles locaux, moteurs Wan/SmartMotion, atelier Publicité, données, éditions ou stash V2-Q.
+- V2-AA reste bloquée avant chargement modèle et vidéo T2V. SANA 4-step est T2V seulement; I2V n'est pas disponible avec ce checkpoint. Wan 2.2 n'a pas été téléchargé ni testé.
+
+Sources : https://huggingface.co/google/gemma-2-2b-it ; https://huggingface.co/docs/hub/security-tokens ; https://huggingface.co/docs/hub/spaces-zerogpu .
+
+Arrêt V2-AA : accès Gemma confirmé et capacité de stockage validée, mais le secret `HF_TOKEN` manque au Space. Aucun rendu GPU n'a été lancé; ne pas annoncer le moteur prêt avant secret, chargement réussi et obtention d'un MP4 vérifié.
