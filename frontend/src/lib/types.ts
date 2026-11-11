@@ -64,7 +64,7 @@ export interface Media {
   created_at: string;
   updated_at: string;
 }
-export interface ImageRequest { comfy_preset?: string | null; prompt: string; model: "comfy" | "nano-banana" | "nano-banana-pro"; aspect_ratio: "1:1" | "16:9" | "9:16" | "4:5"; ref_media_id: string | null }
+export interface ImageRequest { comfy_preset?: string | null; lora_name?: string | null; lora_strength?: number; prompt: string; model: "comfy" | "nano-banana" | "nano-banana-pro"; aspect_ratio: "1:1" | "16:9" | "9:16" | "4:5"; ref_media_id: string | null }
 export interface VideoRequest { prompt: string; model: "comfy" | "hf_ltx" | "veo" | "kling" | "minimax"; mode: "text" | "image"; duration: string; aspect_ratio: string; ref_media_id: string | null; comfy_preset?: "wan22" | "wan21_t2v" | "wan21_fun_camera" | "ltxv" | null; camera_pose?: string; paid_cost_acknowledged?: boolean }
 export interface UploadRequest { data_url: string; source: "upload" | "ad" | "logo"; prompt: string }
 export interface VideoModel { key: "comfy" | "hf_ltx" | "smartmotion" | "veo" | "kling" | "minimax"; label: string; tagline: string; durations: string[]; aspects: string[]; audio: boolean }

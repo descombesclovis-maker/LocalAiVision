@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useHuggingFaceVideoStatus, useSmartMotionStatus, useVideoModels } from "@/lib/hooks";
 import { apiPost } from "@/lib/api";
-import { useComfy, useImageModels, useVideoEngineStatus } from "@/lib/companyHooks";
+import { useComfy, useImageModels, useImageLoras, useVideoEngineStatus } from "@/lib/companyHooks";
 import type { ImageRequest, Media, SmartMotionRequest, VideoRequest } from "@/lib/types";
 import { mediaFileUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -107,6 +107,8 @@ export function PhotoStudio() {
   const { data: models } = useImageModels();
   const { data: comfyCfg } = useComfy();
   const [comfyPreset, setComfyPreset] = useState<string | null>(null);
+  const [loraName, setLoraName] = useState<string | null>(null);
+  const [loraStrength, setLoraStrength] = useState(0.8);
   // Only installed presets are selectable. A null state (ComfyUI cannot list models) is kept, not treated as missing.
   const candidates = (models ?? []).filter((m) => m.installed !== false);
   const noneInstalled = !!models && models.length > 0 && models.every((m) => m.installed === false);
@@ -116,6 +118,8 @@ export function PhotoStudio() {
     candidates.find((m) => m.key === savedKey)?.key ??
     candidates[0]?.key ??
     savedKey;
+  const { data: loras } = useImageLoras(choice);
+  useEffect(() => { if (choice !== "sdxl") setLoraName(null); }, [choice]);
   const mine = (data ?? []).filter((m) => m.source === "photo").slice(0, 12);
   return (
     <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
@@ -162,6 +166,18 @@ export function PhotoStudio() {
             )}
           </div>
         )}
+        {model === "comfy" && (loras ?? []).map((l) => (
+          <article key={l.id} data-testid={`lora-card-${l.id}`} className="overflow-hidden rounded-2xl border border-amber-200/20 bg-black/20">
+            <a href={l.source_url} target="_blank" rel="noreferrer" className="block border-b border-white/10 px-3 py-2 text-xs text-cyan-200 underline">Voir les exemples sur la fiche source (aperçus non intégrés)</a>
+            <div className="space-y-2 p-3"><div className="flex items-center justify-between gap-2"><strong className="text-sm">{l.name}</strong><span className="text-[10px] text-amber-200">{l.category}</span></div>
+              <p className="text-xs text-slate-300">{l.description}</p><p className="text-[10px] text-slate-400">Base : {l.base_model} · {l.engine} · {l.resolution} · intensité conseillée {l.strength}</p>
+              <p className="text-[10px] text-amber-200">{l.installed === true ? "Installé localement" : l.installed === false ? "Fichier absent" : "Disponibilité inconnue"} · {l.compatible ? "Compatible avec le modèle sélectionné" : l.reason}</p>
+              <p className="text-[10px] text-slate-400">{l.license} {l.restrictions}</p>
+              <div className="flex items-center justify-between gap-2"><a href={l.source_url} target="_blank" rel="noreferrer" className="text-[10px] text-cyan-200 underline">Voir la source (aperçu non intégré)</a><button type="button" data-testid={`lora-toggle-${l.id}`} disabled={!l.selectable} aria-pressed={loraName === l.filename} onClick={() => { setLoraName(loraName === l.filename ? null : l.filename); setLoraStrength(l.strength); }} className={cn("rounded-lg border px-3 py-1.5 text-xs", loraName === l.filename ? "border-amber-200 bg-amber-200/15 text-white" : "border-white/15 text-slate-300", !l.selectable && "cursor-not-allowed opacity-40")}>{loraName === l.filename ? "Désactiver" : "Sélectionner"}</button></div>
+              {loraName === l.filename && <label className="block text-xs text-slate-300">Intensité {loraStrength.toFixed(2)}<input aria-label="Intensité LoRA" data-testid="lora-strength" type="range" min="0" max="1.5" step="0.05" value={loraStrength} onChange={(e) => setLoraStrength(Number(e.target.value))} className="ml-2 align-middle" /></label>}
+            </div>
+          </article>
+        ))}
         <textarea data-testid="photo-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={5} placeholder="Ex. Flacon de parfum ambré sur pierre volcanique, lumière rasante dorée, macro éditoriale…" className={cn(field, "resize-none")} />
         <div className="flex flex-wrap gap-2">
           {(["1:1", "4:5", "16:9", "9:16"] as const).map((a) => <Chip key={a} testid={`photo-aspect-${a}`} active={aspect === a} onClick={() => setAspect(a)}>{a}</Chip>)}
@@ -170,7 +186,7 @@ export function PhotoStudio() {
           <Label className="mb-2 block text-xs text-slate-400">Transformer une image (facultatif)</Label>
           <RefPicker value={ref} onChange={setRef} testid="photo-ref" />
         </div>
-        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-photo-btn" disabled={prompt.trim().length < 3 || image.isPending || (model === "comfy" && noneInstalled)} onClick={() => image.mutate({ prompt, model, aspect_ratio: aspect, ref_media_id: ref, comfy_preset: model === "comfy" ? choice : null }, { onSuccess: () => toast.success("Photo en cours de création") })}>
+        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-photo-btn" disabled={prompt.trim().length < 3 || image.isPending || (model === "comfy" && noneInstalled)} onClick={() => image.mutate({ prompt, model, aspect_ratio: aspect, ref_media_id: ref, comfy_preset: model === "comfy" ? choice : null, lora_name: model === "comfy" && choice === "sdxl" ? loraName : null, lora_strength: loraStrength }, { onSuccess: () => toast.success("Photo en cours de création") })}>
           <Sparkles className="size-4" /> {ref ? "Transformer l'image" : "Générer la photo"}
         </FxButton>
       </div>
@@ -382,6 +398,8 @@ export function AdWorkshop() {
   const { data: projects } = useProjects("", "");
   const { data: comfyCfg } = useComfy();
   const { data: imageModels } = useImageModels();
+  const [adLoraName, setAdLoraName] = useState<string | null>(null);
+  const [adLoraStrength, setAdLoraStrength] = useState(0.8);
   const { data: videoStatus } = useVideoEngineStatus();
   const { data: smStatus } = useSmartMotionStatus();
   const { upload, image, smartmotion, video, cancel } = useMediaActions();
@@ -392,6 +410,8 @@ export function AdWorkshop() {
   const [photoPrompt, setPhotoPrompt] = useState("");
   const [adKind, setAdKind] = useState("Produit");
   const [imagePreset, setImagePreset] = useState<"flux-dev" | "flux-schnell" | "sdxl">("sdxl");
+  const { data: adLoras } = useImageLoras(imagePreset);
+  useEffect(() => { if (imagePreset !== "sdxl") setAdLoraName(null); }, [imagePreset]);
   const [videoEngine, setVideoEngine] = useState<"smartmotion" | "wan" | "wan-t2v">("smartmotion");
   const [videoPreset, setVideoPreset] = useState<"wan22" | "wan21_fun_camera" | "ltxv">("wan21_fun_camera");
   const [t2vPreset, setT2vPreset] = useState<"wan22" | "wan21_t2v" | "ltxv" | "wan21_fun_camera">("wan21_t2v");
@@ -539,7 +559,7 @@ export function AdWorkshop() {
     const selectedRef = base && !generated ? base : null;
     const brandContext = brand ? ` Identité de marque : ${brand.name}${brand.slogan ? `, slogan « ${brand.slogan} »` : ""}.` : "";
     const fullPrompt = `Photographie publicitaire ${adKind.toLowerCase()}. ${photoPrompt.trim()}${brandContext} Composition professionnelle, sans texte ni logo intégré dans l'image.`;
-    image.mutate({ prompt: fullPrompt, model: "comfy", aspect_ratio: fmt, ref_media_id: selectedRef, comfy_preset: imagePreset }, {
+    image.mutate({ prompt: fullPrompt, model: "comfy", aspect_ratio: fmt, ref_media_id: selectedRef, comfy_preset: imagePreset, lora_name: imagePreset === "sdxl" ? adLoraName : null, lora_strength: adLoraStrength }, {
       onSuccess: (m) => { setBase(m.id); setGenerated(m.id); setPosterId(null); toast.success("Photo publicitaire envoyée à ComfyUI"); },
     });
   };
@@ -594,6 +614,7 @@ export function AdWorkshop() {
         <div className="space-y-2"><Label className="text-xs text-slate-400">Référence visuelle (facultatif)</Label><div className="flex gap-2 overflow-x-auto pb-1">{choices.slice(0, 18).map((m) => <button key={m.id} type="button" data-testid={`ad-reference-${m.id}`} onClick={() => { setBase(m.id); setGenerated(null); setPosterId(null); }} className={cn("size-14 shrink-0 overflow-hidden rounded-xl border-2", base === m.id ? "border-amber-300" : "border-transparent")}><img src={m.url!} alt={m.prompt} className="size-full object-cover" /></button>)}</div></div>
         <div className="space-y-2"><Label htmlFor="ad-format">Format de campagne</Label><div className="flex gap-2">{(Object.keys(FORMATS) as Fmt[]).map((f) => <Chip key={f} testid={`ad-format-${f}`} active={fmt === f} onClick={() => changeFormat(f)}>{f}</Chip>)}</div></div>
         <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="ad-brand">Identité de marque</Label><select id="ad-brand" data-testid="ad-brand" value={brandId} onChange={(e) => setBrandId(e.target.value)} className={field}><option value="">Sans marque</option>{brands?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div><div className="space-y-2"><Label htmlFor="ad-image-model">Moteur photo local</Label><select id="ad-image-model" data-testid="ad-image-model" value={imagePreset} onChange={(e) => setImagePreset(e.target.value as typeof imagePreset)} className={field}>{(imageModels ?? []).map((m) => <option key={m.key} value={m.key} disabled={m.installed !== true}>{m.label} · {m.installed === true ? "installé" : m.installed === false ? "absent" : "inconnu"}</option>)}</select></div></div>
+        {adLoras?.map((l) => <article key={l.id} data-testid={`ad-lora-card-${l.id}`} className="rounded-xl border border-amber-200/20 p-3"><div className="space-y-1"><strong className="text-xs">{l.name}</strong><p className="text-[10px] text-slate-400">{l.description}</p><p className="text-[10px] text-amber-200">{l.selectable ? "Disponible · SDXL uniquement" : l.reason || (l.installed === false ? "LoRA absent" : "Non compatible / indisponible")}</p><p className="text-[10px] text-slate-500">{l.license}</p><div className="flex items-center gap-2"><a href={l.source_url} target="_blank" rel="noreferrer" className="text-[10px] text-cyan-200 underline">Source (aperçu non intégré)</a><button type="button" data-testid={`ad-lora-toggle-${l.id}`} disabled={!l.selectable} aria-pressed={adLoraName === l.filename} onClick={() => { setAdLoraName(adLoraName === l.filename ? null : l.filename); setAdLoraStrength(l.strength); }} className="rounded border border-white/15 px-2 py-1 text-[10px] disabled:opacity-40">{adLoraName === l.filename ? "Désactiver" : "Appliquer à la photo"}</button>{adLoraName === l.filename && <input aria-label="Intensité LoRA publicité" type="range" min="0" max="1.5" step="0.05" value={adLoraStrength} onChange={(e) => setAdLoraStrength(Number(e.target.value))} />}</div></div></article>)}
         <FxButton tone="vision" data-testid="ad-generate-photo" disabled={photoPrompt.trim().length < 3 || image.isPending || !availablePhotoModels.some((m) => m.key === imagePreset)} onClick={generatePhoto}><ImagePlus className="size-4" />{image.isPending ? "Photo en cours…" : "Générer la photo publicitaire"}</FxButton>
         <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-3"><div className="space-y-2"><Label htmlFor="ad-video-engine">Animation</Label><select id="ad-video-engine" data-testid="ad-video-engine" value={videoEngine} onChange={(e) => setVideoEngine(e.target.value as typeof videoEngine)} className={field}><option value="smartmotion" disabled={!base}>SmartMotion · caméra 2.5D (local)</option><option value="wan" disabled={!base || !videoStatus?.presets.some((p) => p.key === "wan21_fun_camera" && p.installed === true)}>Wan Fun Camera · génération I2V</option><option value="wan-t2v" disabled={!videoStatus?.presets.some((p) => (p.key === "wan21_t2v" || p.key === "wan22" || p.key === "ltxv") && p.installed === true)}>Wan · génération T2V</option></select></div>
           {videoEngine === "wan" ? <div className="space-y-2"><Label htmlFor="ad-wan-preset">Modèle vidéo réel</Label><select id="ad-wan-preset" data-testid="ad-wan-preset" value={videoPreset} onChange={(e) => setVideoPreset(e.target.value as typeof videoPreset)} className={field}>{(videoStatus?.presets ?? []).filter((p) => p.key === "wan21_fun_camera" || p.key === "wan22" || p.key === "ltxv").map((p) => <option key={p.key} value={p.key} disabled={p.installed !== true}>{p.label} · {p.installed === true ? "installé" : "absent"}</option>)}</select><div className="mt-2 space-y-2"><Label htmlFor="ad-wan-duration">Durée du plan Wan</Label><select id="ad-wan-duration" data-testid="ad-wan-duration" value={wanDuration} onChange={(e) => setWanDuration(e.target.value)} className={field}><option value="3">3 secondes</option><option value="5">5 secondes</option></select></div><p className="text-[11px] text-amber-200">Wan génère le mouvement des pixels; les textes/logo sont appliqués ensuite et restent nets. Cette génération est lente.</p></div> : videoEngine === "wan-t2v" ? <div className="space-y-2"><Label htmlFor="ad-t2v-preset">Modèle T2V</Label><select id="ad-t2v-preset" data-testid="ad-t2v-preset" value={t2vPreset} onChange={(e) => setT2vPreset(e.target.value as typeof t2vPreset)} className={field}>{(videoStatus?.presets ?? []).filter((p) => p.key === "wan21_t2v" || p.key === "wan22" || p.key === "ltxv").map((p) => <option key={p.key} value={p.key} disabled={p.installed !== true}>{p.label} · {p.installed === true ? "installé" : "absent"}</option>)}</select><div className="space-y-2"><Label htmlFor="ad-wan-duration">Durée du plan</Label><select id="ad-wan-duration" data-testid="ad-wan-duration" value={wanDuration} onChange={(e) => setWanDuration(e.target.value)} className={field}><option value="3">3 secondes</option><option value="5">5 secondes</option></select></div><p className="text-[11px] text-amber-200">Texte → vidéo génératif. Le prompt français est transmis tel quel. Le titre, logo et CTA sont composités après génération.</p></div> : <><div className="space-y-2"><Label htmlFor="ad-duration">Durée SmartMotion</Label><select id="ad-duration" data-testid="ad-duration" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className={field}>{[5, 10, 15, 20, 30].map((d) => <option key={d} value={d}>{d} secondes</option>)}</select></div><div className="space-y-2"><Label htmlFor="ad-motion">Mouvement caméra</Label><select id="ad-motion" data-testid="ad-motion" value={cameraMotion} onChange={(e) => setCameraMotion(e.target.value as typeof cameraMotion)} className={field}><option value="push_in">Travelling avant doux</option><option value="pan_left">Panoramique gauche</option><option value="pan_right">Panoramique droite</option><option value="tilt_up">Inclinaison haut</option><option value="tilt_down">Inclinaison bas</option><option value="orbit_subtle">Arc latéral subtil</option><option value="static">Caméra fixe</option></select></div><p className="text-[11px] text-slate-400">SmartMotion déplace la caméra uniquement. Aucun mouvement d'objet n'est généré.</p></>}

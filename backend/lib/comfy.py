@@ -429,9 +429,11 @@ async def verify_ready(s: dict, video: bool = False) -> None:
 
 # ------------------------------------------------------------------ workflows (ComfyUI API format)
 
-def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Optional[str]) -> dict:
+def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Optional[str], lora_name: Optional[str] = None, lora_strength: float = 0.8) -> dict:
     flux = s["image_preset"].startswith("flux")
     schnell = s["image_preset"] == "flux-schnell"
+    if lora_name and (s["image_preset"] != "sdxl" or lora_name != "jewelry-sdxl-v1.safetensors"):
+        raise WorkflowError("Ce LoRA est vérifié uniquement pour le preset SDXL; aucun autre modèle ne sera substitué.")
     wf: dict[str, Any] = {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": s["image_checkpoint"]}},
         "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
@@ -439,6 +441,13 @@ def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Opti
         "8": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
         "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "LocalAiStudio", "images": ["8", 0]}},
     }
+    if lora_name:
+        wf["10"] = {"class_type": "LoraLoader", "inputs": {"model": ["1", 0], "clip": ["1", 1], "lora_name": lora_name, "strength_model": lora_strength, "strength_clip": lora_strength}}
+        model_ref = ["10", 0]
+        wf["2"]["inputs"]["clip"] = ["10", 1]
+        wf["3"]["inputs"]["clip"] = ["10", 1]
+    else:
+        model_ref = ["1", 0]
     positive: list = ["2", 0]
     if flux and not schnell:
         wf["4"] = {"class_type": "FluxGuidance", "inputs": {"conditioning": ["2", 0], "guidance": 3.5}}
@@ -453,7 +462,7 @@ def _image_workflow(s: dict, prompt: str, w: int, h: int, seed: int, image: Opti
         denoise = 1.0
     steps, cfg, sampler, sched = (4, 1.0, "euler", "simple") if schnell else (22, 1.0, "euler", "simple") if flux else (30, 6.5, "dpmpp_2m", "karras")
     wf["5"] = {"class_type": "KSampler", "inputs": {
-        "model": ["1", 0], "positive": positive, "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed,
+        "model": model_ref, "positive": positive, "negative": ["3", 0], "latent_image": ["6", 0], "seed": seed,
         "steps": steps, "cfg": cfg, "sampler_name": sampler, "scheduler": sched, "denoise": denoise}}
     return wf
 
@@ -617,6 +626,44 @@ def image_settings(s: dict, preset: Optional[str]) -> dict:
     if preset not in IMAGE_PRESETS:
         raise ValueError(f"Preset image inconnu : {preset}")
     return {**s, "image_preset": preset, "image_checkpoint": IMAGE_PRESETS[preset]["checkpoint"]}
+
+
+LORA_CATALOG = [{
+    "id": "sdxl-jewelry-product-photo", "name": "HiResJewels · photographie de bijoux",
+    "filename": "jewelry-sdxl-v1.safetensors", "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
+    "engine": "ComfyUI SDXL 1.0 · image uniquement", "category": "Publicité produit / luxe / bijoux",
+    "description": "Style de packshot macro joaillerie, reflets métalliques et éclairage studio. Non destiné aux personnages ou à la vidéo.",
+    "strength": 0.8, "trigger": "hiresjewels_style", "resolution": "1024×1024",
+    # The author/model card does not grant a separate license for its example image.
+    # Do not embed or redistribute that asset in this commercial application.
+    "preview_url": None,
+    "source_url": "https://huggingface.co/marioortegat/jewelry-product-photography-sdxl-lora",
+    "license": "CreativeML OpenRAIL-M (métadonnées HF); pas de licence commerciale dédiée du fichier explicitement fournie. Vérifier les conditions d'usage et de redistribution avant commercialisation.",
+    "restrictions": "Base SDXL; texte/gravures difficiles; biais platine/or rose. Qualité non certifiée par un test indépendant.",
+}]
+
+async def lora_catalog_status(s: Optional[dict] = None) -> list[dict]:
+    s = s or await get_settings()
+    try:
+        async with _client() as c:
+            choices = await _choices(c, s["base_url"], "LoraLoader", "lora_name")
+    except (httpx.HTTPError, ComfyError):
+        choices = None
+    try:
+        async with _client() as c:
+            names = await _choices(c, s["base_url"], "CheckpointLoaderSimple", "ckpt_name")
+            checkpoint_installed = names is not None and s.get("image_checkpoint") in names
+    except (httpx.HTTPError, ComfyError):
+        checkpoint_installed = None
+    result = []
+    for item in LORA_CATALOG:
+        compatible = (s.get("image_preset") == "sdxl" and s.get("image_checkpoint") == IMAGE_PRESETS["sdxl"]["checkpoint"] and not s.get("custom_image_workflow", "").strip())
+        installed = None if choices is None else item["filename"] in choices
+        result.append({**item, "compatible": compatible, "installed": installed,
+            "selectable": compatible and installed is True and checkpoint_installed is True,
+            "reason": "" if compatible else ("LoRA non pris en charge dans le workflow personnalisé." if s.get("custom_image_workflow", "").strip() else "Compatible uniquement avec SDXL 1.0; sélectionnez SDXL."),
+            "commercial_status": "à vérifier avant usage commercial"})
+    return result
 
 
 async def image_model_status(s: dict) -> list[dict]:
@@ -800,7 +847,7 @@ async def run(
 async def generate_image(
     prompt: str, aspect: str = "1:1", ref: Optional[tuple[bytes, str]] = None, progress: Progress = None,
     on_queued: Optional[Callable[[str], Awaitable[None]]] = None,
-    preset: Optional[str] = None,
+    preset: Optional[str] = None, lora_name: Optional[str] = None, lora_strength: float = 0.8, seed_override: Optional[int] = None,
 ) -> tuple[bytes, str]:
     """Generate an image via ComfyUI.
 
@@ -814,7 +861,7 @@ async def generate_image(
     """
     s = image_settings(await get_settings(), preset)
     w, h = IMAGE_SIZES.get(aspect, IMAGE_SIZES["1:1"])
-    seed = random.randint(1, 2**31)
+    seed = seed_override if seed_override is not None else random.randint(1, 2**31)
     image = None
     if ref:
         try:
@@ -822,10 +869,12 @@ async def generate_image(
                 image = await _upload(c, s["base_url"], *ref)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             raise ComfyUnreachable(unreachable(s)) from exc
+    if lora_name and s["custom_image_workflow"].strip():
+        raise WorkflowError("L'application d'un LoRA au workflow personnalisé n'est pas vérifiée; désactivez-le ou utilisez le workflow standard.")
     if s["custom_image_workflow"].strip():
         wf = _fill(json.loads(s["custom_image_workflow"]), {"PROMPT": prompt, "NEGATIVE": NEGATIVE, "WIDTH": w, "HEIGHT": h, "SEED": seed, "IMAGE": image or ""})
     else:
-        wf = _image_workflow(s, prompt, w, h, seed, image)
+        wf = _image_workflow(s, prompt, w, h, seed, image, lora_name, lora_strength)
     return await run(wf, False, progress, on_queued, s=s)
 
 

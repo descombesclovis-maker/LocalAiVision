@@ -361,7 +361,7 @@ async def delete_media(mid: str):
     return {"ok": True}
 
 
-async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_mime: str, comfy_preset: str | None = None) -> None:
+async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_mime: str, comfy_preset: str | None = None, lora_name: str | None = None, lora_strength: float = 0.8, seed: int | None = None) -> None:
     async def progress(label: str) -> None:
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"progress_label": label, "updated_at": now_iso()}})
 
@@ -373,10 +373,15 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
         # V1-C: verify_ready is called once here (in media.py) before the GPU slot.
         # generate_image() no longer calls it, eliminating the redundant second check.
         s = comfy.image_settings(await comfy.get_settings(), comfy_preset)
+        if lora_name:
+            catalog = await comfy.lora_catalog_status(s)
+            entry = next((item for item in catalog if item["filename"] == lora_name), None)
+            if not entry or not entry["selectable"]:
+                raise comfy.WorkflowError("LoRA absent ou incompatible avec le modèle image actif; aucune substitution n'a été faite.")
         await comfy.verify_ready(s, video=False)
         async with gpu_queue.slot(mid, "photo", "ComfyUI", prompt, "media"):
             await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "running", "progress_label": "Rendu local sur votre GPU…", "updated_at": now_iso()}})
-            data, mime = await comfy.generate_image(prompt, aspect, (base64.b64decode(ref), ref_mime) if ref else None, progress, queued, preset=comfy_preset)
+            data, mime = await comfy.generate_image(prompt, aspect, (base64.b64decode(ref), ref_mime) if ref else None, progress, queued, preset=comfy_preset, lora_name=lora_name, lora_strength=lora_strength, seed_override=seed)
         d = await db.media.find_one({"id": mid})
         if d and d["status"] != "cancelled":
             await finish_media(mid, data, mime)
@@ -396,9 +401,12 @@ async def _comfy_image(mid: str, prompt: str, ref: str | None, aspect: str, ref_
         await db.media.update_one({"id": mid, "status": {"$ne": "cancelled"}}, {"$set": {"status": "error", "error": _err(exc), "progress_label": "Échec", "updated_at": now_iso()}})
 
 
-async def _run_image(mid: str, prompt: str, model: str, ref: str | None, aspect: str = "1:1", ref_mime: str = "image/png", comfy_preset: str | None = None) -> None:
+async def _run_image(mid: str, prompt: str, model: str, ref: str | None, aspect: str = "1:1", ref_mime: str = "image/png", comfy_preset: str | None = None, lora_name: str | None = None, lora_strength: float = 0.8, seed: int | None = None) -> None:
     if model == "comfy":
-        return await _comfy_image(mid, prompt, ref, aspect, ref_mime, comfy_preset)
+        return await _comfy_image(mid, prompt, ref, aspect, ref_mime, comfy_preset, lora_name, lora_strength, seed)
+    if lora_name:
+        await db.media.update_one({"id": mid}, {"$set": {"status": "error", "error": "Ce fournisseur ne prend pas en charge ce LoRA.", "progress_label": "LoRA incompatible", "updated_at": now_iso()}})
+        return
     await db.media.update_one({"id": mid}, {"$set": {"status": "running", "progress_label": "Génération en cours…", "updated_at": now_iso()}})
     try:
         data, mime = await generate_image(prompt, model, ref, aspect=aspect, ref_mime=ref_mime)
@@ -411,14 +419,20 @@ async def _run_image(mid: str, prompt: str, model: str, ref: str | None, aspect:
 @router.post("/media/images", response_model=Media)
 async def create_image(body: ImageRequest):
     ref, ref_mime = await _ref_b64(body.ref_media_id)
+    if body.lora_name and body.model != "comfy":
+        raise HTTPException(422, "Ce fournisseur ne prend pas en charge ce LoRA.")
+    if body.lora_name and body.comfy_preset not in (None, "sdxl"):
+        raise HTTPException(422, "Ce LoRA est compatible uniquement avec SDXL.")
     if body.model == "comfy":
         full = comfy_photo_prompt(body.prompt)
+        if body.lora_name == "jewelry-sdxl-v1.safetensors":
+            full = "hiresjewels_style, " + full
     else:
         full = f"{body.prompt}. Aspect ratio {body.aspect_ratio}. High-end, detailed, no watermark."
         if ref:
             full = f"Transform the provided image: {body.prompt}. Keep composition quality. Aspect ratio {body.aspect_ratio}."
     m = await create_media("image", "photo", body.prompt, "local-comfyui" if body.model == "comfy" else body.model, aspect_ratio=body.aspect_ratio)
-    spawn(_run_image(m["id"], full, body.model, ref, body.aspect_ratio, ref_mime or "image/png", body.comfy_preset))
+    spawn(_run_image(m["id"], full, body.model, ref, body.aspect_ratio, ref_mime or "image/png", body.comfy_preset, body.lora_name, body.lora_strength, body.seed))
     return _out(m)
 
 

@@ -4,7 +4,7 @@ import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg } from "@/lib/hooks";
 import type { ProjectSummary } from "@/lib/types";
 import type {
-  ComfySettings, ComfyTest, EnginePresets, ImageModelStatus, VideoEngineStatus, CompanyDetail, CompanyOverview, CompanyPoint, CompanySiteRequest, GeoResult, LocalEngine, LocalEngineTest, Sector, QueueState, WebCheckItem, WebStatus, Diagnostic, KitInfo,
+  ComfySettings, ComfyTest, EnginePresets, ImageModelStatus, ImageLora, VideoEngineStatus, CompanyDetail, CompanyOverview, CompanyPoint, CompanySiteRequest, GeoResult, LocalEngine, LocalEngineTest, Sector, QueueState, WebCheckItem, WebStatus, Diagnostic, KitInfo,
 } from "@/lib/companyTypes";
 
 export const useSectors = () =>
@@ -130,3 +130,5 @@ export const useKitInfo = () => useQuery({ queryKey: ["kit-info"], queryFn: () =
 
 export const useImageModels = () =>
   useQuery({ queryKey: ["comfy-image-models"], queryFn: () => apiGet<ImageModelStatus[]>("/settings/comfyui/image-models"), staleTime: 15_000 });
+export const useImageLoras = (preset?: string | null) =>
+  useQuery({ queryKey: ["comfy-image-loras", preset], queryFn: () => apiGet<ImageLora[]>(`/settings/comfyui/loras${preset ? `?preset=${encodeURIComponent(preset)}` : ""}`), staleTime: 30_000 });

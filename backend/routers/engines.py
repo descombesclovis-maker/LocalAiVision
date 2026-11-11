@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import FileResponse, StreamingResponse
 
 from lib import comfy, diagnostic, gpu_queue
@@ -46,6 +46,13 @@ async def test_comfy(body: ComfySettings):
 async def image_models():
     """Installed state of each image preset (True/False, None = ComfyUI list unavailable)."""
     return await comfy.image_model_status(await comfy.get_settings())
+
+
+@router.get("/settings/comfyui/loras")
+async def image_loras(preset: str | None = Query(default=None)):
+    """Verified local LoRA catalog; selectable only when the active ComfyUI schema confirms it."""
+    settings = await comfy.get_settings()
+    return await comfy.lora_catalog_status(comfy.image_settings(settings, preset))
 
 
 @router.get("/settings/comfyui/video-models")

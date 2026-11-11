@@ -86,3 +86,5 @@ export interface Diagnostic { checks: DiagCheck[]; ok: number; warn: number; err
 export interface KitInfo { installer_available: boolean; installer_size_mb: number }
 
 export interface ImageModelStatus { key: string; label: string; checkpoint: string; installed: boolean | null }
+
+export interface ImageLora { id: string; name: string; filename: string; base_model: string; engine: string; category: string; description: string; strength: number; trigger: string; resolution: string; preview_url: string | null; source_url: string; license: string; restrictions: string; compatible: boolean; installed: boolean | null; selectable: boolean; reason: string; commercial_status: string }

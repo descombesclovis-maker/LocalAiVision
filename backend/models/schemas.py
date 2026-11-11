@@ -145,6 +145,9 @@ class ImageRequest(BaseModel):
     aspect_ratio: Literal["1:1", "16:9", "9:16", "4:5"] = "1:1"
     ref_media_id: Optional[str] = None
     comfy_preset: Optional[Literal["flux-dev", "flux-schnell", "sdxl"]] = None
+    lora_name: Optional[Literal["jewelry-sdxl-v1.safetensors"]] = None
+    lora_strength: float = Field(default=0.8, ge=0.0, le=1.5)
+    seed: Optional[int] = Field(default=None, ge=0, le=2**32 - 1)
 
 
 class VideoRequest(BaseModel):
