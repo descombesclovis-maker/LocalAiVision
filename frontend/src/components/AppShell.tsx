@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { Clapperboard, Globe2, Image as ImageIcon, Loader2, Sparkles, Stamp } from "lucide-react";
+import { Clapperboard, Globe2, Image as ImageIcon, Loader2, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Toaster } from "@/components/ui/sonner";
@@ -11,12 +11,11 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Studio", end: true, tone: "duo" },
-  { to: "/web", label: "LocalAiWeb", end: false, tone: "web" },
-  { to: "/carte", label: "Carte", end: false, tone: "web" },
   { to: "/vision", label: "LocalAiVision", end: false, tone: "vision" },
+  { to: "/publicites", label: "Publicités", end: false, tone: "vision" },
+  { to: "/web", label: "LocalAiWeb", end: false, tone: "web" },
   { to: "/marques", label: "Marques", end: false, tone: "duo" },
-  { to: "/moteurs", label: "Moteurs", end: false, tone: "duo" },
-];
+] as const;
 
 export function ActivityPill() {
   const { data } = useActivity();
@@ -76,9 +75,9 @@ export function AppShell({ children, tone = "duo", full = false }: { children: R
               <span className="ml-1.5 rounded bg-white/10 px-1.5 py-0.5 align-middle font-mono text-[9px] tracking-widest text-slate-300">NEXTGEN</span>
             </span>
           </Link>
-          <nav className="relative ml-2 hidden items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.02] p-1 md:flex">
+          <nav aria-label="Navigation principale" className="relative ml-2 hidden items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.02] p-1 md:flex">
             {NAV.map((n) => {
-              const active = n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
+              const active = n.end ? loc.pathname === n.to : loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`);
               return (
                 <NavLink key={n.to} to={n.to} end={n.end} data-testid={`nav-${n.to === "/" ? "home" : n.to.slice(1)}`} className="relative rounded-full px-4 py-1.5 text-sm">
                   {active && (
@@ -99,16 +98,11 @@ export function AppShell({ children, tone = "duo", full = false }: { children: R
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden sm:inline-flex"><GpuQueuePill /></span>
             <ActivityPill />
-            <Link to="/marques" data-testid="nav-brands-icon" className="inline-flex size-9 items-center justify-center rounded-full border border-white/10 text-slate-300 transition-colors hover:text-white md:hidden">
-              <Stamp className="size-4" />
-            </Link>
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-2 md:hidden">
+        <nav aria-label="Navigation mobile" className="flex gap-1 overflow-x-auto px-3 pb-2 md:hidden">
           {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.end} data-testid={`mnav-${n.to === "/" ? "home" : n.to.slice(1)}`} className={({ isActive }) => cn("shrink-0 rounded-full px-3 py-1 text-xs", isActive ? "bg-white/10 text-white" : "text-slate-400")}>
-              {n.label}
-            </NavLink>
+            <NavLink key={n.to} to={n.to} end={n.end} data-testid={`mnav-${n.to === "/" ? "home" : n.to.slice(1)}`} className={({ isActive }) => cn("shrink-0 rounded-full px-3 py-1 text-xs", isActive ? "bg-white/10 text-white" : "text-slate-400")}>{n.label}</NavLink>
           ))}
         </nav>
       </header>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { Crown, Feather, Globe2, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { Crown, Feather, Globe2, Loader2, MapPinned, Plus, Search, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FxButton } from "@/components/FxButton";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
@@ -32,9 +32,14 @@ export default function WebLibrary() {
             <h1 className="mt-3 text-4xl font-semibold md:text-6xl"><span className="text-gradient-web">Vos sites</span>, prêts à briller.</h1>
             <p className="mt-3 max-w-lg text-slate-400">Chaque génération continue en arrière-plan : vous pouvez quitter l'éditeur et revenir quand vous voulez.</p>
           </div>
-          <FxButton size="lg" data-testid="library-new-project" onClick={() => setOpen(true)}>
-            <Plus className="size-4" /> Nouveau site
-          </FxButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/carte" data-testid="web-prospecting-map" className="inline-flex h-12 items-center gap-2 rounded-full border border-violet-300/20 bg-violet-400/[0.05] px-4 text-sm text-violet-100 transition-[border-color,background-color] hover:border-violet-300/50 hover:bg-violet-400/10">
+              <MapPinned className="size-4" /> Carte de prospection
+            </Link>
+            <FxButton size="lg" data-testid="library-new-project" onClick={() => setOpen(true)}>
+              <Plus className="size-4" /> Nouveau site
+            </FxButton>
+          </div>
         </div>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
