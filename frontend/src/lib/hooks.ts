@@ -55,6 +55,9 @@ export const useSmartMotionStatus = () =>
 export const useHuggingFaceVideoStatus = () =>
   useQuery({ queryKey: ["hf-ltx-status"], queryFn: () => apiGet<HuggingFaceVideoStatus>("/media/models/hf-ltx"), staleTime: 60_000, retry: false });
 
+export const usePrivateSanaStatus = () =>
+  useQuery({ queryKey: ["private-sana-status"], queryFn: () => apiGet<import("@/lib/types").PrivateSanaStatus>("/media/models/private-sana"), staleTime: 60_000, retry: false });
+
 function useInvalidate() {
   const qc = useQueryClient();
   return (...keys: string[]) => keys.forEach((k) => qc.invalidateQueries({ queryKey: [k] }));

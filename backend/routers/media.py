@@ -64,7 +64,8 @@ async def video_models():
     paid = [{"key": k, **{f: v[f] for f in ("label", "tagline", "durations", "aspects", "audio")}} for k, v in fal.VIDEO_MODELS.items()]
     smartmotion = {"key": "smartmotion", "label": "SmartMotion · local 2.5D", "tagline": "Animation de caméra à partir d'une image fixe; ne génère pas de mouvement d'objet.", "durations": ["5", "10", "15", "20", "30"], "aspects": ["1:1", "16:9"], "audio": False}
     cloud = {"key": "hf_ltx", "label": "Cloud gratuit · LTX Video", "tagline": "Calcul distant; quota partagé limité, disponibilité et qualité variables.", "durations": ["2"], "aspects": ["1:1"], "audio": False}
-    return [cloud, {"key": "comfy", **COMFY_VIDEO}, smartmotion, *paid]
+    sana = {"key": "hf_sana", "label": "SANA Video 2.0 · Space privé", "tagline": "T2V distant · 1280×736 · profils validés 5/8 s · nécessite un jeton HF privé; quota restant non consultable.", "durations": ["5", "8"], "aspects": ["16:9"], "audio": False}
+    return [cloud, sana, {"key": "comfy", **COMFY_VIDEO}, smartmotion, *paid]
 
 
 @router.get("/media/models/hf-ltx", response_model=HuggingFaceVideoStatus)

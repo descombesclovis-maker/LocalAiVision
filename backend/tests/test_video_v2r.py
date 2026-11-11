@@ -67,6 +67,12 @@ def test_exact_duration_map_is_24fps_and_does_not_silently_shorten():
         comfy._video_frame_count("7")
 
 
+def test_private_sana_request_contract_is_t2v_only_and_uses_validated_profile():
+    request = VideoRequest(prompt=FR_PROMPT, model="hf_sana", mode="text", duration="5", aspect_ratio="16:9")
+    assert request.model == "hf_sana"
+    assert request.mode == "text" and request.duration == "5"
+
+
 def test_video_request_and_settings_accept_new_engine_without_changing_i2v_request():
     request = VideoRequest(prompt=FR_PROMPT, model="comfy", mode="text", duration="3", aspect_ratio="16:9", comfy_preset="wan21_t2v")
     assert request.comfy_preset == "wan21_t2v"

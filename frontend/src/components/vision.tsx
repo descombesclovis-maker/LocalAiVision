@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Ban, Download, Film, ImagePlus, Loader2, Megaphone, Sparkles, Trash2, Upload, Volume2, Wand2, Globe2 } from "lucide-react";
+import { Ban, Download, Film, ImagePlus, Loader2, Megaphone, Sparkles, Trash2, Upload, Volume2, Globe2 } from "lucide-react";
 import { toast } from "sonner";
 import { FxButton } from "@/components/FxButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useHuggingFaceVideoStatus, useSmartMotionStatus, useVideoModels } from "@/lib/hooks";
+import { fileToDataUrl, useBrands, useMedia, useMediaActions, useProjects, useHuggingFaceVideoStatus, usePrivateSanaStatus, useSmartMotionStatus, useVideoModels } from "@/lib/hooks";
 import { apiPost } from "@/lib/api";
 import { useComfy, useImageModels, useImageLoras, useVideoEngineStatus } from "@/lib/companyHooks";
 import type { ImageRequest, Media, SmartMotionRequest, VideoRequest } from "@/lib/types";
@@ -14,6 +14,48 @@ import { mediaFileUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const field = "w-full rounded-xl border border-white/10 bg-black/30 p-3.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-cyan-400/60 focus:shadow-[0_0_0_3px_rgba(6,182,212,0.15)] placeholder:text-slate-500";
+
+const PHOTO_STYLES = [
+  { id: "none", name: "Sans style", tone: "from-slate-600/30 to-slate-900/70", guidance: "" },
+  { id: "product", name: "Produit éditorial", tone: "from-amber-300/25 via-stone-500/10 to-slate-900", guidance: "photographie publicitaire de produit, matières fidèles, composition éditoriale, éclairage studio maîtrisé" },
+  { id: "cinematic", name: "Cinéma", tone: "from-indigo-400/30 via-violet-500/15 to-slate-950", guidance: "photographie cinématographique, éclairage motivé, profondeur atmosphérique, cadrage de film" },
+  { id: "architecture", name: "Architecture", tone: "from-cyan-300/25 via-blue-500/10 to-slate-950", guidance: "photographie d'architecture, lignes structurées, perspective naturelle, lumière ambiante réaliste" },
+  { id: "illustration", name: "Illustration manga", tone: "from-fuchsia-400/25 via-rose-500/10 to-slate-950", guidance: "illustration manga, contours dessinés, aplats cel-shading, composition dynamique" },
+] as const;
+
+const VIDEO_STYLES = [
+  { id: "none", name: "Sans style", tone: "from-slate-600/30 to-slate-900/70", guidance: "" },
+  { id: "cinematic", name: "Cinéma naturel", tone: "from-indigo-400/30 via-violet-500/15 to-slate-950", guidance: "mouvement cinématographique naturel, gestes physiquement plausibles, anatomie cohérente, scène stable, lumière de cinéma" },
+  { id: "product", name: "Produit premium", tone: "from-amber-300/25 via-stone-500/10 to-slate-900", guidance: "film publicitaire produit premium, matières réalistes, mouvement de caméra maîtrisé, éclairage studio raffiné" },
+  { id: "documentary", name: "Documentaire", tone: "from-emerald-300/25 via-teal-500/10 to-slate-950", guidance: "esthétique documentaire d'observation, lumière naturelle, mouvement crédible, caméra sobre" },
+  { id: "fashion", name: "Mode éditoriale", tone: "from-fuchsia-400/25 via-rose-500/10 to-slate-950", guidance: "film de mode éditorial, mouvement expressif mais naturel, composition raffinée, lumière cinématographique" },
+] as const;
+
+function StyleCards({ styles, value, onChange, testid }: { styles: readonly { id: string; name: string; tone: string; guidance: string }[]; value: string; onChange: (id: string) => void; testid: string }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid={testid}>
+      {styles.map((style) => (
+        <motion.button key={style.id} type="button" whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} aria-pressed={value === style.id} data-testid={`${testid}-${style.id}`} onClick={() => onChange(style.id)} className={cn("overflow-hidden rounded-xl border text-left transition-[border-color,box-shadow]", value === style.id ? "border-cyan-300/60 shadow-[0_0_20px_-8px_rgba(6,182,212,0.9)]" : "border-white/10 hover:border-white/25")}>
+          <span aria-hidden="true" className={cn("block h-12 bg-gradient-to-br", style.tone)} />
+          <span className="block px-2.5 py-2 text-xs font-medium text-slate-200">{style.name}</span>
+          <span className="block px-2.5 pb-2 text-[9px] uppercase tracking-wider text-slate-500">Consigne textuelle · sans aperçu</span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}
+
+function SetupPreview({ mode, model, format, style, prompt, testid }: { mode: string; model: string; format: string; style: string; prompt: string; testid: string }) {
+  return (
+    <section data-testid={testid} className="col-span-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.045] to-transparent p-4">
+      <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-slate-400">
+        {[mode, model, format, style].filter(Boolean).map((item) => <span key={item} className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1">{item}</span>)}
+      </div>
+      <p className="mt-3 line-clamp-2 text-sm text-slate-300">{prompt.trim() || "Votre description apparaîtra ici. Le résultat final sera affiché après une génération réelle."}</p>
+      <p className="mt-2 text-[10px] text-slate-500">Aperçu de configuration — pas une image générée</p>
+    </section>
+  );
+}
 
 function Chip({ active, onClick, children, testid, disabled = false }: { active: boolean; onClick: () => void; children: React.ReactNode; testid: string; disabled?: boolean }) {
   return (
@@ -101,6 +143,8 @@ export function PhotoStudio() {
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState<ImageRequest["model"]>("comfy");
   const [aspect, setAspect] = useState<ImageRequest["aspect_ratio"]>("1:1");
+  const [mode, setMode] = useState<"text" | "image">("text");
+  const [styleId, setStyleId] = useState<(typeof PHOTO_STYLES)[number]["id"]>("none");
   const [ref, setRef] = useState<string | null>(null);
   const { data } = useMedia("image");
   const { image } = useMediaActions();
@@ -178,19 +222,32 @@ export function PhotoStudio() {
             </div>
           </article>
         ))}
-        <textarea data-testid="photo-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={5} placeholder="Ex. Flacon de parfum ambré sur pierre volcanique, lumière rasante dorée, macro éditoriale…" className={cn(field, "resize-none")} />
+        <div className="flex gap-2" role="group" aria-label="Mode de génération photo">
+          <Chip testid="photo-mode-text" active={mode === "text"} onClick={() => setMode("text")}>Texte → image</Chip>
+          <Chip testid="photo-mode-image" active={mode === "image"} onClick={() => setMode("image")}>Image → image</Chip>
+        </div>
+        <textarea data-testid="photo-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} placeholder={mode === "image" ? "Décrivez la transformation souhaitée : ambiance, décor, lumière, style…" : "Ex. Flacon de parfum ambré sur pierre volcanique, lumière rasante dorée, macro éditoriale…"} className={cn(field, "resize-none")} />
+        <div className="space-y-2">
+          <div><Label className="block text-xs text-slate-300">Direction artistique</Label><p className="mt-1 text-[10px] text-slate-500">Préréglages textuels transmis au prompt — pas de LoRA, aperçu indisponible.</p></div>
+          <StyleCards styles={PHOTO_STYLES} value={styleId} onChange={(id) => setStyleId(id as typeof styleId)} testid="photo-styles" />
+        </div>
         <div className="flex flex-wrap gap-2">
           {(["1:1", "4:5", "16:9", "9:16"] as const).map((a) => <Chip key={a} testid={`photo-aspect-${a}`} active={aspect === a} onClick={() => setAspect(a)}>{a}</Chip>)}
         </div>
-        <div>
-          <Label className="mb-2 block text-xs text-slate-400">Transformer une image (facultatif)</Label>
+        {mode === "image" && <div>
+          <Label className="mb-2 block text-xs text-slate-400">Image source à transformer · importez ou choisissez un média</Label>
           <RefPicker value={ref} onChange={setRef} testid="photo-ref" />
-        </div>
-        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-photo-btn" disabled={prompt.trim().length < 3 || image.isPending || (model === "comfy" && noneInstalled)} onClick={() => image.mutate({ prompt, model, aspect_ratio: aspect, ref_media_id: ref, comfy_preset: model === "comfy" ? choice : null, lora_name: model === "comfy" && choice === "sdxl" ? loraName : null, lora_strength: loraStrength }, { onSuccess: () => toast.success("Photo en cours de création") })}>
-          <Sparkles className="size-4" /> {ref ? "Transformer l'image" : "Générer la photo"}
+        </div>}
+        <FxButton tone="vision" size="lg" className="w-full" data-testid="generate-photo-btn" disabled={prompt.trim().length < 3 || image.isPending || (model === "comfy" && noneInstalled) || (mode === "image" && !ref)} onClick={() => {
+          const style = PHOTO_STYLES.find((item) => item.id === styleId);
+          const styledPrompt = style?.guidance ? `${prompt.trim()}, ${style.guidance}` : prompt.trim();
+          image.mutate({ prompt: styledPrompt, model, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? choice : null, lora_name: model === "comfy" && choice === "sdxl" ? loraName : null, lora_strength: loraStrength }, { onSuccess: () => toast.success("Photo en cours de création") });
+        }}>
+          <Sparkles className="size-4" /> {mode === "image" ? "Transformer l'image" : "Générer la photo"}
         </FxButton>
       </div>
       <div className="grid content-start gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="photo-results">
+        <SetupPreview testid="photo-setup-preview" mode={mode === "image" ? "Image → image" : "Texte → image"} model={model === "comfy" ? choice ?? "ComfyUI" : model} format={aspect} style={PHOTO_STYLES.find((item) => item.id === styleId)?.name ?? "Sans style"} prompt={prompt} />
         <AnimatePresence>{mine.map((m) => <MediaTile key={m.id} m={m} />)}</AnimatePresence>
         {!mine.length && <EmptyState icon={ImagePlus} text="Vos photos générées apparaîtront ici." />}
       </div>
@@ -214,12 +271,14 @@ const SMARTMOTION_MOVE_LABEL: Record<"push_in" | "pan_left" | "pan_right" | "til
 export function VideoStudio() {
   const { data: models } = useVideoModels();
   const { data: hfStatus } = useHuggingFaceVideoStatus();
+  const { data: sanaStatus } = usePrivateSanaStatus();
   const { data: comfyCfg } = useComfy();
   const { data: engineStatus } = useVideoEngineStatus();
   const { data: smartMotionStatus } = useSmartMotionStatus();
   const [model, setModel] = useState<VideoRequest["model"] | "smartmotion">("hf_ltx");
   const [mode, setMode] = useState<VideoRequest["mode"]>("text");
   const [prompt, setPrompt] = useState("");
+  const [styleId, setStyleId] = useState<(typeof VIDEO_STYLES)[number]["id"]>("none");
   const [duration, setDuration] = useState("3");
   const [aspect, setAspect] = useState("16:9");
   const [ref, setRef] = useState<string | null>(null);
@@ -231,13 +290,13 @@ export function VideoStudio() {
   const cfg = models?.find((m) => m.key === model);
   const chosenPreset = engineStatus?.presets.find((p) => p.key === comfyPreset);
   const needsImage = model === "smartmotion" || (model === "comfy" && comfyPreset === "wan21_fun_camera");
-  const t2vOnly = model === "hf_ltx" || (model === "comfy" && comfyPreset === "wan21_t2v");
+  const t2vOnly = model === "hf_ltx" || model === "hf_sana" || (model === "comfy" && comfyPreset === "wan21_t2v");
   const paidModel = model === "veo" || model === "kling" || model === "minimax";
   const paidUnitCost = model === "veo" ? 0.15 : model === "kling" ? 0.07 : 0.045;
   const paidEstimatedCost = paidModel ? (Number.parseFloat(duration.replace(/s$/i, "")) * paidUnitCost).toFixed(2) : "0.00";
   const comfyUnavailable = model === "comfy" && (!chosenPreset || chosenPreset.installed !== true);
   const smartMotionUnavailable = model === "smartmotion" && smartMotionStatus?.available !== true;
-  const cloudUnavailable = model === "hf_ltx" && hfStatus?.available !== true;
+  const cloudUnavailable = (model === "hf_ltx" && hfStatus?.available !== true) || (model === "hf_sana" && sanaStatus?.available !== true);
   const { data } = useMedia("video");
   const { video, smartmotion, cancel } = useMediaActions();
   useEffect(() => {
@@ -250,7 +309,8 @@ export function VideoStudio() {
   }, [comfyCfg, engineStatus, presetInitialized]);
   useEffect(() => {
     if (needsImage) setMode("image");
-  }, [needsImage]);
+    else if (t2vOnly) setMode("text");
+  }, [needsImage, t2vOnly]);
   useEffect(() => {
     if (!cfg) return;
     if (!cfg.durations.includes(duration)) setDuration(model === "smartmotion" ? cfg.durations[0] : cfg.durations[cfg.durations.length - 1]);
@@ -268,13 +328,20 @@ export function VideoStudio() {
       <div className="glass-vision space-y-5 rounded-3xl p-5">
         <div className="grid gap-3">
           {(models ?? []).map((m) => (
-            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key as VideoRequest["model"] | "smartmotion")} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.key === "hf_ltx" ? "Cloud vidéo · LTX (gratuit, limité)" : m.label} tagline={m.key === "comfy" ? "Local · Wan génératif via ComfyUI · T2V et I2V selon le modèle installé" : m.key === "hf_ltx" ? "Calcul sur serveur distant · quota quotidien limité · T2V uniquement validé" : userVisibleProviderText(m.tagline)} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
+            <ModelCard key={m.key} testid={`video-model-${m.key}`} active={model === m.key} onClick={() => setModel(m.key as VideoRequest["model"] | "smartmotion")} title={m.key === "comfy" ? "LocalAi Video Engine — Gratuit" : m.key === "hf_ltx" ? "Cloud vidéo · LTX (gratuit, limité)" : m.key === "hf_sana" ? "SANA · calcul distant privé" : m.label} tagline={m.key === "comfy" ? "Local · Wan génératif via ComfyUI · T2V et I2V selon le modèle installé" : m.key === "hf_ltx" ? "Calcul sur serveur distant · quota quotidien limité · T2V uniquement validé" : m.key === "hf_sana" ? "T2V · profils 5/8 s · 1280×736 · jeton HF privé requis · quota restant non consultable" : userVisibleProviderText(m.tagline)} badge={`${m.durations.join(" / ")}${m.audio ? " · son" : ""}`} />
           ))}
         </div>
         {model === "hf_ltx" && (
           <div className="space-y-2 text-xs text-slate-300" data-testid="hf-ltx-status">
             <p>Génération sur serveur distant, pas sur votre PC. Modèle : {hfStatus?.model ?? "LTX Video 0.9.8"}. {hfStatus?.available ? "Le service répond actuellement." : "Le service est actuellement indisponible; aucune requête ne sera envoyée."}</p>
             <p className="text-amber-200">Quota limité et restant non consultable; seul le T2V 2 s, 256×256 a été validé avec ce connecteur. Qualité et disponibilité variables.</p>
+          </div>
+        )}
+        {model === "hf_sana" && (
+          <div className="space-y-2 rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.04] p-3 text-xs" data-testid="sana-status">
+            <p className="text-slate-200">{sanaStatus?.available ? "Space privé SANA prêt." : sanaStatus?.reason ?? "Vérification du Space privé…"}</p>
+            <p className="text-slate-400">T2V uniquement · {sanaStatus?.resolution ?? "1280×736"} · profils {sanaStatus?.durations_seconds?.join(" / ") ?? "5 / 8"} s · I2V non pris en charge.</p>
+            <p className="text-amber-200">{sanaStatus?.credential_configured ? "Jeton privé configuré; aucun calcul avant votre clic Générer." : "Jeton HF privé absent. Configurez-le dans les réglages avancés. Aucun rendu ne sera soumis."} Quota restant non exposé par le service; aucun secours payant.</p>
           </div>
         )}
         {model === "comfy" && (
@@ -326,6 +393,10 @@ export function VideoStudio() {
         ) : (
           <textarea data-testid="video-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} placeholder="Ex. Travelling lent autour d'une table dressée, vapeur, lumière de bougie, ambiance gastronomique…" className={cn(field, "resize-none")} />
         )}
+        {model !== "smartmotion" && <div className="space-y-2">
+          <div><Label className="block text-xs text-slate-300">Direction artistique vidéo</Label><p className="mt-1 text-[10px] text-slate-500">Consigne textuelle ajoutée au prompt. Aucun LoRA vidéo n'est activé par ces styles.</p></div>
+          <StyleCards styles={VIDEO_STYLES} value={styleId} onChange={(id) => setStyleId(id as typeof styleId)} testid="video-styles" />
+        </div>}
         <div className="space-y-2">
           <p className="text-xs text-slate-400">{model === "smartmotion" ? "Durée SmartMotion (maximum 30 s)" : "Durée acceptée par ce modèle"}</p>
           <div className="flex flex-wrap gap-2">{cfg?.durations.map((d) => <Chip key={d} testid={`video-duration-${d}`} active={duration === d} onClick={() => setDuration(d)}>{d.replace("s", "")} s</Chip>)}</div>
@@ -353,13 +424,16 @@ export function VideoStudio() {
           } else {
             const paidCostAcknowledged = paidModel && window.confirm(`Génération payante via ${cfg?.label ?? model}. Estimation actuelle : ${paidEstimatedCost} USD pour ${duration} s. Le tarif réel du fournisseur/proxy peut varier. Aucun appel ne sera effectué si vous annulez. Confirmez-vous explicitement ce coût ?`);
             if (paidModel && !paidCostAcknowledged) return;
-            video.mutate({ prompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? comfyPreset : null, camera_pose: model === "comfy" ? cameraPose : "Static", paid_cost_acknowledged: paidModel ? paidCostAcknowledged : false }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") });
+            const selectedStyle = VIDEO_STYLES.find((item) => item.id === styleId);
+            const styledPrompt = selectedStyle?.guidance ? `${prompt.trim()}, ${selectedStyle.guidance}` : prompt.trim();
+            video.mutate({ prompt: styledPrompt, model, mode, duration, aspect_ratio: aspect, ref_media_id: mode === "image" ? ref : null, comfy_preset: model === "comfy" ? comfyPreset : null, camera_pose: model === "comfy" ? cameraPose : "Static", paid_cost_acknowledged: paidModel ? paidCostAcknowledged : false }, { onSuccess: () => toast.success("Vidéo envoyée au moteur — elle continue même si vous changez d'écran") });
           }
         }}>
           <Film className="size-4" /> {model === "smartmotion" ? "Animer l'image" : "Générer la vidéo"}
         </FxButton>
       </div>
       <div className="grid content-start gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="video-results">
+        <SetupPreview testid="video-setup-preview" mode={model === "smartmotion" ? "SmartMotion · caméra 2.5D" : mode === "image" ? "Image → vidéo" : "Texte → vidéo"} model={model === "comfy" ? chosenPreset?.label ?? "ComfyUI" : cfg?.label ?? model} format={`${duration} s · ${aspect}`} style={model === "smartmotion" ? "Style non appliqué" : VIDEO_STYLES.find((item) => item.id === styleId)?.name ?? "Sans style"} prompt={prompt} />
         <AnimatePresence>{(data ?? []).map((m) => <MediaTile key={m.id} m={m} onCancel={() => cancel.mutate(m.id)} />)}</AnimatePresence>
         {!data?.length && <EmptyState icon={Film} text="Vos vidéos apparaîtront ici avec leur progression réelle." />}
       </div>
