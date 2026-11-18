@@ -1,15 +1,16 @@
 import io
+import mimetypes
 import re
 import zipfile
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 
 from lib.db import db
 from lib.pipeline import files_list, files_map, initial_steps, pages_from, render, run_edit, run_pipeline, snapshot, spawn
 from lib.store import ext_for, media_url, new_id, now_iso, read_bytes
-from models.schemas import ChatRequest, FileUpdate, Project, ProjectCreate, ProjectSummary, ProjectUpdate, Version
+from models.schemas import ChatRequest, FileUpdate, Project, ProjectCreate, ProjectSummary, ProjectUpdate, ReferenceChoice, Version
 
 router = APIRouter()
 
@@ -229,6 +230,32 @@ p { line-height: 1.5 }
     )
 
 
+@router.put("/projects/{pid}/preview-reference", response_model=Project)
+async def set_preview_reference(pid: str, choice: ReferenceChoice):
+    snapshot = await db.versions.find_one({"project_id": pid, "id": choice.snapshot_id}, {"number": 1})
+    if snapshot is None:
+        raise HTTPException(404, "Version introuvable dans ce projet")
+    reference = {"snapshot_id": choice.snapshot_id, "number": snapshot["number"], "validated_at": now_iso()}
+    # Compare the reference the seller saw before replacing it. Retries preserve the first date.
+    if choice.previous_snapshot_id != choice.snapshot_id:
+        await db.projects.update_one(
+            {"id": pid, "preview_reference.snapshot_id": choice.previous_snapshot_id},
+            {"$set": {"preview_reference": reference}},
+        )
+    project = await _get(pid)
+    if (project.get("preview_reference") or {}).get("snapshot_id") != choice.snapshot_id:
+        raise HTTPException(409, "La référence a changé. Vérifiez la référence actuelle avant de confirmer.")
+    return _summary(project)
+
+
+@router.get("/preview/snapshots/{pid}/{sid}/{path:path}")
+async def snapshot_preview(pid: str, sid: str, path: str):
+    snapshot = await db.versions.find_one({"project_id": pid, "id": sid})
+    if snapshot is None:
+        raise HTTPException(404, "Version introuvable dans ce projet")
+    return _preview_file(files_map(snapshot), path, archive=True, file_root=f"/api/preview/snapshots/{pid}/{sid}/")
+
+
 @router.get("/preview/{pid}/{path:path}")
 async def preview(request: Request, pid: str, path: str, v: Optional[int] = Query(default=None)):
     p = await _get(pid)
@@ -236,19 +263,37 @@ async def preview(request: Request, pid: str, path: str, v: Optional[int] = Quer
         ver = await db.versions.find_one({"project_id": pid, "number": v})
         if ver is None:
             return _missing_preview_version(request, v)
+        if "text/html" in request.headers.get("accept", "") and ver.get("id"):
+            return RedirectResponse(request.url_for("snapshot_preview", pid=pid, sid=ver["id"], path=path).path)
         m = files_map(ver)
     else:
         m = files_map(p)
+    return _preview_file(m, path, file_root=f"/api/preview/{pid}/")
+
+
+def _preview_file(m: dict[str, str], path: str, file_root: str, archive: bool = False):
     path = path or "index.html"
     if path not in m:
         raise HTTPException(404, "Fichier introuvable")
-    mime = {"html": "text/html", "css": "text/css", "js": "application/javascript"}.get(path.rsplit(".", 1)[-1], "text/plain")
+    mime = {"html": "text/html", "css": "text/css", "js": "application/javascript"}.get(path.rsplit(".", 1)[-1], mimetypes.guess_type(path)[0] or "text/plain")
     content = render(m, path)
+    # Relative URLs resolve under file_root. Anchor explicit root-relative asset URLs
+    # only in URL-bearing attributes, stylesheet imports and CSS url() expressions.
+    if mime in {"text/html", "text/css"}:
+        pattern = r"""(?P<prefix>url\(\s*["']?|@import\s+["'])"""
+        if mime == "text/html":
+            pattern = r"""(?P<prefix>\b(?:href|src|poster|data)\s*=\s*["']?|url\(\s*["']?|@import\s+["'])"""
+        def scope_url(match: re.Match) -> str:
+            target = match["target"]
+            return match["prefix"] + file_root + target if target in m else match[0]
+
+        content = re.sub(pattern + r"""/(?P<target>[^/"'()?#,\s][^"'()?#,\s<>]*)""",
+                         scope_url, content, flags=re.IGNORECASE)
     # Inject element-selection bridge into HTML previews (V1-B.2 sandbox isolation).
     # The sandboxed iframe (no allow-same-origin) can't be accessed via contentDocument,
     # so the parent communicates via postMessage. This script handles hover/click selection
     # and reports navigation back to the parent.
-    if path.endswith(".html") and not path.startswith("_"):
+    if not archive and path.endswith(".html") and not path.startswith("_"):
         content = content + _SELECT_BRIDGE
     # CSP: generated sites must NOT be able to call the LocalAiStudio API via fetch/XHR
     # (connect-src 'none') or submit forms to API endpoints (form-action 'none').
@@ -259,7 +304,7 @@ async def preview(request: Request, pid: str, path: str, v: Optional[int] = Quer
         media_type=f"{mime}; charset=utf-8",
         headers={
             "Cache-Control": "no-store",
-            "Content-Security-Policy": "connect-src 'none'; form-action 'none'",
+            "Content-Security-Policy": "connect-src 'none'; form-action 'none'" + ("; sandbox allow-scripts" if archive else ""),
         },
     )
 

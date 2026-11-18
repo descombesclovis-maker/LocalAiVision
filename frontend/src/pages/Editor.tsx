@@ -10,7 +10,7 @@ import { AppShell } from "@/components/AppShell";
 import { FxButton, IconBtn } from "@/components/FxButton";
 import { StepTracker } from "@/components/StepTracker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMedia, useProject, useProjectAction, useVersions } from "@/lib/hooks";
+import { errMsg, useMedia, useProject, useProjectAction, useValidateReference, useVersions } from "@/lib/hooks";
 import type { Project, Selection } from "@/lib/types";
 import { STATUS_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -202,20 +202,50 @@ function PagesPanel({ p, page, openPage }: { p: Project; page: string; openPage:
   );
 }
 
-function VersionsPanel({ p }: { p: Project }) {
+type SavedPreview = { id: string; number: number };
+
+function VersionsPanel({ p, selected, inspect }: {
+  p: Project; selected: SavedPreview | null; inspect: (version: SavedPreview) => void;
+}) {
+  const validation = useValidateReference(p.id);
+  const reference = p.preview_reference;
+  const [notice, setNotice] = useState("");
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (selected) heading.current?.focus(); }, [selected]);
+  const url = selected && `/api/preview/snapshots/${p.id}/${selected.id}/index.html`;
   const { data } = useVersions(p.id, p.version);
   const { restore } = useProjectAction(p.id);
   return (
     <div className="h-full overflow-y-auto p-5">
+      {selected && url && (
+        <section className="mb-5 rounded-xl border border-white/15 bg-black/70 p-4">
+          <h2 ref={heading} tabIndex={-1} className="font-heading text-lg font-semibold">Lecture seule · V{selected.number}</h2>
+          <div className="my-3 flex flex-wrap items-center gap-3">
+            <a className="text-sm underline" href={url} target="_blank" rel="noreferrer">Ouvrir V{selected.number} dans un nouvel onglet</a>
+            {reference?.snapshot_id !== selected.id && (
+              <FxButton disabled={validation.isPending} onClick={() => {
+                setNotice("");
+                validation.mutate({ snapshot_id: selected.id, previous_snapshot_id: reference?.snapshot_id ?? null }, {
+                  onSuccess: () => setNotice(`Référence enregistrée · V${selected.number}`),
+                  onError: (e) => setNotice(errMsg(e)),
+                });
+              }}>{reference ? `Remplacer la référence V${reference.number} par V${selected.number}` : `Valider cette version · V${selected.number}`}</FxButton>
+            )}
+          </div>
+          <p role="status" className="text-sm text-slate-200">{notice}</p>
+          <iframe key={url} src={url} title={`Lecture seule V${selected.number}`} sandbox="allow-scripts" className="mt-3 h-[55vh] w-full rounded-lg bg-white" />
+        </section>
+      )}
       <ol className="relative space-y-3 border-l border-white/10 pl-5">
         {data?.map((v) => (
           <li key={v.id} className="relative" data-testid={`version-${v.number}`}>
             <span className={cn("absolute -left-[26px] top-3 size-3 rounded-full border-2", v.number === p.version ? "border-violet-300 bg-violet-500 shadow-[0_0_12px_rgba(139,92,246,0.9)]" : "border-slate-600 bg-obsidian")} />
-            <div className="glass flex items-center gap-3 rounded-xl p-3">
+            <div className="glass flex flex-wrap items-center gap-3 rounded-xl p-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm">v{v.number} · {v.label}</p>
                 <p className="text-xs text-slate-500">{new Date(v.created_at).toLocaleString("fr-FR")}</p>
               </div>
+              <FxButton size="sm" tone="ghost" onClick={() => { setNotice(""); inspect(v); }}>Consulter V{v.number}</FxButton>
               {v.number === p.version ? <span className="text-xs text-violet-300">Actuelle</span> : (
                 <FxButton size="sm" tone="ghost" data-testid={`version-restore-${v.number}`} disabled={p.status !== "ready"} onClick={() => restore.mutate(v.number)}>
                   <RotateCcw className="size-3.5" /> Restaurer
@@ -234,6 +264,7 @@ export default function Editor() {
   const { id = "" } = useParams();
   const { data: p, isError } = useProject(id);
   const { undo } = useProjectAction(id);
+  const [selected, inspect] = useState<SavedPreview | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
   const [page, setPage] = useState("index.html");
   const [tab, setTab] = useState("preview");
@@ -242,7 +273,7 @@ export default function Editor() {
   const [loadTick, setLoadTick] = useState(0);
   const frame = useRef<HTMLIFrameElement>(null);
   const hasSite = !!p?.files.length;
-  const src = useMemo(() => `/api/preview/${id}/${page}?v=${p?.version ?? 0}`, [id, page, p?.version]);
+  const src = useMemo(() => `/api/preview/${id}/${page}?rev=${p?.version ?? 0}`, [id, page, p?.version]);
 
   // Sandboxed preview (V1-B.2): no allow-same-origin, so the parent never reads the iframe DOM.
   // Element selection and navigation travel through postMessage; the bridge is injected by routers/projects.py.
@@ -285,14 +316,21 @@ export default function Editor() {
         <section className="flex min-h-[80dvh] min-w-0 flex-1 flex-col">
           <Tabs value={tab} onValueChange={(v) => setTab(v as string)} className="flex min-h-0 flex-1 flex-col gap-0">
             <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-obsidian/30 px-3 py-2 backdrop-blur-xl">
-              <TabsList className="bg-white/[0.04]">
+              <TabsList className="max-w-full flex-wrap bg-white/[0.04] max-sm:h-auto!">
                 <TabsTrigger value="preview" data-testid="tab-preview"><Laptop className="size-3.5" /> Aperçu</TabsTrigger>
                 <TabsTrigger value="pages" data-testid="tab-pages"><FileText className="size-3.5" /> Pages</TabsTrigger>
                 <TabsTrigger value="assets" data-testid="tab-assets"><ImageIcon className="size-3.5" /> Ressources</TabsTrigger>
                 <TabsTrigger value="code" data-testid="tab-code"><Code2 className="size-3.5" /> Code</TabsTrigger>
                 <TabsTrigger value="versions" data-testid="tab-versions"><History className="size-3.5" /> Versions</TabsTrigger>
               </TabsList>
-              <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              {p?.preview_reference && (
+                <FxButton size="sm" tone="ghost" onClick={() => {
+                  const ref = p.preview_reference!;
+                  inspect({ id: ref.snapshot_id, number: ref.number });
+                  setTab("versions");
+                }}>Référence validée · V{p.preview_reference.number}</FxButton>
+              )}
+              <div className={cn("ml-auto flex flex-wrap items-center gap-1.5", tab === "versions" && "hidden")}>
                 {tab === "preview" && (
                   <>
                     <select data-testid="editor-page-select" value={page} onChange={(e) => setPage(e.target.value)} className="h-9 max-w-44 rounded-lg border border-white/10 bg-panel px-2 text-xs outline-none">
@@ -340,7 +378,7 @@ export default function Editor() {
             <TabsContent value="pages" className="min-h-0 flex-1">{p && <PagesPanel p={p} page={page} openPage={(f) => { setPage(f); setTab("preview"); }} />}</TabsContent>
             <TabsContent value="assets" className="min-h-0 flex-1">{p && <AssetsPanel p={p} page={page} />}</TabsContent>
             <TabsContent value="code" className="min-h-0 flex-1">{p && hasSite ? <CodePanel key={p.id} p={p} /> : <p className="p-6 text-sm text-slate-500">Le code apparaîtra après la génération.</p>}</TabsContent>
-            <TabsContent value="versions" className="min-h-0 flex-1">{p && <VersionsPanel p={p} />}</TabsContent>
+            <TabsContent value="versions" className="min-h-0 flex-1">{p && <VersionsPanel p={p} selected={selected} inspect={inspect} />}</TabsContent>
           </Tabs>
         </section>
       </div>

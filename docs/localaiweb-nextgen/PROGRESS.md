@@ -58,3 +58,14 @@ Préserver également la convention v=0 utilisée par l’éditeur au démarrage
 - Vérification dans l’iframe de l’éditeur sous Chromium, avec FastAPI et une base MongoDB de test. Aux largeurs de 390 et 1366 px, V1 et V2 affichent leurs contenus respectifs, le brouillon distinct reste accessible, V999 affiche le message attendu et renvoie 404. Vérification complémentaire du détail JSON.
 - Suite backend Linux sous Python 3.11 : 583 réussites, 3 tests ignorés et les 2 échecs connus de la phase 0 (SANA et validation d’adresse de boucle locale).
 - Branche `fix/preview-version-introuvable`. Prochaine action : validation utilisateur sur un projet Windows comportant deux versions.
+
+## 18 novembre 2026 · Référence de preview validée par le vendeur
+
+Branche `feat/reference-preview-vendeur`, issue de `962eaa9` après comparaison des références distantes.
+
+- `backend/models/schemas.py` et `backend/routers/projects.py` — référence facultative sur le projet (identifiant du snapshot, numéro et date UTC). Vérification de l’appartenance au projet, remplacement conditionné à la référence vue par le vendeur et nouvelle tentative idempotente. Les projets antérieurs s’ouvrent sans migration.
+- `frontend/src/pages/Editor.tsx`, `frontend/src/lib/hooks.ts` et `frontend/src/lib/types.ts` — consultation depuis Versions, aperçu en lecture seule, ouverture en onglet, validation de la version affichée et remplacement nommé. La référence reste accessible depuis la barre de l’éditeur.
+- Le chemin de consultation inclut l’identifiant immuable du snapshot. Les pages, scripts, styles et autres fichiers relatifs restent dans son répertoire. Le serveur adapte également les attributs HTML et les URL CSS pointant depuis la racine vers un fichier du projet. Les ressources hébergées hors des fichiers du projet conservent leur adresse.
+- `backend/tests/test_preview_reference.py` — protection contre les références étrangères, absentes ou obsolètes, persistance MongoDB, idempotence, historique et isolation des fichiers entre versions. Les 8 tests ciblés passent avec `LAS_TEST_MONGO_URL` pointant sur un serveur MongoDB de test. Suite backend Linux : 585 réussites, 3 tests ignorés, les 2 échecs connus de phase 0 (SANA et boucle locale). Compilation TypeScript/Vite réussie.
+- Chromium, interface compilée, API locale et MongoDB réelle : consultation de V1 après V2, contrôle du titre, de la couleur CSS et du marqueur JavaScript sur deux pages, nouvel onglet et rechargement. Validation V1, sauvegarde d’une retouche V3, redémarrage de l’API sur la même base, réouverture de la référence V1, remplacement par V2 puis relecture de V1. Vérifications à 1366 et 390 px et activation des commandes au clavier.
+- Prochaine action : recette vendeur sur un projet Windows enregistré dans LocalAiWeb.

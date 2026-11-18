@@ -37,6 +37,16 @@ export const useProject = (id: string) =>
 export const useVersions = (id: string, version: number) =>
   useQuery({ queryKey: ["versions", id, version], queryFn: () => apiGet<Version[]>(`/projects/${id}/versions`) });
 
+export function useValidateReference(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (choice: { snapshot_id: string; previous_snapshot_id: string | null }) =>
+      apiPut<Project>(`/projects/${id}/preview-reference`, choice),
+    onSuccess: (project) => qc.setQueryData(["project", id], project),
+    onError: () => qc.invalidateQueries({ queryKey: ["project", id] }),
+  });
+}
+
 export const useBrands = () => useQuery({ queryKey: ["brands"], queryFn: () => apiGet<Brand[]>("/brands") });
 
 export const useMedia = (kind = "") =>

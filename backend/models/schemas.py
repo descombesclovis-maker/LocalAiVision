@@ -66,7 +66,19 @@ class ProjectSummary(BaseModel):
     updated_at: str
 
 
+class PreviewReference(BaseModel):
+    snapshot_id: str
+    number: int
+    validated_at: str
+
+
+class ReferenceChoice(BaseModel):
+    snapshot_id: str
+    previous_snapshot_id: Optional[str]
+
+
 class Project(ProjectSummary):
+    preview_reference: Optional[PreviewReference] = None
     style: Optional[StyleOptions] = None
     steps: list[Step] = []
     question: Optional[str] = None

@@ -26,6 +26,7 @@ export interface ProjectSummary {
   updated_at: string;
 }
 export interface Project extends ProjectSummary {
+  preview_reference?: { snapshot_id: string; number: number; validated_at: string } | null;
   style: StyleOptions | null;
   steps: Step[];
   question: string | null;
