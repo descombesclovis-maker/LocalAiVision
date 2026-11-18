@@ -50,3 +50,11 @@ Préserver également la convention v=0 utilisée par l’éditeur au démarrage
 - **Parcours Studio** — démarrage FastAPI via TestClient et MongoDB 8.0.12 temporaire sur loopback. Session, deux modifications de fichier, lectures de versions, export et restauration validés. Une demande de génération locale a bien atteint le moteur et s’est arrêtée à l’analyse du brief, Ollama étant injoignable. Les résultats ne mesurent ni rendu IA réel, ni durée de génération, ni consommation GPU.
 - **Décision** — conserver les deux lignées Studio et la vitrine Forma. Attendre la validation du correctif de lecture de version avant l’implémentation. Les intégrations prestataires, l’inférence sur RTX 3060 et l’installation Windows restent à vérifier sur leurs environnements cibles.
 - **Frontend Studio** — tsc -b et vite build réussis sur une copie des sources avec le yarn.lock d’origine. Après des délais de téléchargement, le cache a été complété avec l’archive du registre npm dont l’empreinte correspond au verrou. Avertissement Vite sur le JavaScript principal, 1 051 kB minifiés, 324 kB gzip. L’effet sur le temps de démarrage Windows reste à mesurer.
+
+## 18 novembre 2026 · Lecture d’une version de preview
+
+- Dans `backend/routers/projects.py`, toute révision demandée et absente renvoie HTTP 404. Le navigateur reçoit un message français adapté au cadre de preview. Les clients JSON reçoivent le détail de l’erreur. Les réponses d’erreur interdisent la mise en cache.
+- `backend/tests/test_preview_versions.py` couvre V1, V2, le brouillon implicite et explicite (v=0), et les deux représentations de la 404. Avant correction, 4 réussites et 2 échecs. Après correction, 6 réussites.
+- Vérification dans l’iframe de l’éditeur sous Chromium, avec FastAPI et une base MongoDB de test. Aux largeurs de 390 et 1366 px, V1 et V2 affichent leurs contenus respectifs, le brouillon distinct reste accessible, V999 affiche le message attendu et renvoie 404. Vérification complémentaire du détail JSON.
+- Suite backend Linux sous Python 3.11 : 583 réussites, 3 tests ignorés et les 2 échecs connus de la phase 0 (SANA et validation d’adresse de boucle locale).
+- Branche `fix/preview-version-introuvable`. Prochaine action : validation utilisateur sur un projet Windows comportant deux versions.

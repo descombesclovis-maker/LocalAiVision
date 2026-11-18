@@ -3,8 +3,8 @@ import re
 import zipfile
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response, StreamingResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from lib.db import db
 from lib.pipeline import files_list, files_map, initial_steps, pages_from, render, run_edit, run_pipeline, snapshot, spawn
@@ -195,12 +195,48 @@ async def undo(pid: str):
     return await _restore(pid, p["version"] - 1, "Annulation")
 
 
+def _missing_preview_version(request: Request, version: int) -> Response:
+    message = f"Version {version} introuvable"
+    headers = {"Cache-Control": "no-store", "Vary": "Accept"}
+    if "text/html" not in request.headers.get("accept", ""):
+        raise HTTPException(404, message, headers=headers)
+    return HTMLResponse(
+        """<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Version introuvable</title>
+<style>
+* { box-sizing: border-box }
+body { margin: 0; padding: clamp(20px, 6vw, 64px); background: #f8fafc; color: #14161c;
+       font-family: 'DM Sans Variable', system-ui, sans-serif }
+main { max-width: 38rem; margin: 8vh auto }
+main::before { content: ''; display: block; width: 1.5rem; height: 1.5rem;
+               margin-bottom: 1.5rem; background: #14161c }
+h1 { font: 650 clamp(1.5rem, 5vw, 2.5rem)/1.15 'Sora Variable', system-ui, sans-serif;
+     letter-spacing: -.04em; overflow-wrap: anywhere }
+p { line-height: 1.5 }
+@media (max-height: 220px) {
+    body { padding: 12px 18px }
+    main { margin: 0 auto }
+    main::before { width: 12px; height: 12px; margin-bottom: 8px }
+    h1 { margin: 0; font-size: 1.4rem }
+    p { margin: 6px 0 0; font-size: .95rem }
+}
+</style></head><body><main>"""
+        f"<h1>{message}</h1><p>Consultez l’historique du projet pour retrouver les versions disponibles.</p>"
+        "</main></body></html>",
+        status_code=404,
+        headers=headers,
+    )
+
+
 @router.get("/preview/{pid}/{path:path}")
-async def preview(pid: str, path: str, v: Optional[int] = Query(default=None)):
+async def preview(request: Request, pid: str, path: str, v: Optional[int] = Query(default=None)):
     p = await _get(pid)
     if v:
         ver = await db.versions.find_one({"project_id": pid, "number": v})
-        m = {f["path"]: f["content"] for f in ver["files"]} if ver else files_map(p)
+        if ver is None:
+            return _missing_preview_version(request, v)
+        m = files_map(ver)
     else:
         m = files_map(p)
     path = path or "index.html"
